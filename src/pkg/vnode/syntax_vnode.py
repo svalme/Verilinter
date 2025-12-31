@@ -9,11 +9,11 @@ class SyntaxVNode(BaseVNode):
         self.tree = tree
 
     @property
-    def location(self) -> Location | None:
+    def location(self) -> Location:
         sr: sl.SourceRange | None = self.raw.sourceRange
 
         if not sr or not sr.start:
-            return None
+            return {"line": 0, "col": 0}
 
         sm: sl.SourceManager = self.tree.sourceManager
         return {"line": sm.getLineNumber(sr.start),

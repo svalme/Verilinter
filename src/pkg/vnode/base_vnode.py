@@ -16,8 +16,8 @@ class BaseVNode:
         raise NotImplementedError
 
     @property
-    def location(self) -> Location | None:
-        pass
+    def location(self) -> Location:
+        return {"line": 0, "col": 0}
 
     @property
     def children(self) -> list[BaseVNode]:

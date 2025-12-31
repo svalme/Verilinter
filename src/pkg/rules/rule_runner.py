@@ -1,5 +1,6 @@
 # src/pkg/rules/runner.py
 
+from typing import Any
 from .base_rule import Rule
 
 class RuleRunner:
@@ -10,7 +11,7 @@ class RuleRunner:
         self._rules.append(rule_cls())
         return rule_cls
 
-    def run(self, walk_results: list[tuple]) -> list[dict[str, any]]:
+    def run(self, walk_results: list[tuple]) -> list[dict[str, Any]]:
         diagnostics = []
 
         for vnode, ctx in walk_results:

@@ -24,7 +24,7 @@ More rules coming in the future.
 
 or
 
-```python run_lint.py <file.v> ```
+```python run_lint.py <file.sv> ```
 
 Example: 
 ```python run_lint.py tests/data/simple.v```

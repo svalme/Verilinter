@@ -1,6 +1,6 @@
-from typing import Optional
-import pyslang as sl
+# src/pkg/vnode/token_vnode.py
 
+import pyslang as sl
 from .base_vnode import BaseVNode, Location
 
 class TokenVNode(BaseVNode):
@@ -10,10 +10,10 @@ class TokenVNode(BaseVNode):
         self.tree = tree
 
     @property
-    def location(self) -> Optional[Location]:
+    def location(self) -> Location:
         loc: sl.SourceLocation = self.raw.location
         if not loc:
-            return None
+            return {"line": 0, "col": 0}
 
         sm: sl.SourceManager = self.tree.sourceManager
         return {"line": sm.getLineNumber(loc),
