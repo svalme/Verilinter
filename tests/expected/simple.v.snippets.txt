@@ -1,0 +1,218 @@
+SYNTAXNODE CompilationUnit @ {'line': 1, 'col': 1}
+module top(input logic clk);
+  real x;
+  always @(posedge clk) begin
+    a = b;
+    c <= d;
+  end
+  always_comb begin
+    y <= z;
+  end
+  case(sel)
+    0: out = a;
+  endcase
+endmodule
+----------------------------------------
+SYNTAXNODE SyntaxList @ {'line': 1, 'col': 1}
+module top(input logic clk);
+  real x;
+  always @(posedge clk) begin
+    a = b;
+    c <= d;
+  end
+  always_comb begin
+    y <= z;
+  end
+  case(sel)
+    0: out = a;
+  endcase
+endmodule
+----------------------------------------
+SYNTAXNODE ModuleDeclaration @ {'line': 1, 'col': 1}
+module top(input logic clk);
+  real x;
+  always @(posedge clk) begin
+    a = b;
+    c <= d;
+  end
+  always_comb begin
+    y <= z;
+  end
+  case(sel)
+    0: out = a;
+  endcase
+endmodule
+----------------------------------------
+SYNTAXNODE ModuleHeader @ {'line': 1, 'col': 1}
+module top(input logic clk);
+----------------------------------------
+SYNTAXNODE AnsiPortList @ {'line': 1, 'col': 11}
+(input logic clk)
+----------------------------------------
+SYNTAXNODE SeparatedList @ {'line': 1, 'col': 12}
+input logic clk
+----------------------------------------
+SYNTAXNODE ImplicitAnsiPort @ {'line': 1, 'col': 12}
+input logic clk
+----------------------------------------
+SYNTAXNODE VariablePortHeader @ {'line': 1, 'col': 12}
+input logic
+----------------------------------------
+SYNTAXNODE LogicType @ {'line': 1, 'col': 18}
+logic
+----------------------------------------
+SYNTAXNODE Declarator @ {'line': 1, 'col': 24}
+clk
+----------------------------------------
+SYNTAXNODE SyntaxList @ {'line': 2, 'col': 3}
+real x;
+  always @(posedge clk) begin
+    a = b;
+    c <= d;
+  end
+  always_comb begin
+    y <= z;
+  end
+  case(sel)
+    0: out = a;
+  endcase
+----------------------------------------
+SYNTAXNODE DataDeclaration @ {'line': 2, 'col': 3}
+real x;
+----------------------------------------
+SYNTAXNODE RealType @ {'line': 2, 'col': 3}
+real
+----------------------------------------
+SYNTAXNODE SeparatedList @ {'line': 2, 'col': 8}
+x
+----------------------------------------
+SYNTAXNODE Declarator @ {'line': 2, 'col': 8}
+x
+----------------------------------------
+SYNTAXNODE AlwaysBlock @ {'line': 3, 'col': 3}
+always @(posedge clk) begin
+    a = b;
+    c <= d;
+  end
+----------------------------------------
+SYNTAXNODE TimingControlStatement @ {'line': 3, 'col': 10}
+@(posedge clk) begin
+    a = b;
+    c <= d;
+  end
+----------------------------------------
+SYNTAXNODE EventControlWithExpression @ {'line': 3, 'col': 10}
+@(posedge clk)
+----------------------------------------
+SYNTAXNODE ParenthesizedEventExpression @ {'line': 3, 'col': 11}
+(posedge clk)
+----------------------------------------
+SYNTAXNODE SignalEventExpression @ {'line': 3, 'col': 12}
+posedge clk
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 3, 'col': 20}
+clk
+----------------------------------------
+SYNTAXNODE SequentialBlockStatement @ {'line': 3, 'col': 25}
+begin
+    a = b;
+    c <= d;
+  end
+----------------------------------------
+SYNTAXNODE SyntaxList @ {'line': 4, 'col': 5}
+a = b;
+    c <= d;
+----------------------------------------
+SYNTAXNODE ExpressionStatement @ {'line': 4, 'col': 5}
+a = b;
+----------------------------------------
+SYNTAXNODE AssignmentExpression @ {'line': 4, 'col': 5}
+a = b
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 4, 'col': 5}
+a
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 4, 'col': 9}
+b
+----------------------------------------
+SYNTAXNODE ExpressionStatement @ {'line': 5, 'col': 5}
+c <= d;
+----------------------------------------
+SYNTAXNODE NonblockingAssignmentExpression @ {'line': 5, 'col': 5}
+c <= d
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 5, 'col': 5}
+c
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 5, 'col': 10}
+d
+----------------------------------------
+SYNTAXNODE AlwaysCombBlock @ {'line': 7, 'col': 3}
+always_comb begin
+    y <= z;
+  end
+----------------------------------------
+SYNTAXNODE SequentialBlockStatement @ {'line': 7, 'col': 15}
+begin
+    y <= z;
+  end
+----------------------------------------
+SYNTAXNODE SyntaxList @ {'line': 8, 'col': 5}
+y <= z;
+----------------------------------------
+SYNTAXNODE ExpressionStatement @ {'line': 8, 'col': 5}
+y <= z;
+----------------------------------------
+SYNTAXNODE NonblockingAssignmentExpression @ {'line': 8, 'col': 5}
+y <= z
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 8, 'col': 5}
+y
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 8, 'col': 10}
+z
+----------------------------------------
+SYNTAXNODE CaseGenerate @ {'line': 10, 'col': 3}
+case(sel)
+    0: out = a;
+  endcase
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 10, 'col': 8}
+sel
+----------------------------------------
+SYNTAXNODE SyntaxList @ {'line': 11, 'col': 5}
+0: out = a;
+----------------------------------------
+SYNTAXNODE StandardCaseItem @ {'line': 11, 'col': 5}
+0: out
+----------------------------------------
+SYNTAXNODE SeparatedList @ {'line': 11, 'col': 5}
+0
+----------------------------------------
+SYNTAXNODE IntegerLiteralExpression @ {'line': 11, 'col': 5}
+0
+----------------------------------------
+SYNTAXNODE DataDeclaration @ {'line': 11, 'col': 8}
+out
+----------------------------------------
+SYNTAXNODE NamedType @ {'line': 11, 'col': 8}
+out
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 11, 'col': 8}
+out
+----------------------------------------
+SYNTAXNODE StandardCaseItem @ {'line': 11, 'col': 12}
+= a;
+----------------------------------------
+SYNTAXNODE SeparatedList @ {'line': 11, 'col': 12}
+= a
+----------------------------------------
+SYNTAXNODE AssignmentExpression @ {'line': 11, 'col': 12}
+= a
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 11, 'col': 14}
+a
+----------------------------------------
+SYNTAXNODE EmptyMember @ {'line': 11, 'col': 15}
+;
+----------------------------------------

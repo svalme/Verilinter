@@ -1,0 +1,129 @@
+SyntaxVNode CompilationUnit @ 1:1
+SyntaxVNode SyntaxList @ 1:1
+SyntaxVNode ModuleDeclaration @ 1:1
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode ModuleHeader @ 1:1
+TokenVNode ModuleKeyword 'module' @ 1:1
+TokenVNode Identifier 'top' @ 1:8
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode AnsiPortList @ 1:11
+TokenVNode OpenParenthesis '(' @ 1:11
+SyntaxVNode SeparatedList @ 1:12
+SyntaxVNode ImplicitAnsiPort @ 1:12
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode VariablePortHeader @ 1:12
+TokenVNode InputKeyword 'input' @ 1:12
+SyntaxVNode LogicType @ 1:18
+TokenVNode LogicKeyword 'logic' @ 1:18
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode Declarator @ 1:24
+TokenVNode Identifier 'clk' @ 1:24
+SyntaxVNode SyntaxList @ 0:0
+TokenVNode CloseParenthesis ')' @ 1:27
+TokenVNode Semicolon ';' @ 1:28
+SyntaxVNode SyntaxList @ 2:3
+SyntaxVNode DataDeclaration @ 2:3
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode TokenList @ 0:0
+SyntaxVNode RealType @ 2:3
+TokenVNode RealKeyword 'real' @ 2:3
+SyntaxVNode SeparatedList @ 2:8
+SyntaxVNode Declarator @ 2:8
+TokenVNode Identifier 'x' @ 2:8
+SyntaxVNode SyntaxList @ 0:0
+TokenVNode Semicolon ';' @ 2:9
+SyntaxVNode AlwaysBlock @ 3:3
+SyntaxVNode SyntaxList @ 0:0
+TokenVNode AlwaysKeyword 'always' @ 3:3
+SyntaxVNode TimingControlStatement @ 3:10
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode EventControlWithExpression @ 3:10
+TokenVNode At '@' @ 3:10
+SyntaxVNode ParenthesizedEventExpression @ 3:11
+TokenVNode OpenParenthesis '(' @ 3:11
+SyntaxVNode SignalEventExpression @ 3:12
+TokenVNode PosEdgeKeyword 'posedge' @ 3:12
+SyntaxVNode IdentifierName @ 3:20
+TokenVNode Identifier 'clk' @ 3:20
+TokenVNode CloseParenthesis ')' @ 3:23
+SyntaxVNode SequentialBlockStatement @ 3:25
+SyntaxVNode SyntaxList @ 0:0
+TokenVNode BeginKeyword 'begin' @ 3:25
+SyntaxVNode SyntaxList @ 4:5
+SyntaxVNode ExpressionStatement @ 4:5
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode AssignmentExpression @ 4:5
+SyntaxVNode IdentifierName @ 4:5
+TokenVNode Identifier 'a' @ 4:5
+TokenVNode Equals '=' @ 4:7
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode IdentifierName @ 4:9
+TokenVNode Identifier 'b' @ 4:9
+TokenVNode Semicolon ';' @ 4:10
+SyntaxVNode ExpressionStatement @ 5:5
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode NonblockingAssignmentExpression @ 5:5
+SyntaxVNode IdentifierName @ 5:5
+TokenVNode Identifier 'c' @ 5:5
+TokenVNode LessThanEquals '<=' @ 5:7
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode IdentifierName @ 5:10
+TokenVNode Identifier 'd' @ 5:10
+TokenVNode Semicolon ';' @ 5:11
+TokenVNode EndKeyword 'end' @ 6:3
+SyntaxVNode AlwaysCombBlock @ 7:3
+SyntaxVNode SyntaxList @ 0:0
+TokenVNode AlwaysCombKeyword 'always_comb' @ 7:3
+SyntaxVNode SequentialBlockStatement @ 7:15
+SyntaxVNode SyntaxList @ 0:0
+TokenVNode BeginKeyword 'begin' @ 7:15
+SyntaxVNode SyntaxList @ 8:5
+SyntaxVNode ExpressionStatement @ 8:5
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode NonblockingAssignmentExpression @ 8:5
+SyntaxVNode IdentifierName @ 8:5
+TokenVNode Identifier 'y' @ 8:5
+TokenVNode LessThanEquals '<=' @ 8:7
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode IdentifierName @ 8:10
+TokenVNode Identifier 'z' @ 8:10
+TokenVNode Semicolon ';' @ 8:11
+TokenVNode EndKeyword 'end' @ 9:3
+SyntaxVNode CaseGenerate @ 10:3
+SyntaxVNode SyntaxList @ 0:0
+TokenVNode CaseKeyword 'case' @ 10:3
+TokenVNode OpenParenthesis '(' @ 10:7
+SyntaxVNode IdentifierName @ 10:8
+TokenVNode Identifier 'sel' @ 10:8
+TokenVNode CloseParenthesis ')' @ 10:11
+SyntaxVNode SyntaxList @ 11:5
+SyntaxVNode StandardCaseItem @ 11:5
+SyntaxVNode SeparatedList @ 11:5
+SyntaxVNode IntegerLiteralExpression @ 11:5
+TokenVNode IntegerLiteral '0' @ 11:5
+TokenVNode Colon ':' @ 11:6
+SyntaxVNode DataDeclaration @ 11:8
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode TokenList @ 0:0
+SyntaxVNode NamedType @ 11:8
+SyntaxVNode IdentifierName @ 11:8
+TokenVNode Identifier 'out' @ 11:8
+SyntaxVNode SeparatedList @ 0:0
+TokenVNode Semicolon ';' @ 11:11
+SyntaxVNode StandardCaseItem @ 11:12
+SyntaxVNode SeparatedList @ 11:12
+SyntaxVNode AssignmentExpression @ 11:12
+SyntaxVNode IdentifierName @ 11:12
+TokenVNode Identifier '' @ 11:12
+TokenVNode Equals '=' @ 11:12
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode IdentifierName @ 11:14
+TokenVNode Identifier 'a' @ 11:14
+TokenVNode Colon ':' @ 11:15
+SyntaxVNode EmptyMember @ 11:15
+SyntaxVNode SyntaxList @ 0:0
+SyntaxVNode TokenList @ 0:0
+TokenVNode Semicolon ';' @ 11:15
+TokenVNode EndCaseKeyword 'endcase' @ 12:3
+TokenVNode EndModuleKeyword 'endmodule' @ 13:1
+TokenVNode EndOfFile '' @ 14:1
