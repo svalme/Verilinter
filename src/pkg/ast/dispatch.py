@@ -1,9 +1,10 @@
 # src/pkg/ast/dispatch.py
 from ..handlers.base_handler import BaseHandler
+from ..handlers.default_handler import DefaultHandler
 
 class Dispatch:
     def __init__(self):
-        self._default: BaseHandler = BaseHandler()  
+        self._default: BaseHandler = DefaultHandler()  
         self._registry: dict = {}
 
     def register(self, raw_cls):
