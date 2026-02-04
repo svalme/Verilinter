@@ -2,6 +2,8 @@
 
 from ..ast.dispatch import dispatch
 
+from .default_handler import DefaultHandler
+
 from .token_handler import TokenHandler
 from .syntax_node_handler import SyntaxNodeHandler
 from .module_declaration_handler import ModuleDeclarationHandler

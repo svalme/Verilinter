@@ -25,7 +25,6 @@ tree = sl.SyntaxTree.fromFile(str(path))
 root = SyntaxVNode(tree.root, tree)
 
 from src.pkg.ast.dispatch import dispatch
-dispatch.set_default(SyntaxNodeHandler())
 
 symbol_table = SymbolTable()
 global_scope = symbol_table.new_scope(kind="global", name="global")

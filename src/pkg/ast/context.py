@@ -2,15 +2,6 @@ from enum import Enum, auto
 from ..vnode.base_vnode import BaseVNode
 from .symbol_table import Scope
 
-"""
-class Scope:
-    def __init__(self, name: str, kind: str, owner_vnode: BaseVNode):
-        self.name = name
-        self.kind = kind
-        self.owner = owner_vnode
-        self.symbols = {}
-"""
-
 class ContextFlag(Enum):
 
     # --- Timing / sensitivity ---
@@ -35,10 +26,10 @@ class ContextFlag(Enum):
 
 class Context:
 
-    def __init__(self, stack=[], flags=set(), scopes=[]):
-        self.stack: list[BaseVNode] = stack
-        self.flags: set[ContextFlag] = flags
-        self.scopes: list[Scope] = scopes
+    def __init__(self, stack: list[BaseVNode] | None = None, flags: set[ContextFlag] | None = None, scopes: list[Scope] | None = None):
+        self.stack = stack if stack is not None else [] 
+        self.flags = flags if flags is not None else set()
+        self.scopes = scopes if scopes is not None else []
 
     def push(self, vnode: BaseVNode) -> Context:
         return Context(stack=self.stack + [vnode], flags=self.flags, scopes=self.scopes)
@@ -52,12 +43,14 @@ class Context:
     def push_scope(self, new_scope: Scope) -> Context:
         return Context(stack=self.stack, flags=self.flags, scopes=self.scopes + [new_scope])
     
-    def with_scope(self, scope):
+    def with_scope(self, scope: Scope) -> Context:
         return Context(stack=self.stack, flags=self.flags, scopes=[scope])
 
-    def scope(self) -> Scope | None:
-        return self.scopes[-1] if self.scopes else None
+    def scope(self) -> Scope:
+        if not self.scopes: 
+            raise RuntimeError("Context has no scope")  
+        return self.scopes[-1]
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"stack: {self.stack} \nflags: {self.flags} \nscopes: {self.scopes}"
             

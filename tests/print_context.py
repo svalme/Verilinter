@@ -26,7 +26,6 @@ module top(input logic clk);
   end
 endmodule
 """
-dispatch.set_default(SyntaxNodeHandler())
 
 def print_context():
     tree = sl.SyntaxTree.fromText(CODE)

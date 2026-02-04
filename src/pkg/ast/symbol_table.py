@@ -16,8 +16,7 @@ class Symbol:
         self.is_read: bool = False
         self.is_written: bool = False
 
-    # delete this method later
-    def set_scope(self, scope: Scope) -> None:
+    def set_scope(self, scope: Scope | None) -> None:
         self.scope = scope
 
     def add_declaration(self, loc: Location) -> None:
@@ -47,7 +46,15 @@ class Scope:
     def define(self, symbol: Symbol) -> None:
         if symbol.name in self.symbols:
             # update the symbol if it's already in this scope
-            pass
+            # Merge with existing symbol (e.g., multiple declarations)
+            existing_symbol = self.symbols[symbol.name]
+            existing_symbol.declarations.extend(symbol.declarations)
+            existing_symbol.uses.extend(symbol.uses)
+            existing_symbol.is_read |= symbol.is_read
+            existing_symbol.is_written |= symbol.is_written
+            return
+
+        symbol.scope = self
         self.symbols[symbol.name] = symbol
 
     def lookup(self, name: str) -> Symbol | None:
@@ -69,10 +76,13 @@ class SymbolTable:
         self, kind: str, name: str | None = None, parent: Scope | None = None
     ) -> Scope:
         """Create a new nested scope."""
-        parent = self.current_scope() 
+        # If no parent provided, use the most recent scope from the registry
+        if parent is None:
+            parent = self.scopes[-1] if self.scopes else None
+        
         scope = Scope(kind=kind, name=name)
         scope.set_parent(parent)
-        self.scopes.append(scope)
+        self.scopes.append(scope)  # Add to registry
         return scope
 
     def current_scope(self) -> Scope | None:

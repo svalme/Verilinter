@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from unittest.mock import Mock
 
@@ -64,7 +65,7 @@ class TestRuleRunner:
 
     def test_run_with_empty_rules(self, runner: RuleRunner) -> None:
         """Test that run() returns empty list when no rules are registered."""
-        walk_results: list[tuple[any, any]] = []
+        walk_results: list[tuple[Any, Any]] = []
         diagnostics = runner.run(walk_results)
         
         assert diagnostics == []
@@ -75,7 +76,7 @@ class TestRuleRunner:
             code = "ALWAYS_APPLY"
             message = "This always applies"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return True
 
         runner.register(AlwaysApplyRule)
@@ -92,7 +93,7 @@ class TestRuleRunner:
             code = "NEVER_APPLY"
             message = "This never applies"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return False
 
         runner.register(NeverApplyRule)
@@ -108,14 +109,14 @@ class TestRuleRunner:
             code = "RULE_1"
             message = "Rule 1"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return True
 
         class Rule2(Rule):
             code = "RULE_2"
             message = "Rule 2"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return True
 
         runner.register(Rule1)
@@ -135,7 +136,7 @@ class TestRuleRunner:
             code = "TEST"
             message = "Test message"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return True
 
         runner.register(TestRule)
@@ -162,14 +163,14 @@ class TestRuleRunner:
             code = "RULE_1"
             message = "Violation 1"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return True
 
         class Rule2(Rule):
             code = "RULE_2"
             message = "Violation 2"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return True
 
         runner.register(Rule1)

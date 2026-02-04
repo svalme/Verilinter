@@ -1,12 +1,10 @@
 # src/pkg/ast/dispatch.py
+from ..handlers.base_handler import BaseHandler
 
 class Dispatch:
     def __init__(self):
-        self._default = None
-        self._registry = {}
-
-    def set_default(self, handler):
-        self._default = handler
+        self._default: BaseHandler = BaseHandler()  
+        self._registry: dict = {}
 
     def register(self, raw_cls):
         def decorator(handler):
@@ -14,7 +12,7 @@ class Dispatch:
             return handler
         return decorator
 
-    def get(self, vnode):
+    def get(self, vnode) -> BaseHandler: 
         for cls in type(vnode.raw).__mro__:
             if cls in self._registry:
                 return self._registry[cls]

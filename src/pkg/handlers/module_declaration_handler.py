@@ -16,7 +16,7 @@ class ModuleDeclarationHandler(SyntaxNodeHandler):
         module_scope = symbol_table.new_scope(
             kind="module",
             name=name,
-            parent=ctx.scope(),
+            parent=symbol_table.global_scope,
         )
 
         return ctx.push(vnode).with_scope(module_scope)

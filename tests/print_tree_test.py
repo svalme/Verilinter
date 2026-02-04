@@ -16,7 +16,6 @@ EXPECTED = ROOT / "expected"
 
 def print_walk(tree: sl.SyntaxTree) -> str:
     root = SyntaxVNode(tree.root, tree)
-    dispatch.set_default(SyntaxNodeHandler())
     walker = Walker(dispatch)
     symbol_table = SymbolTable()
     walker.walk(root, Context(), symbol_table)
@@ -26,7 +25,6 @@ def print_walk(tree: sl.SyntaxTree) -> str:
 
 def print_snippets(tree: sl.SyntaxTree) -> str:
     root = SyntaxVNode(tree.root, tree)
-    dispatch.set_default(SyntaxNodeHandler())
     walker = Walker(dispatch)
     symbol_table = SymbolTable()
     walker.walk(root, Context(), symbol_table)

@@ -21,11 +21,9 @@ def run_file(path):
 
     # Initialize symbol table and context
     symbol_table = SymbolTable()
-    global_scope = symbol_table.new_scope(kind="global", name="global")
-    ctx = Context(scopes=[global_scope])
+    ctx = Context(scopes=[symbol_table.global_scope])
 
     # Walk AST
-    dispatch.set_default(SyntaxNodeHandler())
     walker = Walker(dispatch)
     walker.walk(root, ctx, symbol_table)
 

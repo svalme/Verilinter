@@ -16,6 +16,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
         symbol.set_scope(ctx.scope())
 
         scope = ctx.scope()
+ 
         if scope:
             scope.define(symbol)
         return ctx.push(vnode)

@@ -1,6 +1,7 @@
 import pyslang as sl
 
 from ..ast.context import Context
+from ..ast.symbol_table import SymbolTable
 from .base_handler import BaseHandler
 from ..vnode.base_vnode import BaseVNode
 from ..vnode.token_vnode import TokenVNode
@@ -8,12 +9,12 @@ from ..vnode.token_vnode import TokenVNode
 from ..ast.dispatch import dispatch
 
 @dispatch.register(sl.Token)
-class TokenHandler(BaseHandler):
+class TokenHandler(BaseHandler[TokenVNode]):
 
     def matches(self, vnode) -> bool:
         return isinstance(vnode.raw, sl.Token)
 
-    def update_context(self, ctx: Context, vnode: TokenVNode, symbol_table=None) -> Context:
+    def update_context(self, ctx: Context, vnode: TokenVNode, symbol_table: SymbolTable) -> Context:
         return ctx.push(vnode)
 
     def children(self, vnode: TokenVNode) -> list[BaseVNode]:

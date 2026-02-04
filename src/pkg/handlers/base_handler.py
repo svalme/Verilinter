@@ -1,10 +1,15 @@
 from ..vnode.base_vnode import BaseVNode
 from ..ast.context import Context
+from ..ast.symbol_table import SymbolTable
+from abc import ABC, abstractmethod
+from typing import TypeVar, Generic
 
-class BaseHandler:
+VNodeType = TypeVar('VNodeType', bound=BaseVNode)
 
-    def children(self, vnode: BaseVNode) -> list[BaseVNode]:
-        pass
+class BaseHandler(ABC, Generic[VNodeType]):
 
-    def update_context(self, ctx: Context, vnode: BaseVNode, symbol_table=None) -> Context:
-        pass
+    def children(self, vnode: VNodeType) -> list[BaseVNode]:
+        return []
+
+    def update_context(self, ctx: Context, vnode: VNodeType, symbol_table: SymbolTable) -> Context:
+        return ctx
