@@ -20,20 +20,16 @@ More rules coming in the future.
 ## Try It Out
 ### Go to the root directory in terminal and type: 
 
-```python run_lint.py <file.v> ``` 
+```python src/run_lint.py <file.v> ``` 
 
 or
 
-```python run_lint.py <file.sv> ```
+```python src/run_lint.py <file.sv> ```
 
 Example: 
-```python run_lint.py tests/data/simple.v```
+```python src/run_lint.py tests/data/simple.v```
 
-### Testing with pytest: 
-
-```python -m pytest```
-
-### Testing without pytest:
+### Testing with or without pytest:
 
 ```python -m file_name```
 
