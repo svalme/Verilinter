@@ -29,7 +29,7 @@ or
 Example: 
 ```python src/run_lint.py tests/data/simple.v```
 
-### Testing with or without pytest:
+### Testing with pytest! Or without it:
 
 ```python -m file_name```
 
