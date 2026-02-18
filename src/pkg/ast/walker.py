@@ -13,11 +13,12 @@ class Walker:
         self._dispatch = dispatch
         self._results = []
 
-    def walk(self, raw_node: sl.SyntaxNode | sl.Token, tree: sl.SyntaxTree, ctx: Context, symbol_table: SymbolTable):
+    def walk(self, raw_node: sl.SyntaxNode | sl.Token | BaseVNode, tree: sl.SyntaxTree, ctx: Context, symbol_table: SymbolTable):
 
         # if a vnode was passed in, use it directly; otherwise create one
         if isinstance(raw_node, BaseVNode):
             vnode = raw_node
+            #print(f"VNode passed in directly: {vnode} (type: {type(vnode)})")
         else:
             vnode = vnode_factory.create(raw_node, tree)
 
