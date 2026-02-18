@@ -1,5 +1,5 @@
 from typing import Any
-from ..vnode.base_vnode import BaseVNode
+from ..vnodes.base_vnode import BaseVNode
 from ..ast.symbol_table import SymbolTable
 
 class BaseSymbolRule:

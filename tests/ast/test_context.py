@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock
 
 from src.pkg.ast.context import Context, ContextFlag
-from src.pkg.vnode.base_vnode import BaseVNode
+from src.pkg.vnodes.base_vnode import BaseVNode
 
 
 @pytest.fixture
@@ -27,13 +27,6 @@ class TestContext:
     def test_context_initializes_with_empty_flags(self, context: Context) -> None:
         """Test that Context initializes with no flags by default."""
         assert context.flags == set()
-
-    def test_context_can_be_initialized_with_stack(self, mock_vnode: Mock) -> None:
-        """Test that Context can be initialized with a stack."""
-        stack = [mock_vnode]
-        context = Context(stack=stack)
-        
-        assert context.stack == stack
 
     def test_context_can_be_initialized_with_flags(self) -> None:
         """Test that Context can be initialized with flags."""

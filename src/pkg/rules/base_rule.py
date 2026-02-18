@@ -1,4 +1,5 @@
-from ..vnode.base_vnode import BaseVNode
+from typing import Any
+from ..vnodes.base_vnode import BaseVNode
 from ..ast.symbol_table import SymbolTable
 
 class Rule:
@@ -6,11 +7,15 @@ class Rule:
     code: str = "UNSPEC"
     message: str = "No message"
 
-    def applies(self, vnode: BaseVNode, ctx) -> bool:
-        """Determine if this rule applies to the given vnode and context."""
-        pass
+    def applies(self, vnode: BaseVNode, ctx) -> bool | None:
+        """Determine if this rule applies to the given vnode and context.
 
-    def report(self, vnode: BaseVNode) -> dict[str, any]:
+        By default, rules do not state applicability (return None).
+        Concrete rules should return True/False explicitly.
+        """
+        return None
+
+    def report(self, vnode: BaseVNode) -> dict[str, Any]:
         """Generate a diagnostic report for the violation."""
         return {
             "line": vnode.location["line"],

@@ -1,8 +1,9 @@
+from typing import Any
 import pytest
 from unittest.mock import Mock
 
 from src.pkg.rules.base_rule import Rule
-from src.pkg.vnode.base_vnode import BaseVNode
+from src.pkg.vnodes.base_vnode import BaseVNode
 
 
 @pytest.fixture
@@ -82,7 +83,7 @@ class TestCustomRule:
             code = "CUSTOM_RULE"
             message = "This is a custom rule"
 
-            def applies(self, vnode: any, ctx: any) -> bool:
+            def applies(self, vnode: Any, ctx: Any) -> bool:
                 return True
 
         return CustomRule()

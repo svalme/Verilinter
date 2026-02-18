@@ -1,8 +1,8 @@
-from ..vnode.base_vnode import BaseVNode
+from ..vnodes.base_vnode import BaseVNode
 from ..ast.context import Context, ContextFlag
 from ..ast.symbol_table import SymbolTable
 from .syntax_node_handler import SyntaxNodeHandler
-from ..vnode.syntax_vnode import SyntaxVNode
+from ..vnodes.syntax_vnode import SyntaxVNode
 
 import pyslang as sl
 from ..ast.dispatch import dispatch

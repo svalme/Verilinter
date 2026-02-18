@@ -2,7 +2,7 @@ import pyslang as sl
 from ..ast.dispatch import dispatch
 from ..ast.context import Context, ContextFlag
 from ..ast.symbol_table import Symbol, SymbolTable
-from ..vnode.syntax_vnode import SyntaxVNode
+from ..vnodes.syntax_vnode import SyntaxVNode
 from .syntax_node_handler import SyntaxNodeHandler
 
 

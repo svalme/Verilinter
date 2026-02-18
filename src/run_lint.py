@@ -8,7 +8,7 @@ from pkg.ast.walker import Walker
 from pkg.ast.context import Context
 from pkg.ast.symbol_table import SymbolTable
 from pkg.ast.dispatch import dispatch
-from pkg.vnode.syntax_vnode import SyntaxVNode
+from pkg.vnodes.register_vnodes import *
 from pkg.handlers.register_handlers import *
 from pkg.rules.register_rules import *
 
@@ -25,7 +25,7 @@ def run_file(path):
 
     # Walk AST
     walker = Walker(dispatch)
-    walker.walk(root, ctx, symbol_table)
+    walker.walk(tree.root, tree, ctx, symbol_table)
 
     # Run rules
     ast_diagnostics = rule_runner.run(walker._results) # AST-based rules

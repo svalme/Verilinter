@@ -11,18 +11,16 @@ from src.pkg.rules.register_rules import *
 
 import pyslang as sl
 
-from src.pkg.vnode.syntax_vnode import SyntaxVNode
+from src.pkg.vnodes.syntax_vnode import SyntaxVNode
 from src.pkg.ast.symbol_table import SymbolTable
 from src.pkg.ast.context import Context
 from src.pkg.ast.walker import Walker
 
 from pathlib import Path
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent
 path = ROOT / "data" / "simple.v"
 tree = sl.SyntaxTree.fromFile(str(path))
 
-
-root = SyntaxVNode(tree.root, tree)
 
 from src.pkg.ast.dispatch import dispatch
 
@@ -32,27 +30,21 @@ walker = Walker(dispatch)
 
 ctx = Context(scopes=[global_scope])
 
-walker.walk(root, ctx, symbol_table)
-
-diagnostics = rule_runner.run(walker._results)
-
-for d in diagnostics:
-    print(d)
+walker.walk(tree.root, tree, ctx, symbol_table)
 
 
-#  running UnusedVariableRule
-uv = UnusedVariableRule()
+def format_stack(ctx):
+    lines = []
+    for i, n in enumerate(ctx.stack):
+        lines.append(
+            f"  [{i}] {str(n)} :: '{n.snippet()}'"
+        )
+    return "\n".join(lines)
 
-uv_diag = uv.run(symbol_table)
-print("UnusedVariableRule diagnostics:")
-for d in uv_diag:
-    print(d)
+for vnode, ctx in walker._results:
+    print("=" * 80)
+    print(f"{type(vnode).__name__:10} "
+        f"{str(vnode):30} ")
+    print("STACK:")
+    print(format_stack(ctx))
 
-
-#  running UndeclaredVariableRule
-udv = UndeclaredVariableRule()
-
-udv_diag = udv.run(symbol_table)
-print("UndeclaredVariableRule diagnostics:")
-for d in udv_diag:
-    print(d)

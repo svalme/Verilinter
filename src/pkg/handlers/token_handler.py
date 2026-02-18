@@ -3,8 +3,8 @@ import pyslang as sl
 from ..ast.context import Context
 from ..ast.symbol_table import SymbolTable
 from .base_handler import BaseHandler
-from ..vnode.base_vnode import BaseVNode
-from ..vnode.token_vnode import TokenVNode
+from ..vnodes.base_vnode import BaseVNode
+from ..vnodes.token_vnode import TokenVNode
 
 from ..ast.dispatch import dispatch
 

@@ -3,11 +3,12 @@ import pyslang as sl
 from ..ast.context import Context
 from ..ast.symbol_table import SymbolTable
 from .base_handler import BaseHandler
-from ..vnode.base_vnode import BaseVNode
-from ..vnode.syntax_vnode import SyntaxVNode
-from ..vnode.token_vnode import TokenVNode
+from ..vnodes.base_vnode import BaseVNode
+from ..vnodes.syntax_vnode import SyntaxVNode
+from ..vnodes.token_vnode import TokenVNode
 
 from ..ast.dispatch import dispatch
+from ..vnodes.vnode_factory import vnode_factory
 
 @dispatch.register(sl.SyntaxNode)
 class SyntaxNodeHandler(BaseHandler[SyntaxVNode]):
@@ -21,10 +22,7 @@ class SyntaxNodeHandler(BaseHandler[SyntaxVNode]):
     def children(self, vnode: SyntaxVNode) -> list[BaseVNode]:
         out = []
         for child in vnode.children:
-            if isinstance(child, sl.Token):
-                out.append(TokenVNode(child, vnode.tree))
-            else:
-                out.append(SyntaxVNode(child, vnode.tree))
+            out.append(vnode_factory.create(child, vnode.tree))
         return out
     
     def __str__(self) -> str:

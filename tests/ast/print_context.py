@@ -11,8 +11,8 @@ from src.pkg.ast.symbol_table import SymbolTable
 from src.pkg.ast.context import Context
 from src.pkg.ast.walker import Walker
 
-from src.pkg.vnode.syntax_vnode import SyntaxVNode
-from src.pkg.vnode.token_vnode import TokenVNode
+from src.pkg.vnodes.syntax_vnode import SyntaxVNode
+from src.pkg.vnodes.token_vnode import TokenVNode
 
 from src.pkg.handlers.register_handlers import *
 from src.pkg.ast.dispatch import dispatch
@@ -35,7 +35,7 @@ def print_context():
     global_scope = symbol_table.new_scope(kind="global", name="global")
     ctx = Context(scopes=[global_scope])
     walker = Walker(dispatch)
-    walker.walk(root, ctx, symbol_table)
+    walker.walk(root, tree, ctx, symbol_table)
 
     for vnode, ctx in walker._results:
         raw = vnode.raw

@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from ..vnode.base_vnode import BaseVNode
+from ..vnodes.base_vnode import BaseVNode
 from .symbol_table import Scope
 
 class ContextFlag(Enum):

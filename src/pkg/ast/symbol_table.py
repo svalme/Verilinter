@@ -1,5 +1,5 @@
 # src/pkg/ast/symbol_table.py
-from ..vnode.base_vnode import Location
+from ..vnodes.base_vnode import Location
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -46,7 +46,7 @@ class Scope:
     def define(self, symbol: Symbol) -> None:
         if symbol.name in self.symbols:
             # update the symbol if it's already in this scope
-            # Merge with existing symbol (e.g., multiple declarations)
+            # merge with existing symbol (e.g., multiple declarations)
             existing_symbol = self.symbols[symbol.name]
             existing_symbol.declarations.extend(symbol.declarations)
             existing_symbol.uses.extend(symbol.uses)

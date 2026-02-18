@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 from src.pkg.rules.rule_runner import RuleRunner
 from src.pkg.rules.base_rule import Rule
-from src.pkg.vnode.base_vnode import BaseVNode
+from src.pkg.vnodes.base_vnode import BaseVNode
 
 
 @pytest.fixture

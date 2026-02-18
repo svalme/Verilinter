@@ -6,7 +6,7 @@ from src.pkg.rules.default_case import DefaultCaseRule
 from src.pkg.rules.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
 from src.pkg.ast.context import Context, ContextFlag
-from src.pkg.vnode.base_vnode import BaseVNode
+from src.pkg.vnodes.base_vnode import BaseVNode
 
 
 @pytest.fixture

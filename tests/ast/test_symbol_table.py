@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock
 
 from src.pkg.ast.symbol_table import Symbol, Scope, SymbolTable
-from src.pkg.vnode.base_vnode import Location
+from src.pkg.vnodes.base_vnode import Location
 
 
 @pytest.fixture

@@ -4,12 +4,12 @@ import pyslang as sl
 
 from src.pkg.handlers.register_handlers import *
 
-from src.pkg.vnode.syntax_vnode import SyntaxVNode
+from src.pkg.vnodes.syntax_vnode import SyntaxVNode
 from src.pkg.ast.walker import Walker
 from src.pkg.ast.context import Context
 from src.pkg.ast.symbol_table import SymbolTable
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
 EXPECTED = ROOT / "expected"
 
@@ -18,7 +18,7 @@ def print_walk(tree: sl.SyntaxTree) -> str:
     root = SyntaxVNode(tree.root, tree)
     walker = Walker(dispatch)
     symbol_table = SymbolTable()
-    walker.walk(root, Context(), symbol_table)
+    walker.walk(root, tree, Context(), symbol_table)
 
     return "\n".join(repr(vnode) for vnode, _ in walker._results)
 
@@ -27,7 +27,7 @@ def print_snippets(tree: sl.SyntaxTree) -> str:
     root = SyntaxVNode(tree.root, tree)
     walker = Walker(dispatch)
     symbol_table = SymbolTable()
-    walker.walk(root, Context(), symbol_table)
+    walker.walk(root, tree, Context(), symbol_table)
 
     blocks = []
     for vnode, _ in walker._results:
