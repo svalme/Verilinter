@@ -7,7 +7,7 @@ class Symbol:
     def __init__(self, name: str, kind: str):
         self.name = name
         self.kind = kind  # wire, reg, logic, variable, function, task
-        self.scope: Scope | None = None
+        self.scope: "Scope | None" = None
 
         self.declarations: list[Location] = []
         self.uses: list[Location] = []
@@ -16,7 +16,7 @@ class Symbol:
         self.is_read: bool = False
         self.is_written: bool = False
 
-    def set_scope(self, scope: Scope | None) -> None:
+    def set_scope(self, scope: "Scope | None") -> None:
         self.scope = scope
 
     def add_declaration(self, loc: Location) -> None:
@@ -38,20 +38,20 @@ class Scope:
         self.kind = kind  # module, always, block, function
         self.name = name
         self.symbols: dict[str, Symbol] = {}
-        self.parent: Scope | None = None
+        self.parent: "Scope | None" = None
 
-    def set_parent(self, parent: Scope | None = None) -> None:
+    def set_parent(self, parent: "Scope | None" = None) -> None:
         self.parent = parent
 
     def define(self, symbol: Symbol) -> None:
         if symbol.name in self.symbols:
-            # update the symbol if it's already in this scope
-            # merge with existing symbol (e.g., multiple declarations)
-            existing_symbol = self.symbols[symbol.name]
-            existing_symbol.declarations.extend(symbol.declarations)
-            existing_symbol.uses.extend(symbol.uses)
-            existing_symbol.is_read |= symbol.is_read
-            existing_symbol.is_written |= symbol.is_written
+            existing = self.symbols[symbol.name]
+            existing.declarations.extend(symbol.declarations)
+            existing.uses.extend(symbol.uses)
+            existing.is_read |= symbol.is_read
+            existing.is_written |= symbol.is_written
+            if symbol.declarations:
+                existing.is_implicit = False
             return
 
         symbol.scope = self
@@ -61,7 +61,7 @@ class Scope:
         if name in self.symbols:
             return self.symbols[name]
         return None
-    
+
     def __repr__(self) -> str:
         return f"Scope: kind={self.kind}, name={self.name} \nsymbols={list(self.symbols.keys())}"
 
@@ -70,42 +70,54 @@ class SymbolTable:
 
     def __init__(self):
         self.global_scope = Scope(kind="global")
-        self.scopes: list[Scope] = [self.global_scope]
+        self.scopes: list[Scope] = [self.global_scope]   # registry — all scopes ever created
+        self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
+        self.modules: dict[str, Scope] = {}  # module name → its scope, across all files
 
-    def new_scope(
-        self, kind: str, name: str | None = None, parent: Scope | None = None
-    ) -> Scope:
-        """Create a new nested scope."""
-        # If no parent provided, use the most recent scope from the registry
+    def add_scope(self, scope: Scope) -> None:
+        """Add an existing scope to the registry and push it onto the traversal stack."""
+        if scope.parent is None and self._scope_stack:
+            scope.set_parent(self._scope_stack[-1])
+        if scope not in self.scopes:
+            self.scopes.append(scope)
+        self._scope_stack.append(scope)
+
+    def new_scope(self, kind: str, name: str | None = None, parent: Scope | None = None) -> Scope:
+        """Create a new scope, add it to the registry, and push it onto the traversal stack."""
         if parent is None:
-            parent = self.scopes[-1] if self.scopes else None
-        
+            parent = self._scope_stack[-1] if self._scope_stack else None
+
         scope = Scope(kind=kind, name=name)
         scope.set_parent(parent)
-        self.scopes.append(scope)  # Add to registry
+        self.scopes.append(scope)
+        self._scope_stack.append(scope)
         return scope
 
+    def pop_scope(self) -> None:
+        """Exit the current scope, returning to the parent."""
+        assert len(self._scope_stack) > 1, (
+            f"pop_scope called with only global scope on stack — "
+            f"unbalanced push/pop in visitor (current: {self._scope_stack[-1]})"
+        )
+        self._scope_stack.pop()
+
     def current_scope(self) -> Scope | None:
-        """Get the current (most recent) scope."""
-        return self.scopes[-1] if self.scopes else None
-    
-    def add_scope(self, scope: Scope) -> None:
-        if scope.parent is None:
-            scope.set_parent(self.current_scope())
-        self.scopes.append(scope)
+        return self._scope_stack[-1] if self._scope_stack else None
 
     def lookup(self, name: str) -> Symbol | None:
-        """Lookup a symbol by name, searching from the current scope upwards."""
-        scope = self.current_scope()
-        while scope:
-            exists = scope.lookup(name)
-            if exists:
-                return exists
-            scope = scope.parent
-        return None
-    
+        """Lookup a symbol starting from the current traversal scope upwards."""
+        return self.lookup_from_scope(name, self.current_scope())
+
+    def register_module(self, name: str, scope: Scope) -> None:
+        """Record a module definition so it can be resolved across files."""
+        self.modules[name] = scope
+
+    def lookup_module(self, name: str) -> Scope | None:
+        """Return the scope for a named module, or None if not yet seen."""
+        return self.modules.get(name)
+
     def lookup_from_scope(self, name: str, scope: Scope | None = None) -> Symbol | None:
-        """Lookup a symbol by name, starting from the given scope upwards."""
+        """Lookup a symbol starting from the given scope upwards."""
         if scope is None:
             return None
         while scope:

@@ -111,23 +111,17 @@ class TestVNodeFactory:
         assert result.raw is mock_syntax_node
         assert result.tree is mock_tree
 
-    def test_node_map_is_empty_by_default(self) -> None:
-        """Test that _node_map starts empty."""
-        # Save the original map
+    def test_create_falls_back_to_token_vnode_when_map_is_empty(self) -> None:
+        """Test that create returns TokenVNode when no type is registered for the given token."""
         original_map = VNodeFactory._node_map.copy()
-        
-        # Clear the map
         VNodeFactory._node_map.clear()
-        
-        # Create with a mock token (should use default TokenVNode)
+
         mock_token = Mock(spec=sl.Token)
         mock_tree = Mock(spec=sl.SyntaxTree)
         result = VNodeFactory.create(mock_token, mock_tree)
-        
-        # Verify TokenVNode was returned as default
+
         assert isinstance(result, TokenVNode)
-        
-        # Restore the original map
+
         VNodeFactory._node_map = original_map
 
     def test_register_with_multiple_vnodes(self) -> None:

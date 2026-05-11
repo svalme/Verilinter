@@ -231,16 +231,17 @@ class TestScope:
         assert found == sym_child
 
     def test_lookup_returns_none_when_not_in_hierarchy(self, mock_location: Location) -> None:
-        """Test that lookup() returns None when symbol is not in hierarchy."""
+        """Test that lookup() returns None when symbol is not found anywhere in the hierarchy."""
         parent = Scope(kind="module", name="parent")
         child = Scope(kind="block", name="child")
-        
+        child.set_parent(parent)
+
         symbol_table = SymbolTable()
         symbol_table.add_scope(parent)
         symbol_table.add_scope(child)
 
         found = symbol_table.lookup("nonexistent")
-        
+
         assert found is None
 
 
@@ -293,8 +294,8 @@ class TestSymbolTable:
     def test_current_scope_returns_none_on_empty(self) -> None:
         """Test that current_scope() returns None when scopes is empty."""
         st = SymbolTable()
-        st.scopes = []
-        
+        st._scope_stack = []
+
         assert st.current_scope() is None
 
     def test_symbol_table_maintains_scope_list(self, symbol_table: SymbolTable) -> None:
@@ -337,18 +338,16 @@ class TestSymbolTable:
         clk.add_declaration(mock_location)
         top.define(clk)
         
-        # Create always block
+        # Create always block (new_scope sets parent=top automatically)
         always = st.new_scope(kind="always")
-        #always.set_parent(top)
-        #st.add_scope(always)
-        
+
         # Create internal variable in always block
         temp = Symbol(name="temp", kind="variable")
         temp.add_declaration(mock_location)
         always.define(temp)
-        
+
         # Verify lookups
         assert st.lookup_from_scope("clk", always) == clk  # From parent
-        #assert always.lookup("temp") == temp  # Local
-        #assert top.lookup("temp") is None  # Not visible upward
-        #assert top.lookup("clk") == clk  # Local
+        assert always.lookup("temp") == temp               # Local
+        assert top.lookup("temp") is None                  # Not visible upward
+        assert top.lookup("clk") == clk                    # Local

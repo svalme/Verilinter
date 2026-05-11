@@ -6,8 +6,7 @@ from .base_vnode import BaseVNode, Location
 class TokenVNode(BaseVNode):
 
     def __init__(self, raw: sl.Token, tree: sl.SyntaxTree):
-        self.raw = raw
-        self.tree = tree
+        super().__init__(raw, tree)
 
     @property
     def location(self) -> Location:
@@ -16,8 +15,11 @@ class TokenVNode(BaseVNode):
             return {"line": 0, "col": 0}
 
         sm: sl.SourceManager = self.tree.sourceManager
-        return {"line": sm.getLineNumber(loc),
-                "col": sm.getColumnNumber(loc)}
+        return {
+            "line": sm.getLineNumber(loc),
+            "col": sm.getColumnNumber(loc),
+            "file": str(sm.getFileName(loc)),
+        }
     
     def snippet(self) -> str:
         return self.raw.rawText

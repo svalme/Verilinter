@@ -25,10 +25,9 @@ tree = sl.SyntaxTree.fromFile(str(path))
 from src.pkg.ast.dispatch import dispatch
 
 symbol_table = SymbolTable()
-global_scope = symbol_table.new_scope(kind="global", name="global")
 walker = Walker(dispatch)
 
-ctx = Context(scopes=[global_scope])
+ctx = Context(scope=symbol_table.global_scope)
 
 walker.walk(tree.root, tree, ctx, symbol_table)
 

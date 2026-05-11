@@ -48,7 +48,7 @@ class TestWalker:
     def context(self) -> Context:
         """Fixture for a Context instance."""
         scope = Scope(kind="module", name="test_module")
-        return Context(scopes=[scope])
+        return Context(scope=scope)
 
     @pytest.fixture
     def symbol_table(self) -> SymbolTable:

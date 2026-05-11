@@ -13,12 +13,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
         name = vnode.raw.name.value
         symbol = Symbol(name=name, kind="variable")
         symbol.add_declaration(vnode.location)
-        symbol.set_scope(ctx.scope())
-
-        scope = ctx.scope()
- 
-        if scope:
-            scope.define(symbol)
+        ctx.scope().define(symbol)
         return ctx.push(vnode)
 
     def __str__(self) -> str:

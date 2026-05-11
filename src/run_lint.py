@@ -13,46 +13,53 @@ from pkg.handlers.register_handlers import *
 from pkg.rules.register_rules import *
 
 
-def run_file(path):
-    
-    # Parse source
-    tree = sl.SyntaxTree.fromFile(str(path))
-    root = SyntaxVNode(tree.root, tree)
+def collect_paths(raw: list[str]) -> list[Path]:
+    paths = []
+    for r in raw:
+        p = Path(r)
+        if p.is_dir():
+            paths.extend(sorted(p.rglob("*.v")))
+            paths.extend(sorted(p.rglob("*.sv")))
+        else:
+            paths.append(p)
+    return paths
 
-    # Initialize symbol table and context
+
+def run(paths: list[Path]) -> list[dict]:
     symbol_table = SymbolTable()
-    ctx = Context(scopes=[symbol_table.global_scope])
-
-    # Walk AST
+    ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
-    walker.walk(tree.root, tree, ctx, symbol_table)
 
-    # Run rules
-    ast_diagnostics = rule_runner.run(walker._results) # AST-based rules
-    symbol_diagnostics = symbol_rule_runner.run(symbol_table) # Symbol-based rules
-    diagnostics = ast_diagnostics + symbol_diagnostics
+    for path in paths:
+        if not path.exists():
+            print(f"Error: file not found: {path}", file=sys.stderr)
+            sys.exit(1)
+        tree = sl.SyntaxTree.fromFile(str(path))
+        walker.walk(tree.root, tree, ctx, symbol_table)
 
-    # Output
+    ast_diagnostics = rule_runner.run(walker.results)
+    symbol_diagnostics = symbol_rule_runner.run(symbol_table)
+    return ast_diagnostics + symbol_diagnostics
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="SystemVerilog static analyzer")
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help="Verilog/SystemVerilog source files or directories",
+    )
+    args = parser.parse_args()
+
+    paths = collect_paths(args.paths)
+    if not paths:
+        print("Error: no .v or .sv files found", file=sys.stderr)
+        sys.exit(1)
+
+    diagnostics = run(paths)
     if not diagnostics:
         print("No issues found.")
     else:
         for d in diagnostics:
-            print(f"{d['line']}:{d['col']} — {d['message']}")
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Verilog static analyzer")
-    parser.add_argument("file", help="Verilog source file")
-    args = parser.parse_args()
-
-    if len(sys.argv) != 2:
-        print("Usage: python run_lint.py <file.v>")
-        sys.exit(1)
-
-    path = Path(args.file)
-    if not path.exists():
-        print(f"Error: file not found: {path}")
-        sys.exit(1)
-
-    run_file(path)
+            file_prefix = f"{d['file']}:" if d.get("file") else ""
+            print(f"{file_prefix}{d['line']}:{d['col']} — {d['message']}")

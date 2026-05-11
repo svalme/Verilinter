@@ -5,8 +5,7 @@ from .base_vnode import BaseVNode, Location
 class SyntaxVNode(BaseVNode):
 
     def __init__(self, raw: sl.SyntaxNode, tree: sl.SyntaxTree):
-        self.raw = raw
-        self.tree = tree
+        super().__init__(raw, tree)
 
     @property
     def kind(self):
@@ -28,10 +27,17 @@ class SyntaxVNode(BaseVNode):
             return {"line": 0, "col": 0}
 
         sm: sl.SourceManager = self.tree.sourceManager
-        return {"line": sm.getLineNumber(sr.start),
-                "col": sm.getColumnNumber(sr.start)}
+        return {
+            "line": sm.getLineNumber(sr.start),
+            "col": sm.getColumnNumber(sr.start),
+            "file": str(sm.getFileName(sr.start)),
+        }
     
     @property
-    def children(self) -> list[sl.SyntaxNode | sl.Token]:
+    def children(self) -> list:
+        return self.raw_children
+
+    @property
+    def raw_children(self) -> list[sl.SyntaxNode | sl.Token]:
         return list(self.raw.__iter__())
               

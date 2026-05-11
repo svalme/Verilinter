@@ -16,3 +16,6 @@ from .case_generate_handler import CaseGenerateHandler
 from .signal_event_expression_handler import SignalEventExpressionHandler
 from .declarator_handler import DeclaratorHandler
 from .identifier_name_handler import IdentifierNameHandler
+
+# instantiation
+from .hierarchy_instantiation_handler import HierarchyInstantiationHandler

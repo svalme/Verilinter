@@ -1,8 +1,7 @@
-# src/pkg/rules/runner.py
+from ..ast.symbol_table import SymbolTable
 
-from .base_symbol_rule import BaseSymbolRule
 
-class SymbolRuleRunner(BaseSymbolRule):
+class SymbolRuleRunner:
     def __init__(self):
         self._rules = []
 
@@ -10,7 +9,7 @@ class SymbolRuleRunner(BaseSymbolRule):
         self._rules.append(rule_cls())
         return rule_cls
 
-    def run(self, symbol_table):
+    def run(self, symbol_table: SymbolTable) -> list[dict]:
         diagnostics = []
         for rule in self._rules:
             diagnostics.extend(rule.run(symbol_table))

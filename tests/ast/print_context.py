@@ -32,19 +32,13 @@ def print_context():
     root = SyntaxVNode(tree.root, tree)
 
     symbol_table = SymbolTable()
-    global_scope = symbol_table.new_scope(kind="global", name="global")
-    ctx = Context(scopes=[global_scope])
+    ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
     walker.walk(root, tree, ctx, symbol_table)
 
     for vnode, ctx in walker._results:
         raw = vnode.raw
-
-        kind = (
-            raw.kind.name
-            if isinstance(raw, sl.SyntaxNode)
-            else raw.kind.name
-        )
+        kind = raw.kind.name
 
         node_type = vnode.__class__.__name__
         loc = vnode.location

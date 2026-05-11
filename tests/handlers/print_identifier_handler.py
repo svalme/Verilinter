@@ -43,16 +43,17 @@ def test_identifier_name_vnode():
     print("FINDING IDENTIFIER NODES IN TREE")
     print("=" * 70)
     
-    def find_identifier_nodes(node, results=[]):
+    def find_identifier_nodes(node, results=None):
         """Recursively find IdentifierNameSyntax nodes"""
+        if results is None:
+            results = []
         if isinstance(node, sl.IdentifierNameSyntax):
             results.append(node)
-        
-        # Traverse children
+
         if hasattr(node, '__iter__'):
             for child in node:
                 find_identifier_nodes(child, results)
-        
+
         return results
     
     identifier_nodes = find_identifier_nodes(tree.root)
@@ -81,7 +82,7 @@ def test_identifier_name_vnode():
         print(f"  Has 'identifier_name' attr? {hasattr(vnode, 'identifier_name')}")
         
         if hasattr(vnode, 'identifier_name'):
-            print(f"  identifier_name value: {vnode.identifier_name()}")
+            print(f"  identifier_name value: {vnode.identifier_name}")
         else:
             print(f"  Available attributes: {[x for x in dir(vnode) if not x.startswith('_')]}")
         print()
@@ -98,7 +99,7 @@ def test_identifier_name_vnode():
         
         # Test update_context
         symbol_table = SymbolTable()
-        ctx = Context(scopes=[symbol_table.global_scope])
+        ctx = Context(scope=symbol_table.global_scope)
         
         try:
             new_ctx = handler.update_context(ctx, vnode, symbol_table)
@@ -140,7 +141,7 @@ def test_identifier_name_vnode():
             if identifier_results:
                 print("\n  First 3 identifiers found:")
                 for i, (vnode, ctx) in enumerate(identifier_results[:3]):
-                    print(f"    {i+1}. {vnode.identifier_name()} at {vnode.location}")
+                    print(f"    {i+1}. {vnode.identifier_name} at {vnode.location}")
             
         except Exception as e:
             print(f"✗ Walker failed:")

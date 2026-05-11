@@ -3,6 +3,7 @@ import difflib
 import pyslang as sl
 
 from src.pkg.handlers.register_handlers import *
+from src.pkg.ast.dispatch import dispatch
 
 from src.pkg.vnodes.syntax_vnode import SyntaxVNode
 from src.pkg.ast.walker import Walker

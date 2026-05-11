@@ -11,3 +11,4 @@ from .default_case import DefaultCaseRule
 # symbol rules
 from .unused_variable_rule import UnusedVariableRule
 from .undeclared_variable import UndeclaredVariableRule
+from .redeclared_variable import RedeclaredVariableRule
