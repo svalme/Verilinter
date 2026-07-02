@@ -6,6 +6,7 @@ A static analysis framework for SystemVerilog, using pyslang. Pyslang parses sou
 - Tracks lexical scopes (modules, blocks, always blocks, etc.)
 - Tracks symbols (variables, signals, ports)
 - Supports rule-based analysis (lint-style checks)
+- Lints multiple files or a whole directory in one run, with a shared symbol table across them -- enables cross-file checks (e.g. duplicate module names)
 
 ## Rules Implemented
 A basic set of rules are implemented. Right now, it checks for: 
@@ -13,7 +14,9 @@ A basic set of rules are implemented. Right now, it checks for:
 - Blocking assignments in sequential logic.
 - Undeclared variables.
 - Unused variables.
+- Redeclared variables.
 - Default case in a case statement.
+- Duplicate module definitions across files.
 
 More rules coming in the future.
 
@@ -26,10 +29,13 @@ or
 
 ```python src/run_lint.py <file.sv> ```
 
-Example: 
+Example (single file): 
 ```python src/run_lint.py tests/data/simple.v```
 
-### Test it with pytest! Or without it:
+Example (multiple files, or a directory):
+```python src/run_lint.py tests/data/dup_module_a.v tests/data/dup_module_b.v```
 
-```python -m tests.folder_name.file_name```
+### Test it with pytest:
+
+```python -m pytest```
 
