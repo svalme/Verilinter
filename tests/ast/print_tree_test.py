@@ -14,6 +14,7 @@ from src.pkg.ast.symbol_table import SymbolTable
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
 EXPECTED = ROOT / "expected"
+ARTIFACTS = ROOT / "artifacts"  # generated diff output, not source -- gitignored
 
 
 def print_walk(tree: sl.SyntaxTree) -> str:
@@ -62,7 +63,8 @@ def html_comparison(s1, s2):
         fromdesc='Expected',
         todesc='Actual'
     )
-    output_file = EXPECTED / "comparison.html"
+    ARTIFACTS.mkdir(exist_ok=True)
+    output_file = ARTIFACTS / "comparison.html"
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(diff)
 
