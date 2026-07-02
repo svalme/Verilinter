@@ -17,6 +17,7 @@ A basic set of rules are implemented. Right now, it checks for:
 - Redeclared variables.
 - Default case in a case statement.
 - Duplicate module definitions across files.
+- Instantiation of a module that isn't defined anywhere in the linted files.
 
 More rules coming in the future.
 

@@ -13,3 +13,4 @@ from .unused_variable_rule import UnusedVariableRule
 from .undeclared_variable import UndeclaredVariableRule
 from .redeclared_variable import RedeclaredVariableRule
 from .duplicate_module_definition import DuplicateModuleDefinitionRule
+from .undefined_module import UndefinedModuleRule

@@ -78,6 +78,7 @@ class SymbolTable:
         self.scopes: list[Scope] = [self.global_scope]   # registry — all scopes ever created
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name → all scopes defining it, across files
+        self.module_references: list[tuple[str, Location]] = []  # (instantiated type name, location), one per instantiation site
         self.current_file: str | None = None
 
     def set_current_file(self, path: str) -> None:
@@ -123,6 +124,10 @@ class SymbolTable:
     def register_module(self, name: str, scope: Scope) -> None:
         """Record a module definition. Appends if the name was already registered (duplicate module)."""
         self.modules.setdefault(name, []).append(scope)
+
+    def register_module_reference(self, name: str, location: Location) -> None:
+        """Record an instantiation site referencing a module type by name."""
+        self.module_references.append((name, location))
 
     def lookup_module(self, name: str) -> Scope | None:
         """Return the first scope for a named module, or None if not yet seen."""

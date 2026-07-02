@@ -11,6 +11,10 @@ from .syntax_node_handler import SyntaxNodeHandler
 class HierarchyInstantiationHandler(SyntaxNodeHandler):
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
+        type_name = vnode.raw.type.value
+        if type_name:
+            symbol_table.register_module_reference(type_name, vnode.location)
+
         for item in vnode.raw.instances:
             if isinstance(item, sl.HierarchicalInstanceSyntax):
                 inst_name = item.decl.name.value
