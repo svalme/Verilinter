@@ -351,3 +351,368 @@ class TestSymbolTable:
         assert always.lookup("temp") == temp               # Local
         assert top.lookup("temp") is None                  # Not visible upward
         assert top.lookup("clk") == clk                    # Local
+
+
+# ---------------------------------------------------------------------------
+# New: Scope.children and set_parent registration
+# ---------------------------------------------------------------------------
+
+class TestScopeChildren:
+    """Tests for Scope.children tracking via set_parent."""
+
+    def test_scope_initializes_with_empty_children(self) -> None:
+        scope = Scope(kind="module", name="top")
+        assert scope.children == []
+
+    def test_set_parent_registers_child_in_parent_children(self) -> None:
+        parent = Scope(kind="module", name="top")
+        child = Scope(kind="always")
+        child.set_parent(parent)
+        assert child in parent.children
+
+    def test_set_parent_does_not_duplicate_children(self) -> None:
+        parent = Scope(kind="module", name="top")
+        child = Scope(kind="always")
+        child.set_parent(parent)
+        child.set_parent(parent)
+        assert parent.children.count(child) == 1
+
+    def test_set_parent_none_does_not_add_to_children(self) -> None:
+        parent = Scope(kind="module", name="top")
+        child = Scope(kind="always")
+        child.set_parent(None)
+        assert parent.children == []
+
+    def test_new_scope_registers_child_with_parent(self, symbol_table=None) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        always = st.new_scope(kind="always")
+        assert always in module.children
+
+    def test_multiple_children_all_registered(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        a1 = st.new_scope(kind="always")
+        st.pop_scope()
+        a2 = st.new_scope(kind="always")
+        assert a1 in module.children
+        assert a2 in module.children
+
+
+# ---------------------------------------------------------------------------
+# File tracking
+# ---------------------------------------------------------------------------
+
+class TestFileTracking:
+    """Tests for set_current_file and file stamping on scopes."""
+
+    def test_set_current_file_updates_attribute(self) -> None:
+        st = SymbolTable()
+        st.set_current_file("a.sv")
+        assert st.current_file == "a.sv"
+
+    def test_new_scope_stamps_current_file(self) -> None:
+        st = SymbolTable()
+        st.set_current_file("a.sv")
+        scope = st.new_scope(kind="module", name="top")
+        assert scope.file == "a.sv"
+
+    def test_file_updates_between_files(self) -> None:
+        st = SymbolTable()
+        st.set_current_file("a.sv")
+        scope_a = st.new_scope(kind="module", name="a")
+        st.pop_scope()
+        st.set_current_file("b.sv")
+        scope_b = st.new_scope(kind="module", name="b")
+        assert scope_a.file == "a.sv"
+        assert scope_b.file == "b.sv"
+
+    def test_scope_file_is_none_before_set(self) -> None:
+        st = SymbolTable()
+        scope = st.new_scope(kind="module", name="top")
+        assert scope.file is None
+
+
+# ---------------------------------------------------------------------------
+# Module registration
+# ---------------------------------------------------------------------------
+
+class TestModuleRegistry:
+    """Tests for register_module, lookup_module, is_duplicate_module."""
+
+    def test_register_module_stores_scope(self) -> None:
+        st = SymbolTable()
+        scope = st.new_scope(kind="module", name="top")
+        st.register_module("top", scope)
+        assert st.lookup_module("top") is scope
+
+    def test_lookup_module_returns_none_for_unknown(self) -> None:
+        st = SymbolTable()
+        assert st.lookup_module("missing") is None
+
+    def test_register_module_appends_on_duplicate(self) -> None:
+        st = SymbolTable()
+        s1 = st.new_scope(kind="module", name="foo")
+        st.pop_scope()
+        st.set_current_file("b.sv")
+        s2 = st.new_scope(kind="module", name="foo")
+        st.register_module("foo", s1)
+        st.register_module("foo", s2)
+        assert len(st.modules["foo"]) == 2
+
+    def test_lookup_module_returns_first_on_duplicate(self) -> None:
+        st = SymbolTable()
+        s1 = st.new_scope(kind="module", name="foo")
+        st.pop_scope()
+        s2 = st.new_scope(kind="module", name="foo")
+        st.register_module("foo", s1)
+        st.register_module("foo", s2)
+        assert st.lookup_module("foo") is s1
+
+    def test_is_duplicate_module_false_for_single(self) -> None:
+        st = SymbolTable()
+        scope = st.new_scope(kind="module", name="foo")
+        st.register_module("foo", scope)
+        assert st.is_duplicate_module("foo") is False
+
+    def test_is_duplicate_module_true_for_duplicate(self) -> None:
+        st = SymbolTable()
+        s1 = st.new_scope(kind="module", name="foo")
+        st.pop_scope()
+        s2 = st.new_scope(kind="module", name="foo")
+        st.register_module("foo", s1)
+        st.register_module("foo", s2)
+        assert st.is_duplicate_module("foo") is True
+
+    def test_is_duplicate_module_false_for_missing(self) -> None:
+        st = SymbolTable()
+        assert st.is_duplicate_module("nope") is False
+
+
+# ---------------------------------------------------------------------------
+# lookup_downward
+# ---------------------------------------------------------------------------
+
+class TestLookupDownward:
+    """Tests for SymbolTable.lookup_downward."""
+
+    def _sym(self, name: str) -> Symbol:
+        s = Symbol(name=name, kind="wire")
+        s.add_declaration({"line": 1, "col": 1})
+        return s
+
+    def test_finds_symbol_in_direct_child(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        child = st.new_scope(kind="always")
+        sym = self._sym("clk")
+        child.define(sym)
+        st.pop_scope()  # exit always
+        st.pop_scope()  # exit module
+
+        found = st.lookup_downward("clk", module)
+        assert found is sym
+
+    def test_finds_symbol_in_grandchild(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        child = st.new_scope(kind="always")
+        grandchild = st.new_scope(kind="block")
+        sym = self._sym("x")
+        grandchild.define(sym)
+        st.pop_scope()
+        st.pop_scope()
+        st.pop_scope()
+
+        found = st.lookup_downward("x", module)
+        assert found is sym
+
+    def test_does_not_find_in_from_scope_itself(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        sym = self._sym("x")
+        module.define(sym)
+
+        found = st.lookup_downward("x", module)
+        assert found is None
+
+    def test_returns_none_when_not_found(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        st.new_scope(kind="always")
+
+        found = st.lookup_downward("missing", module)
+        assert found is None
+
+    def test_uses_current_scope_when_no_from_scope(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        child = st.new_scope(kind="always")
+        sym = self._sym("y")
+        child.define(sym)
+        # current scope is child; lookup_downward from child finds nothing (no grandchildren)
+        found = st.lookup_downward("y")
+        assert found is None
+
+
+# ---------------------------------------------------------------------------
+# lookup_sibling
+# ---------------------------------------------------------------------------
+
+class TestLookupSibling:
+    """Tests for SymbolTable.lookup_sibling."""
+
+    def _sym(self, name: str) -> Symbol:
+        s = Symbol(name=name, kind="wire")
+        s.add_declaration({"line": 1, "col": 1})
+        return s
+
+    def test_finds_symbol_in_sibling_scope(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        sibling_a = st.new_scope(kind="always")
+        sym = self._sym("clk")
+        sibling_a.define(sym)
+        st.pop_scope()
+        sibling_b = st.new_scope(kind="always")
+
+        found = st.lookup_sibling("clk", sibling_b)
+        assert found is sym
+
+    def test_does_not_find_in_self(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        only_child = st.new_scope(kind="always")
+        sym = self._sym("x")
+        only_child.define(sym)
+
+        # only_child has no siblings, so nothing found
+        found = st.lookup_sibling("x", only_child)
+        assert found is None
+
+    def test_returns_none_when_no_parent(self) -> None:
+        st = SymbolTable()
+        orphan = Scope(kind="module", name="orphan")
+        found = st.lookup_sibling("x", orphan)
+        assert found is None
+
+    def test_returns_none_when_symbol_not_in_any_sibling(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        st.new_scope(kind="always")
+        st.pop_scope()
+        sibling_b = st.new_scope(kind="always")
+
+        found = st.lookup_sibling("missing", sibling_b)
+        assert found is None
+
+    def test_uses_current_scope_when_no_from_scope(self) -> None:
+        st = SymbolTable()
+        module = st.new_scope(kind="module", name="top")
+        sibling_a = st.new_scope(kind="always")
+        sym = self._sym("sig")
+        sibling_a.define(sym)
+        st.pop_scope()
+        st.new_scope(kind="always")  # now current scope
+
+        found = st.lookup_sibling("sig")
+        assert found is sym
+
+
+# ---------------------------------------------------------------------------
+# lookup_qualified
+# ---------------------------------------------------------------------------
+
+class TestLookupQualified:
+    """Tests for SymbolTable.lookup_qualified."""
+
+    def _sym(self, name: str) -> Symbol:
+        s = Symbol(name=name, kind="wire")
+        s.add_declaration({"line": 1, "col": 1})
+        return s
+
+    def test_navigates_to_nested_scope_and_finds_symbol(self) -> None:
+        st = SymbolTable()
+        top = st.new_scope(kind="module", name="top")
+        sub = st.new_scope(kind="module", name="sub")
+        sym = self._sym("clk")
+        sub.define(sym)
+
+        found = st.lookup_qualified(["top", "sub", "clk"])
+        assert found is sym
+
+    def test_returns_none_on_bad_intermediate_segment(self) -> None:
+        st = SymbolTable()
+        st.new_scope(kind="module", name="top")
+
+        found = st.lookup_qualified(["top", "nonexistent", "clk"])
+        assert found is None
+
+    def test_returns_none_on_empty_path(self) -> None:
+        st = SymbolTable()
+        found = st.lookup_qualified([])
+        assert found is None
+
+    def test_single_segment_looks_up_in_global(self) -> None:
+        st = SymbolTable()
+        sym = self._sym("g")
+        st.global_scope.define(sym)
+
+        found = st.lookup_qualified(["g"])
+        assert found is sym
+
+    def test_returns_none_when_symbol_missing_in_target_scope(self) -> None:
+        st = SymbolTable()
+        st.new_scope(kind="module", name="top")
+
+        found = st.lookup_qualified(["top", "missing"])
+        assert found is None
+
+
+# ---------------------------------------------------------------------------
+# lookup_global
+# ---------------------------------------------------------------------------
+
+class TestLookupGlobal:
+    """Tests for SymbolTable.lookup_global."""
+
+    def _sym(self, name: str) -> Symbol:
+        s = Symbol(name=name, kind="wire")
+        s.add_declaration({"line": 1, "col": 1})
+        return s
+
+    def test_finds_symbol_in_global_scope(self) -> None:
+        st = SymbolTable()
+        sym = self._sym("g")
+        st.global_scope.define(sym)
+
+        found = st.lookup_global("g")
+        assert found is sym
+
+    def test_finds_symbol_in_nested_scope(self) -> None:
+        st = SymbolTable()
+        st.new_scope(kind="module", name="top")
+        always = st.new_scope(kind="always")
+        sym = self._sym("deep")
+        always.define(sym)
+
+        found = st.lookup_global("deep")
+        assert found is sym
+
+    def test_finds_symbol_in_sibling_module(self) -> None:
+        st = SymbolTable()
+        mod_a = st.new_scope(kind="module", name="a")
+        sym = self._sym("sig")
+        mod_a.define(sym)
+        st.pop_scope()
+        st.new_scope(kind="module", name="b")
+
+        found = st.lookup_global("sig")
+        assert found is sym
+
+    def test_returns_none_when_not_found_anywhere(self) -> None:
+        st = SymbolTable()
+        st.new_scope(kind="module", name="top")
+
+        found = st.lookup_global("nowhere")
+        assert found is None

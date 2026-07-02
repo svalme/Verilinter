@@ -11,10 +11,14 @@ class UnusedVariableRule(BaseSymbolRule):
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
                 if sym.kind == "variable" and not sym.uses:
-                    diagnostics.append({
-                        "line": sym.declarations[0]["line"],
-                        "col": sym.declarations[0]["col"],
+                    loc = sym.declarations[0]
+                    diagnostic = {
+                        "line": loc["line"],
+                        "col": loc["col"],
                         "message": f"Unused variable '{sym.name}'",
-                    })
+                    }
+                    if "file" in loc:
+                        diagnostic["file"] = loc["file"]
+                    diagnostics.append(diagnostic)
 
         return diagnostics

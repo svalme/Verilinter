@@ -1,5 +1,6 @@
 from pathlib import Path
 import difflib
+import os
 import pyslang as sl
 
 from src.pkg.handlers.register_handlers import *
@@ -66,14 +67,31 @@ def html_comparison(s1, s2):
         f.write(diff)
 
 def assert_matches_expected(name: str, actual: str):
+    """Compares `actual` against the golden file `name` in tests/expected/.
+
+    To regenerate a golden file after an intentional output change, run with
+    UPDATE_EXPECTED=1 set, e.g.:
+
+        UPDATE_EXPECTED=1 pytest tests/ast/print_tree_test.py
+
+    This overwrites the golden file instead of asserting, so the resulting
+    diff (via `git diff`) is a deliberate, reviewable record of what changed
+    and why -- rather than a silently stale file the next unrelated change
+    trips over.
+    """
     expected_file = EXPECTED / name
+    actual = normalize(actual)
+
+    if os.environ.get("UPDATE_EXPECTED"):
+        expected_file.write_text(actual, encoding="utf-8")
+        return
+
     assert expected_file.exists(), f"Missing expected file: {expected_file}"
 
     expected = normalize(expected_file.read_text())
-    actual = normalize(actual)
+    if actual != expected:
+        html_comparison(expected, actual)
     assert actual == expected
-
-    html_comparison(expected, actual)
 
 
 def test_simple_v():

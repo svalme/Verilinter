@@ -12,10 +12,13 @@ class RedeclaredVariableRule(BaseSymbolRule):
             for sym in scope.symbols.values():
                 if not sym.is_implicit and len(sym.declarations) > 1:
                     for loc in sym.declarations[1:]:
-                        diagnostics.append({
+                        diagnostic = {
                             "line": loc["line"],
                             "col": loc["col"],
                             "message": f"Redeclared symbol '{sym.name}' (first declared at line {sym.declarations[0]['line']})",
-                        })
+                        }
+                        if "file" in loc:
+                            diagnostic["file"] = loc["file"]
+                        diagnostics.append(diagnostic)
 
         return diagnostics

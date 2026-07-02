@@ -34,6 +34,7 @@ def run(paths: list[Path]) -> list[dict]:
         if not path.exists():
             print(f"Error: file not found: {path}", file=sys.stderr)
             sys.exit(1)
+        symbol_table.set_current_file(str(path))
         tree = sl.SyntaxTree.fromFile(str(path))
         walker.walk(tree.root, tree, ctx, symbol_table)
 

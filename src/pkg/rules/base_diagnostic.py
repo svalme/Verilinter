@@ -9,8 +9,11 @@ class BaseDiagnostic(ABC):
     message: str = "No message"
 
     def report(self, vnode: BaseVNode) -> dict[str, Any]:
-        return {
+        diagnostic: dict[str, Any] = {
             "line": vnode.location["line"],
             "col": vnode.location["col"],
             "message": self.message,
         }
+        if "file" in vnode.location:
+            diagnostic["file"] = vnode.location["file"]
+        return diagnostic

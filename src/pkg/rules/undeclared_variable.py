@@ -11,10 +11,14 @@ class UndeclaredVariableRule(BaseSymbolRule):
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
                 if sym.uses and not sym.declarations:
-                    diagnostics.append({
-                        "line": sym.uses[0]["line"],
-                        "col": sym.uses[0]["col"],
+                    loc = sym.uses[0]
+                    diagnostic = {
+                        "line": loc["line"],
+                        "col": loc["col"],
                         "message": f"Undeclared variable '{sym.name}'",
-                    })
+                    }
+                    if "file" in loc:
+                        diagnostic["file"] = loc["file"]
+                    diagnostics.append(diagnostic)
 
         return diagnostics

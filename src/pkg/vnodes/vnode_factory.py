@@ -1,19 +1,21 @@
 # vnode/vnode_factory.py
-from typing import Type, Dict
+from typing import Type, Dict, TypeVar
 import pyslang as sl
 
 from .token_vnode import TokenVNode
 from .base_vnode import BaseVNode
 from .syntax_vnode import SyntaxVNode
 
+_VNodeT = TypeVar('_VNodeT', bound=BaseVNode)
+
 class VNodeFactory:
-    
+
     # registry: maps raw pyslang types --> vnode classes
     _node_map: Dict[Type, Type[BaseVNode]] = {}
-    
+
     @classmethod
     def register(cls, raw_type: Type):
-        def decorator(vnode_class: Type[BaseVNode]):
+        def decorator(vnode_class: Type[_VNodeT]) -> Type[_VNodeT]:
             cls._node_map[raw_type] = vnode_class
             return vnode_class
         return decorator
