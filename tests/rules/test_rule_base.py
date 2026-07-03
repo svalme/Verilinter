@@ -6,10 +6,19 @@ from src.pkg.rules.base_rule import Rule
 from src.pkg.vnodes.base_vnode import BaseVNode
 
 
+class _ConcreteRule(Rule):
+    """Minimal concrete subclass -- Rule.applies() is abstract, so Rule itself
+    can't be instantiated directly. Used to test the inherited report()/code/
+    message behavior without testing any particular applies() logic."""
+
+    def applies(self, vnode: Any, ctx: Any) -> bool:
+        return True
+
+
 @pytest.fixture
 def rule() -> Rule:
-    """Fixture for a base Rule instance."""
-    return Rule()
+    """Fixture for a minimal concrete Rule instance."""
+    return _ConcreteRule()
 
 
 @pytest.fixture
@@ -39,10 +48,11 @@ class TestRule:
         assert hasattr(Rule, 'message')
         assert Rule.message == "No message"
 
-    def test_applies_returns_none(self, rule: Rule, mock_vnode: Mock, mock_ctx: Mock) -> None:
-        """Test that applies() returns None by default."""
-        result = rule.applies(mock_vnode, mock_ctx)
-        assert result is None
+    def test_rule_cannot_be_instantiated_directly(self) -> None:
+        """applies() is abstract -- Rule itself has no usable default and must
+        not be instantiable, unlike a subclass that implements applies()."""
+        with pytest.raises(TypeError):
+            Rule()  # type: ignore[abstract]
 
     def test_report_generates_diagnostic(self, rule: Rule, mock_vnode: Mock) -> None:
         """Test that report() generates a proper diagnostic dictionary."""

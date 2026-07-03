@@ -37,7 +37,8 @@ class TestRuleRunner:
     def test_register_adds_rule(self, runner: RuleRunner) -> None:
         """Test that register() adds a rule instance to the runner."""
         class TestRule(Rule):
-            pass
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return False
 
         runner.register(TestRule)
         
@@ -49,6 +50,9 @@ class TestRuleRunner:
         class TestRule(Rule):
             code = "TEST"
 
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return False
+
         result = runner.register(TestRule)
         
         assert result == TestRule
@@ -56,7 +60,8 @@ class TestRuleRunner:
     def test_register_instantiates_rule(self, runner: RuleRunner) -> None:
         """Test that register() instantiates the rule class."""
         class TestRule(Rule):
-            pass
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return False
 
         runner.register(TestRule)
         
