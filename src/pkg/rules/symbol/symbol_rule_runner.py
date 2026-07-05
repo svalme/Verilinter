@@ -1,4 +1,4 @@
-from ..ast.symbol_table import SymbolTable
+from ...ast.symbol_table import SymbolTable
 
 
 class SymbolRuleRunner:

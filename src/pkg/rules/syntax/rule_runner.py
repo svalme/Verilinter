@@ -1,7 +1,7 @@
-# src/pkg/rules/runner.py
+# src/pkg/rules/syntax/rule_runner.py
 
 from typing import Any
-from .base_rule import Rule
+from ..base_rule import Rule
 
 class RuleRunner:
     def __init__(self):

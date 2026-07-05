@@ -8,9 +8,9 @@ from src.pkg.ast.dispatch import dispatch
 from src.pkg.ast.symbol_table import SymbolTable, Symbol
 from src.pkg.ast.walker import Walker
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.unused_variable_rule import UnusedVariableRule
+from src.pkg.rules.symbol.unused_variable_rule import UnusedVariableRule
 
-DATA = Path(__file__).parent.parent / "data"
+DATA = Path(__file__).parent.parent.parent / "data"
 
 
 class TestUnusedVariableRule:

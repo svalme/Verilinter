@@ -8,7 +8,7 @@ from pathlib import Path
 import pyslang as sl
 
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.register_rules import symbol_rule_runner
+from src.pkg.rules.register_rules import symbol_rule_runner, module_rule_runner
 from src.pkg.ast.dispatch import dispatch
 from src.pkg.ast.context import Context
 from src.pkg.ast.symbol_table import SymbolTable
@@ -76,7 +76,7 @@ class TestMultiFileLinting:
     def test_duplicate_module_rule_fires_once_for_the_second_file(self) -> None:
         _, symbol_table = _walk_files([FILE_A, FILE_B])
 
-        diagnostics = symbol_rule_runner.run(symbol_table)
+        diagnostics = module_rule_runner.run(symbol_table)
         dup = [d for d in diagnostics if d["message"].startswith("Duplicate module")]
 
         assert len(dup) == 1

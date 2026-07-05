@@ -2,9 +2,9 @@ import pytest
 from unittest.mock import Mock
 import pyslang as sl
 
-from src.pkg.rules.default_case import DefaultCaseRule
-from src.pkg.rules.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
-from src.pkg.rules.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
+from src.pkg.rules.syntax.default_case import DefaultCaseRule
+from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
+from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
 from src.pkg.ast.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
 
@@ -38,9 +38,9 @@ class TestDefaultCaseRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.EndCaseKeyword
-        
+
         context = Context().with_flag(ContextFlag.CASE_GENERATE)
-        
+
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_without_endcase_keyword(self, rule: DefaultCaseRule) -> None:
@@ -48,9 +48,9 @@ class TestDefaultCaseRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.AlwaysKeyword
-        
+
         context = Context().with_flag(ContextFlag.CASE_GENERATE)
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_applies_returns_false_without_case_generate_flag(self, rule: DefaultCaseRule) -> None:
@@ -58,9 +58,9 @@ class TestDefaultCaseRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.EndCaseKeyword
-        
+
         context = Context()
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_applies_returns_false_with_default_flag(self, rule: DefaultCaseRule) -> None:
@@ -68,15 +68,15 @@ class TestDefaultCaseRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.EndCaseKeyword
-        
+
         context = Context().with_flag(ContextFlag.CASE_GENERATE).with_flag(ContextFlag.DEFAULT)
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_report_returns_correct_format(self, rule: DefaultCaseRule, mock_vnode: Mock) -> None:
         """Test that report() returns the correct diagnostic format."""
         result = rule.report(mock_vnode)
-        
+
         assert result["line"] == 42
         assert result["col"] == 10
         assert result["message"] == "Case statement missing default case"
@@ -103,9 +103,9 @@ class TestNoBlockingAssignmentInSequentialRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.Equals
-        
+
         context = Context().with_flag(ContextFlag.ALWAYS)
-        
+
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_without_equals_token(self, rule: NoBlockingAssignmentInSequentialRule) -> None:
@@ -113,9 +113,9 @@ class TestNoBlockingAssignmentInSequentialRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.LessThanEquals
-        
+
         context = Context().with_flag(ContextFlag.ALWAYS)
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_applies_returns_false_without_always_flag(self, rule: NoBlockingAssignmentInSequentialRule) -> None:
@@ -123,9 +123,9 @@ class TestNoBlockingAssignmentInSequentialRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.Equals
-        
+
         context = Context()
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_applies_returns_false_in_combinational_logic(self, rule: NoBlockingAssignmentInSequentialRule) -> None:
@@ -133,16 +133,16 @@ class TestNoBlockingAssignmentInSequentialRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.Equals
-        
+
         context = Context().with_flag(ContextFlag.ALWAYS_COMB)
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_report_returns_correct_format(self, rule: NoBlockingAssignmentInSequentialRule, mock_vnode: Mock) -> None:
         """Test that report() returns the correct diagnostic format."""
         mock_vnode.location = {"line": 15, "col": 8}
         result = rule.report(mock_vnode)
-        
+
         assert result["line"] == 15
         assert result["col"] == 8
         assert result["message"] == "Blocking assignment used in sequential logic"
@@ -169,9 +169,9 @@ class TestNoNonBlockingAssignmentInCombRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.LessThanEquals
-        
+
         context = Context().with_flag(ContextFlag.ALWAYS_COMB)
-        
+
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_without_lessthanequals_token(self, rule: NoNonBlockingAssignmentInCombRule) -> None:
@@ -179,9 +179,9 @@ class TestNoNonBlockingAssignmentInCombRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.Equals
-        
+
         context = Context().with_flag(ContextFlag.ALWAYS_COMB)
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_applies_returns_false_without_always_comb_flag(self, rule: NoNonBlockingAssignmentInCombRule) -> None:
@@ -189,9 +189,9 @@ class TestNoNonBlockingAssignmentInCombRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.LessThanEquals
-        
+
         context = Context()
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_applies_returns_false_in_sequential_logic(self, rule: NoNonBlockingAssignmentInCombRule) -> None:
@@ -199,16 +199,16 @@ class TestNoNonBlockingAssignmentInCombRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.LessThanEquals
-        
+
         context = Context().with_flag(ContextFlag.ALWAYS)
-        
+
         assert rule.applies(mock_vnode, context) is False
 
     def test_report_returns_correct_format(self, rule: NoNonBlockingAssignmentInCombRule, mock_vnode: Mock) -> None:
         """Test that report() returns the correct diagnostic format."""
         mock_vnode.location = {"line": 25, "col": 12}
         result = rule.report(mock_vnode)
-        
+
         assert result["line"] == 25
         assert result["col"] == 12
         assert result["message"] == "Non-blocking assignment used in combinational logic"

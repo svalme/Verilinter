@@ -40,7 +40,8 @@ def run(paths: list[Path]) -> list[dict]:
 
     ast_diagnostics = rule_runner.run(walker.results)
     symbol_diagnostics = symbol_rule_runner.run(symbol_table)
-    return ast_diagnostics + symbol_diagnostics
+    module_diagnostics = module_rule_runner.run(symbol_table)
+    return ast_diagnostics + symbol_diagnostics + module_diagnostics
 
 
 if __name__ == "__main__":

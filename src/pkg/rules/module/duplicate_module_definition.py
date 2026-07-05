@@ -1,8 +1,8 @@
-from .base_symbol_rule import BaseSymbolRule
-from ..ast.symbol_table import SymbolTable
-from .symbol_rule_runner import symbol_rule_runner
+from ..base_symbol_rule import BaseSymbolRule
+from ...ast.symbol_table import SymbolTable
+from .module_rule_runner import module_rule_runner
 
-@symbol_rule_runner.register
+@module_rule_runner.register
 class DuplicateModuleDefinitionRule(BaseSymbolRule):
     code = "DUPLICATE_MODULE"
     message = "Duplicate module definition"

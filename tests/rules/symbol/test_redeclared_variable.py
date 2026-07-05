@@ -6,7 +6,7 @@ from src.pkg.ast.dispatch import dispatch
 from src.pkg.ast.symbol_table import SymbolTable, Symbol
 from src.pkg.ast.walker import Walker
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.redeclared_variable import RedeclaredVariableRule
+from src.pkg.rules.symbol.redeclared_variable import RedeclaredVariableRule
 
 REDECLARED_CODE = """
 module dup;

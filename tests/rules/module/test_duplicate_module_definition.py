@@ -1,7 +1,7 @@
 import pytest
 
 from src.pkg.ast.symbol_table import SymbolTable
-from src.pkg.rules.duplicate_module_definition import DuplicateModuleDefinitionRule
+from src.pkg.rules.module.duplicate_module_definition import DuplicateModuleDefinitionRule
 
 
 class TestDuplicateModuleDefinitionRule:

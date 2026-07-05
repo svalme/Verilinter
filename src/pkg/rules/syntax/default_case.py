@@ -1,7 +1,7 @@
 import pyslang as sl
 
-from ..ast.context import ContextFlag
-from .base_rule import Rule
+from ...ast.context import ContextFlag
+from ..base_rule import Rule
 from .rule_runner import rule_runner
 
 @rule_runner.register
@@ -15,4 +15,4 @@ class DefaultCaseRule(Rule):
             and not ctx.has(ContextFlag.DEFAULT)
 
 
-    
+

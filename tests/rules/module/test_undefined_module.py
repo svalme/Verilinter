@@ -6,7 +6,7 @@ from src.pkg.ast.dispatch import dispatch
 from src.pkg.ast.symbol_table import SymbolTable
 from src.pkg.ast.walker import Walker
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.undefined_module import UndefinedModuleRule
+from src.pkg.rules.module.undefined_module import UndefinedModuleRule
 
 CODE = """
 module top;

@@ -2,7 +2,7 @@ from typing import Any
 import pytest
 from unittest.mock import Mock
 
-from src.pkg.rules.rule_runner import RuleRunner
+from src.pkg.rules.syntax.rule_runner import RuleRunner
 from src.pkg.rules.base_rule import Rule
 from src.pkg.vnodes.base_vnode import BaseVNode
 
@@ -41,7 +41,7 @@ class TestRuleRunner:
                 return False
 
         runner.register(TestRule)
-        
+
         assert len(runner._rules) == 1
         assert isinstance(runner._rules[0], TestRule)
 
@@ -54,7 +54,7 @@ class TestRuleRunner:
                 return False
 
         result = runner.register(TestRule)
-        
+
         assert result == TestRule
 
     def test_register_instantiates_rule(self, runner: RuleRunner) -> None:
@@ -64,7 +64,7 @@ class TestRuleRunner:
                 return False
 
         runner.register(TestRule)
-        
+
         registered = runner._rules[0]
         assert isinstance(registered, TestRule)
 
@@ -72,7 +72,7 @@ class TestRuleRunner:
         """Test that run() returns empty list when no rules are registered."""
         walk_results: list[tuple[Any, Any]] = []
         diagnostics = runner.run(walk_results)
-        
+
         assert diagnostics == []
 
     def test_run_applies_rules_to_walk_results(self, runner: RuleRunner, mock_vnode: Mock, mock_ctx: Mock) -> None:
@@ -85,7 +85,7 @@ class TestRuleRunner:
                 return True
 
         runner.register(AlwaysApplyRule)
-        
+
         walk_results: list[tuple[Mock, Mock]] = [(mock_vnode, mock_ctx)]
         diagnostics = runner.run(walk_results)
 
@@ -102,7 +102,7 @@ class TestRuleRunner:
                 return False
 
         runner.register(NeverApplyRule)
-        
+
         walk_results: list[tuple[Mock, Mock]] = [(mock_vnode, mock_ctx)]
         diagnostics = runner.run(walk_results)
 
@@ -151,7 +151,7 @@ class TestRuleRunner:
         mock_vnode1.location = {"line": 1, "col": 1}
         mock_vnode2 = Mock(spec=BaseVNode)
         mock_vnode2.location = {"line": 2, "col": 2}
-        
+
         walk_results: list[tuple[Mock, Mock]] = [
             (mock_vnode1, mock_ctx),
             (mock_vnode2, mock_ctx),
@@ -185,7 +185,7 @@ class TestRuleRunner:
         mock_vnode1.location = {"line": 1, "col": 1}
         mock_vnode2 = Mock(spec=BaseVNode)
         mock_vnode2.location = {"line": 2, "col": 2}
-        
+
         walk_results: list[tuple[Mock, Mock]] = [
             (mock_vnode1, mock_ctx),
             (mock_vnode2, mock_ctx),
