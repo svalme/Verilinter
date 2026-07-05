@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock
 
-from src.pkg.ast.context import Context, ContextFlag
+from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
 
 

@@ -1,6 +1,6 @@
 from enum import Enum, auto
 from ..vnodes.base_vnode import BaseVNode
-from .symbol_table import Scope
+from ..semantic.scope import Scope
 
 class ContextFlag(Enum):
 

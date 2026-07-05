@@ -8,10 +8,10 @@ from pathlib import Path
 import pyslang as sl
 import pytest
 
-from src.pkg.ast.context import Context
-from src.pkg.ast.dispatch import dispatch
-from src.pkg.ast.symbol_table import SymbolTable
-from src.pkg.ast.walker import Walker
+from src.pkg.walk.context import Context
+from src.pkg.walk.dispatch import dispatch
+from src.pkg.semantic.symbol_table import SymbolTable
+from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.vnodes.identifier_vnode import IdentifierNameVNode
 from src.pkg.vnodes.register_vnodes import *

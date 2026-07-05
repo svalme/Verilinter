@@ -1,11 +1,11 @@
 from ..vnodes.base_vnode import BaseVNode
-from ..ast.context import Context, ContextFlag
-from ..ast.symbol_table import SymbolTable
+from ..walk.context import Context, ContextFlag
+from ..semantic.symbol_table import SymbolTable
 from .syntax_node_handler import SyntaxNodeHandler
 from ..vnodes.syntax_vnode import SyntaxVNode
 
 import pyslang as sl
-from ..ast.dispatch import dispatch
+from ..walk.dispatch import dispatch
 
 @dispatch.register(sl.ProceduralBlockSyntax)
 class ProceduralBlockHandler(SyntaxNodeHandler):

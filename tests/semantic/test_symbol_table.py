@@ -1,7 +1,9 @@
 import pytest
 from unittest.mock import Mock
 
-from src.pkg.ast.symbol_table import Symbol, Scope, SymbolTable
+from src.pkg.semantic.symbol import Symbol
+from src.pkg.semantic.scope import Scope
+from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.vnodes.base_vnode import Location
 
 

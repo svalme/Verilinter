@@ -6,7 +6,7 @@ from .context import Context
 from ..vnodes.register_vnodes import *
 from ..vnodes.base_vnode import BaseVNode
 from ..vnodes.vnode_factory import vnode_factory
-from ..ast.symbol_table import SymbolTable
+from ..semantic.symbol_table import SymbolTable
 
 
 class Walker:

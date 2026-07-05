@@ -9,10 +9,10 @@ import pyslang as sl
 
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.register_rules import symbol_rule_runner, module_rule_runner
-from src.pkg.ast.dispatch import dispatch
-from src.pkg.ast.context import Context
-from src.pkg.ast.symbol_table import SymbolTable
-from src.pkg.ast.walker import Walker
+from src.pkg.walk.dispatch import dispatch
+from src.pkg.walk.context import Context
+from src.pkg.semantic.symbol_table import SymbolTable
+from src.pkg.walk.walker import Walker
 
 DATA = Path(__file__).parent / "data"
 FILE_A = DATA / "dup_module_a.v"

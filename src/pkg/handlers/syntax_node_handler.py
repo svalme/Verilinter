@@ -1,12 +1,12 @@
 import pyslang as sl
 
-from ..ast.context import Context
-from ..ast.symbol_table import SymbolTable
+from ..walk.context import Context
+from ..semantic.symbol_table import SymbolTable
 from .base_handler import BaseHandler
 from ..vnodes.base_vnode import BaseVNode
 from ..vnodes.syntax_vnode import SyntaxVNode
 
-from ..ast.dispatch import dispatch
+from ..walk.dispatch import dispatch
 from ..vnodes.vnode_factory import vnode_factory
 
 @dispatch.register(sl.SyntaxNode)

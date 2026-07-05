@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pyslang as sl
 
-from pkg.ast.walker import Walker
-from pkg.ast.context import Context
-from pkg.ast.symbol_table import SymbolTable
-from pkg.ast.dispatch import dispatch
+from pkg.walk.walker import Walker
+from pkg.walk.context import Context
+from pkg.semantic.symbol_table import SymbolTable
+from pkg.walk.dispatch import dispatch
 from pkg.vnodes.register_vnodes import *
 from pkg.handlers.register_handlers import *
 from pkg.rules.register_rules import *

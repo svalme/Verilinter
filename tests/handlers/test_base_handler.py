@@ -6,8 +6,8 @@ import pyslang as sl
 
 from src.pkg.handlers.base_handler import BaseHandler, VNodeType
 from src.pkg.vnodes.base_vnode import BaseVNode
-from src.pkg.ast.context import Context
-from src.pkg.ast.symbol_table import SymbolTable
+from src.pkg.walk.context import Context
+from src.pkg.semantic.symbol_table import SymbolTable
 
 
 class ConcreteHandler(BaseHandler):

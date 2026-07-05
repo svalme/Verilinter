@@ -1,7 +1,7 @@
 from .base_handler import BaseHandler
 from ..vnodes.base_vnode import BaseVNode
-from ..ast.context import Context
-from ..ast.symbol_table import SymbolTable
+from ..walk.context import Context
+from ..semantic.symbol_table import SymbolTable
 from ..vnodes.vnode_factory import vnode_factory
 
 class DefaultHandler(BaseHandler):

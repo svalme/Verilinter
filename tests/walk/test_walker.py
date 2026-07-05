@@ -4,10 +4,11 @@ import pytest
 from unittest.mock import Mock, MagicMock, call, patch
 import pyslang as sl
 
-from src.pkg.ast.walker import Walker
-from src.pkg.ast.dispatch import Dispatch
-from src.pkg.ast.context import Context, ContextFlag
-from src.pkg.ast.symbol_table import SymbolTable, Scope
+from src.pkg.walk.walker import Walker
+from src.pkg.walk.dispatch import Dispatch
+from src.pkg.walk.context import Context, ContextFlag
+from src.pkg.semantic.symbol_table import SymbolTable
+from src.pkg.semantic.scope import Scope
 from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.handlers.base_handler import BaseHandler
 
@@ -77,7 +78,7 @@ class TestWalker:
         
         mock_dispatch.get.return_value = mock_handler
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', return_value=mock_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', return_value=mock_vnode):
             walker.walk(mock_syntax_node, mock_tree, context, symbol_table)
         
         # Verify vnode was created
@@ -100,7 +101,7 @@ class TestWalker:
         mock_dispatch.get.return_value = mock_handler
         mock_handler.children.return_value = []
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', return_value=mock_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', return_value=mock_vnode):
             walker.walk(mock_syntax_node, mock_tree, context, symbol_table)
         
         # Verify get was called with the vnode
@@ -125,7 +126,7 @@ class TestWalker:
         mock_handler.children.return_value = []
         mock_dispatch.get.return_value = mock_handler
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', return_value=mock_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', return_value=mock_vnode):
             walker.walk(mock_syntax_node, mock_tree, context, symbol_table)
         
         # Verify update_context was called with correct parameters
@@ -150,7 +151,7 @@ class TestWalker:
         mock_handler.children.return_value = []
         mock_dispatch.get.return_value = mock_handler
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', return_value=mock_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', return_value=mock_vnode):
             walker.walk(mock_syntax_node, mock_tree, context, symbol_table)
         
         # Verify result was appended
@@ -199,7 +200,7 @@ class TestWalker:
         
         mock_dispatch.get.side_effect = get_handler
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', return_value=mock_parent_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', return_value=mock_parent_vnode):
             walker.walk(mock_syntax_node, mock_tree, context, symbol_table)
         
         # Verify both parent and child were processed
@@ -227,7 +228,7 @@ class TestWalker:
         mock_handler.update_context.return_value = context.push(mock_vnode)
         mock_dispatch.get.return_value = mock_handler
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', return_value=mock_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', return_value=mock_vnode):
             walker.walk(mock_token, mock_tree, context, symbol_table)
         
         # Verify vnode was added to results
@@ -285,7 +286,7 @@ class TestWalker:
             vnode_counter += 1
             return result
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', side_effect=create_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', side_effect=create_vnode):
             walker.walk(root_node, mock_tree, context, symbol_table)
         
         # Verify all nodes were traversed
@@ -320,7 +321,7 @@ class TestWalker:
         
         mock_dispatch.get.side_effect = get_handler
         
-        with patch('src.pkg.ast.walker.vnode_factory.create', return_value=root_vnode):
+        with patch('src.pkg.walk.walker.vnode_factory.create', return_value=root_vnode):
             walker.walk(Mock(spec=sl.SyntaxNode), mock_tree, context, symbol_table)
         
         # Verify root handler was called with original context
@@ -343,7 +344,7 @@ class TestWalker:
         mock_handler.update_context.return_value = context
         mock_dispatch.get.return_value = mock_handler
         
-        with patch('src.pkg.ast.walker.vnode_factory.create') as mock_create:
+        with patch('src.pkg.walk.walker.vnode_factory.create') as mock_create:
             mock_create.return_value = mock_vnode1
             walker.walk(Mock(spec=sl.SyntaxNode), mock_tree, context, symbol_table)
             

@@ -1,8 +1,9 @@
 import pyslang as sl
 
-from ..ast.dispatch import dispatch
-from ..ast.context import Context
-from ..ast.symbol_table import Symbol, SymbolTable
+from ..walk.dispatch import dispatch
+from ..walk.context import Context
+from ..semantic.symbol import Symbol
+from ..semantic.symbol_table import SymbolTable
 from ..vnodes.syntax_vnode import SyntaxVNode
 from .syntax_node_handler import SyntaxNodeHandler
 

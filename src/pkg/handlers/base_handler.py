@@ -1,6 +1,6 @@
 from ..vnodes.base_vnode import BaseVNode
-from ..ast.context import Context
-from ..ast.symbol_table import SymbolTable
+from ..walk.context import Context
+from ..semantic.symbol_table import SymbolTable
 from typing import TypeVar, Generic
 
 VNodeType = TypeVar("VNodeType", bound=BaseVNode)

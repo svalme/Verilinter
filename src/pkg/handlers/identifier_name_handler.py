@@ -4,9 +4,10 @@ from .base_handler import BaseHandler
 from ..vnodes.base_vnode import BaseVNode
 from ..vnodes.identifier_vnode import IdentifierNameVNode
 from ..vnodes.vnode_factory import vnode_factory
-from ..ast.dispatch import dispatch
-from ..ast.symbol_table import Symbol, SymbolTable
-from ..ast.context import Context
+from ..walk.dispatch import dispatch
+from ..semantic.symbol import Symbol
+from ..semantic.symbol_table import SymbolTable
+from ..walk.context import Context
 
 @dispatch.register(sl.IdentifierNameSyntax)
 class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):

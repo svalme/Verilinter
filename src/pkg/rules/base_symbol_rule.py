@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from ..ast.symbol_table import SymbolTable
+from ..semantic.symbol_table import SymbolTable
 from .base_diagnostic import BaseDiagnostic
 
 

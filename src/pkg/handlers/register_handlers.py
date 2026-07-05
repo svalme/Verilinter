@@ -1,6 +1,6 @@
-# src/pkg/ast/register_handlers.py
+# src/pkg/handlers/register_handlers.py
 
-from ..ast.dispatch import dispatch
+from ..walk.dispatch import dispatch
 
 from .default_handler import DefaultHandler
 

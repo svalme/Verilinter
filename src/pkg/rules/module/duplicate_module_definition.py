@@ -1,5 +1,5 @@
 from ..base_symbol_rule import BaseSymbolRule
-from ...ast.symbol_table import SymbolTable
+from ...semantic.symbol_table import SymbolTable
 from .module_rule_runner import module_rule_runner
 
 @module_rule_runner.register

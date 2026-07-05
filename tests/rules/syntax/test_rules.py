@@ -5,7 +5,7 @@ import pyslang as sl
 from src.pkg.rules.syntax.default_case import DefaultCaseRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
-from src.pkg.ast.context import Context, ContextFlag
+from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
 
 

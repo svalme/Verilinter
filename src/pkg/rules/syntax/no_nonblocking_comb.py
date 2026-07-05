@@ -1,6 +1,6 @@
 import pyslang as sl
 
-from ...ast.context import ContextFlag
+from ...walk.context import ContextFlag
 from ..base_rule import Rule
 from .rule_runner import rule_runner
 

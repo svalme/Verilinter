@@ -3,11 +3,11 @@ import pyslang as sl
 
 # force handler registration
 from src.pkg.handlers.register_handlers import *
-from src.pkg.ast.dispatch import dispatch
+from src.pkg.walk.dispatch import dispatch
 
-from src.pkg.ast.walker import Walker
-from src.pkg.ast.context import Context
-from src.pkg.ast.symbol_table import SymbolTable
+from src.pkg.walk.walker import Walker
+from src.pkg.walk.context import Context
+from src.pkg.semantic.symbol_table import SymbolTable
 
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
