@@ -8,17 +8,29 @@ class Dispatch:
     def __init__(self):
         self._default: BaseHandler[BaseVNode] = DefaultHandler()
         self._registry: dict = {}
+        self._resolved: dict = {}
 
     def register(self, raw_cls):
         def decorator(handler_cls):
             self._registry[raw_cls] = handler_cls()
+            self._resolved.clear()
             return handler_cls
         return decorator
 
     def get(self, vnode: BaseVNode) -> BaseHandler:
-        for cls in type(vnode.raw).__mro__:
+        raw_cls = type(vnode.raw)
+        handler = self._resolved.get(raw_cls)
+        if handler is not None:
+            return handler
+
+        for cls in raw_cls.__mro__:
             if cls in self._registry:
-                return  self._registry[cls]
-        return self._default
+                handler = self._registry[cls]
+                break
+        else:
+            handler = self._default
+
+        self._resolved[raw_cls] = handler
+        return handler
 
 dispatch = Dispatch()
