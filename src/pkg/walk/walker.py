@@ -1,3 +1,5 @@
+from typing import Callable
+
 import pyslang as sl
 
 from .dispatch import Dispatch
@@ -18,12 +20,16 @@ class Walker:
     def results(self) -> list:
         return self._results
 
-    def walk(self, raw_node: sl.SyntaxNode | sl.Token | BaseVNode, tree: sl.SyntaxTree, ctx: Context, symbol_table: SymbolTable):
+    def walk(self, raw_node: sl.SyntaxNode | sl.Token | BaseVNode, tree: sl.SyntaxTree, ctx: Context, symbol_table: SymbolTable,
+              on_node: Callable[[BaseVNode, Context], None] | None = None):
         def _walk(node: sl.SyntaxNode | sl.Token | BaseVNode, ctx: Context):
             vnode = node if isinstance(node, BaseVNode) else vnode_factory.create(node, tree)
             handler = self._dispatch.get(vnode)
             ctx = handler.update_context(ctx, vnode, symbol_table)
-            self._results.append((vnode, ctx))
+            if on_node is not None:
+                on_node(vnode, ctx)
+            else:
+                self._results.append((vnode, ctx))
             for child in handler.children(vnode):
                 _walk(child, ctx)
             handler.on_exit(ctx, vnode, symbol_table)

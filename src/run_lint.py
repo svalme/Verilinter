@@ -30,15 +30,19 @@ def run(paths: list[Path]) -> list[dict]:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
+    ast_diagnostics: list[dict] = []
+
+    def on_node(vnode, node_ctx) -> None:
+        ast_diagnostics.extend(rule_runner.check(vnode, node_ctx))
+
     for path in paths:
         if not path.exists():
             print(f"Error: file not found: {path}", file=sys.stderr)
             sys.exit(1)
         symbol_table.set_current_file(str(path))
         tree = sl.SyntaxTree.fromFile(str(path))
-        walker.walk(tree.root, tree, ctx, symbol_table)
+        walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 
-    ast_diagnostics = rule_runner.run(walker.results)
     symbol_diagnostics = symbol_rule_runner.run(symbol_table)
     module_diagnostics = module_rule_runner.run(symbol_table)
     return ast_diagnostics + symbol_diagnostics + module_diagnostics

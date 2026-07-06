@@ -11,13 +11,14 @@ class RuleRunner:
         self._rules.append(rule_cls())
         return rule_cls
 
+    def check(self, vnode, ctx) -> list[dict[str, Any]]:
+        return [rule.report(vnode) for rule in self._rules if rule.applies(vnode, ctx)]
+
     def run(self, walk_results: list[tuple]) -> list[dict[str, Any]]:
         diagnostics = []
 
         for vnode, ctx in walk_results:
-            for rule in self._rules:
-                if rule.applies(vnode, ctx):
-                    diagnostics.append(rule.report(vnode))
+            diagnostics.extend(self.check(vnode, ctx))
 
         return diagnostics
 
