@@ -12,8 +12,10 @@ class CaseGenerateHandler(SyntaxNodeHandler):
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         ctx = ctx.push(vnode)
 
-        if str(vnode.raw.keyword).strip() == "case" and str(vnode.raw.endCase).strip() == "endcase": 
+        if str(vnode.raw.keyword).strip() == "case" and str(vnode.raw.endCase).strip() == "endcase":
             ctx = ctx.with_flag(ContextFlag.CASE_GENERATE)
+            if any(isinstance(item, sl.DefaultCaseItemSyntax) for item in vnode.raw.items):
+                ctx = ctx.with_flag(ContextFlag.DEFAULT)
 
         return ctx
 
