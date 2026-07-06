@@ -168,21 +168,6 @@ class TestScope:
         assert "test_var" in scope.symbols
         assert scope.symbols["test_var"] == symbol
 
-    """
-    def test_define_overwrites_existing_symbol(self, scope: Scope, mock_location: Location) -> None:
-        # Test that define() overwrites an existing symbol with the same name.
-        sym1 = Symbol(name="x", kind="variable")
-        sym1.add_declaration(mock_location)
-        sym2 = Symbol(name="x", kind="wire")
-        sym2.add_declaration(mock_location)
-        
-        scope.define(sym1)
-        assert scope.symbols["x"] == sym1
-        
-        scope.define(sym2)
-        assert scope.symbols["x"] == sym2
-    """
-        
     def test_lookup_finds_symbol_in_current_scope(self, scope: Scope, symbol: Symbol) -> None:
         """Test that lookup() finds a Symbol in the current scope."""
         scope.define(symbol)
@@ -196,24 +181,6 @@ class TestScope:
         found = scope.lookup("nonexistent")
         
         assert found is None
-
-    def test_lookup_traverses_parent_scope(self, mock_location: Location) -> None:
-        """Test that SymbolTable.lookup() traverses the parent scope hierarchy."""
-        parent = Scope(kind="module", name="parent")
-        child = Scope(kind="block", name="child")
-        child.set_parent(parent)
-        
-        sym = Symbol(name="x", kind="variable")
-        sym.add_declaration(mock_location)
-        parent.define(sym)
-
-        sym_tab = SymbolTable()
-        sym_tab.add_scope(parent)
-        sym_tab.add_scope(child)
-        
-        found = sym_tab.lookup("x")
-        
-        assert found == sym
 
     def test_lookup_prefers_local_symbol_over_parent(self, mock_location: Location) -> None:
         """Test that lookup() returns local symbol before checking parent."""
@@ -231,21 +198,6 @@ class TestScope:
         found = child.lookup("x")
         
         assert found == sym_child
-
-    def test_lookup_returns_none_when_not_in_hierarchy(self, mock_location: Location) -> None:
-        """Test that lookup() returns None when symbol is not found anywhere in the hierarchy."""
-        parent = Scope(kind="module", name="parent")
-        child = Scope(kind="block", name="child")
-        child.set_parent(parent)
-
-        symbol_table = SymbolTable()
-        symbol_table.add_scope(parent)
-        symbol_table.add_scope(child)
-
-        found = symbol_table.lookup("nonexistent")
-
-        assert found is None
-
 
 class TestSymbolTable:
     """Test cases for the SymbolTable class."""
@@ -283,23 +235,6 @@ class TestSymbolTable:
         assert scope.kind == "always"
         assert scope.name is None
 
-    def test_current_scope_returns_most_recent(self, symbol_table: SymbolTable) -> None:
-        """Test that current_scope() returns the most recently created scope."""
-        assert symbol_table.current_scope() == symbol_table.global_scope
-        
-        scope1 = symbol_table.new_scope(kind="module", name="m1")
-        assert symbol_table.current_scope() == scope1
-        
-        scope2 = symbol_table.new_scope(kind="module", name="m2")
-        assert symbol_table.current_scope() == scope2
-
-    def test_current_scope_returns_none_on_empty(self) -> None:
-        """Test that current_scope() returns None when scopes is empty."""
-        st = SymbolTable()
-        st._scope_stack = []
-
-        assert st.current_scope() is None
-
     def test_symbol_table_maintains_scope_list(self, symbol_table: SymbolTable) -> None:
         """Test that SymbolTable maintains a list of all scopes."""
         initial_count = len(symbol_table.scopes)
@@ -309,24 +244,6 @@ class TestSymbolTable:
         
         symbol_table.new_scope(kind="block", name="b1")
         assert len(symbol_table.scopes) == initial_count + 2
-
-    def test_nested_scope_symbol_lookup(self, symbol_table: SymbolTable, mock_location: Location) -> None:
-        """Test that symbols can be looked up across nested scopes."""
-        # Create module scope
-        module = symbol_table.new_scope(kind="module", name="top")
-        
-        # Define symbol in module
-        sym = Symbol(name="x", kind="variable")
-        sym.add_declaration(mock_location)
-        module.define(sym)
-        
-        # Create block scope within module
-        block = symbol_table.new_scope(kind="always")
-        block.set_parent(module)
-        
-        # Block should be able to find symbol from module
-        found = symbol_table.lookup("x")
-        assert found == sym
 
     def test_symbol_table_integration_scenario(self, mock_location: Location) -> None:
         """Integration test: create nested scopes and manage symbols."""
@@ -489,136 +406,6 @@ class TestModuleRegistry:
     def test_is_duplicate_module_false_for_missing(self) -> None:
         st = SymbolTable()
         assert st.is_duplicate_module("nope") is False
-
-
-# ---------------------------------------------------------------------------
-# lookup_downward
-# ---------------------------------------------------------------------------
-
-class TestLookupDownward:
-    """Tests for SymbolTable.lookup_downward."""
-
-    def _sym(self, name: str) -> Symbol:
-        s = Symbol(name=name, kind="wire")
-        s.add_declaration({"line": 1, "col": 1})
-        return s
-
-    def test_finds_symbol_in_direct_child(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        child = st.new_scope(kind="always")
-        sym = self._sym("clk")
-        child.define(sym)
-        st.pop_scope()  # exit always
-        st.pop_scope()  # exit module
-
-        found = st.lookup_downward("clk", module)
-        assert found is sym
-
-    def test_finds_symbol_in_grandchild(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        child = st.new_scope(kind="always")
-        grandchild = st.new_scope(kind="block")
-        sym = self._sym("x")
-        grandchild.define(sym)
-        st.pop_scope()
-        st.pop_scope()
-        st.pop_scope()
-
-        found = st.lookup_downward("x", module)
-        assert found is sym
-
-    def test_does_not_find_in_from_scope_itself(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        sym = self._sym("x")
-        module.define(sym)
-
-        found = st.lookup_downward("x", module)
-        assert found is None
-
-    def test_returns_none_when_not_found(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        st.new_scope(kind="always")
-
-        found = st.lookup_downward("missing", module)
-        assert found is None
-
-    def test_uses_current_scope_when_no_from_scope(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        child = st.new_scope(kind="always")
-        sym = self._sym("y")
-        child.define(sym)
-        # current scope is child; lookup_downward from child finds nothing (no grandchildren)
-        found = st.lookup_downward("y")
-        assert found is None
-
-
-# ---------------------------------------------------------------------------
-# lookup_sibling
-# ---------------------------------------------------------------------------
-
-class TestLookupSibling:
-    """Tests for SymbolTable.lookup_sibling."""
-
-    def _sym(self, name: str) -> Symbol:
-        s = Symbol(name=name, kind="wire")
-        s.add_declaration({"line": 1, "col": 1})
-        return s
-
-    def test_finds_symbol_in_sibling_scope(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        sibling_a = st.new_scope(kind="always")
-        sym = self._sym("clk")
-        sibling_a.define(sym)
-        st.pop_scope()
-        sibling_b = st.new_scope(kind="always")
-
-        found = st.lookup_sibling("clk", sibling_b)
-        assert found is sym
-
-    def test_does_not_find_in_self(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        only_child = st.new_scope(kind="always")
-        sym = self._sym("x")
-        only_child.define(sym)
-
-        # only_child has no siblings, so nothing found
-        found = st.lookup_sibling("x", only_child)
-        assert found is None
-
-    def test_returns_none_when_no_parent(self) -> None:
-        st = SymbolTable()
-        orphan = Scope(kind="module", name="orphan")
-        found = st.lookup_sibling("x", orphan)
-        assert found is None
-
-    def test_returns_none_when_symbol_not_in_any_sibling(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        st.new_scope(kind="always")
-        st.pop_scope()
-        sibling_b = st.new_scope(kind="always")
-
-        found = st.lookup_sibling("missing", sibling_b)
-        assert found is None
-
-    def test_uses_current_scope_when_no_from_scope(self) -> None:
-        st = SymbolTable()
-        module = st.new_scope(kind="module", name="top")
-        sibling_a = st.new_scope(kind="always")
-        sym = self._sym("sig")
-        sibling_a.define(sym)
-        st.pop_scope()
-        st.new_scope(kind="always")  # now current scope
-
-        found = st.lookup_sibling("sig")
-        assert found is sym
 
 
 # ---------------------------------------------------------------------------

@@ -18,15 +18,6 @@ class SymbolTable:
         """Signal that a new file is about to be walked. Stamps all subsequent scopes."""
         self.current_file = path
 
-    def add_scope(self, scope: Scope) -> None:
-        """Add an existing scope to the registry and push it onto the traversal stack."""
-        if scope.parent is None and self._scope_stack:
-            scope.set_parent(self._scope_stack[-1])
-        scope.file = self.current_file
-        if scope not in self.scopes:
-            self.scopes.append(scope)
-        self._scope_stack.append(scope)
-
     def new_scope(self, kind: str, name: str | None = None, parent: Scope | None = None, location: Location | None = None) -> Scope:
         """Create a new scope, add it to the registry, and push it onto the traversal stack."""
         if parent is None:
@@ -46,13 +37,6 @@ class SymbolTable:
             f"unbalanced push/pop in visitor (current: {self._scope_stack[-1]})"
         )
         self._scope_stack.pop()
-
-    def current_scope(self) -> Scope | None:
-        return self._scope_stack[-1] if self._scope_stack else None
-
-    def lookup(self, name: str) -> Symbol | None:
-        """Lookup a symbol starting from the current traversal scope upwards."""
-        return self.lookup_from_scope(name, self.current_scope())
 
     def register_module(self, name: str, scope: Scope) -> None:
         """Record a module definition. Appends if the name was already registered (duplicate module)."""
@@ -80,33 +64,6 @@ class SymbolTable:
             if exists:
                 return exists
             scope = scope.parent
-        return None
-
-    def lookup_downward(self, name: str, from_scope: Scope | None = None) -> Symbol | None:
-        """BFS through children of from_scope (or current scope) for a symbol."""
-        root = from_scope if from_scope is not None else self.current_scope()
-        if root is None:
-            return None
-        queue = list(root.children)
-        while queue:
-            child = queue.pop(0)
-            found = child.lookup(name)
-            if found:
-                return found
-            queue.extend(child.children)
-        return None
-
-    def lookup_sibling(self, name: str, from_scope: Scope | None = None) -> Symbol | None:
-        """Search symbols in sibling scopes (same parent, not self)."""
-        scope = from_scope if from_scope is not None else self.current_scope()
-        if scope is None or scope.parent is None:
-            return None
-        for sibling in scope.parent.children:
-            if sibling is scope:
-                continue
-            found = sibling.lookup(name)
-            if found:
-                return found
         return None
 
     def lookup_qualified(self, path: list[str]) -> Symbol | None:
