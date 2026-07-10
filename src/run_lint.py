@@ -25,7 +25,15 @@ def collect_paths(raw: list[str]) -> list[Path]:
     return paths
 
 
-def run(paths: list[Path]) -> list[dict]:
+def run(paths: list[Path], jobs: int = 1) -> list[dict]:
+    if jobs < 1:
+        raise ValueError(f"jobs must be >= 1, got {jobs}")
+    if jobs > 1:
+        raise NotImplementedError(
+            "parallel linting (jobs > 1) is not implemented yet — "
+            "see Docs/07_02_26/PARALLEL_LINTING_PLAN.md for the design and rollout plan"
+        )
+
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
@@ -55,6 +63,14 @@ if __name__ == "__main__":
         nargs="+",
         help="Verilog/SystemVerilog source files or directories",
     )
+    parser.add_argument(
+        "--jobs", "-j",
+        type=int,
+        default=1,
+        metavar="N",
+        help="number of worker processes to lint with (default: 1, sequential; "
+             "parallel execution with N > 1 is not implemented yet)",
+    )
     args = parser.parse_args()
 
     paths = collect_paths(args.paths)
@@ -62,7 +78,11 @@ if __name__ == "__main__":
         print("Error: no .v or .sv files found", file=sys.stderr)
         sys.exit(1)
 
-    diagnostics = run(paths)
+    try:
+        diagnostics = run(paths, jobs=args.jobs)
+    except (ValueError, NotImplementedError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
     if not diagnostics:
         print("No issues found.")
     else:
