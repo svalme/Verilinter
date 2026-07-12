@@ -5,6 +5,12 @@ import pytest
 from src.run_lint import main, run
 
 DATA = Path(__file__).parent / "data" / "simple.v"
+INITIAL_BLOCK_DATA = Path(__file__).parent / "data" / "initial_block.v"
+FINAL_BLOCK_DATA = Path(__file__).parent / "data" / "final_block.v"
+ALWAYS_LATCH_DATA = Path(__file__).parent / "data" / "always_latch.v"
+CASE_GENERATE_DATA = Path(__file__).parent / "data" / "case_generate.v"
+FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v"
+UNIQUE_PRIORITY_CASE_DATA = Path(__file__).parent / "data" / "unique_priority_case.v"
 
 
 class TestRunJobsValidation:
@@ -27,6 +33,43 @@ class TestRunJobsValidation:
     def test_jobs_above_one_raises_not_implemented(self) -> None:
         with pytest.raises(NotImplementedError, match="parallel linting"):
             run([DATA], jobs=2)
+
+    def test_run_reports_initial_block_rule(self) -> None:
+        diagnostics = run([INITIAL_BLOCK_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_INITIAL_BLOCK" for d in diagnostics)
+        assert any("initial blocks" in d["message"] for d in diagnostics)
+
+    def test_run_reports_final_block_rule(self) -> None:
+        diagnostics = run([FINAL_BLOCK_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_FINAL_BLOCK" for d in diagnostics)
+        assert any("final blocks" in d["message"] for d in diagnostics)
+
+    def test_run_reports_always_latch_rule(self) -> None:
+        diagnostics = run([ALWAYS_LATCH_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_ALWAYS_LATCH" for d in diagnostics)
+        assert any("always_latch" in d["message"] for d in diagnostics)
+
+    def test_run_reports_case_generate_rule(self) -> None:
+        diagnostics = run([CASE_GENERATE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_CASE_GENERATE" for d in diagnostics)
+        assert any("case generate" in d["message"] for d in diagnostics)
+
+    def test_run_reports_unique_priority_case_rule(self) -> None:
+        diagnostics = run([UNIQUE_PRIORITY_CASE_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_UNIQUE_PRIORITY_CASE") == 2
+        assert any("unique/priority case" in d["message"] for d in diagnostics)
+
+    def test_run_reports_full_parallel_case_rule(self) -> None:
+        diagnostics = run([FULL_PARALLEL_CASE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_FULL_PARALLEL_CASE" for d in diagnostics)
+        assert any("full_case / parallel_case" in d["message"] for d in diagnostics)
 
 
 class TestMain:

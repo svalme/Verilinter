@@ -1,12 +1,22 @@
 import pytest
 from unittest.mock import Mock
 import pyslang as sl
+from pathlib import Path
 
 from src.pkg.rules.syntax.default_case import DefaultCaseRule
+from src.pkg.rules.syntax.no_always_latch import NoAlwaysLatchRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
+from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
+from src.pkg.rules.syntax.no_final_block import NoFinalBlockRule
+from src.pkg.rules.syntax.no_full_parallel_case import NoFullParallelCaseRule
+from src.pkg.rules.syntax.no_initial_block import NoInitialBlockRule
 from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
+from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
+from src.pkg.vnodes.token_vnode import TokenVNode
+
+DATA = Path(__file__).parent.parent.parent / "data"
 
 
 @pytest.fixture
@@ -212,3 +222,242 @@ class TestNoNonBlockingAssignmentInCombRule:
         assert result["line"] == 25
         assert result["col"] == 12
         assert result["message"] == "Non-blocking assignment used in combinational logic"
+
+
+class TestNoInitialBlockRule:
+    """Test cases for the NoInitialBlockRule."""
+
+    @pytest.fixture
+    def rule(self) -> NoInitialBlockRule:
+        return NoInitialBlockRule()
+
+    def test_rule_has_correct_code(self, rule: NoInitialBlockRule) -> None:
+        assert rule.code == "NO_INITIAL_BLOCK"
+
+    def test_rule_has_correct_message(self, rule: NoInitialBlockRule) -> None:
+        assert rule.message == "Use of initial blocks can be unsafe in synthesizable RTL"
+
+    def test_applies_returns_true_for_initial_block(self, rule: NoInitialBlockRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.InitialBlock
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_procedural_block(self, rule: NoInitialBlockRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysBlock
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoInitialBlockRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 6, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 6
+        assert result["col"] == 3
+        assert result["message"] == "Use of initial blocks can be unsafe in synthesizable RTL"
+
+
+class TestNoFinalBlockRule:
+    @pytest.fixture
+    def rule(self) -> NoFinalBlockRule:
+        return NoFinalBlockRule()
+
+    def test_rule_has_correct_code(self, rule: NoFinalBlockRule) -> None:
+        assert rule.code == "NO_FINAL_BLOCK"
+
+    def test_rule_has_correct_message(self, rule: NoFinalBlockRule) -> None:
+        assert rule.message == "Use of final blocks is usually not appropriate in synthesizable RTL"
+
+    def test_applies_returns_true_for_final_block(self, rule: NoFinalBlockRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.FinalBlock
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_procedural_block(self, rule: NoFinalBlockRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysBlock
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoFinalBlockRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 11, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 11
+        assert result["col"] == 3
+        assert result["message"] == "Use of final blocks is usually not appropriate in synthesizable RTL"
+
+
+class TestNoAlwaysLatchRule:
+    @pytest.fixture
+    def rule(self) -> NoAlwaysLatchRule:
+        return NoAlwaysLatchRule()
+
+    def test_rule_has_correct_code(self, rule: NoAlwaysLatchRule) -> None:
+        assert rule.code == "NO_ALWAYS_LATCH"
+
+    def test_rule_has_correct_message(self, rule: NoAlwaysLatchRule) -> None:
+        assert rule.message == "Use of always_latch can hide unintended latch-oriented design choices"
+
+    def test_applies_returns_true_for_always_latch_block(self, rule: NoAlwaysLatchRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysLatchBlock
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_procedural_block(self, rule: NoAlwaysLatchRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysCombBlock
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoAlwaysLatchRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 14, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 14
+        assert result["col"] == 3
+        assert result["message"] == "Use of always_latch can hide unintended latch-oriented design choices"
+
+
+class TestNoCaseGenerateRule:
+    @pytest.fixture
+    def rule(self) -> NoCaseGenerateRule:
+        return NoCaseGenerateRule()
+
+    def test_rule_has_correct_code(self, rule: NoCaseGenerateRule) -> None:
+        assert rule.code == "NO_CASE_GENERATE"
+
+    def test_rule_has_correct_message(self, rule: NoCaseGenerateRule) -> None:
+        assert rule.message == "Use of case generate can make structural intent harder to follow"
+
+    def test_applies_returns_true_for_case_generate_node(self, rule: NoCaseGenerateRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "case_generate.v"))
+
+        def walk(node):
+            if isinstance(node, sl.CaseGenerateSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_syntax_node(self, rule: NoCaseGenerateRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysCombBlock
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoCaseGenerateRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 5
+        assert result["message"] == "Use of case generate can make structural intent harder to follow"
+
+
+class TestNoFullParallelCaseRule:
+    @pytest.fixture
+    def rule(self) -> NoFullParallelCaseRule:
+        return NoFullParallelCaseRule()
+
+    def test_rule_has_correct_code(self, rule: NoFullParallelCaseRule) -> None:
+        assert rule.code == "NO_FULL_PARALLEL_CASE"
+
+    def test_rule_has_correct_message(self, rule: NoFullParallelCaseRule) -> None:
+        assert rule.message == "Use of full_case / parallel_case pragmas can hide real case coverage issues"
+
+    def test_applies_returns_false_for_non_case_token(self, rule: NoFullParallelCaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.Identifier
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_true_for_case_with_preceding_pragma_comment(self, rule: NoFullParallelCaseRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "full_parallel_case.v"))
+
+        def walk(node):
+            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.CaseKeyword:
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_token = walk(tree.root)
+        assert raw_token is not None
+        vnode = TokenVNode(raw_token, tree)
+
+        assert rule.applies(vnode, Context()) is True
+
+    def test_report_returns_correct_format(self, rule: NoFullParallelCaseRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 9, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 9
+        assert result["col"] == 5
+        assert result["message"] == "Use of full_case / parallel_case pragmas can hide real case coverage issues"
+
+
+class TestNoUniquePriorityCaseRule:
+    @pytest.fixture
+    def rule(self) -> NoUniquePriorityCaseRule:
+        return NoUniquePriorityCaseRule()
+
+    def test_rule_has_correct_code(self, rule: NoUniquePriorityCaseRule) -> None:
+        assert rule.code == "NO_UNIQUE_PRIORITY_CASE"
+
+    def test_rule_has_correct_message(self, rule: NoUniquePriorityCaseRule) -> None:
+        assert rule.message == "Use of unique/priority case can overstate case completeness or exclusivity"
+
+    def test_applies_returns_true_for_unique_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.UniqueKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_priority_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.PriorityKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_plain_case_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.CaseKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoUniquePriorityCaseRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 5
+        assert result["message"] == "Use of unique/priority case can overstate case completeness or exclusivity"

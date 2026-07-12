@@ -1,4 +1,5 @@
 # vnode/identifier_vnode.py
+from ..parser.syntax import identifier_name
 from ..parser.types import IdentifierNameNode, IdentifierSelectNameNode, SyntaxNode, SyntaxTree
 from ..vnodes.syntax_vnode import SyntaxVNode
 from .vnode_factory import vnode_factory
@@ -12,7 +13,7 @@ class IdentifierNameVNode(SyntaxVNode):
 
     @property
     def identifier_name(self) -> str:
-        return self.raw.identifier.value
+        return identifier_name(self.raw) or ""
 
     @property
     def raw_children(self) -> list:

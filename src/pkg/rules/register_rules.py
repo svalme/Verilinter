@@ -8,6 +8,14 @@ from .module.module_rule_runner import module_rule_runner
 from .syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from .syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
 from .syntax.default_case import DefaultCaseRule
+from .syntax.no_casex_casez import NoCaseXCaseZRule
+from .syntax.no_mixed_assignment_style import NoMixedAssignmentStyleRule
+from .syntax.no_initial_block import NoInitialBlockRule
+from .syntax.no_final_block import NoFinalBlockRule
+from .syntax.no_always_latch import NoAlwaysLatchRule
+from .syntax.no_case_generate import NoCaseGenerateRule
+from .syntax.no_full_parallel_case import NoFullParallelCaseRule
+from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
