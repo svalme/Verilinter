@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TypedDict, NotRequired
-import pyslang as sl
+
+from ..parser.types import RawNode, SyntaxTree
 
 
 class Location(TypedDict):
@@ -10,7 +11,7 @@ class Location(TypedDict):
 
 
 class BaseVNode(ABC):
-    def __init__(self, raw: sl.SyntaxNode | sl.Token, tree: sl.SyntaxTree):
+    def __init__(self, raw: RawNode, tree: SyntaxTree):
         self.raw = raw
         self.tree = tree
 

@@ -2,10 +2,11 @@
 
 import pyslang as sl
 from .base_vnode import BaseVNode, Location
+from ..parser.types import SyntaxTree, Token
 
 class TokenVNode(BaseVNode):
 
-    def __init__(self, raw: sl.Token, tree: sl.SyntaxTree):
+    def __init__(self, raw: Token, tree: SyntaxTree):
         super().__init__(raw, tree)
 
     @property

@@ -21,6 +21,9 @@ class TestUndeclaredVariableRule:
     def rule(self) -> UndeclaredVariableRule:
         return UndeclaredVariableRule()
 
+    def test_rule_has_correct_code(self, rule: UndeclaredVariableRule) -> None:
+        assert rule.code == "UNDECLARED_VARIABLE"
+
     def test_flags_symbol_used_but_never_declared(self, rule: UndeclaredVariableRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="a", kind="variable")

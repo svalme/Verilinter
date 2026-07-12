@@ -21,6 +21,9 @@ class TestUnusedVariableRule:
     def rule(self) -> UnusedVariableRule:
         return UnusedVariableRule()
 
+    def test_rule_has_correct_code(self, rule: UnusedVariableRule) -> None:
+        assert rule.code == "UNUSED_VARIABLE"
+
     def test_flags_declared_but_never_used_variable(self, rule: UnusedVariableRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="x", kind="variable")

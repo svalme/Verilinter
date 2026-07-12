@@ -1,16 +1,16 @@
 # vnode/vnode_factory.py
 from typing import Type, Dict, TypeVar
-import pyslang as sl
 
 from .token_vnode import TokenVNode
 from .base_vnode import BaseVNode
 from .syntax_vnode import SyntaxVNode
+from ..parser.types import RawNode, SyntaxTree, Token
 
 _VNodeT = TypeVar('_VNodeT', bound=BaseVNode)
 
 class VNodeFactory:
 
-    # registry: maps raw pyslang types --> vnode classes
+    # registry: maps raw parser types --> vnode classes
     _node_map: Dict[Type, Type[BaseVNode]] = {}
 
     @classmethod
@@ -21,7 +21,7 @@ class VNodeFactory:
         return decorator
     
     @classmethod
-    def create(cls, raw: sl.Token | sl.SyntaxNode, tree: sl.SyntaxTree) -> BaseVNode:
+    def create(cls, raw: RawNode, tree: SyntaxTree) -> BaseVNode:
         # if a vnode is passed in, return it unchanged
         if isinstance(raw, BaseVNode):
             return raw
@@ -30,7 +30,7 @@ class VNodeFactory:
             if base in cls._node_map:
                 return cls._node_map[base](raw, tree)
 
-        if isinstance(raw, sl.Token):
+        if isinstance(raw, Token):
             return TokenVNode(raw, tree)
 
         return SyntaxVNode(raw, tree)

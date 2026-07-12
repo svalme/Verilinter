@@ -2,25 +2,35 @@ from ..base_symbol_rule import BaseSymbolRule
 from ...semantic.symbol_table import SymbolTable
 from .symbol_rule_runner import symbol_rule_runner
 
-@symbol_rule_runner.register
-class RedeclaredVariableRule(BaseSymbolRule):
-    code = "REDECLARED_VARIABLE"
 
-    def run(self, symbol_table: SymbolTable):
+@symbol_rule_runner.register
+class ReadBeforeWriteRule(BaseSymbolRule):
+    code = "READ_BEFORE_WRITE"
+    message = "Variable read before write"
+
+    def run(self, symbol_table: SymbolTable) -> list[dict]:
         diagnostics = []
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if not sym.is_implicit and len(sym.declarations) > 1:
-                    for loc in sym.declarations[1:]:
+                if sym.kind != "variable" or not sym.declarations or sym.is_implicit:
+                    continue
+
+                seen_write = False
+                for event in sym.use_events:
+                    if event["write"]:
+                        seen_write = True
+                    if event["read"] and not seen_write:
+                        loc = event["location"]
                         diagnostic = {
                             "code": self.code,
                             "line": loc["line"],
                             "col": loc["col"],
-                            "message": f"Redeclared symbol '{sym.name}' (first declared at line {sym.declarations[0]['line']})",
+                            "message": f"Variable '{sym.name}' read before write",
                         }
                         if "file" in loc:
                             diagnostic["file"] = loc["file"]
                         diagnostics.append(diagnostic)
+                        break
 
         return diagnostics

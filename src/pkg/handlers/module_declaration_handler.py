@@ -1,16 +1,17 @@
-import pyslang as sl
 from ..walk.dispatch import dispatch
 from ..walk.context import Context, ContextFlag
+from ..parser.syntax import module_declaration_name
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.syntax_vnode import SyntaxVNode
+from ..parser.types import ModuleDeclarationNode
 from .syntax_node_handler import SyntaxNodeHandler
 
 
-@dispatch.register(sl.ModuleDeclarationSyntax)
+@dispatch.register(ModuleDeclarationNode)
 class ModuleDeclarationHandler(SyntaxNodeHandler):
 
     def update_context(self, ctx, vnode, symbol_table: SymbolTable):
-        name = vnode.raw.header.name.value
+        name = module_declaration_name(vnode.raw) or "<anonymous>"
         module_scope = symbol_table.new_scope(
             kind="module",
             name=name,

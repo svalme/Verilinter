@@ -15,6 +15,7 @@ class UndefinedModuleRule(BaseSymbolRule):
                 continue
 
             diagnostic = {
+                "code": self.code,
                 "line": loc.get("line", 0),
                 "col": loc.get("col", 0),
                 "message": f"Instantiation of undefined module '{name}'",

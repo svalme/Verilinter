@@ -24,6 +24,9 @@ class TestRedeclaredVariableRule:
     def rule(self) -> RedeclaredVariableRule:
         return RedeclaredVariableRule()
 
+    def test_rule_has_correct_code(self, rule: RedeclaredVariableRule) -> None:
+        assert rule.code == "REDECLARED_VARIABLE"
+
     def test_flags_symbol_with_multiple_declarations(self, rule: RedeclaredVariableRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="x", kind="variable")

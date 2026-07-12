@@ -61,8 +61,10 @@ class TestRule:
         assert isinstance(result, dict)
         assert "line" in result
         assert "col" in result
+        assert "code" in result
         assert "message" in result
         
+        assert result["code"] == "UNSPEC"
         assert result["line"] == 10
         assert result["col"] == 5
         assert result["message"] == "No message"
@@ -127,6 +129,7 @@ class TestCustomRule:
         """Test that custom rules inherit report() functionality."""
         result = custom_rule.report(mock_vnode)
         
+        assert result["code"] == "CUSTOM_RULE"
         assert result["message"] == "This is a custom rule"
         assert result["line"] == 1
         assert result["col"] == 1
