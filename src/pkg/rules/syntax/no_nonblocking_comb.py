@@ -1,5 +1,4 @@
-import pyslang as sl
-
+from ...parser.syntax import is_nonblocking_assignment_token
 from ...walk.context import ContextFlag
 from ..base_rule import Rule
 from .rule_runner import rule_runner
@@ -10,5 +9,4 @@ class NoNonBlockingAssignmentInCombRule(Rule):
     message = "Non-blocking assignment used in combinational logic"
 
     def applies(self, vnode, ctx) -> bool:
-        return vnode.raw.kind == sl.TokenKind.LessThanEquals and ctx.has(ContextFlag.ALWAYS_COMB)
-
+        return is_nonblocking_assignment_token(vnode.raw) and ctx.has(ContextFlag.ALWAYS_COMB)

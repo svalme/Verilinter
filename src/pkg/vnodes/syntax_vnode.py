@@ -1,10 +1,10 @@
-import pyslang as sl
-
 from .base_vnode import BaseVNode, Location
+from ..parser.types import RawNode, SyntaxNode, SyntaxTree
+import pyslang as sl
 
 class SyntaxVNode(BaseVNode):
 
-    def __init__(self, raw: sl.SyntaxNode, tree: sl.SyntaxTree):
+    def __init__(self, raw: SyntaxNode, tree: SyntaxTree):
         super().__init__(raw, tree)
 
     @property
@@ -38,6 +38,6 @@ class SyntaxVNode(BaseVNode):
         return self.raw_children
 
     @property
-    def raw_children(self) -> list[sl.SyntaxNode | sl.Token]:
+    def raw_children(self) -> list[RawNode]:
         return list(self.raw.__iter__())
               

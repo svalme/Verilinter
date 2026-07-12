@@ -1,5 +1,4 @@
-import pyslang as sl
-
+from ...parser.syntax import is_blocking_assignment_token
 from ...vnodes.base_vnode import BaseVNode
 from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
@@ -11,6 +10,4 @@ class NoBlockingAssignmentInSequentialRule(Rule):
     message = "Blocking assignment used in sequential logic"
 
     def applies(self, vnode, ctx) -> bool:
-        return vnode.raw.kind == sl.TokenKind.Equals and ctx.has(ContextFlag.ALWAYS)
-
-
+        return is_blocking_assignment_token(vnode.raw) and ctx.has(ContextFlag.ALWAYS)

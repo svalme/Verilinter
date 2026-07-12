@@ -1,6 +1,6 @@
 """Integration coverage for IdentifierNameHandler against a real parsed file:
 proves vnode_factory registration, dispatch registration, handler execution,
-and the full walker all agree on how IdentifierNameSyntax nodes are handled.
+and the full walker all agree on how identifier reference nodes are handled.
 """
 
 from pathlib import Path
@@ -20,9 +20,12 @@ from src.pkg.vnodes.vnode_factory import vnode_factory
 DATA = Path(__file__).parent.parent / "data"
 
 
-def _find_identifier_nodes(node) -> list[sl.IdentifierNameSyntax]:
+IDENTIFIER_NODE_TYPES = (sl.IdentifierNameSyntax, sl.IdentifierSelectNameSyntax)
+
+
+def _find_identifier_nodes(node) -> list[sl.SyntaxNode]:
     results = []
-    if isinstance(node, sl.IdentifierNameSyntax):
+    if isinstance(node, IDENTIFIER_NODE_TYPES):
         results.append(node)
     if hasattr(node, "__iter__"):
         for child in node:
@@ -40,8 +43,15 @@ class TestIdentifierHandlerRegistration:
         assert sl.IdentifierNameSyntax in vnode_factory._node_map
         assert vnode_factory._node_map[sl.IdentifierNameSyntax] is IdentifierNameVNode
 
+    def test_identifier_select_name_syntax_is_registered_with_vnode_factory(self) -> None:
+        assert sl.IdentifierSelectNameSyntax in vnode_factory._node_map
+        assert vnode_factory._node_map[sl.IdentifierSelectNameSyntax] is IdentifierNameVNode
+
     def test_identifier_name_syntax_is_registered_with_dispatch(self) -> None:
         assert sl.IdentifierNameSyntax in dispatch._registry
+
+    def test_identifier_select_name_syntax_is_registered_with_dispatch(self) -> None:
+        assert sl.IdentifierSelectNameSyntax in dispatch._registry
 
 
 class TestIdentifierHandlerAgainstRealFile:

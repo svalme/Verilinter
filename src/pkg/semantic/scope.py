@@ -24,6 +24,7 @@ class Scope:
             existing = self.symbols[symbol.name]
             existing.declarations.extend(symbol.declarations)
             existing.uses.extend(symbol.uses)
+            existing.use_events.extend(symbol.use_events)
             existing.is_read |= symbol.is_read
             existing.is_written |= symbol.is_written
             if symbol.declarations:

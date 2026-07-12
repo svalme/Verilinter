@@ -1,17 +1,20 @@
-import pyslang as sl
 from ..walk.dispatch import dispatch
 from ..walk.context import Context
+from ..parser.syntax import declarator_name
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
+from ..parser.types import DeclaratorNode
 from ..vnodes.syntax_vnode import SyntaxVNode
 from .syntax_node_handler import SyntaxNodeHandler
 
 
-@dispatch.register(sl.DeclaratorSyntax)
+@dispatch.register(DeclaratorNode)
 class DeclaratorHandler(SyntaxNodeHandler):
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
-        name = vnode.raw.name.value
+        name = declarator_name(vnode.raw)
+        if not name:
+            return ctx.push(vnode)
         symbol = Symbol(name=name, kind="variable")
         symbol.add_declaration(vnode.location)
         ctx.scope().define(symbol)

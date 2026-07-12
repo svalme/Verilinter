@@ -10,6 +10,7 @@ class BaseDiagnostic(ABC):
 
     def report(self, vnode: BaseVNode) -> dict[str, Any]:
         diagnostic: dict[str, Any] = {
+            "code": self.code,
             "line": vnode.location["line"],
             "col": vnode.location["col"],
             "message": self.message,

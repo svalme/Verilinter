@@ -13,6 +13,7 @@ from .syntax.default_case import DefaultCaseRule
 from .symbol.unused_variable_rule import UnusedVariableRule
 from .symbol.undeclared_variable import UndeclaredVariableRule
 from .symbol.redeclared_variable import RedeclaredVariableRule
+from .symbol.read_before_write_rule import ReadBeforeWriteRule
 
 # module rules (cross-file)
 from .module.duplicate_module_definition import DuplicateModuleDefinitionRule

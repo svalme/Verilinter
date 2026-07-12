@@ -4,6 +4,7 @@ from .symbol_rule_runner import symbol_rule_runner
 
 @symbol_rule_runner.register
 class UnusedVariableRule(BaseSymbolRule):
+    code = "UNUSED_VARIABLE"
 
     def run(self, symbol_table: SymbolTable):
         diagnostics = []
@@ -13,6 +14,7 @@ class UnusedVariableRule(BaseSymbolRule):
                 if sym.kind == "variable" and not sym.uses:
                     loc = sym.declarations[0]
                     diagnostic = {
+                        "code": self.code,
                         "line": loc["line"],
                         "col": loc["col"],
                         "message": f"Unused variable '{sym.name}'",

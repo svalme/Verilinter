@@ -1,13 +1,13 @@
 # vnode/identifier_vnode.py
-import pyslang as sl
-
+from ..parser.types import IdentifierNameNode, IdentifierSelectNameNode, SyntaxNode, SyntaxTree
 from ..vnodes.syntax_vnode import SyntaxVNode
 from .vnode_factory import vnode_factory
 
-@vnode_factory.register(sl.IdentifierNameSyntax)
+@vnode_factory.register(IdentifierNameNode)
+@vnode_factory.register(IdentifierSelectNameNode)
 class IdentifierNameVNode(SyntaxVNode):
 
-    def __init__(self, raw: sl.SyntaxNode, tree: sl.SyntaxTree):
+    def __init__(self, raw: SyntaxNode, tree: SyntaxTree):
         super().__init__(raw, tree)
 
     @property
@@ -16,6 +16,5 @@ class IdentifierNameVNode(SyntaxVNode):
 
     @property
     def raw_children(self) -> list:
-        if hasattr(self.raw, 'identifier') and self.raw.identifier is not None:
-            return [self.raw.identifier]
-        return []
+        children = list(self.raw.__iter__())
+        return children if children else []

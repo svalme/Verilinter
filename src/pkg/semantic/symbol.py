@@ -1,5 +1,13 @@
 # src/pkg/semantic/symbol.py
+from typing import TypedDict
+
 from ..vnodes.base_vnode import Location
+
+
+class UseEvent(TypedDict):
+    location: Location
+    read: bool
+    write: bool
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -11,6 +19,7 @@ class Symbol:
 
         self.declarations: list[Location] = []
         self.uses: list[Location] = []
+        self.use_events: list[UseEvent] = []
 
         self.is_implicit: bool = False
         self.is_read: bool = False
@@ -24,6 +33,7 @@ class Symbol:
 
     def add_use(self, loc: Location, read: bool = False, write: bool = False) -> None:
         self.uses.append(loc)
+        self.use_events.append({"location": loc, "read": read, "write": write})
         self.is_read |= read
         self.is_written |= write
 

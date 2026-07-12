@@ -1,5 +1,3 @@
-import pyslang as sl
-
 from ..walk.context import Context
 from ..semantic.symbol_table import SymbolTable
 from .base_handler import BaseHandler
@@ -7,9 +5,10 @@ from ..vnodes.base_vnode import BaseVNode
 from ..vnodes.syntax_vnode import SyntaxVNode
 
 from ..walk.dispatch import dispatch
+from ..parser.types import SyntaxNode
 from ..vnodes.vnode_factory import vnode_factory
 
-@dispatch.register(sl.SyntaxNode)
+@dispatch.register(SyntaxNode)
 class SyntaxNodeHandler(BaseHandler[SyntaxVNode]):
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:

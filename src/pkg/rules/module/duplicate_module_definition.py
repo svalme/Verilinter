@@ -20,6 +20,7 @@ class DuplicateModuleDefinitionRule(BaseSymbolRule):
             for scope in scopes[1:]:
                 loc = scope.location or {"line": 0, "col": 0}
                 diagnostic = {
+                    "code": self.code,
                     "line": loc.get("line", 0),
                     "col": loc.get("col", 0),
                     "message": f"Duplicate module '{name}' (first defined in {first_file})",

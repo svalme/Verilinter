@@ -12,6 +12,9 @@ A static analysis framework for SystemVerilog, using pyslang. Pyslang parses sou
 A basic set of rules are implemented. Right now, it checks for: 
 - Non-blocking assignments in combinational logic.
 - Blocking assignments in sequential logic.
+- Mixed blocking and non-blocking assignment styles in the same procedural block.
+- `casex` / `casez` usage.
+- Read before write for variables.
 - Undeclared variables.
 - Unused variables.
 - Redeclared variables.
@@ -19,24 +22,62 @@ A basic set of rules are implemented. Right now, it checks for:
 - Duplicate module definitions across files.
 - Instantiation of a module that isn't defined anywhere in the linted files.
 
-More rules coming in the future.
+See [RULES.md](RULES.md) for the maintained rule catalog and the specific cases each rule covers.
+
+## Setup
+
+Create and activate a virtual environment, then install Verilinter in editable mode:
+
+```bash
+python -m venv .venv
+```
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m pip install -e .[dev]
+```
+
+macOS / Linux:
+
+```bash
+source .venv/bin/activate
+python -m pip install -e .[dev]
+```
 
 ## Try It Out
-### Go to the root directory in terminal and type: 
+### Go to the root directory in terminal and type:
 
-```python src/run_lint.py <file.v> ``` 
+```bash
+verilinter <file.v>
+```
 
 or
 
-```python src/run_lint.py <file.sv> ```
+```bash
+verilinter <file.sv>
+```
 
 Example (single file): 
-```python src/run_lint.py tests/data/simple.v```
+```bash
+verilinter tests/data/simple.v
+```
 
 Example (multiple files, or a directory):
-```python src/run_lint.py tests/data/dup_module_a.v tests/data/dup_module_b.v```
+```bash
+verilinter tests/data/dup_module_a.v tests/data/dup_module_b.v
+```
+
+You can still run the script directly if you prefer:
+
+```bash
+python src/run_lint.py tests/data/simple.v
+```
 
 ### Test it with pytest:
 
-```python -m pytest```
+```bash
+python -m pytest
+```
 
