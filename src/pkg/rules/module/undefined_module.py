@@ -1,3 +1,5 @@
+from typing import Any
+
 from ..base_symbol_rule import BaseSymbolRule
 from ...semantic.symbol_table import SymbolTable
 from .module_rule_runner import module_rule_runner
@@ -7,8 +9,8 @@ class UndefinedModuleRule(BaseSymbolRule):
     code = "UNDEFINED_MODULE"
     message = "Instantiation of undefined module"
 
-    def run(self, symbol_table: SymbolTable):
-        diagnostics = []
+    def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
+        diagnostics: list[dict[str, Any]] = []
 
         for name, loc in symbol_table.module_references:
             if symbol_table.lookup_module(name) is not None:

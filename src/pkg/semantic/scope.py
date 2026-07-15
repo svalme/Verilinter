@@ -1,20 +1,22 @@
 # src/pkg/semantic/scope.py
+from __future__ import annotations
+
 from ..vnodes.base_vnode import Location
 from .symbol import Symbol
 
 class Scope:
     """Represents a scope (module, block, always block, etc.) containing symbols."""
 
-    def __init__(self, kind: str, name: str | None = None, location: Location | None = None):
+    def __init__(self, kind: str, name: str | None = None, location: Location | None = None) -> None:
         self.kind = kind  # module, always, block, function
         self.name = name
         self.file: str | None = None
         self.location = location  # where the scope-opening construct (e.g. module header) was declared
         self.symbols: dict[str, Symbol] = {}
-        self.parent: "Scope | None" = None
-        self.children: list["Scope"] = []
+        self.parent: Scope | None = None
+        self.children: list[Scope] = []
 
-    def set_parent(self, parent: "Scope | None" = None) -> None:
+    def set_parent(self, parent: Scope | None = None) -> None:
         self.parent = parent
         if parent is not None and self not in parent.children:
             parent.children.append(self)

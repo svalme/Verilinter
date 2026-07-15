@@ -11,7 +11,6 @@ from .syntax_node_handler import SyntaxNodeHandler
 
 @dispatch.register(SignalEventExpressionNode)
 class SignalEventExpressionHandler(SyntaxNodeHandler):
-
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         ctx = ctx.push(vnode)
 

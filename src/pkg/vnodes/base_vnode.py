@@ -11,7 +11,7 @@ class Location(TypedDict):
 
 
 class BaseVNode(ABC):
-    def __init__(self, raw: RawNode, tree: SyntaxTree):
+    def __init__(self, raw: RawNode, tree: SyntaxTree) -> None:
         self.raw = raw
         self.tree = tree
 
@@ -23,5 +23,5 @@ class BaseVNode(ABC):
         return {"line": 0, "col": 0}
 
     @property
-    def raw_children(self) -> list:
+    def raw_children(self) -> list[RawNode]:
         return []

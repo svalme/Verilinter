@@ -1,4 +1,6 @@
 # src/pkg/semantic/symbol_table.py
+from __future__ import annotations
+
 from ..vnodes.base_vnode import Location
 from .symbol import Symbol
 from .scope import Scope
@@ -6,8 +8,8 @@ from .scope import Scope
 class SymbolTable:
     """Manages multiple scopes and provides symbol lookup across the hierarchy."""
 
-    def __init__(self):
-        self.global_scope = Scope(kind="global")
+    def __init__(self) -> None:
+        self.global_scope: Scope = Scope(kind="global")
         self.scopes: list[Scope] = [self.global_scope]   # registry — all scopes ever created
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name → all scopes defining it, across files

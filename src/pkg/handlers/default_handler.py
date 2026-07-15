@@ -4,12 +4,13 @@ from ..walk.context import Context
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.vnode_factory import vnode_factory
 
-class DefaultHandler(BaseHandler):
+
+class DefaultHandler(BaseHandler[BaseVNode]):
 
     def children(self, vnode: BaseVNode) -> list[BaseVNode]:
         return [vnode_factory.create(child, vnode.tree) for child in vnode.raw_children]
 
-    def update_context(self, ctx: Context, vnode: BaseVNode, symbol_table: SymbolTable) -> Context:
+    def update_context(self, ctx: Context, vnode: BaseVNode, _symbol_table: SymbolTable) -> Context:
         return ctx.push(vnode)
 
     def __str__(self) -> str:

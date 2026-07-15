@@ -9,7 +9,6 @@ from .syntax_node_handler import SyntaxNodeHandler
 
 @dispatch.register(CaseGenerateNode)
 class CaseGenerateHandler(SyntaxNodeHandler):
-
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         ctx = ctx.push(vnode)
 

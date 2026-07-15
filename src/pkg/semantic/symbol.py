@@ -1,7 +1,12 @@
 # src/pkg/semantic/symbol.py
-from typing import TypedDict
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, TypedDict
 
 from ..vnodes.base_vnode import Location
+
+if TYPE_CHECKING:
+    from .scope import Scope
 
 
 class UseEvent(TypedDict):
@@ -12,10 +17,10 @@ class UseEvent(TypedDict):
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
 
-    def __init__(self, name: str, kind: str):
+    def __init__(self, name: str, kind: str) -> None:
         self.name = name
         self.kind = kind  # wire, reg, logic, variable, function, task
-        self.scope: "Scope | None" = None
+        self.scope: Scope | None = None
 
         self.declarations: list[Location] = []
         self.uses: list[Location] = []
@@ -25,7 +30,7 @@ class Symbol:
         self.is_read: bool = False
         self.is_written: bool = False
 
-    def set_scope(self, scope: "Scope | None") -> None:
+    def set_scope(self, scope: Scope | None) -> None:
         self.scope = scope
 
     def add_declaration(self, loc: Location) -> None:

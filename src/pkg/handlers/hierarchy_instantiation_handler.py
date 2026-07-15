@@ -10,7 +10,6 @@ from .syntax_node_handler import SyntaxNodeHandler
 
 @dispatch.register(HierarchyInstantiationNode)
 class HierarchyInstantiationHandler(SyntaxNodeHandler):
-
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         type_name = instantiation_type_name(vnode.raw)
         if type_name:

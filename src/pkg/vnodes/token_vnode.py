@@ -5,8 +5,7 @@ from .base_vnode import BaseVNode, Location
 from ..parser.types import SyntaxTree, Token
 
 class TokenVNode(BaseVNode):
-
-    def __init__(self, raw: Token, tree: SyntaxTree):
+    def __init__(self, raw: Token, tree: SyntaxTree) -> None:
         super().__init__(raw, tree)
 
     @property
@@ -21,10 +20,10 @@ class TokenVNode(BaseVNode):
             "col": sm.getColumnNumber(loc),
             "file": str(sm.getFileName(loc)),
         }
-    
+
     def snippet(self) -> str:
         return self.raw.rawText
-    
+
     def __repr__(self) -> str:
         loc = self.location
         loc_str = f"{loc['line']}:{loc['col']}" if loc else "?:?"

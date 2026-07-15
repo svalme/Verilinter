@@ -3,22 +3,21 @@ from ..parser.types import RawNode, SyntaxNode, SyntaxTree
 import pyslang as sl
 
 class SyntaxVNode(BaseVNode):
-
-    def __init__(self, raw: SyntaxNode, tree: SyntaxTree):
+    def __init__(self, raw: SyntaxNode, tree: SyntaxTree) -> None:
         super().__init__(raw, tree)
 
     @property
-    def kind(self):
+    def kind(self) -> object:
         return self.raw.kind
-    
+
     def snippet(self) -> str:
-            return self.raw.__str__()
-            
+        return self.raw.__str__()
+
     def __repr__(self) -> str:
         loc = self.location
         loc_str = f"{loc['line']}:{loc['col']}" if loc else "?:?"
         return f"SyntaxVNode {self.raw.kind.name} @ {loc_str}"
-    
+
     @property
     def location(self) -> Location:
         sr: sl.SourceRange | None = self.raw.sourceRange
@@ -32,12 +31,11 @@ class SyntaxVNode(BaseVNode):
             "col": sm.getColumnNumber(sr.start),
             "file": str(sm.getFileName(sr.start)),
         }
-    
+
     @property
-    def children(self) -> list:
+    def children(self) -> list[RawNode]:
         return self.raw_children
 
     @property
     def raw_children(self) -> list[RawNode]:
         return list(self.raw.__iter__())
-              
