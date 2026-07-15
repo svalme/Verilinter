@@ -11,17 +11,23 @@ from ..parser.types import RawNode, SyntaxTree
 
 
 class Walker:
-    def __init__(self, dispatch: Dispatch):
+    def __init__(self, dispatch: Dispatch) -> None:
         self._dispatch = dispatch
-        self._results: list = []
+        self._results: list[tuple[BaseVNode, Context]] = []
 
     @property
-    def results(self) -> list:
+    def results(self) -> list[tuple[BaseVNode, Context]]:
         return self._results
 
-    def walk(self, raw_node: RawNode | BaseVNode, tree: SyntaxTree, ctx: Context, symbol_table: SymbolTable,
-              on_node: Callable[[BaseVNode, Context], None] | None = None):
-        def _walk(node: RawNode | BaseVNode, ctx: Context):
+    def walk(
+        self,
+        raw_node: RawNode | BaseVNode,
+        tree: SyntaxTree,
+        ctx: Context,
+        symbol_table: SymbolTable,
+        on_node: Callable[[BaseVNode, Context], None] | None = None,
+    ) -> None:
+        def _walk(node: RawNode | BaseVNode, ctx: Context) -> None:
             vnode = node if isinstance(node, BaseVNode) else vnode_factory.create(node, tree)
             handler = self._dispatch.get(vnode)
             ctx = handler.update_context(ctx, vnode, symbol_table)

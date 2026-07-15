@@ -7,8 +7,7 @@ from .vnode_factory import vnode_factory
 @vnode_factory.register(IdentifierNameNode)
 @vnode_factory.register(IdentifierSelectNameNode)
 class IdentifierNameVNode(SyntaxVNode):
-
-    def __init__(self, raw: SyntaxNode, tree: SyntaxTree):
+    def __init__(self, raw: SyntaxNode, tree: SyntaxTree) -> None:
         super().__init__(raw, tree)
 
     @property
@@ -16,6 +15,6 @@ class IdentifierNameVNode(SyntaxVNode):
         return identifier_name(self.raw) or ""
 
     @property
-    def raw_children(self) -> list:
+    def raw_children(self) -> list[SyntaxNode]:
         children = list(self.raw.__iter__())
         return children if children else []

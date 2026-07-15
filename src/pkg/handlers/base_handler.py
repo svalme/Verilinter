@@ -1,12 +1,13 @@
+from typing import Generic, TypeVar
+
+from ..semantic.symbol_table import SymbolTable
 from ..vnodes.base_vnode import BaseVNode
 from ..walk.context import Context
-from ..semantic.symbol_table import SymbolTable
-from typing import TypeVar, Generic
 
 VNodeType = TypeVar("VNodeType", bound=BaseVNode)
 
-class BaseHandler(Generic[VNodeType]):
 
+class BaseHandler(Generic[VNodeType]):
     def children(self, _vnode: VNodeType) -> list[BaseVNode]:
         return []
 

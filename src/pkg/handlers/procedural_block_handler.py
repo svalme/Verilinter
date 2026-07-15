@@ -1,4 +1,3 @@
-from ..vnodes.base_vnode import BaseVNode
 from ..walk.context import Context, ContextFlag
 from ..semantic.symbol_table import SymbolTable
 from .syntax_node_handler import SyntaxNodeHandler
@@ -16,7 +15,6 @@ from ..walk.dispatch import dispatch
 
 @dispatch.register(ProceduralBlockNode)
 class ProceduralBlockHandler(SyntaxNodeHandler):
-
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         ctx = ctx.push(vnode)
         kind = vnode.kind
