@@ -1,6 +1,16 @@
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
 import pyslang as sl
 
-from .types import CaseGenerateNode, DefaultCaseItemNode, ProceduralBlockNode, SyntaxNode
+from .types import CaseGenerateNode, DefaultCaseItemNode, ProceduralBlockNode, SyntaxNode, SyntaxTree
+
+if TYPE_CHECKING:
+    from ..walk.context import Context
+
+
+def _syntax_kind(name: str) -> object | None:
+    return getattr(sl.SyntaxKind, name, None)
 
 
 ALWAYS_BLOCK_KIND = sl.SyntaxKind.AlwaysBlock
@@ -15,10 +25,42 @@ CASE_TOKEN_KINDS = {
     sl.TokenKind.CaseZKeyword,
 }
 
-ASSIGNMENT_KINDS = {
+SIMPLE_ASSIGNMENT_KINDS = {
     sl.SyntaxKind.AssignmentExpression,
     sl.SyntaxKind.NonblockingAssignmentExpression,
 }
+
+READ_WRITE_ASSIGNMENT_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("AddAssignmentExpression"),
+        _syntax_kind("SubAssignmentExpression"),
+        _syntax_kind("MulAssignmentExpression"),
+        _syntax_kind("DivAssignmentExpression"),
+        _syntax_kind("ModAssignmentExpression"),
+        _syntax_kind("AndAssignmentExpression"),
+        _syntax_kind("OrAssignmentExpression"),
+        _syntax_kind("XorAssignmentExpression"),
+        _syntax_kind("LogicalShiftLeftAssignmentExpression"),
+        _syntax_kind("LogicalShiftRightAssignmentExpression"),
+        _syntax_kind("ArithmeticShiftLeftAssignmentExpression"),
+        _syntax_kind("ArithmeticShiftRightAssignmentExpression"),
+    )
+    if kind is not None
+}
+
+READ_WRITE_UNARY_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("UnaryPreincrementExpression"),
+        _syntax_kind("UnaryPredecrementExpression"),
+        _syntax_kind("PostincrementExpression"),
+        _syntax_kind("PostdecrementExpression"),
+    )
+    if kind is not None
+}
+
+ASSIGNMENT_KINDS = SIMPLE_ASSIGNMENT_KINDS | READ_WRITE_ASSIGNMENT_KINDS
 
 PROCEDURAL_BLOCK_KINDS = {
     ALWAYS_BLOCK_KIND,
@@ -41,6 +83,14 @@ UNIQUE_PRIORITY_TOKEN_KINDS = {
 
 def is_assignment_expression(raw: object) -> bool:
     return getattr(raw, "kind", None) in ASSIGNMENT_KINDS
+
+
+def is_read_write_assignment_expression(raw: object) -> bool:
+    return getattr(raw, "kind", None) in READ_WRITE_ASSIGNMENT_KINDS
+
+
+def is_read_write_unary_expression(raw: object) -> bool:
+    return getattr(raw, "kind", None) in READ_WRITE_UNARY_KINDS
 
 
 def is_procedural_block(raw: object) -> bool:
@@ -117,6 +167,10 @@ def declarator_name(raw: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def declarator_has_initializer(raw: object) -> bool:
+    return getattr(raw, "initializer", None) is not None
+
+
 def instantiation_type_name(raw: object) -> str | None:
     type_node = getattr(raw, "type", None)
     value = getattr(type_node, "value", None)
@@ -136,7 +190,7 @@ def identifier_name(raw: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-def has_full_parallel_case_pragma(raw: object, tree) -> bool:
+def has_full_parallel_case_pragma(raw: object, tree: SyntaxTree) -> bool:
     if not is_case_keyword_token(raw):
         return False
 
@@ -171,15 +225,34 @@ def assignment_left(raw: object) -> SyntaxNode | None:
     return left if isinstance(left, SyntaxNode) else None
 
 
-def identifier_is_assignment_lhs(ctx, raw_identifier: SyntaxNode) -> bool:
+def unary_write_operand(raw: object) -> SyntaxNode | None:
+    if not is_read_write_unary_expression(raw):
+        return None
+    operand = getattr(raw, "operand", None)
+    return operand if isinstance(operand, SyntaxNode) else None
+
+
+def identifier_access_modes(ctx: "Context", raw_identifier: SyntaxNode) -> tuple[bool, bool]:
     for ancestor in reversed(ctx.stack):
         left = assignment_left(ancestor.raw)
-        if left is not None:
-            return contains_descendant(left, raw_identifier)
-    return False
+        if left is not None and contains_descendant(left, raw_identifier):
+            if is_read_write_assignment_expression(ancestor.raw):
+                return True, True
+            return False, True
+
+        operand = unary_write_operand(ancestor.raw)
+        if operand is not None and contains_descendant(operand, raw_identifier):
+            return True, True
+
+    return True, False
 
 
-def iter_assignment_nodes(node: SyntaxNode):
+def identifier_is_assignment_lhs(ctx: "Context", raw_identifier: SyntaxNode) -> bool:
+    _read, write = identifier_access_modes(ctx, raw_identifier)
+    return write
+
+
+def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
     if is_assignment_expression(node):
         yield node
 

@@ -32,6 +32,24 @@ module top;
 endmodule
 """
 
+COMPOUND_ASSIGN_BEFORE_WRITE_CODE = """
+module top;
+  int x;
+  initial begin
+    x += 1;
+  end
+endmodule
+"""
+
+INCREMENT_BEFORE_WRITE_CODE = """
+module top;
+  int x;
+  initial begin
+    ++x;
+  end
+endmodule
+"""
+
 COMPLEX_LVALUE_CODE = """
 module top;
   logic [7:0] a, b;
@@ -43,6 +61,26 @@ module top;
     arr[1] = a;
     s.x = b;
     {a[1], b[1]} = 2'b01;
+  end
+endmodule
+"""
+
+DECLARATION_INITIALIZER_BEFORE_READ_CODE = """
+module top;
+  int x = 1;
+  int y;
+  initial begin
+    y = x;
+  end
+endmodule
+"""
+
+DECLARATION_WITHOUT_INITIALIZER_BEFORE_READ_CODE = """
+module top;
+  int x;
+  int y;
+  initial begin
+    y = x;
   end
 endmodule
 """
@@ -106,6 +144,34 @@ class TestReadBeforeWriteRule:
 
         assert rule.run(symbol_table) == []
 
+    def test_flags_compound_assignment_before_any_prior_write(self, rule: ReadBeforeWriteRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(COMPOUND_ASSIGN_BEFORE_WRITE_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "READ_BEFORE_WRITE"
+        assert "x" in diagnostics[0]["message"]
+
+    def test_flags_increment_before_any_prior_write(self, rule: ReadBeforeWriteRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(INCREMENT_BEFORE_WRITE_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "READ_BEFORE_WRITE"
+        assert "x" in diagnostics[0]["message"]
+
     def test_complex_lvalues_count_as_writes(self, rule: ReadBeforeWriteRule) -> None:
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)
@@ -119,3 +185,27 @@ class TestReadBeforeWriteRule:
 
         assert "arr" not in flagged_names
         assert "s" not in flagged_names
+
+    def test_declaration_initializer_counts_as_prior_write(self, rule: ReadBeforeWriteRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(DECLARATION_INITIALIZER_BEFORE_READ_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
+    def test_declaration_without_initializer_still_flags_read_before_write(self, rule: ReadBeforeWriteRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(DECLARATION_WITHOUT_INITIALIZER_BEFORE_READ_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "READ_BEFORE_WRITE"
+        assert "x" in diagnostics[0]["message"]
