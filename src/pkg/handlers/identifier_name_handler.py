@@ -5,7 +5,7 @@ from ..vnodes.vnode_factory import vnode_factory
 from ..walk.dispatch import dispatch
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
-from ..parser.syntax import identifier_is_assignment_lhs
+from ..parser.syntax import identifier_access_modes
 from ..parser.types import IdentifierNameNode, IdentifierSelectNameNode
 from ..walk.context import Context
 
@@ -19,8 +19,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         if not name:
             return ctx.push(vnode)
 
-        is_write = identifier_is_assignment_lhs(ctx, vnode.raw)
-        is_read = not is_write
+        is_read, is_write = identifier_access_modes(ctx, vnode.raw)
         symbol = symbol_table.lookup_from_scope(name, ctx.scope())
 
         if symbol:

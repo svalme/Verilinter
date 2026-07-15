@@ -6,6 +6,7 @@ from src.pkg.parser.syntax import (
     contains_descendant,
     declarator_name,
     hierarchical_instance_name,
+    identifier_access_modes,
     identifier_is_assignment_lhs,
     instantiation_type_name,
     is_assignment_expression,
@@ -129,3 +130,39 @@ class TestSvAdapter:
 
         assert identifier_is_assignment_lhs(lhs_ctx, lhs_identifier.raw) is True
         assert identifier_is_assignment_lhs(rhs_ctx, rhs_identifier.raw) is False
+
+    def test_identifier_access_modes_marks_compound_assignment_as_read_and_write(self) -> None:
+        results = _walk_collect(
+            """
+            module top;
+              int x;
+              initial x += 1;
+            endmodule
+            """
+        )
+
+        identifier_vnode, identifier_ctx = next(
+            (vnode, ctx)
+            for vnode, ctx in results
+            if isinstance(vnode.raw, sl.IdentifierNameSyntax) and str(vnode.raw).strip() == "x"
+        )
+
+        assert identifier_access_modes(identifier_ctx, identifier_vnode.raw) == (True, True)
+
+    def test_identifier_access_modes_marks_increment_as_read_and_write(self) -> None:
+        results = _walk_collect(
+            """
+            module top;
+              int x;
+              initial ++x;
+            endmodule
+            """
+        )
+
+        identifier_vnode, identifier_ctx = next(
+            (vnode, ctx)
+            for vnode, ctx in results
+            if isinstance(vnode.raw, sl.IdentifierNameSyntax) and str(vnode.raw).strip() == "x"
+        )
+
+        assert identifier_access_modes(identifier_ctx, identifier_vnode.raw) == (True, True)

@@ -18,8 +18,6 @@ class ReadBeforeWriteRule(BaseSymbolRule):
 
                 seen_write = False
                 for event in sym.use_events:
-                    if event["write"]:
-                        seen_write = True
                     if event["read"] and not seen_write:
                         loc = event["location"]
                         diagnostic = {
@@ -32,5 +30,7 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                             diagnostic["file"] = loc["file"]
                         diagnostics.append(diagnostic)
                         break
+                    if event["write"]:
+                        seen_write = True
 
         return diagnostics
