@@ -19,7 +19,7 @@ class Symbol:
 
     def __init__(self, name: str, kind: str) -> None:
         self.name = name
-        self.kind = kind  # wire, reg, logic, variable, function, task
+        self.kind = kind  # wire, reg, logic, variable, implicit_net, function, task
         self.scope: Scope | None = None
 
         self.declarations: list[Location] = []

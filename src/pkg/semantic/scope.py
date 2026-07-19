@@ -30,6 +30,7 @@ class Scope:
             existing.is_read |= symbol.is_read
             existing.is_written |= symbol.is_written
             if symbol.declarations:
+                existing.kind = symbol.kind
                 existing.is_implicit = False
             return
 

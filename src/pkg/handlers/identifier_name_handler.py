@@ -25,7 +25,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         if symbol:
             symbol.add_use(vnode.location, read=is_read, write=is_write)
         else:
-            symbol = Symbol(name=name, kind="variable")
+            symbol = Symbol(name=name, kind="implicit_net")
             symbol.is_implicit = True
             symbol.add_use(vnode.location, read=is_read, write=is_write)
             ctx.scope().define(symbol)

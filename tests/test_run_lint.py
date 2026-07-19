@@ -72,6 +72,12 @@ class TestRunJobsValidation:
         assert any(d["code"] == "NO_FULL_PARALLEL_CASE" for d in diagnostics)
         assert any("full_case / parallel_case" in d["message"] for d in diagnostics)
 
+    def test_run_reports_no_implicit_net_rule(self) -> None:
+        diagnostics = run([DATA], jobs=1)
+
+        assert any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
+        assert any("Implicit net" in d["message"] for d in diagnostics)
+
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
         second = INITIAL_BLOCK_DATA
