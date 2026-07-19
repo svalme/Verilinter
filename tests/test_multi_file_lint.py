@@ -5,9 +5,8 @@ correctly attributed back to the file they came from.
 
 from pathlib import Path
 
-import pyslang as sl
-
 from src.pkg.handlers.register_handlers import *
+from src.pkg.parser.parse import parse_file
 from src.pkg.rules.register_rules import symbol_rule_runner, module_rule_runner
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.walk.context import Context
@@ -26,7 +25,7 @@ def _walk_files(paths: list[Path]) -> tuple[Walker, SymbolTable]:
 
     for path in paths:
         symbol_table.set_current_file(str(path))
-        tree = sl.SyntaxTree.fromFile(str(path))
+        tree = parse_file(str(path))
         walker.walk(tree.root, tree, ctx, symbol_table)
 
     return walker, symbol_table

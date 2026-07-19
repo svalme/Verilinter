@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import src.run_lint as run_lint_module
 from src.run_lint import main, run
 
 DATA = Path(__file__).parent / "data" / "simple.v"
@@ -70,6 +71,150 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_FULL_PARALLEL_CASE" for d in diagnostics)
         assert any("full_case / parallel_case" in d["message"] for d in diagnostics)
+
+    def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        first = DATA
+        second = INITIAL_BLOCK_DATA
+        parse_calls: list[str] = []
+        walked_roots: list[tuple[object, object, bool]] = []
+
+        class FakeTree:
+            def __init__(self, path: str) -> None:
+                self.path = path
+                self.root = object()
+
+        def fake_parse_file(path: str) -> FakeTree:
+            parse_calls.append(path)
+            return FakeTree(path)
+
+        class FakeWalker:
+            def __init__(self, dispatch: object) -> None:
+                self.dispatch = dispatch
+
+            def walk(
+                self,
+                root: object,
+                tree: FakeTree,
+                _ctx: object,
+                symbol_table: object,
+                on_node: object | None = None,
+            ) -> None:
+                walked_roots.append((root, tree, on_node is not None))
+                assert root is tree.root
+                assert getattr(symbol_table, "current_file", None) == tree.path
+
+        monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
+        monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
+        monkeypatch.setattr(run_lint_module.symbol_rule_runner, "run", lambda symbol_table: [])
+        monkeypatch.setattr(run_lint_module.module_rule_runner, "run", lambda symbol_table: [])
+
+        diagnostics = run([first, second], jobs=1)
+
+        assert diagnostics == []
+        assert parse_calls == [str(first), str(second)]
+        assert len(walked_roots) == 2
+        assert all(root is tree.root for root, tree, _has_callback in walked_roots)
+        assert all(has_callback for _root, _tree, has_callback in walked_roots)
+
+    def test_run_aggregates_multi_file_diagnostics_after_shared_walk(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        first = DATA
+        second = INITIAL_BLOCK_DATA
+        parse_calls: list[str] = []
+        walked_paths: list[str] = []
+
+        class FakeTree:
+            def __init__(self, path: str) -> None:
+                self.path = path
+                self.root = object()
+
+        def fake_parse_file(path: str) -> FakeTree:
+            parse_calls.append(path)
+            return FakeTree(path)
+
+        class FakeWalker:
+            def __init__(self, dispatch: object) -> None:
+                self.dispatch = dispatch
+
+            def walk(
+                self,
+                root: object,
+                tree: FakeTree,
+                _ctx: object,
+                symbol_table: object,
+                on_node: object | None = None,
+            ) -> None:
+                walked_paths.append(tree.path)
+                assert root is tree.root
+                assert getattr(symbol_table, "current_file", None) == tree.path
+                assert on_node is not None
+                on_node(
+                    type(
+                        "FakeVNode",
+                        (),
+                        {"location": {"line": 1, "col": 1, "file": tree.path}},
+                    )(),
+                    object(),
+                )
+
+        def fake_rule_check(vnode: object, _ctx: object) -> list[dict[str, object]]:
+            location = getattr(vnode, "location")
+            return [
+                {
+                    "code": "AST_FAKE",
+                    "line": location["line"],
+                    "col": location["col"],
+                    "file": location["file"],
+                    "message": "ast diagnostic",
+                }
+            ]
+
+        monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
+        monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
+        monkeypatch.setattr(run_lint_module.rule_runner, "check", fake_rule_check)
+        monkeypatch.setattr(
+            run_lint_module.symbol_rule_runner,
+            "run",
+            lambda symbol_table: [
+                {
+                    "code": "SYMBOL_FAKE",
+                    "line": 2,
+                    "col": 1,
+                    "file": getattr(symbol_table, "current_file"),
+                    "message": f"symbol diagnostic after {len(getattr(symbol_table, 'modules', {}))} modules",
+                }
+            ],
+        )
+        monkeypatch.setattr(
+            run_lint_module.module_rule_runner,
+            "run",
+            lambda _symbol_table: [
+                {
+                    "code": "MODULE_FAKE",
+                    "line": 3,
+                    "col": 1,
+                    "file": str(second),
+                    "message": "module diagnostic",
+                }
+            ],
+        )
+
+        diagnostics = run([first, second], jobs=1)
+
+        assert parse_calls == [str(first), str(second)]
+        assert walked_paths == [str(first), str(second)]
+        assert [d["code"] for d in diagnostics] == [
+            "AST_FAKE",
+            "AST_FAKE",
+            "SYMBOL_FAKE",
+            "MODULE_FAKE",
+        ]
+        assert diagnostics[0]["file"] == str(first)
+        assert diagnostics[1]["file"] == str(second)
+        assert diagnostics[2]["file"] == str(second)
+        assert diagnostics[3]["file"] == str(second)
 
 
 class TestMain:
