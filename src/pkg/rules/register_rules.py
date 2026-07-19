@@ -20,6 +20,7 @@ from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
 from .symbol.undeclared_variable import UndeclaredVariableRule
+from .symbol.no_implicit_net import NoImplicitNetRule
 from .symbol.redeclared_variable import RedeclaredVariableRule
 from .symbol.read_before_write_rule import ReadBeforeWriteRule
 

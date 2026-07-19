@@ -13,6 +13,8 @@ class UndeclaredVariableRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
+                if sym.is_implicit:
+                    continue
                 if sym.uses and not sym.declarations:
                     loc = sym.uses[0]
                     diagnostic = {

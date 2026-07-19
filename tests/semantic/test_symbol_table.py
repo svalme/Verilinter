@@ -168,6 +168,22 @@ class TestScope:
         assert "test_var" in scope.symbols
         assert scope.symbols["test_var"] == symbol
 
+    def test_define_upgrades_implicit_symbol_when_declaration_arrives(self, mock_location: Location) -> None:
+        scope = Scope(kind="module", name="top")
+        implicit = Symbol(name="sig", kind="implicit_net")
+        implicit.is_implicit = True
+        implicit.add_use(mock_location, read=True)
+        scope.define(implicit)
+
+        declared = Symbol(name="sig", kind="variable")
+        declared.add_declaration(mock_location)
+        scope.define(declared)
+
+        merged = scope.lookup("sig")
+        assert merged is not None
+        assert merged.kind == "variable"
+        assert merged.is_implicit is False
+
     def test_lookup_finds_symbol_in_current_scope(self, scope: Scope, symbol: Symbol) -> None:
         """Test that lookup() finds a Symbol in the current scope."""
         scope.define(symbol)

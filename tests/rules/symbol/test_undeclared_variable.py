@@ -27,7 +27,6 @@ class TestUndeclaredVariableRule:
     def test_flags_symbol_used_but_never_declared(self, rule: UndeclaredVariableRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="a", kind="variable")
-        sym.is_implicit = True
         sym.add_use({"line": 4, "col": 5}, read=True)
         st.global_scope.define(sym)
 
@@ -47,6 +46,15 @@ class TestUndeclaredVariableRule:
 
         assert rule.run(st) == []
 
+    def test_does_not_flag_implicit_net_symbols(self, rule: UndeclaredVariableRule) -> None:
+        st = SymbolTable()
+        sym = Symbol(name="a", kind="implicit_net")
+        sym.is_implicit = True
+        sym.add_use({"line": 4, "col": 5}, read=True)
+        st.global_scope.define(sym)
+
+        assert rule.run(st) == []
+
     def test_does_not_flag_declared_but_unused_symbol(self, rule: UndeclaredVariableRule) -> None:
         """No uses and no declarations shouldn't be reachable, but declared-only symbols
         (handled by UnusedVariableRule) must not also trip this rule."""
@@ -61,7 +69,8 @@ class TestUndeclaredVariableRule:
         assert rule.run(SymbolTable()) == []
 
     def test_against_real_parsed_file(self, rule: UndeclaredVariableRule) -> None:
-        """simple.v references a, b, c, d, y, z, sel, out without ever declaring them."""
+        """Parsed unresolved identifiers are currently modeled as implicit nets and
+        reported by NoImplicitNetRule instead of this broader undeclared rule."""
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
@@ -71,7 +80,4 @@ class TestUndeclaredVariableRule:
         tree = sl.SyntaxTree.fromFile(str(path))
         walker.walk(tree.root, tree, ctx, symbol_table)
 
-        diagnostics = rule.run(symbol_table)
-
-        flagged_names = {d["message"].split("'")[1] for d in diagnostics}
-        assert flagged_names == {"a", "b", "c", "d", "y", "z", "sel", "out"}
+        assert rule.run(symbol_table) == []
