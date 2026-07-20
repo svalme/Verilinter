@@ -17,4 +17,4 @@ CaseGenerateNode: TypeAlias = sl.CaseGenerateSyntax
 HierarchyInstantiationNode: TypeAlias = sl.HierarchyInstantiationSyntax
 HierarchicalInstanceNode: TypeAlias = sl.HierarchicalInstanceSyntax
 DefaultCaseItemNode: TypeAlias = sl.DefaultCaseItemSyntax
-
+PortDeclarationNode: TypeAlias = sl.PortDeclarationSyntax

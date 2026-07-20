@@ -16,6 +16,7 @@ from .syntax.no_always_latch import NoAlwaysLatchRule
 from .syntax.no_case_generate import NoCaseGenerateRule
 from .syntax.no_full_parallel_case import NoFullParallelCaseRule
 from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
+from .syntax.no_inout_internal import NoInternalInoutRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule

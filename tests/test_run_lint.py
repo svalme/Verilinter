@@ -13,6 +13,7 @@ CASE_GENERATE_DATA = Path(__file__).parent / "data" / "case_generate.v"
 FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v"
 UNIQUE_PRIORITY_CASE_DATA = Path(__file__).parent / "data" / "unique_priority_case.v"
 MULTIPLE_DRIVERS_DATA = Path(__file__).parent / "data" / "multiple_drivers.v"
+INTERNAL_INOUT_DATA = Path(__file__).parent / "data" / "internal_inout.v"
 
 
 class TestRunJobsValidation:
@@ -84,6 +85,12 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_MULTIPLE_DRIVERS" for d in diagnostics)
         assert any("multiple procedural blocks" in d["message"] for d in diagnostics)
+
+    def test_run_reports_internal_inout_rule(self) -> None:
+        diagnostics = run([INTERNAL_INOUT_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_INOUT_INTERNAL" for d in diagnostics)
+        assert any("Internal inout" in d["message"] for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
