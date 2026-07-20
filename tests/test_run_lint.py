@@ -12,6 +12,7 @@ ALWAYS_LATCH_DATA = Path(__file__).parent / "data" / "always_latch.v"
 CASE_GENERATE_DATA = Path(__file__).parent / "data" / "case_generate.v"
 FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v"
 UNIQUE_PRIORITY_CASE_DATA = Path(__file__).parent / "data" / "unique_priority_case.v"
+MULTIPLE_DRIVERS_DATA = Path(__file__).parent / "data" / "multiple_drivers.v"
 
 
 class TestRunJobsValidation:
@@ -77,6 +78,12 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
         assert any("Implicit net" in d["message"] for d in diagnostics)
+
+    def test_run_reports_multiple_drivers_rule(self) -> None:
+        diagnostics = run([MULTIPLE_DRIVERS_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_MULTIPLE_DRIVERS" for d in diagnostics)
+        assert any("multiple procedural blocks" in d["message"] for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
