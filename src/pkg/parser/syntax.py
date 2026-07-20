@@ -6,6 +6,7 @@ import pyslang as sl
 from .types import CaseGenerateNode, DefaultCaseItemNode, ProceduralBlockNode, SyntaxNode, SyntaxTree
 
 if TYPE_CHECKING:
+    from ..vnodes.base_vnode import BaseVNode
     from ..walk.context import Context
 
 
@@ -245,6 +246,13 @@ def identifier_access_modes(ctx: "Context", raw_identifier: SyntaxNode) -> tuple
             return True, True
 
     return True, False
+
+
+def enclosing_procedural_block(ctx: "Context") -> "BaseVNode | None":
+    for ancestor in reversed(ctx.stack):
+        if is_procedural_block(ancestor.raw):
+            return ancestor
+    return None
 
 
 def identifier_is_assignment_lhs(ctx: "Context", raw_identifier: SyntaxNode) -> bool:

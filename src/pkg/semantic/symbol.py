@@ -1,7 +1,7 @@
 # src/pkg/semantic/symbol.py
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from ..vnodes.base_vnode import Location
 
@@ -13,6 +13,8 @@ class UseEvent(TypedDict):
     location: Location
     read: bool
     write: bool
+    driver_id: NotRequired[str]
+    driver_location: NotRequired[Location]
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -36,9 +38,21 @@ class Symbol:
     def add_declaration(self, loc: Location) -> None:
         self.declarations.append(loc)
 
-    def add_use(self, loc: Location, read: bool = False, write: bool = False) -> None:
+    def add_use(
+        self,
+        loc: Location,
+        read: bool = False,
+        write: bool = False,
+        driver_id: str | None = None,
+        driver_location: Location | None = None,
+    ) -> None:
         self.uses.append(loc)
-        self.use_events.append({"location": loc, "read": read, "write": write})
+        event: UseEvent = {"location": loc, "read": read, "write": write}
+        if driver_id is not None:
+            event["driver_id"] = driver_id
+        if driver_location is not None:
+            event["driver_location"] = driver_location
+        self.use_events.append(event)
         self.is_read |= read
         self.is_written |= write
 
