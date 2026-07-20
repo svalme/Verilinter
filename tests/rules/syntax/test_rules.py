@@ -10,6 +10,7 @@ from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
 from src.pkg.rules.syntax.no_final_block import NoFinalBlockRule
 from src.pkg.rules.syntax.no_full_parallel_case import NoFullParallelCaseRule
 from src.pkg.rules.syntax.no_initial_block import NoInitialBlockRule
+from src.pkg.rules.syntax.no_inout_internal import NoInternalInoutRule
 from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from src.pkg.walk.context import Context, ContextFlag
@@ -461,3 +462,65 @@ class TestNoUniquePriorityCaseRule:
         assert result["line"] == 4
         assert result["col"] == 5
         assert result["message"] == "Use of unique/priority case can overstate case completeness or exclusivity"
+
+
+class TestNoInternalInoutRule:
+    @pytest.fixture
+    def rule(self) -> NoInternalInoutRule:
+        return NoInternalInoutRule()
+
+    def test_rule_has_correct_code(self, rule: NoInternalInoutRule) -> None:
+        assert rule.code == "NO_INOUT_INTERNAL"
+
+    def test_rule_has_correct_message(self, rule: NoInternalInoutRule) -> None:
+        assert rule.message == "Internal inout declarations are not allowed"
+
+    def test_applies_returns_true_for_internal_inout_port_declaration(self, rule: NoInternalInoutRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "internal_inout.v"))
+
+        def walk(node):
+            if isinstance(node, sl.PortDeclarationSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_ansi_inout_module_port(self, rule: NoInternalInoutRule) -> None:
+        tree = sl.SyntaxTree.fromText("module top(inout wire io); endmodule")
+
+        def walk(node):
+            if isinstance(node, sl.ImplicitAnsiPortSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoInternalInoutRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 3
+        assert result["message"] == "Internal inout declarations are not allowed"

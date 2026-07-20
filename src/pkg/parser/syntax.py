@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 import pyslang as sl
 
-from .types import CaseGenerateNode, DefaultCaseItemNode, ProceduralBlockNode, SyntaxNode, SyntaxTree
+from .types import CaseGenerateNode, DefaultCaseItemNode, PortDeclarationNode, ProceduralBlockNode, SyntaxNode, SyntaxTree
 
 if TYPE_CHECKING:
     from ..vnodes.base_vnode import BaseVNode
@@ -112,6 +112,14 @@ def is_always_latch_block(raw: object) -> bool:
 
 def is_case_generate_node(raw: object) -> bool:
     return isinstance(raw, CaseGenerateNode)
+
+
+def is_internal_inout_port_declaration(raw: object) -> bool:
+    if not isinstance(raw, PortDeclarationNode):
+        return False
+    header = getattr(raw, "header", None)
+    direction = getattr(header, "direction", None)
+    return getattr(direction, "kind", None) == sl.TokenKind.InOutKeyword
 
 
 def is_blocking_assignment_token(raw: object) -> bool:
