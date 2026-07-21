@@ -18,4 +18,6 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "NO_UNIQUE_PRIORITY_CASE",
         "NO_LATCH_IN_ALWAYS_COMB",
         "NO_DEFPARAM",
+        "NO_FORCE_RELEASE",
+        "NO_ASSIGN_DEASSIGN",
     }.issubset(codes)

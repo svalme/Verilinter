@@ -18,6 +18,8 @@ UNDRIVEN_SIGNAL_DATA = Path(__file__).parent / "data" / "undriven_signal.v"
 DEFAULT_NETTYPE_NONE_DATA = Path(__file__).parent / "data" / "default_nettype_none.v"
 LATCH_IN_ALWAYS_COMB_DATA = Path(__file__).parent / "data" / "latch_in_always_comb.v"
 DEFPARAM_USAGE_DATA = Path(__file__).parent / "data" / "defparam_usage.v"
+FORCE_RELEASE_DATA = Path(__file__).parent / "data" / "force_release.v"
+ASSIGN_DEASSIGN_DATA = Path(__file__).parent / "data" / "assign_deassign.v"
 
 
 class TestRunJobsValidation:
@@ -119,6 +121,20 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_DEFPARAM" for d in diagnostics)
         assert any("defparam" in d["message"] for d in diagnostics)
+
+    def test_run_reports_force_release_rule(self) -> None:
+        diagnostics = run([FORCE_RELEASE_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_FORCE_RELEASE") == 2
+        assert any("force/release" in d["message"] for d in diagnostics)
+
+    def test_run_reports_assign_deassign_rule(self) -> None:
+        diagnostics = run([ASSIGN_DEASSIGN_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_ASSIGN_DEASSIGN") == 2
+        assert any("assign/deassign" in d["message"] for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA

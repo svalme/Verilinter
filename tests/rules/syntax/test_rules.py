@@ -7,8 +7,10 @@ from src.pkg.rules.syntax.default_case import DefaultCaseRule
 from src.pkg.rules.syntax.no_always_latch import NoAlwaysLatchRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
+from src.pkg.rules.syntax.no_assign_deassign import NoAssignDeassignRule
 from src.pkg.rules.syntax.no_final_block import NoFinalBlockRule
 from src.pkg.rules.syntax.no_full_parallel_case import NoFullParallelCaseRule
+from src.pkg.rules.syntax.no_force_release import NoForceReleaseRule
 from src.pkg.rules.syntax.no_initial_block import NoInitialBlockRule
 from src.pkg.rules.syntax.no_defparam import NoDefparamRule
 from src.pkg.rules.syntax.no_inout_internal import NoInternalInoutRule
@@ -676,3 +678,85 @@ class TestNoDefparamRule:
         assert result["line"] == 6
         assert result["col"] == 5
         assert result["message"] == "Use of defparam is discouraged; prefer explicit parameter overrides at instantiation"
+
+
+class TestNoForceReleaseRule:
+    @pytest.fixture
+    def rule(self) -> NoForceReleaseRule:
+        return NoForceReleaseRule()
+
+    def test_rule_has_correct_code(self, rule: NoForceReleaseRule) -> None:
+        assert rule.code == "NO_FORCE_RELEASE"
+
+    def test_rule_has_correct_message(self, rule: NoForceReleaseRule) -> None:
+        assert rule.message == "Use of force/release is discouraged in RTL; prefer explicit structural or procedural intent"
+
+    def test_applies_returns_true_for_force_keyword(self, rule: NoForceReleaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.ForceKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_release_keyword(self, rule: NoForceReleaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.ReleaseKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_token(self, rule: NoForceReleaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.InitialKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoForceReleaseRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 5, "col": 9}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 5
+        assert result["col"] == 9
+        assert result["message"] == "Use of force/release is discouraged in RTL; prefer explicit structural or procedural intent"
+
+
+class TestNoAssignDeassignRule:
+    @pytest.fixture
+    def rule(self) -> NoAssignDeassignRule:
+        return NoAssignDeassignRule()
+
+    def test_rule_has_correct_code(self, rule: NoAssignDeassignRule) -> None:
+        assert rule.code == "NO_ASSIGN_DEASSIGN"
+
+    def test_rule_has_correct_message(self, rule: NoAssignDeassignRule) -> None:
+        assert rule.message == "Use of assign/deassign is discouraged in RTL; prefer explicit continuous or procedural intent"
+
+    def test_applies_returns_true_for_assign_keyword(self, rule: NoAssignDeassignRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.AssignKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_deassign_keyword(self, rule: NoAssignDeassignRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.DeassignKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_token(self, rule: NoAssignDeassignRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.ParameterKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoAssignDeassignRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 5, "col": 9}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 5
+        assert result["col"] == 9
+        assert result["message"] == "Use of assign/deassign is discouraged in RTL; prefer explicit continuous or procedural intent"

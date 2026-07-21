@@ -19,6 +19,8 @@ from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from .syntax.no_inout_internal import NoInternalInoutRule
 from .syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 from .syntax.no_defparam import NoDefparamRule
+from .syntax.no_force_release import NoForceReleaseRule
+from .syntax.no_assign_deassign import NoAssignDeassignRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
