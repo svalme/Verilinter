@@ -10,7 +10,9 @@ from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
 from src.pkg.rules.syntax.no_final_block import NoFinalBlockRule
 from src.pkg.rules.syntax.no_full_parallel_case import NoFullParallelCaseRule
 from src.pkg.rules.syntax.no_initial_block import NoInitialBlockRule
+from src.pkg.rules.syntax.no_defparam import NoDefparamRule
 from src.pkg.rules.syntax.no_inout_internal import NoInternalInoutRule
+from src.pkg.rules.syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from src.pkg.walk.context import Context, ContextFlag
@@ -524,3 +526,153 @@ class TestNoInternalInoutRule:
         assert result["line"] == 3
         assert result["col"] == 3
         assert result["message"] == "Internal inout declarations are not allowed"
+
+
+class TestNoLatchInAlwaysCombRule:
+    @pytest.fixture
+    def rule(self) -> NoLatchInAlwaysCombRule:
+        return NoLatchInAlwaysCombRule()
+
+    def test_rule_has_correct_code(self, rule: NoLatchInAlwaysCombRule) -> None:
+        assert rule.code == "NO_LATCH_IN_ALWAYS_COMB"
+
+    def test_rule_has_correct_message(self, rule: NoLatchInAlwaysCombRule) -> None:
+        assert rule.message == "always_comb block contains a conditional-only assignment that can infer latch-like storage"
+
+    def test_applies_returns_true_for_missing_default_assignment(self, rule: NoLatchInAlwaysCombRule) -> None:
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top(input logic a, b, output logic y);
+                always_comb begin
+                    if (a) y = b;
+                end
+            endmodule
+            """
+        )
+
+        def walk(node):
+            if isinstance(node, sl.ProceduralBlockSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_with_prior_default_assignment(self, rule: NoLatchInAlwaysCombRule) -> None:
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top(input logic a, b, output logic y);
+                always_comb begin
+                    y = '0;
+                    if (a) y = b;
+                end
+            endmodule
+            """
+        )
+
+        def walk(node):
+            if isinstance(node, sl.ProceduralBlockSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_false_with_explicit_else(self, rule: NoLatchInAlwaysCombRule) -> None:
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top(input logic a, b, c, output logic y);
+                always_comb begin
+                    if (a) y = b;
+                    else y = c;
+                end
+            endmodule
+            """
+        )
+
+        def walk(node):
+            if isinstance(node, sl.ProceduralBlockSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_false_for_non_always_comb_block(self, rule: NoLatchInAlwaysCombRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysBlock
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoLatchInAlwaysCombRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 5, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 5
+        assert result["col"] == 3
+        assert result["message"] == "always_comb block contains a conditional-only assignment that can infer latch-like storage"
+
+
+class TestNoDefparamRule:
+    @pytest.fixture
+    def rule(self) -> NoDefparamRule:
+        return NoDefparamRule()
+
+    def test_rule_has_correct_code(self, rule: NoDefparamRule) -> None:
+        assert rule.code == "NO_DEFPARAM"
+
+    def test_rule_has_correct_message(self, rule: NoDefparamRule) -> None:
+        assert rule.message == "Use of defparam is discouraged; prefer explicit parameter overrides at instantiation"
+
+    def test_applies_returns_true_for_defparam_token(self, rule: NoDefparamRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.DefParamKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_token(self, rule: NoDefparamRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.ParameterKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoDefparamRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 6, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 6
+        assert result["col"] == 5
+        assert result["message"] == "Use of defparam is discouraged; prefer explicit parameter overrides at instantiation"

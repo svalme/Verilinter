@@ -56,6 +56,7 @@ class TestSymbol:
         sym.add_declaration(mock_location)
         
         assert sym.is_implicit is False
+        assert sym.is_port is False
         assert sym.is_read is False
         assert sym.is_written is False
 
@@ -183,6 +184,21 @@ class TestScope:
         assert merged is not None
         assert merged.kind == "variable"
         assert merged.is_implicit is False
+
+    def test_define_preserves_port_metadata_when_symbols_merge(self, mock_location: Location) -> None:
+        scope = Scope(kind="module", name="top")
+        first = Symbol(name="clk", kind="variable")
+        first.is_port = True
+        first.add_declaration(mock_location)
+        scope.define(first)
+
+        second = Symbol(name="clk", kind="variable")
+        second.add_use(mock_location, read=True)
+        scope.define(second)
+
+        merged = scope.lookup("clk")
+        assert merged is not None
+        assert merged.is_port is True
 
     def test_lookup_finds_symbol_in_current_scope(self, scope: Scope, symbol: Symbol) -> None:
         """Test that lookup() finds a Symbol in the current scope."""

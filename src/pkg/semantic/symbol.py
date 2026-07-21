@@ -29,6 +29,7 @@ class Symbol:
         self.use_events: list[UseEvent] = []
 
         self.is_implicit: bool = False
+        self.is_port: bool = False
         self.is_read: bool = False
         self.is_written: bool = False
 

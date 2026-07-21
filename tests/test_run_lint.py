@@ -16,6 +16,8 @@ MULTIPLE_DRIVERS_DATA = Path(__file__).parent / "data" / "multiple_drivers.v"
 INTERNAL_INOUT_DATA = Path(__file__).parent / "data" / "internal_inout.v"
 UNDRIVEN_SIGNAL_DATA = Path(__file__).parent / "data" / "undriven_signal.v"
 DEFAULT_NETTYPE_NONE_DATA = Path(__file__).parent / "data" / "default_nettype_none.v"
+LATCH_IN_ALWAYS_COMB_DATA = Path(__file__).parent / "data" / "latch_in_always_comb.v"
+DEFPARAM_USAGE_DATA = Path(__file__).parent / "data" / "defparam_usage.v"
 
 
 class TestRunJobsValidation:
@@ -105,6 +107,18 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "UNDECLARED_VARIABLE" for d in diagnostics)
         assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
+
+    def test_run_reports_latch_in_always_comb_rule(self) -> None:
+        diagnostics = run([LATCH_IN_ALWAYS_COMB_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_LATCH_IN_ALWAYS_COMB" for d in diagnostics)
+        assert any("latch-like storage" in d["message"] for d in diagnostics)
+
+    def test_run_reports_defparam_rule(self) -> None:
+        diagnostics = run([DEFPARAM_USAGE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_DEFPARAM" for d in diagnostics)
+        assert any("defparam" in d["message"] for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
