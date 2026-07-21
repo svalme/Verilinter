@@ -17,12 +17,15 @@ from .syntax.no_case_generate import NoCaseGenerateRule
 from .syntax.no_full_parallel_case import NoFullParallelCaseRule
 from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from .syntax.no_inout_internal import NoInternalInoutRule
+from .syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
+from .syntax.no_defparam import NoDefparamRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
 from .symbol.undeclared_variable import UndeclaredVariableRule
 from .symbol.no_implicit_net import NoImplicitNetRule
 from .symbol.no_multiple_drivers import NoMultipleDriversRule
+from .symbol.no_undriven_signal import NoUndrivenSignalRule
 from .symbol.redeclared_variable import RedeclaredVariableRule
 from .symbol.read_before_write_rule import ReadBeforeWriteRule
 

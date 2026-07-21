@@ -29,6 +29,7 @@ class Scope:
             existing.use_events.extend(symbol.use_events)
             existing.is_read |= symbol.is_read
             existing.is_written |= symbol.is_written
+            existing.is_port |= symbol.is_port
             if symbol.declarations:
                 existing.kind = symbol.kind
                 existing.is_implicit = False

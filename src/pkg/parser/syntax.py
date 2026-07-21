@@ -19,6 +19,16 @@ ALWAYS_COMB_BLOCK_KIND = sl.SyntaxKind.AlwaysCombBlock
 ALWAYS_LATCH_BLOCK_KIND = sl.SyntaxKind.AlwaysLatchBlock
 INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
+CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
+BLOCK_STATEMENT_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("BlockStatement"),
+        _syntax_kind("SequentialBlockStatement"),
+        _syntax_kind("ParallelBlockStatement"),
+    )
+    if kind is not None
+}
 ENDCASE_TOKEN_KIND = sl.TokenKind.EndCaseKeyword
 CASE_TOKEN_KINDS = {
     sl.TokenKind.CaseKeyword,
@@ -80,6 +90,7 @@ UNIQUE_PRIORITY_TOKEN_KINDS = {
     sl.TokenKind.UniqueKeyword,
     sl.TokenKind.PriorityKeyword,
 }
+DEFPARAM_TOKEN_KIND = _syntax_kind("DefParamKeyword") or sl.TokenKind.DefParamKeyword
 
 
 def is_assignment_expression(raw: object) -> bool:
@@ -108,6 +119,10 @@ def is_final_block(raw: object) -> bool:
 
 def is_always_latch_block(raw: object) -> bool:
     return getattr(raw, "kind", None) == ALWAYS_LATCH_BLOCK_KIND
+
+
+def is_always_comb_block(raw: object) -> bool:
+    return getattr(raw, "kind", None) == ALWAYS_COMB_BLOCK_KIND
 
 
 def is_case_generate_node(raw: object) -> bool:
@@ -140,6 +155,10 @@ def is_case_keyword_token(raw: object) -> bool:
 
 def is_unique_priority_case_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in UNIQUE_PRIORITY_TOKEN_KINDS
+
+
+def is_defparam_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == DEFPARAM_TOKEN_KIND
 
 
 def is_endcase_token(raw: object) -> bool:
@@ -180,6 +199,17 @@ def declarator_has_initializer(raw: object) -> bool:
     return getattr(raw, "initializer", None) is not None
 
 
+def declarator_is_port(ctx: "Context") -> bool:
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        type_name = type(raw).__name__
+        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+            return True
+        if type_name.endswith("DataDeclarationSyntax"):
+            return False
+    return False
+
+
 def instantiation_type_name(raw: object) -> str | None:
     type_node = getattr(raw, "type", None)
     value = getattr(type_node, "value", None)
@@ -197,6 +227,47 @@ def identifier_name(raw: object) -> str | None:
     identifier = getattr(raw, "identifier", None)
     value = getattr(identifier, "value", None)
     return value if isinstance(value, str) and value else None
+
+
+def procedural_block_statement(raw: object) -> SyntaxNode | None:
+    statement = getattr(raw, "statement", None)
+    return statement if isinstance(statement, SyntaxNode) else None
+
+
+def is_conditional_statement(raw: object) -> bool:
+    return getattr(raw, "kind", None) == CONDITIONAL_STATEMENT_KIND
+
+
+def conditional_statement_has_else(raw: object) -> bool:
+    return getattr(raw, "elseClause", None) is not None
+
+
+def conditional_statement_body(raw: object) -> SyntaxNode | None:
+    statement = getattr(raw, "statement", None)
+    return statement if isinstance(statement, SyntaxNode) else None
+
+
+def is_block_statement(raw: object) -> bool:
+    return getattr(raw, "kind", None) in BLOCK_STATEMENT_KINDS
+
+
+def iter_statement_nodes(raw: SyntaxNode) -> Iterator[SyntaxNode]:
+    if not is_block_statement(raw):
+        yield raw
+        return
+
+    items = getattr(raw, "items", None)
+    if not isinstance(items, SyntaxNode):
+        return
+
+    for child in items:
+        if isinstance(child, SyntaxNode):
+            yield child
+
+
+def expression_statement_expression(raw: object) -> SyntaxNode | None:
+    expr = getattr(raw, "expr", None)
+    return expr if isinstance(expr, SyntaxNode) else None
 
 
 def has_full_parallel_case_pragma(raw: object, tree: SyntaxTree) -> bool:
@@ -266,6 +337,13 @@ def enclosing_procedural_block(ctx: "Context") -> "BaseVNode | None":
 def identifier_is_assignment_lhs(ctx: "Context", raw_identifier: SyntaxNode) -> bool:
     _read, write = identifier_access_modes(ctx, raw_identifier)
     return write
+
+
+def assignment_target_identifier_name(raw: object) -> str | None:
+    left = assignment_left(raw)
+    if left is None:
+        return None
+    return identifier_name(left)
 
 
 def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
