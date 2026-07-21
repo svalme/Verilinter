@@ -24,4 +24,5 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "NO_TRIREG",
         "NO_SUPPLY0_SUPPLY1",
         "NO_TRAN_RTRAN",
+        "NO_TRANIF_RTRANIF",
     }.issubset(codes)

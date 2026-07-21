@@ -21,6 +21,7 @@ from .syntax_kinds import (
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
     SUPPLY0_SUPPLY1_TOKEN_KINDS,
+    TRANIF_RTRANIF_TOKEN_KINDS,
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
     WAND_WOR_TOKEN_KINDS,
@@ -123,6 +124,10 @@ def is_supply0_supply1_token(raw: object) -> bool:
 
 def is_tran_rtran_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in TRAN_RTRAN_TOKEN_KINDS
+
+
+def is_tranif_rtranif_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) in TRANIF_RTRANIF_TOKEN_KINDS
 
 
 def is_endcase_token(raw: object) -> bool:
@@ -364,6 +369,7 @@ __all__ = [
     "is_read_write_assignment_expression",
     "is_read_write_unary_expression",
     "is_supply0_supply1_token",
+    "is_tranif_rtranif_token",
     "is_tran_rtran_token",
     "is_trireg_token",
     "is_unique_priority_case_token",

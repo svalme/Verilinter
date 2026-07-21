@@ -24,6 +24,7 @@ WAND_WOR_DATA = Path(__file__).parent / "data" / "wand_wor.v"
 TRIREG_DATA = Path(__file__).parent / "data" / "trireg.v"
 SUPPLY0_SUPPLY1_DATA = Path(__file__).parent / "data" / "supply0_supply1.v"
 TRAN_RTRAN_DATA = Path(__file__).parent / "data" / "tran_rtran.v"
+TRANIF_RTRANIF_DATA = Path(__file__).parent / "data" / "tranif_rtranif.v"
 
 
 class TestRunJobsValidation:
@@ -166,6 +167,13 @@ class TestRunJobsValidation:
         codes = [d["code"] for d in diagnostics]
         assert codes.count("NO_TRAN_RTRAN") == 2
         assert any("tran/rtran" in d["message"] for d in diagnostics)
+
+    def test_run_reports_tranif_rtranif_rule(self) -> None:
+        diagnostics = run([TRANIF_RTRANIF_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_TRANIF_RTRANIF") == 4
+        assert any("tranif/rtranif" in d["message"] for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA

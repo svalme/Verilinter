@@ -17,6 +17,7 @@ from src.pkg.rules.syntax.no_inout_internal import NoInternalInoutRule
 from src.pkg.rules.syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
 from src.pkg.rules.syntax.no_supply0_supply1 import NoSupply0Supply1Rule
+from src.pkg.rules.syntax.no_tranif_rtranif import NoTranifRtranifRule
 from src.pkg.rules.syntax.no_tran_rtran import NoTranRtranRule
 from src.pkg.rules.syntax.no_trireg import NoTriregRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
@@ -921,3 +922,44 @@ class TestNoTranRtranRule:
         assert result["line"] == 6
         assert result["col"] == 5
         assert result["message"] == "Use of tran/rtran is discouraged in RTL; prefer explicit connectivity modeling instead"
+
+
+class TestNoTranifRtranifRule:
+    @pytest.fixture
+    def rule(self) -> NoTranifRtranifRule:
+        return NoTranifRtranifRule()
+
+    def test_rule_has_correct_code(self, rule: NoTranifRtranifRule) -> None:
+        assert rule.code == "NO_TRANIF_RTRANIF"
+
+    def test_rule_has_correct_message(self, rule: NoTranifRtranifRule) -> None:
+        assert rule.message == "Use of tranif/rtranif is discouraged in RTL; prefer explicit connectivity modeling instead"
+
+    def test_applies_returns_true_for_tranif1_keyword(self, rule: NoTranifRtranifRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.TranIf1Keyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_rtranif0_keyword(self, rule: NoTranifRtranifRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.RtranIf0Keyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_tran_keyword(self, rule: NoTranifRtranifRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.TranKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoTranifRtranifRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 10, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 10
+        assert result["col"] == 5
+        assert result["message"] == "Use of tranif/rtranif is discouraged in RTL; prefer explicit connectivity modeling instead"

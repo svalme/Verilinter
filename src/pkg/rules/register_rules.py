@@ -25,6 +25,7 @@ from .syntax.no_wand_wor import NoWandWorRule
 from .syntax.no_trireg import NoTriregRule
 from .syntax.no_supply0_supply1 import NoSupply0Supply1Rule
 from .syntax.no_tran_rtran import NoTranRtranRule
+from .syntax.no_tranif_rtranif import NoTranifRtranifRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule

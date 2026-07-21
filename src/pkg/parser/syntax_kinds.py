@@ -141,6 +141,21 @@ TRAN_RTRAN_TOKEN_KINDS = {
     if kind is not None
 }
 
+TRANIF_RTRANIF_TOKEN_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("TranIf0Keyword"),
+        _syntax_kind("TranIf1Keyword"),
+        _syntax_kind("RtranIf0Keyword"),
+        _syntax_kind("RtranIf1Keyword"),
+        sl.TokenKind.TranIf0Keyword,
+        sl.TokenKind.TranIf1Keyword,
+        sl.TokenKind.RtranIf0Keyword,
+        sl.TokenKind.RtranIf1Keyword,
+    )
+    if kind is not None
+}
+
 
 __all__ = [
     "ALWAYS_BLOCK_KIND",
@@ -162,6 +177,7 @@ __all__ = [
     "READ_WRITE_UNARY_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
+    "TRANIF_RTRANIF_TOKEN_KINDS",
     "TRAN_RTRAN_TOKEN_KINDS",
     "TRIREG_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
