@@ -14,6 +14,8 @@ FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v
 UNIQUE_PRIORITY_CASE_DATA = Path(__file__).parent / "data" / "unique_priority_case.v"
 MULTIPLE_DRIVERS_DATA = Path(__file__).parent / "data" / "multiple_drivers.v"
 INTERNAL_INOUT_DATA = Path(__file__).parent / "data" / "internal_inout.v"
+UNDRIVEN_SIGNAL_DATA = Path(__file__).parent / "data" / "undriven_signal.v"
+DEFAULT_NETTYPE_NONE_DATA = Path(__file__).parent / "data" / "default_nettype_none.v"
 
 
 class TestRunJobsValidation:
@@ -92,6 +94,18 @@ class TestRunJobsValidation:
         assert any(d["code"] == "NO_INOUT_INTERNAL" for d in diagnostics)
         assert any("Internal inout" in d["message"] for d in diagnostics)
 
+    def test_run_reports_undriven_signal_rule(self) -> None:
+        diagnostics = run([UNDRIVEN_SIGNAL_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_UNDRIVEN_SIGNAL" for d in diagnostics)
+        assert any("never driven" in d["message"] for d in diagnostics)
+
+    def test_run_routes_default_nettype_none_to_undeclared_variable(self) -> None:
+        diagnostics = run([DEFAULT_NETTYPE_NONE_DATA], jobs=1)
+
+        assert any(d["code"] == "UNDECLARED_VARIABLE" for d in diagnostics)
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
+
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
         second = INITIAL_BLOCK_DATA
@@ -124,6 +138,7 @@ class TestRunJobsValidation:
                 assert getattr(symbol_table, "current_file", None) == tree.path
 
         monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
+        monkeypatch.setattr(run_lint_module, "file_uses_default_nettype_none", lambda path: False)
         monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
         monkeypatch.setattr(run_lint_module.symbol_rule_runner, "run", lambda symbol_table: [])
         monkeypatch.setattr(run_lint_module.module_rule_runner, "run", lambda symbol_table: [])
@@ -192,6 +207,7 @@ class TestRunJobsValidation:
             ]
 
         monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
+        monkeypatch.setattr(run_lint_module, "file_uses_default_nettype_none", lambda path: False)
         monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
         monkeypatch.setattr(run_lint_module.rule_runner, "check", fake_rule_check)
         monkeypatch.setattr(

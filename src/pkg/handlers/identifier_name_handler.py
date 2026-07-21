@@ -40,8 +40,11 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 driver_location=driver_location,
             )
         else:
-            symbol = Symbol(name=name, kind="implicit_net")
-            symbol.is_implicit = True
+            if symbol_table.current_file_uses_default_nettype_none():
+                symbol = Symbol(name=name, kind="variable")
+            else:
+                symbol = Symbol(name=name, kind="implicit_net")
+                symbol.is_implicit = True
             symbol.add_use(
                 vnode.location,
                 read=is_read,
