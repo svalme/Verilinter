@@ -81,3 +81,19 @@ class TestUndeclaredVariableRule:
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
+
+    def test_flags_unresolved_identifier_when_file_uses_default_nettype_none(self, rule: UndeclaredVariableRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        path = DATA / "default_nettype_none.v"
+        symbol_table.set_current_file(str(path))
+        symbol_table.set_current_file_default_nettype_none(True)
+        tree = sl.SyntaxTree.fromFile(str(path))
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        flagged_names = {d["message"].split("'")[1] for d in diagnostics}
+        assert flagged_names == {"missing_sig"}

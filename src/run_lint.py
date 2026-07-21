@@ -6,7 +6,7 @@ from pkg.walk.walker import Walker
 from pkg.walk.context import Context
 from pkg.semantic.symbol_table import SymbolTable
 from pkg.walk.dispatch import dispatch
-from pkg.parser.parse import parse_file
+from pkg.parser.parse import file_uses_default_nettype_none, parse_file
 from pkg.vnodes.register_vnodes import *
 from pkg.handlers.register_handlers import *
 from pkg.rules.register_rules import *
@@ -46,6 +46,7 @@ def run(paths: list[Path], jobs: int = 1) -> list[dict]:
         if not path.exists():
             raise FileNotFoundError(f"file not found: {path}")
         symbol_table.set_current_file(str(path))
+        symbol_table.set_current_file_default_nettype_none(file_uses_default_nettype_none(str(path)))
         tree = parse_file(str(path))
         walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 

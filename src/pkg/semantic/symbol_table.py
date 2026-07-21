@@ -5,22 +5,40 @@ from ..vnodes.base_vnode import Location
 from .symbol import Symbol
 from .scope import Scope
 
+
 class SymbolTable:
     """Manages multiple scopes and provides symbol lookup across the hierarchy."""
 
     def __init__(self) -> None:
         self.global_scope: Scope = Scope(kind="global")
-        self.scopes: list[Scope] = [self.global_scope]   # registry — all scopes ever created
+        self.scopes: list[Scope] = [self.global_scope]  # registry - all scopes ever created
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
-        self.modules: dict[str, list[Scope]] = {}  # module name → all scopes defining it, across files
-        self.module_references: list[tuple[str, Location]] = []  # (instantiated type name, location), one per instantiation site
+        self.modules: dict[str, list[Scope]] = {}  # module name -> all scopes defining it, across files
+        self.module_references: list[tuple[str, Location]] = []
         self.current_file: str | None = None
+        self._file_default_nettype_none: dict[str, bool] = {}
 
     def set_current_file(self, path: str) -> None:
         """Signal that a new file is about to be walked. Stamps all subsequent scopes."""
         self.current_file = path
 
-    def new_scope(self, kind: str, name: str | None = None, parent: Scope | None = None, location: Location | None = None) -> Scope:
+    def set_current_file_default_nettype_none(self, enabled: bool) -> None:
+        if self.current_file is None:
+            raise RuntimeError("current_file must be set before default_nettype metadata")
+        self._file_default_nettype_none[self.current_file] = enabled
+
+    def current_file_uses_default_nettype_none(self) -> bool:
+        if self.current_file is None:
+            return False
+        return self._file_default_nettype_none.get(self.current_file, False)
+
+    def new_scope(
+        self,
+        kind: str,
+        name: str | None = None,
+        parent: Scope | None = None,
+        location: Location | None = None,
+    ) -> Scope:
         """Create a new scope, add it to the registry, and push it onto the traversal stack."""
         if parent is None:
             parent = self._scope_stack[-1] if self._scope_stack else None
@@ -35,13 +53,13 @@ class SymbolTable:
     def pop_scope(self) -> None:
         """Exit the current scope, returning to the parent."""
         assert len(self._scope_stack) > 1, (
-            f"pop_scope called with only global scope on stack — "
+            f"pop_scope called with only global scope on stack - "
             f"unbalanced push/pop in visitor (current: {self._scope_stack[-1]})"
         )
         self._scope_stack.pop()
 
     def register_module(self, name: str, scope: Scope) -> None:
-        """Record a module definition. Appends if the name was already registered (duplicate module)."""
+        """Record a module definition. Appends if the name was already registered."""
         self.modules.setdefault(name, []).append(scope)
 
     def register_module_reference(self, name: str, location: Location) -> None:
@@ -71,7 +89,7 @@ class SymbolTable:
     def lookup_qualified(self, path: list[str]) -> Symbol | None:
         """Navigate scope tree by name path from global, then look up the final symbol.
 
-        e.g. ["top", "sub", "clk"] → navigate global→top→sub, look up "clk".
+        e.g. ["top", "sub", "clk"] -> navigate global->top->sub, look up "clk".
         """
         if not path:
             return None
@@ -84,6 +102,7 @@ class SymbolTable:
 
     def lookup_global(self, name: str) -> Symbol | None:
         """DFS from global scope through the entire scope tree."""
+
         def _search(scope: Scope) -> Symbol | None:
             found = scope.lookup(name)
             if found:
@@ -93,4 +112,5 @@ class SymbolTable:
                 if found:
                     return found
             return None
+
         return _search(self.global_scope)
