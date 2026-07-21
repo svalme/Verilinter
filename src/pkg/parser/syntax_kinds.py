@@ -119,6 +119,28 @@ WAND_WOR_TOKEN_KINDS = {
 
 TRIREG_TOKEN_KIND = _syntax_kind("TriRegKeyword") or sl.TokenKind.TriRegKeyword
 
+SUPPLY0_SUPPLY1_TOKEN_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("Supply0Keyword"),
+        _syntax_kind("Supply1Keyword"),
+        sl.TokenKind.Supply0Keyword,
+        sl.TokenKind.Supply1Keyword,
+    )
+    if kind is not None
+}
+
+TRAN_RTRAN_TOKEN_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("TranKeyword"),
+        _syntax_kind("RtranKeyword"),
+        sl.TokenKind.TranKeyword,
+        sl.TokenKind.RtranKeyword,
+    )
+    if kind is not None
+}
+
 
 __all__ = [
     "ALWAYS_BLOCK_KIND",
@@ -139,6 +161,8 @@ __all__ = [
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
+    "SUPPLY0_SUPPLY1_TOKEN_KINDS",
+    "TRAN_RTRAN_TOKEN_KINDS",
     "TRIREG_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
     "WAND_WOR_TOKEN_KINDS",

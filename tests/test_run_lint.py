@@ -22,6 +22,8 @@ FORCE_RELEASE_DATA = Path(__file__).parent / "data" / "force_release.v"
 ASSIGN_DEASSIGN_DATA = Path(__file__).parent / "data" / "assign_deassign.v"
 WAND_WOR_DATA = Path(__file__).parent / "data" / "wand_wor.v"
 TRIREG_DATA = Path(__file__).parent / "data" / "trireg.v"
+SUPPLY0_SUPPLY1_DATA = Path(__file__).parent / "data" / "supply0_supply1.v"
+TRAN_RTRAN_DATA = Path(__file__).parent / "data" / "tran_rtran.v"
 
 
 class TestRunJobsValidation:
@@ -150,6 +152,20 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_TRIREG" for d in diagnostics)
         assert any("trireg" in d["message"] for d in diagnostics)
+
+    def test_run_reports_supply0_supply1_rule(self) -> None:
+        diagnostics = run([SUPPLY0_SUPPLY1_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_SUPPLY0_SUPPLY1") == 2
+        assert any("supply0/supply1" in d["message"] for d in diagnostics)
+
+    def test_run_reports_tran_rtran_rule(self) -> None:
+        diagnostics = run([TRAN_RTRAN_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_TRAN_RTRAN") == 2
+        assert any("tran/rtran" in d["message"] for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA

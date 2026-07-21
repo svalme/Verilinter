@@ -23,6 +23,8 @@ from .syntax.no_force_release import NoForceReleaseRule
 from .syntax.no_assign_deassign import NoAssignDeassignRule
 from .syntax.no_wand_wor import NoWandWorRule
 from .syntax.no_trireg import NoTriregRule
+from .syntax.no_supply0_supply1 import NoSupply0Supply1Rule
+from .syntax.no_tran_rtran import NoTranRtranRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule

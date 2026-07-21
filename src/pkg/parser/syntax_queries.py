@@ -20,6 +20,8 @@ from .syntax_kinds import (
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
+    SUPPLY0_SUPPLY1_TOKEN_KINDS,
+    TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
     WAND_WOR_TOKEN_KINDS,
     UNIQUE_PRIORITY_TOKEN_KINDS,
@@ -113,6 +115,14 @@ def is_wand_wor_token(raw: object) -> bool:
 
 def is_trireg_token(raw: object) -> bool:
     return getattr(raw, "kind", None) == TRIREG_TOKEN_KIND
+
+
+def is_supply0_supply1_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) in SUPPLY0_SUPPLY1_TOKEN_KINDS
+
+
+def is_tran_rtran_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) in TRAN_RTRAN_TOKEN_KINDS
 
 
 def is_endcase_token(raw: object) -> bool:
@@ -353,6 +363,8 @@ __all__ = [
     "is_procedural_block",
     "is_read_write_assignment_expression",
     "is_read_write_unary_expression",
+    "is_supply0_supply1_token",
+    "is_tran_rtran_token",
     "is_trireg_token",
     "is_unique_priority_case_token",
     "is_wand_wor_token",

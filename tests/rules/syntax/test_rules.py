@@ -16,6 +16,8 @@ from src.pkg.rules.syntax.no_defparam import NoDefparamRule
 from src.pkg.rules.syntax.no_inout_internal import NoInternalInoutRule
 from src.pkg.rules.syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
+from src.pkg.rules.syntax.no_supply0_supply1 import NoSupply0Supply1Rule
+from src.pkg.rules.syntax.no_tran_rtran import NoTranRtranRule
 from src.pkg.rules.syntax.no_trireg import NoTriregRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from src.pkg.rules.syntax.no_wand_wor import NoWandWorRule
@@ -837,3 +839,85 @@ class TestNoTriregRule:
         assert result["line"] == 2
         assert result["col"] == 5
         assert result["message"] == "Use of trireg is discouraged in RTL; prefer explicit storage and connectivity modeling instead"
+
+
+class TestNoSupply0Supply1Rule:
+    @pytest.fixture
+    def rule(self) -> NoSupply0Supply1Rule:
+        return NoSupply0Supply1Rule()
+
+    def test_rule_has_correct_code(self, rule: NoSupply0Supply1Rule) -> None:
+        assert rule.code == "NO_SUPPLY0_SUPPLY1"
+
+    def test_rule_has_correct_message(self, rule: NoSupply0Supply1Rule) -> None:
+        assert rule.message == "Use of supply0/supply1 is discouraged in RTL; prefer explicit constant-driving intent instead"
+
+    def test_applies_returns_true_for_supply0_keyword(self, rule: NoSupply0Supply1Rule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.Supply0Keyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_supply1_keyword(self, rule: NoSupply0Supply1Rule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.Supply1Keyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_token(self, rule: NoSupply0Supply1Rule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.WireKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoSupply0Supply1Rule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 12}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 12
+        assert result["message"] == "Use of supply0/supply1 is discouraged in RTL; prefer explicit constant-driving intent instead"
+
+
+class TestNoTranRtranRule:
+    @pytest.fixture
+    def rule(self) -> NoTranRtranRule:
+        return NoTranRtranRule()
+
+    def test_rule_has_correct_code(self, rule: NoTranRtranRule) -> None:
+        assert rule.code == "NO_TRAN_RTRAN"
+
+    def test_rule_has_correct_message(self, rule: NoTranRtranRule) -> None:
+        assert rule.message == "Use of tran/rtran is discouraged in RTL; prefer explicit connectivity modeling instead"
+
+    def test_applies_returns_true_for_tran_keyword(self, rule: NoTranRtranRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.TranKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_rtran_keyword(self, rule: NoTranRtranRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.RtranKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_tranif_keyword(self, rule: NoTranRtranRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.TranIf1Keyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoTranRtranRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 6, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 6
+        assert result["col"] == 5
+        assert result["message"] == "Use of tran/rtran is discouraged in RTL; prefer explicit connectivity modeling instead"
