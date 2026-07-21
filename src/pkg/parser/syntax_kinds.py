@@ -106,6 +106,19 @@ ASSIGN_DEASSIGN_TOKEN_KINDS = {
     if kind is not None
 }
 
+WAND_WOR_TOKEN_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("WAndKeyword"),
+        _syntax_kind("WOrKeyword"),
+        sl.TokenKind.WAndKeyword,
+        sl.TokenKind.WOrKeyword,
+    )
+    if kind is not None
+}
+
+TRIREG_TOKEN_KIND = _syntax_kind("TriRegKeyword") or sl.TokenKind.TriRegKeyword
+
 
 __all__ = [
     "ALWAYS_BLOCK_KIND",
@@ -126,5 +139,7 @@ __all__ = [
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
+    "TRIREG_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
+    "WAND_WOR_TOKEN_KINDS",
 ]

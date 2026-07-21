@@ -20,6 +20,8 @@ from .syntax_kinds import (
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
+    TRIREG_TOKEN_KIND,
+    WAND_WOR_TOKEN_KINDS,
     UNIQUE_PRIORITY_TOKEN_KINDS,
 )
 from .types import CaseGenerateNode, DefaultCaseItemNode, PortDeclarationNode, ProceduralBlockNode, SyntaxNode, SyntaxTree
@@ -103,6 +105,14 @@ def is_force_release_token(raw: object) -> bool:
 
 def is_assign_deassign_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in ASSIGN_DEASSIGN_TOKEN_KINDS
+
+
+def is_wand_wor_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) in WAND_WOR_TOKEN_KINDS
+
+
+def is_trireg_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == TRIREG_TOKEN_KIND
 
 
 def is_endcase_token(raw: object) -> bool:
@@ -343,7 +353,9 @@ __all__ = [
     "is_procedural_block",
     "is_read_write_assignment_expression",
     "is_read_write_unary_expression",
+    "is_trireg_token",
     "is_unique_priority_case_token",
+    "is_wand_wor_token",
     "iter_assignment_nodes",
     "iter_statement_nodes",
     "module_declaration_name",

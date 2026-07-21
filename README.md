@@ -23,6 +23,7 @@ A basic set of rules are implemented. Right now, it checks for:
 - Instantiation of a module that isn't defined anywhere in the linted files.
 
 See [RULES.md](RULES.md) for the maintained rule catalog and the specific cases each rule covers.
+See [RULE_IMPLEMENTATION.md](RULE_IMPLEMENTATION.md) for contributor-facing notes on when rules need parser helpers, handlers, or semantic-model updates.
 
 ## Setup
 

@@ -16,7 +16,9 @@ from src.pkg.rules.syntax.no_defparam import NoDefparamRule
 from src.pkg.rules.syntax.no_inout_internal import NoInternalInoutRule
 from src.pkg.rules.syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 from src.pkg.rules.syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
+from src.pkg.rules.syntax.no_trireg import NoTriregRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
+from src.pkg.rules.syntax.no_wand_wor import NoWandWorRule
 from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.vnodes.token_vnode import TokenVNode
@@ -760,3 +762,78 @@ class TestNoAssignDeassignRule:
         assert result["line"] == 5
         assert result["col"] == 9
         assert result["message"] == "Use of assign/deassign is discouraged in RTL; prefer explicit continuous or procedural intent"
+
+
+class TestNoWandWorRule:
+    @pytest.fixture
+    def rule(self) -> NoWandWorRule:
+        return NoWandWorRule()
+
+    def test_rule_has_correct_code(self, rule: NoWandWorRule) -> None:
+        assert rule.code == "NO_WAND_WOR"
+
+    def test_rule_has_correct_message(self, rule: NoWandWorRule) -> None:
+        assert rule.message == "Use of wand/wor is discouraged in RTL; prefer explicit logic composition instead"
+
+    def test_applies_returns_true_for_wand_keyword(self, rule: NoWandWorRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.WAndKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_wor_keyword(self, rule: NoWandWorRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.WOrKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_token(self, rule: NoWandWorRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.LogicKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoWandWorRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 12}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 12
+        assert result["message"] == "Use of wand/wor is discouraged in RTL; prefer explicit logic composition instead"
+
+
+class TestNoTriregRule:
+    @pytest.fixture
+    def rule(self) -> NoTriregRule:
+        return NoTriregRule()
+
+    def test_rule_has_correct_code(self, rule: NoTriregRule) -> None:
+        assert rule.code == "NO_TRIREG"
+
+    def test_rule_has_correct_message(self, rule: NoTriregRule) -> None:
+        assert rule.message == "Use of trireg is discouraged in RTL; prefer explicit storage and connectivity modeling instead"
+
+    def test_applies_returns_true_for_trireg_keyword(self, rule: NoTriregRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.TriRegKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_token(self, rule: NoTriregRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.WireKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoTriregRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 5
+        assert result["message"] == "Use of trireg is discouraged in RTL; prefer explicit storage and connectivity modeling instead"

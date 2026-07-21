@@ -20,4 +20,6 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "NO_DEFPARAM",
         "NO_FORCE_RELEASE",
         "NO_ASSIGN_DEASSIGN",
+        "NO_WAND_WOR",
+        "NO_TRIREG",
     }.issubset(codes)

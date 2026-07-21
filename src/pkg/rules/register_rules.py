@@ -21,6 +21,8 @@ from .syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 from .syntax.no_defparam import NoDefparamRule
 from .syntax.no_force_release import NoForceReleaseRule
 from .syntax.no_assign_deassign import NoAssignDeassignRule
+from .syntax.no_wand_wor import NoWandWorRule
+from .syntax.no_trireg import NoTriregRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule

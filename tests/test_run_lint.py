@@ -20,6 +20,8 @@ LATCH_IN_ALWAYS_COMB_DATA = Path(__file__).parent / "data" / "latch_in_always_co
 DEFPARAM_USAGE_DATA = Path(__file__).parent / "data" / "defparam_usage.v"
 FORCE_RELEASE_DATA = Path(__file__).parent / "data" / "force_release.v"
 ASSIGN_DEASSIGN_DATA = Path(__file__).parent / "data" / "assign_deassign.v"
+WAND_WOR_DATA = Path(__file__).parent / "data" / "wand_wor.v"
+TRIREG_DATA = Path(__file__).parent / "data" / "trireg.v"
 
 
 class TestRunJobsValidation:
@@ -135,6 +137,19 @@ class TestRunJobsValidation:
         codes = [d["code"] for d in diagnostics]
         assert codes.count("NO_ASSIGN_DEASSIGN") == 2
         assert any("assign/deassign" in d["message"] for d in diagnostics)
+
+    def test_run_reports_wand_wor_rule(self) -> None:
+        diagnostics = run([WAND_WOR_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_WAND_WOR") == 2
+        assert any("wand/wor" in d["message"] for d in diagnostics)
+
+    def test_run_reports_trireg_rule(self) -> None:
+        diagnostics = run([TRIREG_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_TRIREG" for d in diagnostics)
+        assert any("trireg" in d["message"] for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
