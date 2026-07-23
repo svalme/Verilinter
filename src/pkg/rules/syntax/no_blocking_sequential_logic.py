@@ -9,5 +9,5 @@ class NoBlockingAssignmentInSequentialRule(Rule):
     code = "NO_BLOCKING_SEQUENTIAL"
     message = "Blocking assignment used in sequential logic"
 
-    def applies(self, vnode, ctx) -> bool:
+    def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         return is_blocking_assignment_token(vnode.raw) and ctx.has(ContextFlag.ALWAYS)

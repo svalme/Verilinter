@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, cast
 import pyslang as sl
 
 from .syntax_kinds import (
+    ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
     ALWAYS_LATCH_BLOCK_KIND,
     ASSIGNMENT_KINDS,
@@ -12,22 +13,39 @@ from .syntax_kinds import (
     CASE_STYLE_TOKEN_KINDS,
     CASE_TOKEN_KINDS,
     CONDITIONAL_STATEMENT_KIND,
+    CONTINUOUS_ASSIGN_KIND,
     DEFPARAM_TOKEN_KIND,
     ENDCASE_TOKEN_KIND,
     FINAL_BLOCK_KIND,
     FORCE_RELEASE_TOKEN_KINDS,
     INITIAL_BLOCK_KIND,
+    PORT_DIRECTION_TOKEN_KINDS,
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
     SUPPLY0_SUPPLY1_TOKEN_KINDS,
+    TIMING_CONTROL_STATEMENT_KIND,
     TRANIF_RTRANIF_TOKEN_KINDS,
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
     WAND_WOR_TOKEN_KINDS,
     UNIQUE_PRIORITY_TOKEN_KINDS,
 )
-from .types import CaseGenerateNode, DefaultCaseItemNode, PortDeclarationNode, ProceduralBlockNode, SyntaxNode, SyntaxTree
+from .types import (
+    BinaryEventExpressionNode,
+    CaseGenerateNode,
+    CaseStatementNode,
+    DefaultCaseItemNode,
+    IdentifierNameNode,
+    IdentifierSelectNameNode,
+    ImplicitEventControlNode,
+    ParenthesizedEventExpressionNode,
+    PortDeclarationNode,
+    ProceduralBlockNode,
+    SignalEventExpressionNode,
+    SyntaxNode,
+    SyntaxTree,
+)
 
 if TYPE_CHECKING:
     from ..vnodes.base_vnode import BaseVNode
@@ -50,6 +68,10 @@ def is_procedural_block(raw: object) -> bool:
     return isinstance(raw, ProceduralBlockNode) or getattr(raw, "kind", None) in PROCEDURAL_BLOCK_KINDS
 
 
+def is_continuous_assign(raw: object) -> bool:
+    return getattr(raw, "kind", None) == CONTINUOUS_ASSIGN_KIND
+
+
 def is_initial_block(raw: object) -> bool:
     return getattr(raw, "kind", None) == INITIAL_BLOCK_KIND
 
@@ -68,6 +90,10 @@ def is_always_comb_block(raw: object) -> bool:
 
 def is_case_generate_node(raw: object) -> bool:
     return isinstance(raw, CaseGenerateNode)
+
+
+def is_case_statement(raw: object) -> bool:
+    return isinstance(raw, CaseStatementNode)
 
 
 def is_internal_inout_port_declaration(raw: object) -> bool:
@@ -179,6 +205,20 @@ def declarator_is_port(ctx: "Context") -> bool:
     return False
 
 
+def declarator_port_direction(ctx: "Context") -> str | None:
+    """Return "input" / "output" / "inout" / "ref" for a port declarator, else None."""
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        type_name = type(raw).__name__
+        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+            header = getattr(raw, "header", None)
+            direction = getattr(header, "direction", None)
+            return PORT_DIRECTION_TOKEN_KINDS.get(getattr(direction, "kind", None))
+        if type_name.endswith("DataDeclarationSyntax"):
+            return None
+    return None
+
+
 def instantiation_type_name(raw: object) -> str | None:
     type_node = getattr(raw, "type", None)
     value = getattr(type_node, "value", None)
@@ -281,24 +321,44 @@ def unary_write_operand(raw: object) -> SyntaxNode | None:
     return operand if isinstance(operand, SyntaxNode) else None
 
 
-def identifier_access_modes(ctx: "Context", raw_identifier: SyntaxNode) -> tuple[bool, bool]:
-    for ancestor in reversed(ctx.stack):
-        left = assignment_left(ancestor.raw)
+def _identifier_access_modes_over_ancestors(
+    raw_ancestors: list[object], raw_identifier: SyntaxNode
+) -> tuple[bool, bool]:
+    for ancestor in reversed(raw_ancestors):
+        left = assignment_left(ancestor)
         if left is not None and contains_descendant(left, raw_identifier):
-            if is_read_write_assignment_expression(ancestor.raw):
+            if is_read_write_assignment_expression(ancestor):
                 return True, True
             return False, True
 
-        operand = unary_write_operand(ancestor.raw)
+        operand = unary_write_operand(ancestor)
         if operand is not None and contains_descendant(operand, raw_identifier):
             return True, True
 
     return True, False
 
 
+def identifier_access_modes(ctx: "Context", raw_identifier: SyntaxNode) -> tuple[bool, bool]:
+    return _identifier_access_modes_over_ancestors([a.raw for a in ctx.stack], raw_identifier)
+
+
 def enclosing_procedural_block(ctx: "Context") -> "BaseVNode | None":
     for ancestor in reversed(ctx.stack):
         if is_procedural_block(ancestor.raw):
+            return ancestor
+    return None
+
+
+def enclosing_continuous_assign(ctx: "Context") -> "BaseVNode | None":
+    for ancestor in reversed(ctx.stack):
+        if is_continuous_assign(ancestor.raw):
+            return ancestor
+    return None
+
+
+def enclosing_case_statement(ctx: "Context") -> "BaseVNode | None":
+    for ancestor in reversed(ctx.stack):
+        if is_case_statement(ancestor.raw):
             return ancestor
     return None
 
@@ -313,6 +373,74 @@ def assignment_target_identifier_name(raw: object) -> str | None:
     if left is None:
         return None
     return identifier_name(left)
+
+
+def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
+    """Yield (name, raw_node) for every read-access identifier under `root`, in document
+    order. Does not descend into a nested procedural block (there isn't one to reach in
+    practice today, but this keeps the walk scoped to the block it started in)."""
+
+    def _walk(node: SyntaxNode, ancestors: list[object]) -> Iterator[tuple[str, SyntaxNode]]:
+        if isinstance(node, (IdentifierNameNode, IdentifierSelectNameNode)):
+            name = identifier_name(node)
+            if name:
+                is_read, _is_write = _identifier_access_modes_over_ancestors(ancestors, node)
+                if is_read:
+                    yield name, node
+
+        ancestors.append(node)
+        for child in node:
+            if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
+                yield from _walk(child, ancestors)
+        ancestors.pop()
+
+    yield from _walk(root, [])
+
+
+def procedural_block_sensitivity_names(raw: object) -> set[str] | None:
+    """For a plain `always @(...)` block, return the set of identifier names in its
+    explicit sensitivity list (e.g. `always @(a or b)` -> {"a", "b"}).
+
+    Returns None when there is no explicit list to check against: `always_comb` /
+    `always_latch` / `always_ff` blocks (different SyntaxKind entirely), a wildcard
+    `always @*` / `always @(*)`, or a list containing any `posedge`/`negedge` qualifier
+    (an edge-sensitive block is not subject to the combinational-completeness check --
+    a partial list there is the normal, intended pattern).
+    """
+    if getattr(raw, "kind", None) != ALWAYS_BLOCK_KIND:
+        return None
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return None
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return None
+
+    names: set[str] = set()
+    has_edge = False
+
+    def _collect(node: object) -> None:
+        nonlocal has_edge
+        if node is None:
+            return
+        if isinstance(node, ParenthesizedEventExpressionNode):
+            _collect(getattr(node, "expr", None))
+        elif isinstance(node, BinaryEventExpressionNode):
+            _collect(getattr(node, "left", None))
+            _collect(getattr(node, "right", None))
+        elif isinstance(node, SignalEventExpressionNode):
+            if is_posedge_event(node) or is_negedge_event(node):
+                has_edge = True
+            name = identifier_name(getattr(node, "expr", None))
+            if name:
+                names.add(name)
+
+    _collect(getattr(event_control, "expr", None))
+    if has_edge:
+        return None
+    return names
 
 
 def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
@@ -336,6 +464,9 @@ __all__ = [
     "declarator_has_initializer",
     "declarator_is_port",
     "declarator_name",
+    "declarator_port_direction",
+    "enclosing_case_statement",
+    "enclosing_continuous_assign",
     "enclosing_procedural_block",
     "expression_statement_expression",
     "has_default_case_item",
@@ -354,8 +485,10 @@ __all__ = [
     "is_case_generate_keyword_pair",
     "is_case_generate_node",
     "is_case_keyword_token",
+    "is_case_statement",
     "is_casex_casez_token",
     "is_conditional_statement",
+    "is_continuous_assign",
     "is_defparam_token",
     "is_endcase_token",
     "is_final_block",
@@ -375,8 +508,10 @@ __all__ = [
     "is_unique_priority_case_token",
     "is_wand_wor_token",
     "iter_assignment_nodes",
+    "iter_identifier_reads",
     "iter_statement_nodes",
     "module_declaration_name",
+    "procedural_block_sensitivity_names",
     "procedural_block_statement",
     "unary_write_operand",
 ]

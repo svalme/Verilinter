@@ -1,5 +1,6 @@
 from ...parser.syntax import is_nonblocking_assignment_token
-from ...walk.context import ContextFlag
+from ...vnodes.base_vnode import BaseVNode
+from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
 from .rule_runner import rule_runner
 
@@ -8,5 +9,5 @@ class NoNonBlockingAssignmentInCombRule(Rule):
     code = "NO_NONBLOCKING_COMBINATIONAL"
     message = "Non-blocking assignment used in combinational logic"
 
-    def applies(self, vnode, ctx) -> bool:
+    def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         return is_nonblocking_assignment_token(vnode.raw) and ctx.has(ContextFlag.ALWAYS_COMB)

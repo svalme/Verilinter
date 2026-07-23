@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from ...parser.syntax import (
     assignment_target_identifier_name,
     conditional_statement_body,
@@ -11,8 +13,12 @@ from ...parser.syntax import (
     procedural_block_statement,
 )
 from ...parser.types import SyntaxNode
+from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from .rule_runner import rule_runner
+
+if TYPE_CHECKING:
+    from ...walk.context import Context
 
 
 def _unconditional_assignment_targets(statement: SyntaxNode) -> set[str]:
@@ -68,7 +74,7 @@ class NoLatchInAlwaysCombRule(Rule):
     code = "NO_LATCH_IN_ALWAYS_COMB"
     message = "always_comb block contains a conditional-only assignment that can infer latch-like storage"
 
-    def applies(self, vnode, ctx) -> bool:
+    def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_always_comb_block(vnode.raw):
             return False
 

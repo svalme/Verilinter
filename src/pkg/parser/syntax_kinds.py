@@ -10,7 +10,9 @@ ALWAYS_COMB_BLOCK_KIND = sl.SyntaxKind.AlwaysCombBlock
 ALWAYS_LATCH_BLOCK_KIND = sl.SyntaxKind.AlwaysLatchBlock
 INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
+CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
+TIMING_CONTROL_STATEMENT_KIND = _syntax_kind("TimingControlStatement")
 BLOCK_STATEMENT_KINDS = {
     kind
     for kind in (
@@ -157,6 +159,14 @@ TRANIF_RTRANIF_TOKEN_KINDS = {
 }
 
 
+PORT_DIRECTION_TOKEN_KINDS = {
+    sl.TokenKind.InputKeyword: "input",
+    sl.TokenKind.OutputKeyword: "output",
+    sl.TokenKind.InOutKeyword: "inout",
+    sl.TokenKind.RefKeyword: "ref",
+}
+
+
 __all__ = [
     "ALWAYS_BLOCK_KIND",
     "ALWAYS_COMB_BLOCK_KIND",
@@ -167,16 +177,19 @@ __all__ = [
     "CASE_STYLE_TOKEN_KINDS",
     "CASE_TOKEN_KINDS",
     "CONDITIONAL_STATEMENT_KIND",
+    "CONTINUOUS_ASSIGN_KIND",
     "DEFPARAM_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
     "FINAL_BLOCK_KIND",
     "FORCE_RELEASE_TOKEN_KINDS",
     "INITIAL_BLOCK_KIND",
+    "PORT_DIRECTION_TOKEN_KINDS",
     "PROCEDURAL_BLOCK_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
+    "TIMING_CONTROL_STATEMENT_KIND",
     "TRANIF_RTRANIF_TOKEN_KINDS",
     "TRAN_RTRAN_TOKEN_KINDS",
     "TRIREG_TOKEN_KIND",

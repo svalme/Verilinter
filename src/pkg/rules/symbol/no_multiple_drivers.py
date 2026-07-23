@@ -1,7 +1,9 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.symbol import UseEvent
 from ...semantic.symbol_table import SymbolTable
+from ...vnodes.base_vnode import Location
 from .symbol_rule_runner import symbol_rule_runner
 
 
@@ -17,7 +19,7 @@ class NoMultipleDriversRule(BaseSymbolRule):
                 if sym.kind != "variable" or not sym.declarations or sym.is_implicit:
                     continue
 
-                seen_driver_ids: dict[str, dict[str, Any]] = {}
+                seen_driver_ids: dict[str, tuple[UseEvent, Location]] = {}
 
                 for event in sym.use_events:
                     if not event["write"]:
@@ -29,24 +31,23 @@ class NoMultipleDriversRule(BaseSymbolRule):
                         continue
 
                     if driver_id not in seen_driver_ids:
-                        seen_driver_ids[driver_id] = event
+                        seen_driver_ids[driver_id] = (event, driver_location)
                         continue
 
                 if len(seen_driver_ids) <= 1:
                     continue
 
                 ordered_events = list(seen_driver_ids.values())
-                first = ordered_events[0]
-                second = ordered_events[1]
-                loc = second["location"]
-                first_driver_loc = first["driver_location"]
+                _first_event, first_driver_loc = ordered_events[0]
+                second_event, _second_driver_loc = ordered_events[1]
+                loc = second_event["location"]
 
                 diagnostic = {
                     "code": self.code,
                     "line": loc["line"],
                     "col": loc["col"],
                     "message": (
-                        f"Variable '{sym.name}' is written from multiple procedural blocks "
+                        f"Variable '{sym.name}' is written from multiple drivers "
                         f"(first driver at line {first_driver_loc['line']})"
                     ),
                 }

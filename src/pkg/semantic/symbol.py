@@ -30,6 +30,7 @@ class Symbol:
 
         self.is_implicit: bool = False
         self.is_port: bool = False
+        self.port_direction: str | None = None  # "input" / "output" / "inout" / "ref" when is_port
         self.is_read: bool = False
         self.is_written: bool = False
 

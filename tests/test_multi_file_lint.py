@@ -13,9 +13,13 @@ from src.pkg.walk.context import Context
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 
+from .support.lint_harness import run_file_lint_case
+
 DATA = Path(__file__).parent / "data"
 FILE_A = DATA / "dup_module_a.v"
 FILE_B = DATA / "dup_module_b.v"
+CIRCULAR_FILE_A = DATA / "circular_a.v"
+CIRCULAR_FILE_B = DATA / "circular_b.v"
 
 
 def _walk_files(paths: list[Path]) -> tuple[Walker, SymbolTable]:
@@ -81,3 +85,23 @@ class TestMultiFileLinting:
         assert len(dup) == 1
         assert Path(dup[0]["file"]).name == FILE_B.name
         assert FILE_A.name in dup[0]["message"]
+
+    def test_circular_module_instantiation_rule_fires_across_files(self) -> None:
+        """circular_a.v instantiates circular_b, and circular_b.v instantiates
+        circular_a back -- the cycle only exists once both files are walked
+        into the same shared symbol table."""
+        _, symbol_table = _walk_files([CIRCULAR_FILE_A, CIRCULAR_FILE_B])
+
+        diagnostics = module_rule_runner.run(symbol_table)
+        circular = [d for d in diagnostics if d["code"] == "CIRCULAR_MODULE_INSTANTIATION"]
+
+        assert len(circular) == 1
+        assert "circular_a" in circular[0]["message"]
+        assert "circular_b" in circular[0]["message"]
+
+    def test_file_harness_preserves_real_file_attribution(self) -> None:
+        result = run_file_lint_case([FILE_A, FILE_B])
+
+        unused = result.for_code("UNUSED_VARIABLE")
+        assert len(unused) == 2
+        assert result.files_for_code("UNUSED_VARIABLE") == {FILE_A.name, FILE_B.name}

@@ -1,6 +1,11 @@
 from ..walk.dispatch import dispatch
 from ..walk.context import Context
-from ..parser.syntax import declarator_has_initializer, declarator_is_port, declarator_name
+from ..parser.syntax import (
+    declarator_has_initializer,
+    declarator_is_port,
+    declarator_name,
+    declarator_port_direction,
+)
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 from ..parser.types import DeclaratorNode
@@ -16,6 +21,8 @@ class DeclaratorHandler(SyntaxNodeHandler):
             return ctx.push(vnode)
         symbol = Symbol(name=name, kind="variable")
         symbol.is_port = declarator_is_port(ctx)
+        if symbol.is_port:
+            symbol.port_direction = declarator_port_direction(ctx)
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):
             symbol.add_use(vnode.location, write=True)

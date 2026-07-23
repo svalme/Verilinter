@@ -5,7 +5,11 @@ from ..vnodes.vnode_factory import vnode_factory
 from ..walk.dispatch import dispatch
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
-from ..parser.syntax import enclosing_procedural_block, identifier_access_modes
+from ..parser.syntax import (
+    enclosing_continuous_assign,
+    enclosing_procedural_block,
+    identifier_access_modes,
+)
 from ..parser.types import IdentifierNameNode, IdentifierSelectNameNode
 from ..walk.context import Context
 
@@ -21,7 +25,9 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
 
         is_read, is_write = identifier_access_modes(ctx, vnode.raw)
         symbol = symbol_table.lookup_from_scope(name, ctx.scope())
-        driver_block = enclosing_procedural_block(ctx) if is_write else None
+        driver_block = None
+        if is_write:
+            driver_block = enclosing_procedural_block(ctx) or enclosing_continuous_assign(ctx)
         driver_id = None
         driver_location = None
         if driver_block is not None:

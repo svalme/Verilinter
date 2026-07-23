@@ -7,6 +7,16 @@ Use it alongside [RULES.md](RULES.md):
 - `RULES.md` answers: "What rules exist and what do they cover?"
 - `RULE_IMPLEMENTATION.md` answers: "What parts of the system usually need to change to implement a rule?"
 
+## Write Down *Why*, Not Just *What*
+
+When a rule's design was shaped by a non-obvious pitfall, write that reasoning
+down in one of the two places contributors will actually look:
+
+- the rule's row in the Rule Shape Map below
+- the rule's `Known Limitations` entry in `RULES.md`
+
+The goal is to preserve implementation rationale, not project history.
+
 ## Mental Model
 
 Most rules in this repo fall into one of two buckets:
@@ -32,10 +42,16 @@ They work because the walker accumulates facts during traversal, and the rule ru
 | `NO_TRIREG` | Simple syntax | No | No | Raw token matching | Another legacy keyword rule. |
 | `NO_ALWAYS_LATCH` | Simple syntax | No | No | Procedural block node matching | Cheap block-level syntax rule. |
 | `NO_LATCH_IN_ALWAYS_COMB` | Syntax with helper logic | No new handler | No new semantic model | Parser-side block / conditional helpers | More logic than a keyword rule, but still syntax-driven. |
+| `DEFAULT_CASE` | Simple syntax (flag-based) | No | No | `CaseGenerateHandler`'s `CASE_GENERATE` / `DEFAULT` flags | Good example of a rule built around traversal context rather than post-walk semantic facts. |
+| `NO_DEFAULT_CASE_STATEMENT` | Syntax with helper logic | No new handler | No new semantic model | `enclosing_case_statement` ancestor walk (`ctx.stack`), `has_default_case_item` | Deliberately *not* a `ContextFlag`-based design like `DEFAULT_CASE` (case generate's sibling rule, directly above) for the reason described there: Context flags accumulate downward and never clear, so a nested case statement would inherit an outer case's `DEFAULT` flag even with no default of its own — a false negative for the single most common shape this rule needs to handle correctly (nested case statements). Resolving the *nearest* enclosing `CaseStatementSyntax` fresh per `endcase` token sidesteps that entirely, at the cost of walking `ctx.stack` once per `endcase` rather than reading a flag. |
 | `READ_BEFORE_WRITE` | Shared-analysis / semantic | Yes | Yes | Identifier read/write access classification | Relies on traversal-time read / write recording, plus parser helpers for read+write cases like compound assignments. |
 | `NO_IMPLICIT_NET` | Shared-analysis / semantic | Yes | Yes | Unresolved identifier classification | Depends on handler logic that decides whether an unresolved use becomes an implicit net. |
 | `NO_MULTIPLE_DRIVERS` | Shared-analysis / semantic | Yes | Yes | Procedural + continuous-assign driver identity tracking | Needs write events tied to an enclosing driver site. |
 | `NO_UNDRIVEN_SIGNAL` | Shared-analysis / semantic | Yes | Yes | Declaration/write/use accumulation | Needs declarations, reads, writes, and port-vs-internal distinctions to be tracked consistently. |
+| `NO_UNDRIVEN_OUTPUT_PORT` | Shared-analysis / semantic | Yes | Yes | Declaration/write/use accumulation, plus port direction classification | Same read/write facts as `NO_UNDRIVEN_SIGNAL`, filtered to the port case that rule excludes. Needed a new shared fact, `Symbol.port_direction`, since the existing `is_port` bool couldn't distinguish `output` from `input`/`inout`/`ref`. That fact is gathered once in `DeclaratorHandler` via `declarator_port_direction` (mirrors the existing `declarator_is_port` ancestor walk) so any future port-direction-aware rule can reuse it without re-deriving it from the AST. |
+| `NO_WRITE_ONLY_INPUT_PORT` | Shared-analysis / semantic | No (reused) | No (reused) | Declaration/write/use accumulation, plus `Symbol.port_direction` | Pure rule-side addition once `NO_UNDRIVEN_OUTPUT_PORT` had already introduced `port_direction` — no handler or semantic-model changes were needed for this one, just a second consumer of the same shared fact. Good example of the payoff of putting a fact in the shared model instead of a one-off rule hack. |
+| `CIRCULAR_MODULE_INSTANTIATION` | Shared-analysis / semantic, cross-file | Yes | Yes | `SymbolTable.instantiation_edges` | Needs explicit module-to-module edge tracking, not just flat reference collection. |
+| `NO_INCOMPLETE_SENSITIVITY_LIST` | Syntax with helper logic and handler caching | Yes | No | `procedural_block_sensitivity_names`, `iter_identifier_reads`, cached in `Context.data` | The fact is syntax-local, but caching it once per procedural block avoids repeated subtree walks. |
 
 ## Where To Change Things
 
@@ -104,3 +120,4 @@ Before adding rule-specific state to a handler, ask:
 "Is this really a shared fact that more than one rule may want?"
 
 If yes, it is probably a semantic-model or shared-analysis addition, not just a one-off rule hack.
+

@@ -1,0 +1,72 @@
+# Contributing
+
+This file is the coding-style reference for Verilinter.
+
+Read alongside:
+
+- [README.md](README.md) — what the project is, how to run it
+- [RULES.md](RULES.md) — the rule catalog
+- [RULE_IMPLEMENTATION.md](RULE_IMPLEMENTATION.md) — how rules are wired (handlers, parser helpers, shared facts)
+
+## Type Annotations
+
+**Every function and method signature must be fully annotated: every parameter, and the return type.**
+This includes `self`-only helper methods with an obvious-looking body — `-> bool`, `-> None`, `-> str | None`
+cost nothing to write and are what makes the codebase's type checker (Pylance/Pyright, run by most contributors'
+editors) actually useful instead of silently skipping the function.
+
+```python
+# Not this:
+def applies(self, vnode, ctx) -> bool:
+    return is_always_latch_block(vnode.raw)
+
+# This:
+def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
+    return is_always_latch_block(vnode.raw)
+```
+
+(A bare `vnode, ctx` in a syntax rule's `applies()` is a regression, not a model to copy.)
+
+**Prefer the precise type that already exists over `dict[str, Any]` or `Any`.** If a `TypedDict` already
+describes the shape you're handling — `UseEvent` and `Location` both exist for exactly this reason — use it.
+Falling back to `dict[str, Any]` when a narrower type is already defined either hides a real bug from the type
+checker or invites one: annotating a collection of `UseEvent` values as `dict[str, dict[str, Any]]` is a real type error, not a style nitpick: a `TypedDict`'s fixed key set isn't assignable to an open `dict[str, Any]`. Annotate it `dict[str, UseEvent]`.
+
+Two annotation situations that come up often in this codebase:
+
+- **Circular-import-only types**: several modules need `Context` for type hints but importing it directly would
+  create an import cycle. The existing convention is `if TYPE_CHECKING: from ...walk.context import Context`,
+  then annotating with the string form `ctx: "Context"`. Follow this rather than restructuring imports to avoid
+  it.
+- **`TypedDict` values with `NotRequired` keys**: don't subscript a `NotRequired` key directly (`event["driver_location"]`) — the type checker can't know from a dict lookup elsewhere that the key is actually present. Either use `.get(...)` and check for `None`, or — if you've already validated presence and need to keep using the value later — carry the validated value alongside the object explicitly (a tuple, a small local variable) rather than re-deriving it from an unsafe subscript. `NoMultipleDriversRule` does this: it captures `driver_location` once, right where it validates it's not `None`, and stores `(event, driver_location)` together instead of subscripting `event["driver_location"]` again later.
+
+## Design Patterns
+
+**The registry-plus-decorator pattern is how every extensible collection in this codebase works. New
+collections of the same shape should follow it, not invent a new one.** Five things already use it:
+
+| Registry | Decorator | Lookup / run method |
+|---|---|---|
+| `Dispatch` (`walk/dispatch.py`) | `@dispatch.register(NodeType)` | `Dispatch.get(vnode)` |
+| `VNodeFactory` (`vnodes/vnode_factory.py`) | `@vnode_factory.register(...)` | `vnode_factory.create(...)` |
+| `RuleRunner` (`rules/syntax/rule_runner.py`) | `@rule_runner.register` | `rule_runner.check(vnode, ctx)` / `.run(walk_results)` |
+| `SymbolRuleRunner` (`rules/symbol/symbol_rule_runner.py`) | `@symbol_rule_runner.register` | `symbol_rule_runner.run(symbol_table)` |
+| `ModuleRuleRunner` (`rules/module/module_rule_runner.py`) | `@module_rule_runner.register` | `module_rule_runner.run(symbol_table)` |
+
+The shape: a single module-level instance, a `register` method used as a decorator so registration is a *side
+effect of importing the module* (see `RULE_IMPLEMENTATION.md`'s Wiring Checklist for why every one of these
+modules has to actually get imported somewhere for this to work), and a lookup/run method that the rest of the
+codebase calls without needing to know what's registered. If you're adding something that's naturally a
+collection of interchangeable, independently-registered things — not just these five — reach for this shape
+before inventing a bespoke registration mechanism.
+
+**Follow the parser / vnode / handler / rule layering already documented in `RULE_IMPLEMENTATION.md`.** That
+file's "Handler vs Parser Helper vs Rule" section and "Layer Responsibilities" section are the authority on
+where a given piece of logic belongs — this file doesn't repeat that split, just points at it.
+
+**`BaseDiagnostic` is the shared base for both rule kinds (`Rule` and `BaseSymbolRule`).** It provides
+`report(vnode) -> dict` using `self.code`/`self.message`. If a rule needs a dynamic, per-instance message
+(the diagnostic needs to name a specific signal, line, etc. — most symbol/module rules do this by building the
+`dict` by hand in `run()`), a syntax `Rule` can override `report()` rather than being forced into a static
+`message` string; `NoIncompleteSensitivityListRule` does this. Don't invent a second diagnostic-shaping
+mechanism alongside `BaseDiagnostic` for that case.

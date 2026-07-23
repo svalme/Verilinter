@@ -24,6 +24,7 @@ A basic set of rules are implemented. Right now, it checks for:
 
 See [RULES.md](RULES.md) for the maintained rule catalog and the specific cases each rule covers.
 See [RULE_IMPLEMENTATION.md](RULE_IMPLEMENTATION.md) for contributor-facing notes on when rules need parser helpers, handlers, or semantic-model updates.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for coding-style requirements (type annotations, design patterns).
 
 ## Setup
 

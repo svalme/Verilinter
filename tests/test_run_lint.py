@@ -95,7 +95,7 @@ class TestRunJobsValidation:
         diagnostics = run([MULTIPLE_DRIVERS_DATA], jobs=1)
 
         assert any(d["code"] == "NO_MULTIPLE_DRIVERS" for d in diagnostics)
-        assert any("multiple procedural blocks" in d["message"] for d in diagnostics)
+        assert any("multiple drivers" in d["message"] for d in diagnostics)
 
     def test_run_reports_internal_inout_rule(self) -> None:
         diagnostics = run([INTERNAL_INOUT_DATA], jobs=1)

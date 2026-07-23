@@ -8,6 +8,7 @@ from .module.module_rule_runner import module_rule_runner
 from .syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from .syntax.no_nonblocking_comb import NoNonBlockingAssignmentInCombRule
 from .syntax.default_case import DefaultCaseRule
+from .syntax.no_default_case_statement import NoDefaultCaseStatementRule
 from .syntax.no_casex_casez import NoCaseXCaseZRule
 from .syntax.no_mixed_assignment_style import NoMixedAssignmentStyleRule
 from .syntax.no_initial_block import NoInitialBlockRule
@@ -26,6 +27,7 @@ from .syntax.no_trireg import NoTriregRule
 from .syntax.no_supply0_supply1 import NoSupply0Supply1Rule
 from .syntax.no_tran_rtran import NoTranRtranRule
 from .syntax.no_tranif_rtranif import NoTranifRtranifRule
+from .syntax.no_incomplete_sensitivity_list import NoIncompleteSensitivityListRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
@@ -33,9 +35,12 @@ from .symbol.undeclared_variable import UndeclaredVariableRule
 from .symbol.no_implicit_net import NoImplicitNetRule
 from .symbol.no_multiple_drivers import NoMultipleDriversRule
 from .symbol.no_undriven_signal import NoUndrivenSignalRule
+from .symbol.no_undriven_output_port import NoUndrivenOutputPortRule
+from .symbol.no_write_only_input_port import NoWriteOnlyInputPortRule
 from .symbol.redeclared_variable import RedeclaredVariableRule
 from .symbol.read_before_write_rule import ReadBeforeWriteRule
 
 # module rules (cross-file)
 from .module.duplicate_module_definition import DuplicateModuleDefinitionRule
 from .module.undefined_module import UndefinedModuleRule
+from .module.circular_module_instantiation import CircularModuleInstantiationRule

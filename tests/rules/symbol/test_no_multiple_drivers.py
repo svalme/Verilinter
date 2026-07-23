@@ -41,6 +41,31 @@ module top(input logic clk);
 endmodule
 """
 
+MULTIPLE_CONTINUOUS_ASSIGN_DRIVERS_CODE = """
+module top(input logic a, input logic b);
+  logic x;
+  assign x = a;
+  assign x = b;
+endmodule
+"""
+
+MIXED_ASSIGN_AND_PROCEDURAL_DRIVERS_CODE = """
+module top(input logic clk, input logic a);
+  logic x;
+  assign x = a;
+  always_ff @(posedge clk) begin
+    x <= 1'b0;
+  end
+endmodule
+"""
+
+SINGLE_CONTINUOUS_ASSIGN_DRIVER_CODE = """
+module top(input logic a);
+  logic x;
+  assign x = a;
+endmodule
+"""
+
 
 class TestNoMultipleDriversRule:
     @pytest.fixture
@@ -126,6 +151,44 @@ class TestNoMultipleDriversRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(SINGLE_DRIVER_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
+    def test_flags_two_continuous_assign_drivers(self, rule: NoMultipleDriversRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(MULTIPLE_CONTINUOUS_ASSIGN_DRIVERS_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "NO_MULTIPLE_DRIVERS"
+        assert "x" in diagnostics[0]["message"]
+
+    def test_flags_continuous_assign_plus_procedural_driver(self, rule: NoMultipleDriversRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(MIXED_ASSIGN_AND_PROCEDURAL_DRIVERS_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "NO_MULTIPLE_DRIVERS"
+        assert "x" in diagnostics[0]["message"]
+
+    def test_single_continuous_assign_driver_does_not_flag(self, rule: NoMultipleDriversRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(SINGLE_CONTINUOUS_ASSIGN_DRIVER_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

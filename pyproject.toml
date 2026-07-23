@@ -9,7 +9,7 @@ description = "A static analysis and linting framework for SystemVerilog built o
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "pyslang",
+    "pyslang==9.1.0",
 ]
 
 [project.optional-dependencies]

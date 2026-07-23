@@ -15,6 +15,7 @@ class SymbolTable:
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name -> all scopes defining it, across files
         self.module_references: list[tuple[str, Location]] = []
+        self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
 
@@ -65,6 +66,10 @@ class SymbolTable:
     def register_module_reference(self, name: str, location: Location) -> None:
         """Record an instantiation site referencing a module type by name."""
         self.module_references.append((name, location))
+
+    def register_instantiation_edge(self, from_module: str, to_module: str, location: Location) -> None:
+        """Record that `from_module` instantiates `to_module` at `location`, for hierarchy-cycle detection."""
+        self.instantiation_edges.append((from_module, to_module, location))
 
     def lookup_module(self, name: str) -> Scope | None:
         """Return the first scope for a named module, or None if not yet seen."""
