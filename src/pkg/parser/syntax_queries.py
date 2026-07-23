@@ -321,12 +321,25 @@ def unary_write_operand(raw: object) -> SyntaxNode | None:
     return operand if isinstance(operand, SyntaxNode) else None
 
 
+def _selectors_containing_identifier(raw: object, raw_identifier: SyntaxNode) -> bool:
+    selectors = getattr(raw, "selectors", None)
+    if selectors is None:
+        return False
+
+    for selector in selectors:
+        if isinstance(selector, SyntaxNode) and contains_descendant(selector, raw_identifier):
+            return True
+    return False
+
+
 def _identifier_access_modes_over_ancestors(
     raw_ancestors: list[object], raw_identifier: SyntaxNode
 ) -> tuple[bool, bool]:
     for ancestor in reversed(raw_ancestors):
         left = assignment_left(ancestor)
         if left is not None and contains_descendant(left, raw_identifier):
+            if _selectors_containing_identifier(left, raw_identifier):
+                return True, False
             if is_read_write_assignment_expression(ancestor):
                 return True, True
             return False, True
@@ -397,6 +410,17 @@ def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
     yield from _walk(root, [])
 
 
+def _iter_identifier_nodes(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
+    if isinstance(root, (IdentifierNameNode, IdentifierSelectNameNode)):
+        name = identifier_name(root)
+        if name:
+            yield name, root
+
+    for child in root:
+        if isinstance(child, SyntaxNode):
+            yield from _iter_identifier_nodes(child)
+
+
 def procedural_block_sensitivity_names(raw: object) -> set[str] | None:
     """For a plain `always @(...)` block, return the set of identifier names in its
     explicit sensitivity list (e.g. `always @(a or b)` -> {"a", "b"}).
@@ -433,9 +457,10 @@ def procedural_block_sensitivity_names(raw: object) -> set[str] | None:
         elif isinstance(node, SignalEventExpressionNode):
             if is_posedge_event(node) or is_negedge_event(node):
                 has_edge = True
-            name = identifier_name(getattr(node, "expr", None))
-            if name:
-                names.add(name)
+            expr = getattr(node, "expr", None)
+            if isinstance(expr, SyntaxNode):
+                for name, _identifier in _iter_identifier_nodes(expr):
+                    names.add(name)
 
     _collect(getattr(event_control, "expr", None))
     if has_edge:

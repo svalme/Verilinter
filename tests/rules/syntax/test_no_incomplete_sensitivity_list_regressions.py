@@ -2,15 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-import pytest
-
 from ...support.lint_harness import LintCaseResult
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Identifiers used as selectors inside assignment LHS expressions are still misclassified as write-only.",
-)
 def test_flags_selector_read_on_assignment_lhs_when_missing_from_sensitivity_list(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:
@@ -32,10 +26,6 @@ def test_flags_selector_read_on_assignment_lhs_when_missing_from_sensitivity_lis
     assert "b" in str(diagnostics[0]["message"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Explicit sensitivity expressions currently under-collect identifiers from compound event expressions.",
-)
 def test_does_not_flag_identifiers_already_covered_inside_compound_sensitivity_expression(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:
