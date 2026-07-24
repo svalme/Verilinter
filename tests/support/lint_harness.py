@@ -35,6 +35,39 @@ class LintCaseResult:
     def messages_for_code(self, code: str) -> list[str]:
         return [str(diagnostic["message"]) for diagnostic in self.for_code(code)]
 
+    def expect_no_code(self, code: str) -> None:
+        matches = self.for_code(code)
+        assert matches == [], f"Expected no diagnostics for {code}, found: {matches}"
+
+    def expect_code_count(self, code: str, count: int) -> list[Diagnostic]:
+        matches = self.for_code(code)
+        assert len(matches) == count, (
+            f"Expected {count} diagnostics for {code}, found {len(matches)}: {matches}"
+        )
+        return matches
+
+    def expect_code_once(self, code: str) -> Diagnostic:
+        matches = self.expect_code_count(code, 1)
+        return matches[0]
+
+    def expect_codes(self, expected_codes: set[str]) -> None:
+        actual_codes = {str(diagnostic["code"]) for diagnostic in self.diagnostics}
+        assert actual_codes == expected_codes, (
+            f"Expected diagnostic codes {expected_codes}, found {actual_codes}"
+        )
+
+    def expect_files_for_code(self, code: str, expected_files: set[str]) -> None:
+        actual_files = self.files_for_code(code)
+        assert actual_files == expected_files, (
+            f"Expected files {expected_files} for {code}, found {actual_files}"
+        )
+
+    def expect_message_contains(self, code: str, text: str) -> None:
+        messages = self.messages_for_code(code)
+        assert any(text in message for message in messages), (
+            f"Expected at least one {code} message to contain {text!r}, found: {messages}"
+        )
+
 
 def _run_walked_files(
     file_inputs: list[tuple[str, sl.SyntaxTree]],

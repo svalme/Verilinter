@@ -20,7 +20,7 @@ def test_lint_case_supports_single_file_false_negative_checks(
         }
     )
 
-    assert result.for_code("NO_IMPLICIT_NET") == []
+    result.expect_no_code("NO_IMPLICIT_NET")
 
 
 def test_lint_case_supports_multi_file_cross_file_rules(
@@ -41,10 +41,9 @@ def test_lint_case_supports_multi_file_cross_file_rules(
         }
     )
 
-    circular = result.for_code("CIRCULAR_MODULE_INSTANTIATION")
-    assert len(circular) == 1
-    assert "a" in str(circular[0]["message"])
-    assert "b" in str(circular[0]["message"])
+    result.expect_code_once("CIRCULAR_MODULE_INSTANTIATION")
+    result.expect_message_contains("CIRCULAR_MODULE_INSTANTIATION", "a")
+    result.expect_message_contains("CIRCULAR_MODULE_INSTANTIATION", "b")
 
 
 def test_lint_case_supports_false_positive_checks(
@@ -62,7 +61,7 @@ def test_lint_case_supports_false_positive_checks(
         }
     )
 
-    assert result.for_code("NO_INCOMPLETE_SENSITIVITY_LIST") == []
+    result.expect_no_code("NO_INCOMPLETE_SENSITIVITY_LIST")
 
 
 def test_temp_file_harness_preserves_generated_file_names(
@@ -83,8 +82,8 @@ def test_temp_file_harness_preserves_generated_file_names(
         }
     )
 
-    assert result.files_for_code("UNUSED_VARIABLE") == {"a.sv", "b.sv"}
-    assert result.files_for_code("DUPLICATE_MODULE") == {"b.sv"}
+    result.expect_files_for_code("UNUSED_VARIABLE", {"a.sv", "b.sv"})
+    result.expect_files_for_code("DUPLICATE_MODULE", {"b.sv"})
 
 
 def test_temp_file_harness_cleans_up_generated_case_directories(
@@ -103,7 +102,7 @@ def test_temp_file_harness_cleans_up_generated_case_directories(
         }
     )
 
-    assert result.for_code("NO_IMPLICIT_NET") == []
+    result.expect_no_code("NO_IMPLICIT_NET")
     leftover_cases = [
         path for path in scratch_root.iterdir() if path.is_dir()
     ] if scratch_root.exists() else []
