@@ -6,6 +6,14 @@ from pathlib import Path
 from .support.lint_harness import LintCaseFile, LintCaseResult
 
 
+def _code_counts(result: LintCaseResult) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for diagnostic in result.diagnostics:
+        code = str(diagnostic["code"])
+        counts[code] = counts.get(code, 0) + 1
+    return counts
+
+
 def test_lint_case_supports_single_file_false_negative_checks(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:
@@ -127,3 +135,59 @@ def test_inline_case_spec_can_route_default_nettype_none_to_undeclared_variable(
 
     result.expect_no_code("NO_IMPLICIT_NET")
     result.expect_code_count("UNDECLARED_VARIABLE", 2)
+
+
+def test_inline_and_temp_file_harnesses_agree_on_duplicate_module_case(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+    lint_temp_file_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    files = {
+        "a.sv": """
+        module dup_mod;
+          real unused_sig;
+        endmodule
+        """,
+        "b.sv": """
+        module dup_mod;
+          real unused_sig;
+        endmodule
+        """,
+    }
+
+    inline_result = lint_inline_case(files)
+    temp_file_result = lint_temp_file_case(files)
+
+    assert _code_counts(inline_result) == _code_counts(temp_file_result)
+    inline_result.expect_code_count("UNUSED_VARIABLE", 2)
+    temp_file_result.expect_code_count("UNUSED_VARIABLE", 2)
+    inline_result.expect_code_once("DUPLICATE_MODULE")
+    temp_file_result.expect_code_once("DUPLICATE_MODULE")
+
+
+def test_inline_and_temp_file_harnesses_agree_on_circular_instantiation_case(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+    lint_temp_file_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    files = {
+        "a.sv": """
+        module a;
+          b u_b();
+        endmodule
+        """,
+        "b.sv": """
+        module b;
+          a u_a();
+        endmodule
+        """,
+    }
+
+    inline_result = lint_inline_case(files)
+    temp_file_result = lint_temp_file_case(files)
+
+    assert _code_counts(inline_result) == _code_counts(temp_file_result)
+    inline_result.expect_code_once("CIRCULAR_MODULE_INSTANTIATION")
+    temp_file_result.expect_code_once("CIRCULAR_MODULE_INSTANTIATION")
+    inline_result.expect_message_contains("CIRCULAR_MODULE_INSTANTIATION", "a")
+    inline_result.expect_message_contains("CIRCULAR_MODULE_INSTANTIATION", "b")
+    temp_file_result.expect_message_contains("CIRCULAR_MODULE_INSTANTIATION", "a")
+    temp_file_result.expect_message_contains("CIRCULAR_MODULE_INSTANTIATION", "b")
