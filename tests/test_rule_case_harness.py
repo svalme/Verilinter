@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 from .support.lint_harness import LintCaseResult
 
@@ -84,3 +85,26 @@ def test_temp_file_harness_preserves_generated_file_names(
 
     assert result.files_for_code("UNUSED_VARIABLE") == {"a.sv", "b.sv"}
     assert result.files_for_code("DUPLICATE_MODULE") == {"b.sv"}
+
+
+def test_temp_file_harness_cleans_up_generated_case_directories(
+    lint_temp_file_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    scratch_root = Path(__file__).parent / "_tmp_harness"
+
+    result = lint_temp_file_case(
+        {
+            "cleanup.sv": """
+            module top;
+              wire a;
+              assign a = 1'b0;
+            endmodule
+            """
+        }
+    )
+
+    assert result.for_code("NO_IMPLICIT_NET") == []
+    leftover_cases = [
+        path for path in scratch_root.iterdir() if path.is_dir()
+    ] if scratch_root.exists() else []
+    assert leftover_cases == []
