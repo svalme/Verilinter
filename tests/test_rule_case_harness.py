@@ -62,3 +62,25 @@ def test_lint_case_supports_false_positive_checks(
     )
 
     assert result.for_code("NO_INCOMPLETE_SENSITIVITY_LIST") == []
+
+
+def test_temp_file_harness_preserves_generated_file_names(
+    lint_temp_file_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_temp_file_case(
+        {
+            "a.sv": """
+            module dup_mod;
+              real unused_sig;
+            endmodule
+            """,
+            "b.sv": """
+            module dup_mod;
+              real unused_sig;
+            endmodule
+            """,
+        }
+    )
+
+    assert result.files_for_code("UNUSED_VARIABLE") == {"a.sv", "b.sv"}
+    assert result.files_for_code("DUPLICATE_MODULE") == {"b.sv"}

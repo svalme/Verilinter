@@ -11,6 +11,7 @@ from src.pkg.parser.syntax import (
     instantiation_type_name,
     is_assignment_expression,
     module_declaration_name,
+    procedural_block_sensitivity_names,
 )
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
@@ -166,3 +167,39 @@ class TestSvAdapter:
         )
 
         assert identifier_access_modes(identifier_ctx, identifier_vnode.raw) == (True, True)
+
+    def test_identifier_access_modes_treats_lhs_selector_as_read(self) -> None:
+        results = _walk_collect(
+            """
+            module top;
+              logic [3:0] y;
+              logic [1:0] b;
+              logic c;
+              initial y[b] = c;
+            endmodule
+            """
+        )
+
+        identifier_vnode, identifier_ctx = next(
+            (vnode, ctx)
+            for vnode, ctx in results
+            if isinstance(vnode.raw, sl.IdentifierNameSyntax) and str(vnode.raw).strip() == "b"
+        )
+
+        assert identifier_access_modes(identifier_ctx, identifier_vnode.raw) == (True, False)
+
+    def test_procedural_block_sensitivity_names_collects_index_base_and_selector(self) -> None:
+        tree = parse_text(
+            """
+            module top(input logic [3:0] a, input logic [1:0] sel, output logic y);
+              always @(a[sel]) begin
+                y = a[sel];
+              end
+            endmodule
+            """
+        )
+
+        always_block = _find_first(tree.root, lambda node: isinstance(node, sl.ProceduralBlockSyntax))
+
+        assert always_block is not None
+        assert procedural_block_sensitivity_names(always_block) == {"a", "sel"}
