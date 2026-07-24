@@ -13,9 +13,11 @@ from .syntax.no_casex_casez import NoCaseXCaseZRule
 from .syntax.no_mixed_assignment_style import NoMixedAssignmentStyleRule
 from .syntax.no_initial_block import NoInitialBlockRule
 from .syntax.no_final_block import NoFinalBlockRule
+from .syntax.no_always_ff import NoAlwaysFFRule
 from .syntax.no_always_latch import NoAlwaysLatchRule
 from .syntax.no_case_generate import NoCaseGenerateRule
 from .syntax.no_full_parallel_case import NoFullParallelCaseRule
+from .syntax.no_unique0_case import NoUnique0CaseRule
 from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from .syntax.no_inout_internal import NoInternalInoutRule
 from .syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule

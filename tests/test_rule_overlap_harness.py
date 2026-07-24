@@ -132,3 +132,25 @@ def test_procedural_case_missing_default_uses_procedural_case_rule_not_generate_
 
     result.expect_code_once("NO_DEFAULT_CASE_STATEMENT")
     result.expect_no_code("DEFAULT_CASE")
+
+
+def test_unique0_case_still_uses_procedural_missing_default_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "unique0_case.sv": """
+            module top(input logic sel, output logic y);
+              always_comb begin
+                unique0 case (sel)
+                  1'b0: y = 1'b0;
+                endcase
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_UNIQUE0_CASE")
+    result.expect_code_once("NO_DEFAULT_CASE_STATEMENT")
+    result.expect_no_code("DEFAULT_CASE")

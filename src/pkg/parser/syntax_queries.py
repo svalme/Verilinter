@@ -6,6 +6,7 @@ import pyslang as sl
 from .syntax_kinds import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
+    ALWAYS_FF_BLOCK_KIND,
     ALWAYS_LATCH_BLOCK_KIND,
     ASSIGNMENT_KINDS,
     ASSIGN_DEASSIGN_TOKEN_KINDS,
@@ -28,6 +29,7 @@ from .syntax_kinds import (
     TRANIF_RTRANIF_TOKEN_KINDS,
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
+    UNIQUE0_TOKEN_KIND,
     WAND_WOR_TOKEN_KINDS,
     UNIQUE_PRIORITY_TOKEN_KINDS,
 )
@@ -84,6 +86,10 @@ def is_always_latch_block(raw: object) -> bool:
     return getattr(raw, "kind", None) == ALWAYS_LATCH_BLOCK_KIND
 
 
+def is_always_ff_block(raw: object) -> bool:
+    return getattr(raw, "kind", None) == ALWAYS_FF_BLOCK_KIND
+
+
 def is_always_comb_block(raw: object) -> bool:
     return getattr(raw, "kind", None) == ALWAYS_COMB_BLOCK_KIND
 
@@ -122,6 +128,10 @@ def is_case_keyword_token(raw: object) -> bool:
 
 def is_unique_priority_case_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in UNIQUE_PRIORITY_TOKEN_KINDS
+
+
+def is_unique0_case_token(raw: object) -> bool:
+    return UNIQUE0_TOKEN_KIND is not None and getattr(raw, "kind", None) == UNIQUE0_TOKEN_KIND
 
 
 def is_defparam_token(raw: object) -> bool:
@@ -502,6 +512,7 @@ __all__ = [
     "identifier_name",
     "instantiation_type_name",
     "is_always_comb_block",
+    "is_always_ff_block",
     "is_always_latch_block",
     "is_assign_deassign_token",
     "is_assignment_expression",
@@ -530,6 +541,7 @@ __all__ = [
     "is_tranif_rtranif_token",
     "is_tran_rtran_token",
     "is_trireg_token",
+    "is_unique0_case_token",
     "is_unique_priority_case_token",
     "is_wand_wor_token",
     "iter_assignment_nodes",

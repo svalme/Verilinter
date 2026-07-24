@@ -4,6 +4,7 @@ import pyslang as sl
 from pathlib import Path
 
 from src.pkg.rules.syntax.default_case import DefaultCaseRule
+from src.pkg.rules.syntax.no_always_ff import NoAlwaysFFRule
 from src.pkg.rules.syntax.no_always_latch import NoAlwaysLatchRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
@@ -20,6 +21,7 @@ from src.pkg.rules.syntax.no_supply0_supply1 import NoSupply0Supply1Rule
 from src.pkg.rules.syntax.no_tranif_rtranif import NoTranifRtranifRule
 from src.pkg.rules.syntax.no_tran_rtran import NoTranRtranRule
 from src.pkg.rules.syntax.no_trireg import NoTriregRule
+from src.pkg.rules.syntax.no_unique0_case import NoUnique0CaseRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from src.pkg.rules.syntax.no_wand_wor import NoWandWorRule
 from src.pkg.walk.context import Context, ContextFlag
@@ -338,6 +340,40 @@ class TestNoAlwaysLatchRule:
         assert result["message"] == "Use of always_latch can hide unintended latch-oriented design choices"
 
 
+class TestNoAlwaysFFRule:
+    @pytest.fixture
+    def rule(self) -> NoAlwaysFFRule:
+        return NoAlwaysFFRule()
+
+    def test_rule_has_correct_code(self, rule: NoAlwaysFFRule) -> None:
+        assert rule.code == "NO_ALWAYS_FF"
+
+    def test_rule_has_correct_message(self, rule: NoAlwaysFFRule) -> None:
+        assert rule.message == "Use of always_ff is discouraged in this RTL subset"
+
+    def test_applies_returns_true_for_always_ff_block(self, rule: NoAlwaysFFRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysFFBlock
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_procedural_block(self, rule: NoAlwaysFFRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AlwaysLatchBlock
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoAlwaysFFRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 10, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 10
+        assert result["col"] == 3
+        assert result["message"] == "Use of always_ff is discouraged in this RTL subset"
+
+
 class TestNoCaseGenerateRule:
     @pytest.fixture
     def rule(self) -> NoCaseGenerateRule:
@@ -471,6 +507,40 @@ class TestNoUniquePriorityCaseRule:
         assert result["line"] == 4
         assert result["col"] == 5
         assert result["message"] == "Use of unique/priority case can overstate case completeness or exclusivity"
+
+
+class TestNoUnique0CaseRule:
+    @pytest.fixture
+    def rule(self) -> NoUnique0CaseRule:
+        return NoUnique0CaseRule()
+
+    def test_rule_has_correct_code(self, rule: NoUnique0CaseRule) -> None:
+        assert rule.code == "NO_UNIQUE0_CASE"
+
+    def test_rule_has_correct_message(self, rule: NoUnique0CaseRule) -> None:
+        assert rule.message == "Use of unique0 case can overstate case coverage assumptions"
+
+    def test_applies_returns_true_for_unique0_keyword(self, rule: NoUnique0CaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = getattr(sl.TokenKind, "Unique0Keyword", None)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_unique_keyword(self, rule: NoUnique0CaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.UniqueKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoUnique0CaseRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 5
+        assert result["message"] == "Use of unique0 case can overstate case coverage assumptions"
 
 
 class TestNoInternalInoutRule:

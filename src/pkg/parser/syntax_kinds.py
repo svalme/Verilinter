@@ -7,6 +7,7 @@ def _syntax_kind(name: str) -> object | None:
 
 ALWAYS_BLOCK_KIND = sl.SyntaxKind.AlwaysBlock
 ALWAYS_COMB_BLOCK_KIND = sl.SyntaxKind.AlwaysCombBlock
+ALWAYS_FF_BLOCK_KIND = _syntax_kind("AlwaysFFBlock") or sl.SyntaxKind.AlwaysFFBlock
 ALWAYS_LATCH_BLOCK_KIND = sl.SyntaxKind.AlwaysLatchBlock
 INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
@@ -69,6 +70,7 @@ ASSIGNMENT_KINDS = SIMPLE_ASSIGNMENT_KINDS | READ_WRITE_ASSIGNMENT_KINDS
 PROCEDURAL_BLOCK_KINDS = {
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
+    ALWAYS_FF_BLOCK_KIND,
     ALWAYS_LATCH_BLOCK_KIND,
     INITIAL_BLOCK_KIND,
     FINAL_BLOCK_KIND,
@@ -83,6 +85,8 @@ UNIQUE_PRIORITY_TOKEN_KINDS = {
     sl.TokenKind.UniqueKeyword,
     sl.TokenKind.PriorityKeyword,
 }
+
+UNIQUE0_TOKEN_KIND = getattr(sl.TokenKind, "Unique0Keyword", None)
 
 DEFPARAM_TOKEN_KIND = _syntax_kind("DefParamKeyword") or sl.TokenKind.DefParamKeyword
 
@@ -170,6 +174,7 @@ PORT_DIRECTION_TOKEN_KINDS = {
 __all__ = [
     "ALWAYS_BLOCK_KIND",
     "ALWAYS_COMB_BLOCK_KIND",
+    "ALWAYS_FF_BLOCK_KIND",
     "ALWAYS_LATCH_BLOCK_KIND",
     "ASSIGNMENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
@@ -193,6 +198,7 @@ __all__ = [
     "TRANIF_RTRANIF_TOKEN_KINDS",
     "TRAN_RTRAN_TOKEN_KINDS",
     "TRIREG_TOKEN_KIND",
+    "UNIQUE0_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
     "WAND_WOR_TOKEN_KINDS",
 ]
