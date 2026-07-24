@@ -86,3 +86,49 @@ def test_written_but_unread_input_port_uses_input_specific_rule_not_unused_varia
     result.expect_codes({"NO_WRITE_ONLY_INPUT_PORT"})
     result.expect_code_once("NO_WRITE_ONLY_INPUT_PORT")
     result.expect_no_code("UNUSED_VARIABLE")
+
+
+def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "case_generate.sv": """
+            module top;
+              generate
+                case (1)
+                  0: begin
+                    wire a;
+                  end
+                endcase
+              endgenerate
+            endmodule
+            """
+        }
+    )
+
+    result.expect_codes({"DEFAULT_CASE", "NO_CASE_GENERATE", "UNUSED_VARIABLE"})
+    result.expect_code_once("DEFAULT_CASE")
+    result.expect_code_once("NO_CASE_GENERATE")
+    result.expect_no_code("NO_DEFAULT_CASE_STATEMENT")
+
+
+def test_procedural_case_missing_default_uses_procedural_case_rule_not_generate_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "procedural_case.sv": """
+            module top(input logic sel, output logic y);
+              always_comb begin
+                case (sel)
+                  1'b0: y = 1'b0;
+                endcase
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_DEFAULT_CASE_STATEMENT")
+    result.expect_no_code("DEFAULT_CASE")
