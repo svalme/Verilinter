@@ -7,7 +7,13 @@ import uuid
 
 import pytest
 
-from .support.lint_harness import LintCaseResult, run_file_lint_case, run_inline_lint_case
+from .support.lint_harness import (
+    LintCaseFile,
+    LintCaseResult,
+    run_file_lint_case,
+    run_inline_lint_case,
+    run_inline_lint_case_spec,
+)
 
 
 @pytest.fixture
@@ -16,6 +22,16 @@ def lint_inline_case() -> Callable[[dict[str, str]], LintCaseResult]:
 
     def _lint_case(files: dict[str, str]) -> LintCaseResult:
         return run_inline_lint_case(files)
+
+    return _lint_case
+
+
+@pytest.fixture
+def lint_inline_case_spec() -> Callable[[dict[str, LintCaseFile]], LintCaseResult]:
+    """Lint inline HDL snippets with per-file metadata."""
+
+    def _lint_case(files: dict[str, LintCaseFile]) -> LintCaseResult:
+        return run_inline_lint_case_spec(files)
 
     return _lint_case
 

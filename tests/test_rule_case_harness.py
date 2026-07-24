@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from .support.lint_harness import LintCaseResult
+from .support.lint_harness import LintCaseFile, LintCaseResult
 
 
 def test_lint_case_supports_single_file_false_negative_checks(
@@ -107,3 +107,23 @@ def test_temp_file_harness_cleans_up_generated_case_directories(
         path for path in scratch_root.iterdir() if path.is_dir()
     ] if scratch_root.exists() else []
     assert leftover_cases == []
+
+
+def test_inline_case_spec_can_route_default_nettype_none_to_undeclared_variable(
+    lint_inline_case_spec: Callable[[dict[str, LintCaseFile]], LintCaseResult],
+) -> None:
+    result = lint_inline_case_spec(
+        {
+            "default_nettype_none.sv": LintCaseFile(
+                contents="""
+                module top;
+                  assign y = a;
+                endmodule
+                """,
+                default_nettype_none=True,
+            )
+        }
+    )
+
+    result.expect_no_code("NO_IMPLICIT_NET")
+    result.expect_code_count("UNDECLARED_VARIABLE", 2)

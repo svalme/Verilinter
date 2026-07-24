@@ -17,6 +17,14 @@ Diagnostic = dict[str, object]
 
 
 @dataclass(frozen=True)
+class LintCaseFile:
+    """One file in a lint case, with optional per-file metadata."""
+
+    contents: str
+    default_nettype_none: bool = False
+
+
+@dataclass(frozen=True)
 class LintCaseResult:
     """Convenience wrapper around end-to-end lint diagnostics."""
 
@@ -109,6 +117,22 @@ def run_inline_lint_case(files: dict[str, str], *, jobs: int = 1) -> LintCaseRes
         for relative_path, contents in files.items()
     ]
     return _run_walked_files(file_inputs, jobs=jobs)
+
+
+def run_inline_lint_case_spec(files: dict[str, LintCaseFile], *, jobs: int = 1) -> LintCaseResult:
+    """Run inline HDL snippets with per-file metadata such as default_nettype state."""
+    file_inputs = [
+        (str(relative_path), sl.SyntaxTree.fromText(file.contents.strip() + "\n"))
+        for relative_path, file in files.items()
+    ]
+    default_nettype_none_by_file = {
+        str(relative_path): file.default_nettype_none for relative_path, file in files.items()
+    }
+    return _run_walked_files(
+        file_inputs,
+        default_nettype_none_by_file=default_nettype_none_by_file,
+        jobs=jobs,
+    )
 
 
 def run_file_lint_case(paths: list[Path], *, jobs: int = 1) -> LintCaseResult:
