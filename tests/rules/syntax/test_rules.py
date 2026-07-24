@@ -21,7 +21,9 @@ from src.pkg.rules.syntax.no_supply0_supply1 import NoSupply0Supply1Rule
 from src.pkg.rules.syntax.no_tranif_rtranif import NoTranifRtranifRule
 from src.pkg.rules.syntax.no_tran_rtran import NoTranRtranRule
 from src.pkg.rules.syntax.no_trireg import NoTriregRule
+from src.pkg.rules.syntax.no_priority_if import NoPriorityIfRule
 from src.pkg.rules.syntax.no_unique0_case import NoUnique0CaseRule
+from src.pkg.rules.syntax.no_unique_if import NoUniqueIfRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from src.pkg.rules.syntax.no_wand_wor import NoWandWorRule
 from src.pkg.walk.context import Context, ContextFlag
@@ -483,15 +485,25 @@ class TestNoUniquePriorityCaseRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.UniqueKeyword
+        case_vnode = Mock(spec=BaseVNode)
+        case_vnode.raw = Mock()
+        case_vnode.raw.kind = sl.SyntaxKind.CaseStatement
+        case_vnode.raw.uniqueOrPriority = "unique"
+        context = Context().push(case_vnode)
 
-        assert rule.applies(mock_vnode, Context()) is True
+        assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_true_for_priority_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.PriorityKeyword
+        case_vnode = Mock(spec=BaseVNode)
+        case_vnode.raw = Mock()
+        case_vnode.raw.kind = sl.SyntaxKind.CaseStatement
+        case_vnode.raw.uniqueOrPriority = "priority"
+        context = Context().push(case_vnode)
 
-        assert rule.applies(mock_vnode, Context()) is True
+        assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_for_plain_case_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
         mock_vnode = Mock(spec=BaseVNode)
@@ -499,6 +511,18 @@ class TestNoUniquePriorityCaseRule:
         mock_vnode.raw.kind = sl.TokenKind.CaseKeyword
 
         assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_false_for_unique_if(self, rule: NoUniquePriorityCaseRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.UniqueKeyword
+        conditional_vnode = Mock(spec=BaseVNode)
+        conditional_vnode.raw = Mock()
+        conditional_vnode.raw.kind = sl.SyntaxKind.ConditionalStatement
+        conditional_vnode.raw.uniqueOrPriority = "unique"
+        context = Context().push(conditional_vnode)
+
+        assert rule.applies(mock_vnode, context) is False
 
     def test_report_returns_correct_format(self, rule: NoUniquePriorityCaseRule, mock_vnode: Mock) -> None:
         mock_vnode.location = {"line": 4, "col": 5}
@@ -524,8 +548,13 @@ class TestNoUnique0CaseRule:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = getattr(sl.TokenKind, "Unique0Keyword", None)
+        case_vnode = Mock(spec=BaseVNode)
+        case_vnode.raw = Mock()
+        case_vnode.raw.kind = sl.SyntaxKind.CaseStatement
+        case_vnode.raw.uniqueOrPriority = "unique0"
+        context = Context().push(case_vnode)
 
-        assert rule.applies(mock_vnode, Context()) is True
+        assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_for_unique_keyword(self, rule: NoUnique0CaseRule) -> None:
         mock_vnode = Mock(spec=BaseVNode)
@@ -541,6 +570,94 @@ class TestNoUnique0CaseRule:
         assert result["line"] == 4
         assert result["col"] == 5
         assert result["message"] == "Use of unique0 case can overstate case coverage assumptions"
+
+
+class TestNoUniqueIfRule:
+    @pytest.fixture
+    def rule(self) -> NoUniqueIfRule:
+        return NoUniqueIfRule()
+
+    def test_rule_has_correct_code(self, rule: NoUniqueIfRule) -> None:
+        assert rule.code == "NO_UNIQUE_IF"
+
+    def test_rule_has_correct_message(self, rule: NoUniqueIfRule) -> None:
+        assert rule.message == "Use of unique if can overstate branch exclusivity assumptions"
+
+    def test_applies_returns_true_for_unique_if(self, rule: NoUniqueIfRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.UniqueKeyword
+        conditional_vnode = Mock(spec=BaseVNode)
+        conditional_vnode.raw = Mock()
+        conditional_vnode.raw.kind = sl.SyntaxKind.ConditionalStatement
+        conditional_vnode.raw.uniqueOrPriority = "unique"
+        context = Context().push(conditional_vnode)
+
+        assert rule.applies(mock_vnode, context) is True
+
+    def test_applies_returns_false_for_unique_case(self, rule: NoUniqueIfRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.UniqueKeyword
+        case_vnode = Mock(spec=BaseVNode)
+        case_vnode.raw = Mock()
+        case_vnode.raw.kind = sl.SyntaxKind.CaseStatement
+        case_vnode.raw.uniqueOrPriority = "unique"
+        context = Context().push(case_vnode)
+
+        assert rule.applies(mock_vnode, context) is False
+
+    def test_report_returns_correct_format(self, rule: NoUniqueIfRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 5, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 5
+        assert result["col"] == 5
+        assert result["message"] == "Use of unique if can overstate branch exclusivity assumptions"
+
+
+class TestNoPriorityIfRule:
+    @pytest.fixture
+    def rule(self) -> NoPriorityIfRule:
+        return NoPriorityIfRule()
+
+    def test_rule_has_correct_code(self, rule: NoPriorityIfRule) -> None:
+        assert rule.code == "NO_PRIORITY_IF"
+
+    def test_rule_has_correct_message(self, rule: NoPriorityIfRule) -> None:
+        assert rule.message == "Use of priority if can overstate branch ordering assumptions"
+
+    def test_applies_returns_true_for_priority_if(self, rule: NoPriorityIfRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.PriorityKeyword
+        conditional_vnode = Mock(spec=BaseVNode)
+        conditional_vnode.raw = Mock()
+        conditional_vnode.raw.kind = sl.SyntaxKind.ConditionalStatement
+        conditional_vnode.raw.uniqueOrPriority = "priority"
+        context = Context().push(conditional_vnode)
+
+        assert rule.applies(mock_vnode, context) is True
+
+    def test_applies_returns_false_for_priority_case(self, rule: NoPriorityIfRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.PriorityKeyword
+        case_vnode = Mock(spec=BaseVNode)
+        case_vnode.raw = Mock()
+        case_vnode.raw.kind = sl.SyntaxKind.CaseStatement
+        case_vnode.raw.uniqueOrPriority = "priority"
+        context = Context().push(case_vnode)
+
+        assert rule.applies(mock_vnode, context) is False
+
+    def test_report_returns_correct_format(self, rule: NoPriorityIfRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 6, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 6
+        assert result["col"] == 5
+        assert result["message"] == "Use of priority if can overstate branch ordering assumptions"
 
 
 class TestNoInternalInoutRule:

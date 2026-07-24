@@ -14,6 +14,8 @@ CASE_GENERATE_DATA = Path(__file__).parent / "data" / "case_generate.v"
 FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v"
 UNIQUE_PRIORITY_CASE_DATA = Path(__file__).parent / "data" / "unique_priority_case.v"
 UNIQUE0_CASE_DATA = Path(__file__).parent / "data" / "unique0_case.v"
+UNIQUE_IF_DATA = Path(__file__).parent / "data" / "unique_if.v"
+PRIORITY_IF_DATA = Path(__file__).parent / "data" / "priority_if.v"
 MULTIPLE_DRIVERS_DATA = Path(__file__).parent / "data" / "multiple_drivers.v"
 INTERNAL_INOUT_DATA = Path(__file__).parent / "data" / "internal_inout.v"
 UNDRIVEN_SIGNAL_DATA = Path(__file__).parent / "data" / "undriven_signal.v"
@@ -92,6 +94,18 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_UNIQUE0_CASE" for d in diagnostics)
         assert any("unique0 case" in d["message"] for d in diagnostics)
+
+    def test_run_reports_unique_if_rule(self) -> None:
+        diagnostics = run([UNIQUE_IF_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_UNIQUE_IF" for d in diagnostics)
+        assert any("unique if" in d["message"] for d in diagnostics)
+
+    def test_run_reports_priority_if_rule(self) -> None:
+        diagnostics = run([PRIORITY_IF_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_PRIORITY_IF" for d in diagnostics)
+        assert any("priority if" in d["message"] for d in diagnostics)
 
     def test_run_reports_full_parallel_case_rule(self) -> None:
         diagnostics = run([FULL_PARALLEL_CASE_DATA], jobs=1)

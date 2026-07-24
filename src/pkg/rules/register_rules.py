@@ -17,7 +17,9 @@ from .syntax.no_always_ff import NoAlwaysFFRule
 from .syntax.no_always_latch import NoAlwaysLatchRule
 from .syntax.no_case_generate import NoCaseGenerateRule
 from .syntax.no_full_parallel_case import NoFullParallelCaseRule
+from .syntax.no_priority_if import NoPriorityIfRule
 from .syntax.no_unique0_case import NoUnique0CaseRule
+from .syntax.no_unique_if import NoUniqueIfRule
 from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from .syntax.no_inout_internal import NoInternalInoutRule
 from .syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule

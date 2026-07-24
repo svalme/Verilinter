@@ -154,3 +154,43 @@ def test_unique0_case_still_uses_procedural_missing_default_rule(
     result.expect_code_once("NO_UNIQUE0_CASE")
     result.expect_code_once("NO_DEFAULT_CASE_STATEMENT")
     result.expect_no_code("DEFAULT_CASE")
+
+
+def test_unique_if_uses_if_rule_not_case_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "unique_if.sv": """
+            module top(input logic a, b, output logic y);
+              always_comb begin
+                unique if (a) y = b;
+                else y = 1'b0;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_UNIQUE_IF")
+    result.expect_no_code("NO_UNIQUE_PRIORITY_CASE")
+
+
+def test_priority_if_uses_if_rule_not_case_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "priority_if.sv": """
+            module top(input logic a, b, c, output logic y);
+              always_comb begin
+                priority if (a) y = b;
+                else y = c;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_PRIORITY_IF")
+    result.expect_no_code("NO_UNIQUE_PRIORITY_CASE")

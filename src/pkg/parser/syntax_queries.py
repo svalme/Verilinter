@@ -11,6 +11,7 @@ from .syntax_kinds import (
     ASSIGNMENT_KINDS,
     ASSIGN_DEASSIGN_TOKEN_KINDS,
     BLOCK_STATEMENT_KINDS,
+    CASE_STATEMENT_KIND,
     CASE_STYLE_TOKEN_KINDS,
     CASE_TOKEN_KINDS,
     CONDITIONAL_STATEMENT_KIND,
@@ -99,7 +100,7 @@ def is_case_generate_node(raw: object) -> bool:
 
 
 def is_case_statement(raw: object) -> bool:
-    return isinstance(raw, CaseStatementNode)
+    return isinstance(raw, CaseStatementNode) or getattr(raw, "kind", None) == CASE_STATEMENT_KIND
 
 
 def is_internal_inout_port_declaration(raw: object) -> bool:
@@ -126,12 +127,75 @@ def is_case_keyword_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in CASE_TOKEN_KINDS
 
 
-def is_unique_priority_case_token(raw: object) -> bool:
-    return getattr(raw, "kind", None) in UNIQUE_PRIORITY_TOKEN_KINDS
+def _normalized_unique_or_priority(raw: object) -> str | None:
+    value = getattr(raw, "uniqueOrPriority", None)
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
 
 
-def is_unique0_case_token(raw: object) -> bool:
-    return UNIQUE0_TOKEN_KIND is not None and getattr(raw, "kind", None) == UNIQUE0_TOKEN_KIND
+def case_statement_unique_or_priority(raw: object) -> str | None:
+    if not is_case_statement(raw):
+        return None
+    return _normalized_unique_or_priority(raw)
+
+
+def conditional_statement_unique_or_priority(raw: object) -> str | None:
+    if not is_conditional_statement(raw):
+        return None
+    return _normalized_unique_or_priority(raw)
+
+
+def is_unique_priority_case_token(raw: object, ctx: "Context") -> bool:
+    if getattr(raw, "kind", None) not in UNIQUE_PRIORITY_TOKEN_KINDS:
+        return False
+
+    case_statement = enclosing_case_statement(ctx)
+    if case_statement is None:
+        return False
+
+    return case_statement_unique_or_priority(case_statement.raw) in {"unique", "priority"}
+
+
+def is_unique0_case_token(raw: object, ctx: "Context") -> bool:
+    if UNIQUE0_TOKEN_KIND is None or getattr(raw, "kind", None) != UNIQUE0_TOKEN_KIND:
+        return False
+
+    case_statement = enclosing_case_statement(ctx)
+    if case_statement is None:
+        return False
+
+    return case_statement_unique_or_priority(case_statement.raw) == "unique0"
+
+
+def enclosing_conditional_statement(ctx: "Context") -> "BaseVNode | None":
+    for ancestor in reversed(ctx.stack):
+        if is_conditional_statement(ancestor.raw):
+            return ancestor
+    return None
+
+
+def is_unique_if_token(raw: object, ctx: "Context") -> bool:
+    if getattr(raw, "kind", None) != sl.TokenKind.UniqueKeyword:
+        return False
+
+    conditional_statement = enclosing_conditional_statement(ctx)
+    if conditional_statement is None:
+        return False
+
+    return conditional_statement_unique_or_priority(conditional_statement.raw) == "unique"
+
+
+def is_priority_if_token(raw: object, ctx: "Context") -> bool:
+    if getattr(raw, "kind", None) != sl.TokenKind.PriorityKeyword:
+        return False
+
+    conditional_statement = enclosing_conditional_statement(ctx)
+    if conditional_statement is None:
+        return False
+
+    return conditional_statement_unique_or_priority(conditional_statement.raw) == "priority"
 
 
 def is_defparam_token(raw: object) -> bool:
@@ -493,6 +557,8 @@ def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
 __all__ = [
     "assignment_left",
     "assignment_target_identifier_name",
+    "case_statement_unique_or_priority",
+    "conditional_statement_unique_or_priority",
     "conditional_statement_body",
     "conditional_statement_has_else",
     "contains_descendant",
@@ -501,6 +567,7 @@ __all__ = [
     "declarator_name",
     "declarator_port_direction",
     "enclosing_case_statement",
+    "enclosing_conditional_statement",
     "enclosing_continuous_assign",
     "enclosing_procedural_block",
     "expression_statement_expression",
@@ -534,6 +601,7 @@ __all__ = [
     "is_negedge_event",
     "is_nonblocking_assignment_token",
     "is_posedge_event",
+    "is_priority_if_token",
     "is_procedural_block",
     "is_read_write_assignment_expression",
     "is_read_write_unary_expression",
@@ -542,6 +610,7 @@ __all__ = [
     "is_tran_rtran_token",
     "is_trireg_token",
     "is_unique0_case_token",
+    "is_unique_if_token",
     "is_unique_priority_case_token",
     "is_wand_wor_token",
     "iter_assignment_nodes",

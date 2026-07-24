@@ -13,6 +13,7 @@ INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
 CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
+CASE_STATEMENT_KIND = _syntax_kind("CaseStatement")
 TIMING_CONTROL_STATEMENT_KIND = _syntax_kind("TimingControlStatement")
 BLOCK_STATEMENT_KINDS = {
     kind
@@ -179,6 +180,7 @@ __all__ = [
     "ASSIGNMENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
     "BLOCK_STATEMENT_KINDS",
+    "CASE_STATEMENT_KIND",
     "CASE_STYLE_TOKEN_KINDS",
     "CASE_TOKEN_KINDS",
     "CONDITIONAL_STATEMENT_KIND",

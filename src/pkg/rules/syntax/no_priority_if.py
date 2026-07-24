@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import is_unique0_case_token
+from ...parser.syntax import is_priority_if_token
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from .rule_runner import rule_runner
@@ -10,9 +10,9 @@ if TYPE_CHECKING:
 
 
 @rule_runner.register
-class NoUnique0CaseRule(Rule):
-    code = "NO_UNIQUE0_CASE"
-    message = "Use of unique0 case can overstate case coverage assumptions"
+class NoPriorityIfRule(Rule):
+    code = "NO_PRIORITY_IF"
+    message = "Use of priority if can overstate branch ordering assumptions"
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        return is_unique0_case_token(vnode.raw, ctx)
+        return is_priority_if_token(vnode.raw, ctx)
