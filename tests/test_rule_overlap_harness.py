@@ -194,3 +194,44 @@ def test_priority_if_uses_if_rule_not_case_rule(
 
     result.expect_code_once("NO_PRIORITY_IF")
     result.expect_no_code("NO_UNIQUE_PRIORITY_CASE")
+
+
+def test_case_inside_still_uses_procedural_missing_default_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "case_inside.sv": """
+            module top(input logic [1:0] sel, output logic y);
+              always_comb begin
+                case inside (sel)
+                  2'b00: y = 1'b0;
+                endcase
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_CASE_INSIDE")
+    result.expect_code_once("NO_DEFAULT_CASE_STATEMENT")
+    result.expect_no_code("DEFAULT_CASE")
+
+
+def test_inside_operator_uses_operator_rule_not_case_inside_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "inside_operator.sv": """
+            module top(input logic [1:0] sel, output logic y);
+              always_comb begin
+                y = (sel inside {2'b00, 2'b01}) ? 1'b1 : 1'b0;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INSIDE_OPERATOR")
+    result.expect_no_code("NO_CASE_INSIDE")

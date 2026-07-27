@@ -25,6 +25,7 @@ BLOCK_STATEMENT_KINDS = {
     if kind is not None
 }
 ENDCASE_TOKEN_KIND = sl.TokenKind.EndCaseKeyword
+INSIDE_TOKEN_KIND = sl.TokenKind.InsideKeyword
 CASE_TOKEN_KINDS = {
     sl.TokenKind.CaseKeyword,
     sl.TokenKind.CaseXKeyword,
@@ -190,6 +191,7 @@ __all__ = [
     "FINAL_BLOCK_KIND",
     "FORCE_RELEASE_TOKEN_KINDS",
     "INITIAL_BLOCK_KIND",
+    "INSIDE_TOKEN_KIND",
     "PORT_DIRECTION_TOKEN_KINDS",
     "PROCEDURAL_BLOCK_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",

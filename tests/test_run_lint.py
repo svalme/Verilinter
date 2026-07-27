@@ -11,7 +11,9 @@ FINAL_BLOCK_DATA = Path(__file__).parent / "data" / "final_block.v"
 ALWAYS_FF_DATA = Path(__file__).parent / "data" / "always_ff.v"
 ALWAYS_LATCH_DATA = Path(__file__).parent / "data" / "always_latch.v"
 CASE_GENERATE_DATA = Path(__file__).parent / "data" / "case_generate.v"
+CASE_INSIDE_DATA = Path(__file__).parent / "data" / "case_inside.v"
 FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v"
+INSIDE_OPERATOR_DATA = Path(__file__).parent / "data" / "inside_operator.v"
 UNIQUE_PRIORITY_CASE_DATA = Path(__file__).parent / "data" / "unique_priority_case.v"
 UNIQUE0_CASE_DATA = Path(__file__).parent / "data" / "unique0_case.v"
 UNIQUE_IF_DATA = Path(__file__).parent / "data" / "unique_if.v"
@@ -81,6 +83,18 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_CASE_GENERATE" for d in diagnostics)
         assert any("case generate" in d["message"] for d in diagnostics)
+
+    def test_run_reports_case_inside_rule(self) -> None:
+        diagnostics = run([CASE_INSIDE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_CASE_INSIDE" for d in diagnostics)
+        assert any("case inside" in d["message"] for d in diagnostics)
+
+    def test_run_reports_inside_operator_rule(self) -> None:
+        diagnostics = run([INSIDE_OPERATOR_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_INSIDE_OPERATOR" for d in diagnostics)
+        assert any("inside operator" in d["message"] for d in diagnostics)
 
     def test_run_reports_unique_priority_case_rule(self) -> None:
         diagnostics = run([UNIQUE_PRIORITY_CASE_DATA], jobs=1)

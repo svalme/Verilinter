@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+import re
 from typing import TYPE_CHECKING, cast
 
 import pyslang as sl
@@ -21,6 +22,7 @@ from .syntax_kinds import (
     FINAL_BLOCK_KIND,
     FORCE_RELEASE_TOKEN_KINDS,
     INITIAL_BLOCK_KIND,
+    INSIDE_TOKEN_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
@@ -125,6 +127,27 @@ def is_casex_casez_token(raw: object) -> bool:
 
 def is_case_keyword_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in CASE_TOKEN_KINDS
+
+
+def is_case_inside_token(raw: object, tree: SyntaxTree) -> bool:
+    if getattr(raw, "kind", None) != INSIDE_TOKEN_KIND:
+        return False
+
+    location = getattr(raw, "location", None)
+    if location is None:
+        return False
+
+    source = tree.sourceManager.getSourceText(location.buffer)
+    prefix = source[max(0, location.offset - 32) : location.offset]
+
+    # `case inside (...)` is the only form where the `inside` token is preceded
+    # immediately by the `case` keyword in source text. Ordinary `inside`
+    # operators have an expression or identifier immediately before them.
+    return re.search(r"\bcase\s*$", prefix) is not None
+
+
+def is_inside_operator_token(raw: object, tree: SyntaxTree) -> bool:
+    return getattr(raw, "kind", None) == INSIDE_TOKEN_KIND and not is_case_inside_token(raw, tree)
 
 
 def _normalized_unique_or_priority(raw: object) -> str | None:
@@ -586,6 +609,7 @@ __all__ = [
     "is_block_statement",
     "is_blocking_assignment_token",
     "is_case_generate_keyword_pair",
+    "is_case_inside_token",
     "is_case_generate_node",
     "is_case_keyword_token",
     "is_case_statement",
@@ -597,6 +621,7 @@ __all__ = [
     "is_final_block",
     "is_force_release_token",
     "is_initial_block",
+    "is_inside_operator_token",
     "is_internal_inout_port_declaration",
     "is_negedge_event",
     "is_nonblocking_assignment_token",

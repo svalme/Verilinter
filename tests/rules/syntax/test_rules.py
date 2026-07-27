@@ -8,6 +8,8 @@ from src.pkg.rules.syntax.no_always_ff import NoAlwaysFFRule
 from src.pkg.rules.syntax.no_always_latch import NoAlwaysLatchRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
+from src.pkg.rules.syntax.no_case_inside import NoCaseInsideRule
+from src.pkg.rules.syntax.no_inside_operator import NoInsideOperatorRule
 from src.pkg.rules.syntax.no_assign_deassign import NoAssignDeassignRule
 from src.pkg.rules.syntax.no_final_block import NoFinalBlockRule
 from src.pkg.rules.syntax.no_full_parallel_case import NoFullParallelCaseRule
@@ -469,6 +471,133 @@ class TestNoFullParallelCaseRule:
         assert result["line"] == 9
         assert result["col"] == 5
         assert result["message"] == "Use of full_case / parallel_case pragmas can hide real case coverage issues"
+
+
+class TestNoCaseInsideRule:
+    @pytest.fixture
+    def rule(self) -> NoCaseInsideRule:
+        return NoCaseInsideRule()
+
+    def test_rule_has_correct_code(self, rule: NoCaseInsideRule) -> None:
+        assert rule.code == "NO_CASE_INSIDE"
+
+    def test_rule_has_correct_message(self, rule: NoCaseInsideRule) -> None:
+        assert rule.message == "Use of case inside is discouraged in this RTL subset"
+
+    def test_applies_returns_true_for_case_inside_keyword(self, rule: NoCaseInsideRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "case_inside.v"))
+
+        def walk(node):
+            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_token = walk(tree.root)
+        assert raw_token is not None
+        vnode = TokenVNode(raw_token, tree)
+
+        assert rule.applies(vnode, Context()) is True
+
+    def test_applies_returns_false_for_inside_operator(self, rule: NoCaseInsideRule) -> None:
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top(input logic [1:0] sel, output logic y);
+                always_comb begin
+                    case (sel)
+                        2'b00: y = (sel inside {2'b00, 2'b01}) ? 1'b1 : 1'b0;
+                        default: y = 1'b0;
+                    endcase
+                end
+            endmodule
+            """
+        )
+
+        def walk(node):
+            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_token = walk(tree.root)
+        assert raw_token is not None
+        vnode = TokenVNode(raw_token, tree)
+
+        assert rule.applies(vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoCaseInsideRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 10}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 10
+        assert result["message"] == "Use of case inside is discouraged in this RTL subset"
+
+
+class TestNoInsideOperatorRule:
+    @pytest.fixture
+    def rule(self) -> NoInsideOperatorRule:
+        return NoInsideOperatorRule()
+
+    def test_rule_has_correct_code(self, rule: NoInsideOperatorRule) -> None:
+        assert rule.code == "NO_INSIDE_OPERATOR"
+
+    def test_rule_has_correct_message(self, rule: NoInsideOperatorRule) -> None:
+        assert rule.message == "Use of the inside operator is discouraged in this RTL subset"
+
+    def test_applies_returns_true_for_inside_operator(self, rule: NoInsideOperatorRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "inside_operator.v"))
+
+        def walk(node):
+            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_token = walk(tree.root)
+        assert raw_token is not None
+        vnode = TokenVNode(raw_token, tree)
+
+        assert rule.applies(vnode, Context()) is True
+
+    def test_applies_returns_false_for_case_inside_keyword(self, rule: NoInsideOperatorRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "case_inside.v"))
+
+        def walk(node):
+            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_token = walk(tree.root)
+        assert raw_token is not None
+        vnode = TokenVNode(raw_token, tree)
+
+        assert rule.applies(vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoInsideOperatorRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 20}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 20
+        assert result["message"] == "Use of the inside operator is discouraged in this RTL subset"
 
 
 class TestNoUniquePriorityCaseRule:

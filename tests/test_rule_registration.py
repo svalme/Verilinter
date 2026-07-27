@@ -16,6 +16,8 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "NO_ALWAYS_FF",
         "NO_ALWAYS_LATCH",
         "NO_CASE_GENERATE",
+        "NO_CASE_INSIDE",
+        "NO_INSIDE_OPERATOR",
         "NO_PRIORITY_IF",
         "NO_UNIQUE0_CASE",
         "NO_UNIQUE_IF",
