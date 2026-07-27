@@ -25,6 +25,7 @@ BLOCK_STATEMENT_KINDS = {
     if kind is not None
 }
 ENDCASE_TOKEN_KIND = sl.TokenKind.EndCaseKeyword
+DISABLE_TOKEN_KIND = sl.TokenKind.DisableKeyword
 FOREVER_TOKEN_KIND = sl.TokenKind.ForeverKeyword
 INSIDE_TOKEN_KIND = sl.TokenKind.InsideKeyword
 WAIT_TOKEN_KIND = sl.TokenKind.WaitKeyword
@@ -188,6 +189,7 @@ __all__ = [
     "CASE_TOKEN_KINDS",
     "CONDITIONAL_STATEMENT_KIND",
     "CONTINUOUS_ASSIGN_KIND",
+    "DISABLE_TOKEN_KIND",
     "DEFPARAM_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
     "FINAL_BLOCK_KIND",

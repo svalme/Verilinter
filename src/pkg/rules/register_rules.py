@@ -26,6 +26,7 @@ from .syntax.no_unique_if import NoUniqueIfRule
 from .syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from .syntax.no_inout_internal import NoInternalInoutRule
 from .syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
+from .syntax.no_disable_statement import NoDisableStatementRule
 from .syntax.no_defparam import NoDefparamRule
 from .syntax.no_force_release import NoForceReleaseRule
 from .syntax.no_assign_deassign import NoAssignDeassignRule

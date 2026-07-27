@@ -269,3 +269,20 @@ def test_wait_statement_can_coexist_with_initial_block_rule(
 
     result.expect_code_once("NO_INITIAL_BLOCK")
     result.expect_code_once("NO_WAIT_STATEMENT")
+
+
+def test_disable_statement_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "disable_statement.sv": """
+            module top;
+              initial disable done_flag;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_DISABLE_STATEMENT")

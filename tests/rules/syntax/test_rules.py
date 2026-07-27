@@ -9,6 +9,7 @@ from src.pkg.rules.syntax.no_always_latch import NoAlwaysLatchRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
 from src.pkg.rules.syntax.no_case_inside import NoCaseInsideRule
+from src.pkg.rules.syntax.no_disable_statement import NoDisableStatementRule
 from src.pkg.rules.syntax.no_forever_loop import NoForeverLoopRule
 from src.pkg.rules.syntax.no_inside_operator import NoInsideOperatorRule
 from src.pkg.rules.syntax.no_assign_deassign import NoAssignDeassignRule
@@ -602,6 +603,36 @@ class TestNoWaitStatementRule:
         assert result["line"] == 3
         assert result["col"] == 11
         assert result["message"] == "Use of wait statements is discouraged in synthesizable RTL"
+
+
+class TestNoDisableStatementRule:
+    @pytest.fixture
+    def rule(self) -> NoDisableStatementRule:
+        return NoDisableStatementRule()
+
+    def test_rule_has_correct_code(self, rule: NoDisableStatementRule) -> None:
+        assert rule.code == "NO_DISABLE_STATEMENT"
+
+    def test_rule_has_correct_message(self, rule: NoDisableStatementRule) -> None:
+        assert rule.message == "Use of disable statements is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_disable_keyword(self, rule: NoDisableStatementRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.DisableKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_return_keyword(self, rule: NoDisableStatementRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.ReturnKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoDisableStatementRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of disable statements is discouraged in synthesizable RTL"
 
 
 class TestNoInsideOperatorRule:

@@ -17,6 +17,7 @@ from .syntax_kinds import (
     CASE_TOKEN_KINDS,
     CONDITIONAL_STATEMENT_KIND,
     CONTINUOUS_ASSIGN_KIND,
+    DISABLE_TOKEN_KIND,
     DEFPARAM_TOKEN_KIND,
     ENDCASE_TOKEN_KIND,
     FINAL_BLOCK_KIND,
@@ -129,6 +130,10 @@ def is_casex_casez_token(raw: object) -> bool:
 
 def is_case_keyword_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in CASE_TOKEN_KINDS
+
+
+def is_disable_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == DISABLE_TOKEN_KIND
 
 
 def is_forever_token(raw: object) -> bool:
@@ -626,6 +631,7 @@ __all__ = [
     "is_casex_casez_token",
     "is_conditional_statement",
     "is_continuous_assign",
+    "is_disable_token",
     "is_defparam_token",
     "is_endcase_token",
     "is_final_block",
