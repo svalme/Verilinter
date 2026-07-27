@@ -10,6 +10,7 @@ from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignme
 from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
 from src.pkg.rules.syntax.no_case_inside import NoCaseInsideRule
 from src.pkg.rules.syntax.no_disable_statement import NoDisableStatementRule
+from src.pkg.rules.syntax.no_event_trigger import NoEventTriggerRule
 from src.pkg.rules.syntax.no_forever_loop import NoForeverLoopRule
 from src.pkg.rules.syntax.no_inside_operator import NoInsideOperatorRule
 from src.pkg.rules.syntax.no_assign_deassign import NoAssignDeassignRule
@@ -633,6 +634,41 @@ class TestNoDisableStatementRule:
         assert result["line"] == 3
         assert result["col"] == 11
         assert result["message"] == "Use of disable statements is discouraged in synthesizable RTL"
+
+
+class TestNoEventTriggerRule:
+    @pytest.fixture
+    def rule(self) -> NoEventTriggerRule:
+        return NoEventTriggerRule()
+
+    def test_rule_has_correct_code(self, rule: NoEventTriggerRule) -> None:
+        assert rule.code == "NO_EVENT_TRIGGER"
+
+    def test_rule_has_correct_message(self, rule: NoEventTriggerRule) -> None:
+        assert rule.message == "Use of event trigger statements is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_blocking_event_trigger(self, rule: NoEventTriggerRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.MinusArrow)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_nonblocking_event_trigger(self, rule: NoEventTriggerRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.MinusDoubleArrow)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_greater_than(self, rule: NoEventTriggerRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.GreaterThan)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoEventTriggerRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 5
+        assert result["message"] == "Use of event trigger statements is discouraged in synthesizable RTL"
 
 
 class TestNoInsideOperatorRule:

@@ -286,3 +286,23 @@ def test_disable_statement_can_coexist_with_initial_block_rule(
 
     result.expect_code_once("NO_INITIAL_BLOCK")
     result.expect_code_once("NO_DISABLE_STATEMENT")
+
+
+def test_event_trigger_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "event_trigger.sv": """
+            module top;
+              initial begin
+                -> done_flag;
+                ->> done_flag;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_count("NO_EVENT_TRIGGER", 2)

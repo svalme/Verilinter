@@ -13,6 +13,7 @@ ALWAYS_LATCH_DATA = Path(__file__).parent / "data" / "always_latch.v"
 FOREVER_LOOP_DATA = Path(__file__).parent / "data" / "forever_loop.v"
 WAIT_STATEMENT_DATA = Path(__file__).parent / "data" / "wait_statement.v"
 DISABLE_STATEMENT_DATA = Path(__file__).parent / "data" / "disable_statement.v"
+EVENT_TRIGGER_DATA = Path(__file__).parent / "data" / "event_trigger.v"
 CASE_GENERATE_DATA = Path(__file__).parent / "data" / "case_generate.v"
 CASE_INSIDE_DATA = Path(__file__).parent / "data" / "case_inside.v"
 FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v"
@@ -98,6 +99,13 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_DISABLE_STATEMENT" for d in diagnostics)
         assert any("disable statements" in d["message"] for d in diagnostics)
+
+    def test_run_reports_event_trigger_rule(self) -> None:
+        diagnostics = run([EVENT_TRIGGER_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_EVENT_TRIGGER") == 2
+        assert any("event trigger statements" in d["message"] for d in diagnostics)
 
     def test_run_reports_case_generate_rule(self) -> None:
         diagnostics = run([CASE_GENERATE_DATA], jobs=1)

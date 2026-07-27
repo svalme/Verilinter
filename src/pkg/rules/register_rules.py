@@ -20,6 +20,7 @@ from .syntax.no_case_inside import NoCaseInsideRule
 from .syntax.no_forever_loop import NoForeverLoopRule
 from .syntax.no_full_parallel_case import NoFullParallelCaseRule
 from .syntax.no_inside_operator import NoInsideOperatorRule
+from .syntax.no_event_trigger import NoEventTriggerRule
 from .syntax.no_priority_if import NoPriorityIfRule
 from .syntax.no_unique0_case import NoUnique0CaseRule
 from .syntax.no_unique_if import NoUniqueIfRule

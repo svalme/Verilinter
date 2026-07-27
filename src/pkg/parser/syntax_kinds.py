@@ -26,6 +26,10 @@ BLOCK_STATEMENT_KINDS = {
 }
 ENDCASE_TOKEN_KIND = sl.TokenKind.EndCaseKeyword
 DISABLE_TOKEN_KIND = sl.TokenKind.DisableKeyword
+EVENT_TRIGGER_TOKEN_KINDS = {
+    sl.TokenKind.MinusArrow,
+    sl.TokenKind.MinusDoubleArrow,
+}
 FOREVER_TOKEN_KIND = sl.TokenKind.ForeverKeyword
 INSIDE_TOKEN_KIND = sl.TokenKind.InsideKeyword
 WAIT_TOKEN_KIND = sl.TokenKind.WaitKeyword
@@ -192,6 +196,7 @@ __all__ = [
     "DISABLE_TOKEN_KIND",
     "DEFPARAM_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
+    "EVENT_TRIGGER_TOKEN_KINDS",
     "FINAL_BLOCK_KIND",
     "FOREVER_TOKEN_KIND",
     "FORCE_RELEASE_TOKEN_KINDS",
