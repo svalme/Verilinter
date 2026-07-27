@@ -11,6 +11,7 @@ from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
 from src.pkg.rules.syntax.no_case_inside import NoCaseInsideRule
 from src.pkg.rules.syntax.no_disable_statement import NoDisableStatementRule
 from src.pkg.rules.syntax.no_event_trigger import NoEventTriggerRule
+from src.pkg.rules.syntax.no_fork_join import NoForkJoinRule
 from src.pkg.rules.syntax.no_forever_loop import NoForeverLoopRule
 from src.pkg.rules.syntax.no_inside_operator import NoInsideOperatorRule
 from src.pkg.rules.syntax.no_assign_deassign import NoAssignDeassignRule
@@ -669,6 +670,40 @@ class TestNoEventTriggerRule:
         assert result["line"] == 3
         assert result["col"] == 5
         assert result["message"] == "Use of event trigger statements is discouraged in synthesizable RTL"
+
+
+class TestNoForkJoinRule:
+    @pytest.fixture
+    def rule(self) -> NoForkJoinRule:
+        return NoForkJoinRule()
+
+    def test_rule_has_correct_code(self, rule: NoForkJoinRule) -> None:
+        assert rule.code == "NO_FORK_JOIN"
+
+    def test_rule_has_correct_message(self, rule: NoForkJoinRule) -> None:
+        assert rule.message == "Use of fork/join style parallel blocks is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_parallel_block(self, rule: NoForkJoinRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ParallelBlockStatement
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_sequential_block(self, rule: NoForkJoinRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.SequentialBlockStatement
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoForkJoinRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 3
+        assert result["message"] == "Use of fork/join style parallel blocks is discouraged in synthesizable RTL"
 
 
 class TestNoInsideOperatorRule:

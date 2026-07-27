@@ -29,6 +29,7 @@ from .syntax.no_inout_internal import NoInternalInoutRule
 from .syntax.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 from .syntax.no_disable_statement import NoDisableStatementRule
 from .syntax.no_defparam import NoDefparamRule
+from .syntax.no_fork_join import NoForkJoinRule
 from .syntax.no_force_release import NoForceReleaseRule
 from .syntax.no_assign_deassign import NoAssignDeassignRule
 from .syntax.no_wand_wor import NoWandWorRule

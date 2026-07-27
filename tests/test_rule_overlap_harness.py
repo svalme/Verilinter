@@ -306,3 +306,23 @@ def test_event_trigger_can_coexist_with_initial_block_rule(
 
     result.expect_code_once("NO_INITIAL_BLOCK")
     result.expect_code_count("NO_EVENT_TRIGGER", 2)
+
+
+def test_fork_join_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "fork_join.sv": """
+            module top;
+              initial fork
+                done_a = 1'b0;
+                done_b = 1'b1;
+              join
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_FORK_JOIN")

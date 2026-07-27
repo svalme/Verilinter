@@ -26,6 +26,7 @@ from .syntax_kinds import (
     FORCE_RELEASE_TOKEN_KINDS,
     INITIAL_BLOCK_KIND,
     INSIDE_TOKEN_KIND,
+    PARALLEL_BLOCK_STATEMENT_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
@@ -377,6 +378,10 @@ def is_block_statement(raw: object) -> bool:
     return getattr(raw, "kind", None) in BLOCK_STATEMENT_KINDS
 
 
+def is_parallel_block_statement(raw: object) -> bool:
+    return getattr(raw, "kind", None) == PARALLEL_BLOCK_STATEMENT_KIND
+
+
 def iter_statement_nodes(raw: SyntaxNode) -> Iterator[SyntaxNode]:
     if not is_block_statement(raw):
         yield raw
@@ -648,6 +653,7 @@ __all__ = [
     "is_internal_inout_port_declaration",
     "is_negedge_event",
     "is_nonblocking_assignment_token",
+    "is_parallel_block_statement",
     "is_posedge_event",
     "is_priority_if_token",
     "is_procedural_block",
