@@ -9,6 +9,7 @@ from src.pkg.rules.syntax.no_always_latch import NoAlwaysLatchRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
 from src.pkg.rules.syntax.no_case_inside import NoCaseInsideRule
+from src.pkg.rules.syntax.no_forever_loop import NoForeverLoopRule
 from src.pkg.rules.syntax.no_inside_operator import NoInsideOperatorRule
 from src.pkg.rules.syntax.no_assign_deassign import NoAssignDeassignRule
 from src.pkg.rules.syntax.no_final_block import NoFinalBlockRule
@@ -23,6 +24,7 @@ from src.pkg.rules.syntax.no_supply0_supply1 import NoSupply0Supply1Rule
 from src.pkg.rules.syntax.no_tranif_rtranif import NoTranifRtranifRule
 from src.pkg.rules.syntax.no_tran_rtran import NoTranRtranRule
 from src.pkg.rules.syntax.no_trireg import NoTriregRule
+from src.pkg.rules.syntax.no_wait_statement import NoWaitStatementRule
 from src.pkg.rules.syntax.no_priority_if import NoPriorityIfRule
 from src.pkg.rules.syntax.no_unique0_case import NoUnique0CaseRule
 from src.pkg.rules.syntax.no_unique_if import NoUniqueIfRule
@@ -540,6 +542,66 @@ class TestNoCaseInsideRule:
         assert result["line"] == 4
         assert result["col"] == 10
         assert result["message"] == "Use of case inside is discouraged in this RTL subset"
+
+
+class TestNoForeverLoopRule:
+    @pytest.fixture
+    def rule(self) -> NoForeverLoopRule:
+        return NoForeverLoopRule()
+
+    def test_rule_has_correct_code(self, rule: NoForeverLoopRule) -> None:
+        assert rule.code == "NO_FOREVER_LOOP"
+
+    def test_rule_has_correct_message(self, rule: NoForeverLoopRule) -> None:
+        assert rule.message == "Use of forever loops is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_forever_keyword(self, rule: NoForeverLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.ForeverKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_repeat_keyword(self, rule: NoForeverLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.RepeatKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoForeverLoopRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of forever loops is discouraged in synthesizable RTL"
+
+
+class TestNoWaitStatementRule:
+    @pytest.fixture
+    def rule(self) -> NoWaitStatementRule:
+        return NoWaitStatementRule()
+
+    def test_rule_has_correct_code(self, rule: NoWaitStatementRule) -> None:
+        assert rule.code == "NO_WAIT_STATEMENT"
+
+    def test_rule_has_correct_message(self, rule: NoWaitStatementRule) -> None:
+        assert rule.message == "Use of wait statements is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_wait_keyword(self, rule: NoWaitStatementRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.WaitKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_while_keyword(self, rule: NoWaitStatementRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoWaitStatementRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of wait statements is discouraged in synthesizable RTL"
 
 
 class TestNoInsideOperatorRule:

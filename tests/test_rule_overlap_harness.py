@@ -235,3 +235,37 @@ def test_inside_operator_uses_operator_rule_not_case_inside_rule(
 
     result.expect_code_once("NO_INSIDE_OPERATOR")
     result.expect_no_code("NO_CASE_INSIDE")
+
+
+def test_forever_loop_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "forever_loop.sv": """
+            module top;
+              initial forever #1;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_FOREVER_LOOP")
+
+
+def test_wait_statement_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "wait_statement.sv": """
+            module top(input logic a);
+              initial wait (a);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_WAIT_STATEMENT")

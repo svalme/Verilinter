@@ -25,7 +25,9 @@ BLOCK_STATEMENT_KINDS = {
     if kind is not None
 }
 ENDCASE_TOKEN_KIND = sl.TokenKind.EndCaseKeyword
+FOREVER_TOKEN_KIND = sl.TokenKind.ForeverKeyword
 INSIDE_TOKEN_KIND = sl.TokenKind.InsideKeyword
+WAIT_TOKEN_KIND = sl.TokenKind.WaitKeyword
 CASE_TOKEN_KINDS = {
     sl.TokenKind.CaseKeyword,
     sl.TokenKind.CaseXKeyword,
@@ -189,6 +191,7 @@ __all__ = [
     "DEFPARAM_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
     "FINAL_BLOCK_KIND",
+    "FOREVER_TOKEN_KIND",
     "FORCE_RELEASE_TOKEN_KINDS",
     "INITIAL_BLOCK_KIND",
     "INSIDE_TOKEN_KIND",
@@ -204,5 +207,6 @@ __all__ = [
     "TRIREG_TOKEN_KIND",
     "UNIQUE0_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
+    "WAIT_TOKEN_KIND",
     "WAND_WOR_TOKEN_KINDS",
 ]

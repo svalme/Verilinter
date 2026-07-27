@@ -20,6 +20,7 @@ from .syntax_kinds import (
     DEFPARAM_TOKEN_KIND,
     ENDCASE_TOKEN_KIND,
     FINAL_BLOCK_KIND,
+    FOREVER_TOKEN_KIND,
     FORCE_RELEASE_TOKEN_KINDS,
     INITIAL_BLOCK_KIND,
     INSIDE_TOKEN_KIND,
@@ -33,6 +34,7 @@ from .syntax_kinds import (
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
     UNIQUE0_TOKEN_KIND,
+    WAIT_TOKEN_KIND,
     WAND_WOR_TOKEN_KINDS,
     UNIQUE_PRIORITY_TOKEN_KINDS,
 )
@@ -127,6 +129,14 @@ def is_casex_casez_token(raw: object) -> bool:
 
 def is_case_keyword_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in CASE_TOKEN_KINDS
+
+
+def is_forever_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == FOREVER_TOKEN_KIND
+
+
+def is_wait_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == WAIT_TOKEN_KIND
 
 
 def is_case_inside_token(raw: object, tree: SyntaxTree) -> bool:
@@ -619,6 +629,7 @@ __all__ = [
     "is_defparam_token",
     "is_endcase_token",
     "is_final_block",
+    "is_forever_token",
     "is_force_release_token",
     "is_initial_block",
     "is_inside_operator_token",
@@ -637,6 +648,7 @@ __all__ = [
     "is_unique0_case_token",
     "is_unique_if_token",
     "is_unique_priority_case_token",
+    "is_wait_token",
     "is_wand_wor_token",
     "iter_assignment_nodes",
     "iter_identifier_reads",

@@ -10,6 +10,8 @@ INITIAL_BLOCK_DATA = Path(__file__).parent / "data" / "initial_block.v"
 FINAL_BLOCK_DATA = Path(__file__).parent / "data" / "final_block.v"
 ALWAYS_FF_DATA = Path(__file__).parent / "data" / "always_ff.v"
 ALWAYS_LATCH_DATA = Path(__file__).parent / "data" / "always_latch.v"
+FOREVER_LOOP_DATA = Path(__file__).parent / "data" / "forever_loop.v"
+WAIT_STATEMENT_DATA = Path(__file__).parent / "data" / "wait_statement.v"
 CASE_GENERATE_DATA = Path(__file__).parent / "data" / "case_generate.v"
 CASE_INSIDE_DATA = Path(__file__).parent / "data" / "case_inside.v"
 FULL_PARALLEL_CASE_DATA = Path(__file__).parent / "data" / "full_parallel_case.v"
@@ -77,6 +79,18 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_ALWAYS_FF" for d in diagnostics)
         assert any("always_ff" in d["message"] for d in diagnostics)
+
+    def test_run_reports_forever_loop_rule(self) -> None:
+        diagnostics = run([FOREVER_LOOP_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_FOREVER_LOOP" for d in diagnostics)
+        assert any("forever loops" in d["message"] for d in diagnostics)
+
+    def test_run_reports_wait_statement_rule(self) -> None:
+        diagnostics = run([WAIT_STATEMENT_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_WAIT_STATEMENT" for d in diagnostics)
+        assert any("wait statements" in d["message"] for d in diagnostics)
 
     def test_run_reports_case_generate_rule(self) -> None:
         diagnostics = run([CASE_GENERATE_DATA], jobs=1)

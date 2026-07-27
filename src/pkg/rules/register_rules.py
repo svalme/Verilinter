@@ -17,6 +17,7 @@ from .syntax.no_always_ff import NoAlwaysFFRule
 from .syntax.no_always_latch import NoAlwaysLatchRule
 from .syntax.no_case_generate import NoCaseGenerateRule
 from .syntax.no_case_inside import NoCaseInsideRule
+from .syntax.no_forever_loop import NoForeverLoopRule
 from .syntax.no_full_parallel_case import NoFullParallelCaseRule
 from .syntax.no_inside_operator import NoInsideOperatorRule
 from .syntax.no_priority_if import NoPriorityIfRule
@@ -34,6 +35,7 @@ from .syntax.no_supply0_supply1 import NoSupply0Supply1Rule
 from .syntax.no_tran_rtran import NoTranRtranRule
 from .syntax.no_tranif_rtranif import NoTranifRtranifRule
 from .syntax.no_incomplete_sensitivity_list import NoIncompleteSensitivityListRule
+from .syntax.no_wait_statement import NoWaitStatementRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
