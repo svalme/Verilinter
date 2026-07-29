@@ -1,0 +1,2 @@
+checker c;
+endchecker

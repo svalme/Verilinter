@@ -11,7 +11,21 @@ FINAL_BLOCK_DATA = Path(__file__).parent / "data" / "final_block.v"
 ALWAYS_FF_DATA = Path(__file__).parent / "data" / "always_ff.v"
 ALWAYS_LATCH_DATA = Path(__file__).parent / "data" / "always_latch.v"
 FOREVER_LOOP_DATA = Path(__file__).parent / "data" / "forever_loop.v"
+REPEAT_LOOP_DATA = Path(__file__).parent / "data" / "repeat_loop.v"
 WAIT_STATEMENT_DATA = Path(__file__).parent / "data" / "wait_statement.v"
+WHILE_LOOP_DATA = Path(__file__).parent / "data" / "while_loop.v"
+FOREACH_LOOP_DATA = Path(__file__).parent / "data" / "foreach_loop.v"
+DO_WHILE_LOOP_DATA = Path(__file__).parent / "data" / "do_while_loop.v"
+FOR_LOOP_DATA = Path(__file__).parent / "data" / "for_loop.v"
+GENERATE_FOR_DATA = Path(__file__).parent / "data" / "generate_for.v"
+IF_GENERATE_DATA = Path(__file__).parent / "data" / "if_generate.v"
+TASK_DECLARATION_DATA = Path(__file__).parent / "data" / "task_declaration.v"
+PROGRAM_DECLARATION_DATA = Path(__file__).parent / "data" / "program_declaration.sv"
+CLOCKING_DECLARATION_DATA = Path(__file__).parent / "data" / "clocking_declaration.sv"
+CHECKER_DECLARATION_DATA = Path(__file__).parent / "data" / "checker_declaration.sv"
+INTERFACE_DECLARATION_DATA = Path(__file__).parent / "data" / "interface_declaration.sv"
+MODPORT_DECLARATION_DATA = Path(__file__).parent / "data" / "modport_declaration.sv"
+PACKAGE_DECLARATION_DATA = Path(__file__).parent / "data" / "package_declaration.sv"
 DISABLE_STATEMENT_DATA = Path(__file__).parent / "data" / "disable_statement.v"
 EVENT_TRIGGER_DATA = Path(__file__).parent / "data" / "event_trigger.v"
 FORK_JOIN_DATA = Path(__file__).parent / "data" / "fork_join.v"
@@ -89,11 +103,95 @@ class TestRunJobsValidation:
         assert any(d["code"] == "NO_FOREVER_LOOP" for d in diagnostics)
         assert any("forever loops" in d["message"] for d in diagnostics)
 
+    def test_run_reports_repeat_loop_rule(self) -> None:
+        diagnostics = run([REPEAT_LOOP_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_REPEAT_LOOP" for d in diagnostics)
+        assert any("repeat loops" in d["message"] for d in diagnostics)
+
     def test_run_reports_wait_statement_rule(self) -> None:
         diagnostics = run([WAIT_STATEMENT_DATA], jobs=1)
 
         assert any(d["code"] == "NO_WAIT_STATEMENT" for d in diagnostics)
         assert any("wait statements" in d["message"] for d in diagnostics)
+
+    def test_run_reports_while_loop_rule(self) -> None:
+        diagnostics = run([WHILE_LOOP_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_WHILE_LOOP" for d in diagnostics)
+        assert any("while loops" in d["message"] for d in diagnostics)
+
+    def test_run_reports_foreach_loop_rule(self) -> None:
+        diagnostics = run([FOREACH_LOOP_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_FOREACH_LOOP" for d in diagnostics)
+        assert any("foreach loops" in d["message"] for d in diagnostics)
+
+    def test_run_reports_do_while_loop_rule(self) -> None:
+        diagnostics = run([DO_WHILE_LOOP_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_DO_WHILE_LOOP" for d in diagnostics)
+        assert any("do-while loops" in d["message"] for d in diagnostics)
+
+    def test_run_reports_for_loop_rule(self) -> None:
+        diagnostics = run([FOR_LOOP_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_FOR_LOOP" for d in diagnostics)
+        assert any("for loops" in d["message"] for d in diagnostics)
+
+    def test_run_reports_generate_for_rule(self) -> None:
+        diagnostics = run([GENERATE_FOR_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_GENERATE_FOR" for d in diagnostics)
+        assert any("generate-for loops" in d["message"] for d in diagnostics)
+
+    def test_run_reports_if_generate_rule(self) -> None:
+        diagnostics = run([IF_GENERATE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_IF_GENERATE" for d in diagnostics)
+        assert any("if-generate" in d["message"] for d in diagnostics)
+
+    def test_run_reports_task_declaration_rule(self) -> None:
+        diagnostics = run([TASK_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_TASK_DECLARATION" for d in diagnostics)
+        assert any("task declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_program_declaration_rule(self) -> None:
+        diagnostics = run([PROGRAM_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_PROGRAM_DECLARATION" for d in diagnostics)
+        assert any("program declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_clocking_declaration_rule(self) -> None:
+        diagnostics = run([CLOCKING_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_CLOCKING_DECLARATION" for d in diagnostics)
+        assert any("clocking declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_checker_declaration_rule(self) -> None:
+        diagnostics = run([CHECKER_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_CHECKER_DECLARATION" for d in diagnostics)
+        assert any("checker declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_interface_declaration_rule(self) -> None:
+        diagnostics = run([INTERFACE_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_INTERFACE_DECLARATION" for d in diagnostics)
+        assert any("interface declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_modport_declaration_rule(self) -> None:
+        diagnostics = run([MODPORT_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_MODPORT_DECLARATION" for d in diagnostics)
+        assert any("modport declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_package_declaration_rule(self) -> None:
+        diagnostics = run([PACKAGE_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_PACKAGE_DECLARATION" for d in diagnostics)
+        assert any("package declarations" in d["message"] for d in diagnostics)
 
     def test_run_reports_disable_statement_rule(self) -> None:
         diagnostics = run([DISABLE_STATEMENT_DATA], jobs=1)

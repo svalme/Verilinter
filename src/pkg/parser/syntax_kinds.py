@@ -12,8 +12,17 @@ ALWAYS_LATCH_BLOCK_KIND = sl.SyntaxKind.AlwaysLatchBlock
 INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
 CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
+CLOCKING_DECLARATION_KIND = _syntax_kind("ClockingDeclaration")
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
 CASE_STATEMENT_KIND = _syntax_kind("CaseStatement")
+CHECKER_DECLARATION_KIND = _syntax_kind("CheckerDeclaration")
+DO_WHILE_STATEMENT_KIND = _syntax_kind("DoWhileStatement")
+INTERFACE_DECLARATION_KIND = _syntax_kind("InterfaceDeclaration")
+LOOP_GENERATE_KIND = _syntax_kind("LoopGenerate")
+MODPORT_DECLARATION_KIND = _syntax_kind("ModportDeclaration")
+PACKAGE_DECLARATION_KIND = _syntax_kind("PackageDeclaration")
+PROGRAM_DECLARATION_KIND = _syntax_kind("ProgramDeclaration")
+TASK_DECLARATION_KIND = _syntax_kind("TaskDeclaration")
 TIMING_CONTROL_STATEMENT_KIND = _syntax_kind("TimingControlStatement")
 BLOCK_STATEMENT_KINDS = {
     kind
@@ -27,13 +36,18 @@ BLOCK_STATEMENT_KINDS = {
 PARALLEL_BLOCK_STATEMENT_KIND = _syntax_kind("ParallelBlockStatement")
 ENDCASE_TOKEN_KIND = sl.TokenKind.EndCaseKeyword
 DISABLE_TOKEN_KIND = sl.TokenKind.DisableKeyword
+DO_TOKEN_KIND = sl.TokenKind.DoKeyword
 EVENT_TRIGGER_TOKEN_KINDS = {
     sl.TokenKind.MinusArrow,
     sl.TokenKind.MinusDoubleArrow,
 }
+FOR_TOKEN_KIND = sl.TokenKind.ForKeyword
+FOREACH_TOKEN_KIND = sl.TokenKind.ForeachKeyword
 FOREVER_TOKEN_KIND = sl.TokenKind.ForeverKeyword
 INSIDE_TOKEN_KIND = sl.TokenKind.InsideKeyword
+REPEAT_TOKEN_KIND = sl.TokenKind.RepeatKeyword
 WAIT_TOKEN_KIND = sl.TokenKind.WaitKeyword
+WHILE_TOKEN_KIND = sl.TokenKind.WhileKeyword
 CASE_TOKEN_KINDS = {
     sl.TokenKind.CaseKeyword,
     sl.TokenKind.CaseXKeyword,
@@ -192,23 +206,36 @@ __all__ = [
     "CASE_STATEMENT_KIND",
     "CASE_STYLE_TOKEN_KINDS",
     "CASE_TOKEN_KINDS",
+    "CHECKER_DECLARATION_KIND",
+    "CLOCKING_DECLARATION_KIND",
     "CONDITIONAL_STATEMENT_KIND",
     "CONTINUOUS_ASSIGN_KIND",
     "DISABLE_TOKEN_KIND",
+    "DO_TOKEN_KIND",
+    "DO_WHILE_STATEMENT_KIND",
     "DEFPARAM_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
     "EVENT_TRIGGER_TOKEN_KINDS",
+    "FOR_TOKEN_KIND",
+    "FOREACH_TOKEN_KIND",
     "FINAL_BLOCK_KIND",
     "FOREVER_TOKEN_KIND",
     "FORCE_RELEASE_TOKEN_KINDS",
     "INITIAL_BLOCK_KIND",
+    "INTERFACE_DECLARATION_KIND",
     "INSIDE_TOKEN_KIND",
+    "LOOP_GENERATE_KIND",
+    "MODPORT_DECLARATION_KIND",
+    "PACKAGE_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
     "PORT_DIRECTION_TOKEN_KINDS",
+    "PROGRAM_DECLARATION_KIND",
     "PROCEDURAL_BLOCK_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
+    "REPEAT_TOKEN_KIND",
     "SIMPLE_ASSIGNMENT_KINDS",
+    "TASK_DECLARATION_KIND",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
     "TIMING_CONTROL_STATEMENT_KIND",
     "TRANIF_RTRANIF_TOKEN_KINDS",
@@ -217,5 +244,6 @@ __all__ = [
     "UNIQUE0_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
     "WAIT_TOKEN_KIND",
+    "WHILE_TOKEN_KIND",
     "WAND_WOR_TOKEN_KINDS",
 ]

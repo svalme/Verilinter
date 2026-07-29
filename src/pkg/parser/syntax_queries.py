@@ -15,29 +15,43 @@ from .syntax_kinds import (
     CASE_STATEMENT_KIND,
     CASE_STYLE_TOKEN_KINDS,
     CASE_TOKEN_KINDS,
+    CHECKER_DECLARATION_KIND,
+    CLOCKING_DECLARATION_KIND,
     CONDITIONAL_STATEMENT_KIND,
     CONTINUOUS_ASSIGN_KIND,
     DISABLE_TOKEN_KIND,
+    DO_TOKEN_KIND,
+    DO_WHILE_STATEMENT_KIND,
     DEFPARAM_TOKEN_KIND,
     ENDCASE_TOKEN_KIND,
     EVENT_TRIGGER_TOKEN_KINDS,
+    FOR_TOKEN_KIND,
+    FOREACH_TOKEN_KIND,
     FINAL_BLOCK_KIND,
     FOREVER_TOKEN_KIND,
     FORCE_RELEASE_TOKEN_KINDS,
     INITIAL_BLOCK_KIND,
+    INTERFACE_DECLARATION_KIND,
     INSIDE_TOKEN_KIND,
+    LOOP_GENERATE_KIND,
+    MODPORT_DECLARATION_KIND,
     PARALLEL_BLOCK_STATEMENT_KIND,
+    PACKAGE_DECLARATION_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
+    PROGRAM_DECLARATION_KIND,
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
+    REPEAT_TOKEN_KIND,
     SUPPLY0_SUPPLY1_TOKEN_KINDS,
+    TASK_DECLARATION_KIND,
     TIMING_CONTROL_STATEMENT_KIND,
     TRANIF_RTRANIF_TOKEN_KINDS,
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
     UNIQUE0_TOKEN_KIND,
     WAIT_TOKEN_KIND,
+    WHILE_TOKEN_KIND,
     WAND_WOR_TOKEN_KINDS,
     UNIQUE_PRIORITY_TOKEN_KINDS,
 )
@@ -48,7 +62,9 @@ from .types import (
     DefaultCaseItemNode,
     IdentifierNameNode,
     IdentifierSelectNameNode,
+    IfGenerateNode,
     ImplicitEventControlNode,
+    LoopGenerateNode,
     ParenthesizedEventExpressionNode,
     PortDeclarationNode,
     ProceduralBlockNode,
@@ -106,6 +122,42 @@ def is_case_generate_node(raw: object) -> bool:
     return isinstance(raw, CaseGenerateNode)
 
 
+def is_checker_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == CHECKER_DECLARATION_KIND
+
+
+def is_clocking_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == CLOCKING_DECLARATION_KIND
+
+
+def is_interface_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == INTERFACE_DECLARATION_KIND
+
+
+def is_modport_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == MODPORT_DECLARATION_KIND
+
+
+def is_loop_generate_node(raw: object) -> bool:
+    return isinstance(raw, LoopGenerateNode) or getattr(raw, "kind", None) == LOOP_GENERATE_KIND
+
+
+def is_if_generate_node(raw: object) -> bool:
+    return isinstance(raw, IfGenerateNode) or getattr(raw, "kind", None) == getattr(sl.SyntaxKind, "IfGenerate", None)
+
+
+def is_task_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == TASK_DECLARATION_KIND
+
+
+def is_program_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == PROGRAM_DECLARATION_KIND
+
+
+def is_package_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == PACKAGE_DECLARATION_KIND
+
+
 def is_case_statement(raw: object) -> bool:
     return isinstance(raw, CaseStatementNode) or getattr(raw, "kind", None) == CASE_STATEMENT_KIND
 
@@ -138,16 +190,54 @@ def is_disable_token(raw: object) -> bool:
     return getattr(raw, "kind", None) == DISABLE_TOKEN_KIND
 
 
+def is_do_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == DO_TOKEN_KIND
+
+
 def is_event_trigger_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in EVENT_TRIGGER_TOKEN_KINDS
+
+
+def is_for_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == FOR_TOKEN_KIND
+
+
+def is_foreach_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == FOREACH_TOKEN_KIND
 
 
 def is_forever_token(raw: object) -> bool:
     return getattr(raw, "kind", None) == FOREVER_TOKEN_KIND
 
 
+def is_repeat_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == REPEAT_TOKEN_KIND
+
+
 def is_wait_token(raw: object) -> bool:
     return getattr(raw, "kind", None) == WAIT_TOKEN_KIND
+
+
+def is_while_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == WHILE_TOKEN_KIND
+
+
+def is_do_while_statement(raw: object) -> bool:
+    return getattr(raw, "kind", None) == DO_WHILE_STATEMENT_KIND
+
+
+def is_plain_for_token(raw: object, ctx: "Context") -> bool:
+    if not is_for_token(raw):
+        return False
+
+    return not any(is_loop_generate_node(ancestor.raw) for ancestor in reversed(ctx.stack))
+
+
+def is_plain_while_token(raw: object, ctx: "Context") -> bool:
+    if not is_while_token(raw):
+        return False
+
+    return not any(is_do_while_statement(ancestor.raw) for ancestor in reversed(ctx.stack))
 
 
 def is_case_inside_token(raw: object, tree: SyntaxTree) -> bool:
@@ -639,27 +729,43 @@ __all__ = [
     "is_case_keyword_token",
     "is_case_statement",
     "is_casex_casez_token",
+    "is_checker_declaration_node",
+    "is_clocking_declaration_node",
     "is_conditional_statement",
     "is_continuous_assign",
     "is_disable_token",
+    "is_do_token",
+    "is_do_while_statement",
     "is_defparam_token",
     "is_endcase_token",
     "is_event_trigger_token",
+    "is_for_token",
+    "is_foreach_token",
     "is_final_block",
     "is_forever_token",
     "is_force_release_token",
+    "is_if_generate_node",
     "is_initial_block",
+    "is_interface_declaration_node",
     "is_inside_operator_token",
     "is_internal_inout_port_declaration",
+    "is_loop_generate_node",
+    "is_modport_declaration_node",
     "is_negedge_event",
     "is_nonblocking_assignment_token",
     "is_parallel_block_statement",
+    "is_plain_for_token",
     "is_posedge_event",
     "is_priority_if_token",
+    "is_package_declaration_node",
+    "is_program_declaration_node",
+    "is_plain_while_token",
     "is_procedural_block",
     "is_read_write_assignment_expression",
     "is_read_write_unary_expression",
+    "is_repeat_token",
     "is_supply0_supply1_token",
+    "is_task_declaration_node",
     "is_tranif_rtranif_token",
     "is_tran_rtran_token",
     "is_trireg_token",
@@ -667,6 +773,7 @@ __all__ = [
     "is_unique_if_token",
     "is_unique_priority_case_token",
     "is_wait_token",
+    "is_while_token",
     "is_wand_wor_token",
     "iter_assignment_nodes",
     "iter_identifier_reads",

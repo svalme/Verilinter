@@ -113,6 +113,156 @@ def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_ru
     result.expect_no_code("NO_DEFAULT_CASE_STATEMENT")
 
 
+def test_generate_for_uses_generate_rule_not_procedural_for_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "generate_for.sv": """
+            module top;
+              genvar i;
+              generate
+                for (i = 0; i < 4; i = i + 1) begin : g
+                end
+              endgenerate
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_GENERATE_FOR")
+    result.expect_no_code("NO_FOR_LOOP")
+
+
+def test_if_generate_uses_generate_rule_not_procedural_if_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "if_generate.sv": """
+            module top;
+              generate
+                if (1) begin : g
+                end
+              endgenerate
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_IF_GENERATE")
+
+
+def test_task_declaration_reports_task_rule_cleanly(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "task_declaration.sv": """
+            module top;
+              task automatic do_work;
+              endtask
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_TASK_DECLARATION")
+
+
+def test_program_declaration_reports_program_rule_cleanly(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "program_declaration.sv": """
+            program automatic test_prog;
+            endprogram
+            """
+        }
+    )
+
+    result.expect_code_once("NO_PROGRAM_DECLARATION")
+
+
+def test_clocking_declaration_reports_clocking_rule_cleanly(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "clocking_declaration.sv": """
+            module top(input logic clk);
+              clocking cb @(posedge clk);
+              endclocking
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_CLOCKING_DECLARATION")
+
+
+def test_checker_declaration_reports_checker_rule_cleanly(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "checker_declaration.sv": """
+            checker c;
+            endchecker
+            """
+        }
+    )
+
+    result.expect_code_once("NO_CHECKER_DECLARATION")
+
+
+def test_interface_declaration_reports_interface_rule_cleanly(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "interface_declaration.sv": """
+            interface bus_if;
+            endinterface
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INTERFACE_DECLARATION")
+
+
+def test_modport_declaration_reports_modport_rule_cleanly(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "modport_declaration.sv": """
+            interface bus_if(input logic clk);
+              modport master(input clk);
+            endinterface
+            """
+        }
+    )
+
+    result.expect_code_once("NO_MODPORT_DECLARATION")
+
+
+def test_package_declaration_reports_package_rule_cleanly(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "package_declaration.sv": """
+            package common_pkg;
+            endpackage
+            """
+        }
+    )
+
+    result.expect_code_once("NO_PACKAGE_DECLARATION")
+
+
 def test_procedural_case_missing_default_uses_procedural_case_rule_not_generate_rule(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:
@@ -269,6 +419,94 @@ def test_wait_statement_can_coexist_with_initial_block_rule(
 
     result.expect_code_once("NO_INITIAL_BLOCK")
     result.expect_code_once("NO_WAIT_STATEMENT")
+
+
+def test_repeat_loop_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "repeat_loop.sv": """
+            module top;
+              initial repeat (4) count = count + 1;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_REPEAT_LOOP")
+
+
+def test_while_loop_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "while_loop.sv": """
+            module top(input logic a);
+              initial while (a) a = 1'b0;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_WHILE_LOOP")
+
+
+def test_foreach_loop_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "foreach_loop.sv": """
+            module top;
+              logic [3:0] arr;
+              initial foreach (arr[i]) arr[i] = 1'b0;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_FOREACH_LOOP")
+
+
+def test_do_while_loop_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "do_while_loop.sv": """
+            module top(input logic a);
+              initial do a = 1'b0; while (a);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_DO_WHILE_LOOP")
+    result.expect_no_code("NO_WHILE_LOOP")
+
+
+def test_for_loop_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "for_loop.sv": """
+            module top;
+              integer i;
+              initial for (i = 0; i < 4; i = i + 1) i = i + 1;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_FOR_LOOP")
 
 
 def test_disable_statement_can_coexist_with_initial_block_rule(

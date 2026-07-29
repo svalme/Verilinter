@@ -9,8 +9,20 @@ from src.pkg.rules.syntax.no_always_latch import NoAlwaysLatchRule
 from src.pkg.rules.syntax.no_blocking_sequential_logic import NoBlockingAssignmentInSequentialRule
 from src.pkg.rules.syntax.no_case_generate import NoCaseGenerateRule
 from src.pkg.rules.syntax.no_case_inside import NoCaseInsideRule
+from src.pkg.rules.syntax.no_checker_declaration import NoCheckerDeclarationRule
+from src.pkg.rules.syntax.no_clocking_declaration import NoClockingDeclarationRule
 from src.pkg.rules.syntax.no_disable_statement import NoDisableStatementRule
+from src.pkg.rules.syntax.no_do_while_loop import NoDoWhileLoopRule
 from src.pkg.rules.syntax.no_event_trigger import NoEventTriggerRule
+from src.pkg.rules.syntax.no_for_loop import NoForLoopRule
+from src.pkg.rules.syntax.no_foreach_loop import NoForeachLoopRule
+from src.pkg.rules.syntax.no_generate_for import NoGenerateForRule
+from src.pkg.rules.syntax.no_if_generate import NoIfGenerateRule
+from src.pkg.rules.syntax.no_interface_declaration import NoInterfaceDeclarationRule
+from src.pkg.rules.syntax.no_modport_declaration import NoModportDeclarationRule
+from src.pkg.rules.syntax.no_package_declaration import NoPackageDeclarationRule
+from src.pkg.rules.syntax.no_program_declaration import NoProgramDeclarationRule
+from src.pkg.rules.syntax.no_task_declaration import NoTaskDeclarationRule
 from src.pkg.rules.syntax.no_fork_join import NoForkJoinRule
 from src.pkg.rules.syntax.no_forever_loop import NoForeverLoopRule
 from src.pkg.rules.syntax.no_inside_operator import NoInsideOperatorRule
@@ -27,6 +39,8 @@ from src.pkg.rules.syntax.no_supply0_supply1 import NoSupply0Supply1Rule
 from src.pkg.rules.syntax.no_tranif_rtranif import NoTranifRtranifRule
 from src.pkg.rules.syntax.no_tran_rtran import NoTranRtranRule
 from src.pkg.rules.syntax.no_trireg import NoTriregRule
+from src.pkg.rules.syntax.no_repeat_loop import NoRepeatLoopRule
+from src.pkg.rules.syntax.no_while_loop import NoWhileLoopRule
 from src.pkg.rules.syntax.no_wait_statement import NoWaitStatementRule
 from src.pkg.rules.syntax.no_priority_if import NoPriorityIfRule
 from src.pkg.rules.syntax.no_unique0_case import NoUnique0CaseRule
@@ -605,6 +619,522 @@ class TestNoWaitStatementRule:
         assert result["line"] == 3
         assert result["col"] == 11
         assert result["message"] == "Use of wait statements is discouraged in synthesizable RTL"
+
+
+class TestNoRepeatLoopRule:
+    @pytest.fixture
+    def rule(self) -> NoRepeatLoopRule:
+        return NoRepeatLoopRule()
+
+    def test_rule_has_correct_code(self, rule: NoRepeatLoopRule) -> None:
+        assert rule.code == "NO_REPEAT_LOOP"
+
+    def test_rule_has_correct_message(self, rule: NoRepeatLoopRule) -> None:
+        assert rule.message == "Use of repeat loops is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_repeat_keyword(self, rule: NoRepeatLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.RepeatKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_while_keyword(self, rule: NoRepeatLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoRepeatLoopRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of repeat loops is discouraged in synthesizable RTL"
+
+
+class TestNoWhileLoopRule:
+    @pytest.fixture
+    def rule(self) -> NoWhileLoopRule:
+        return NoWhileLoopRule()
+
+    def test_rule_has_correct_code(self, rule: NoWhileLoopRule) -> None:
+        assert rule.code == "NO_WHILE_LOOP"
+
+    def test_rule_has_correct_message(self, rule: NoWhileLoopRule) -> None:
+        assert rule.message == "Use of while loops is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_while_keyword(self, rule: NoWhileLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_wait_keyword(self, rule: NoWhileLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.WaitKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_false_for_do_while_trailing_while(self, rule: NoWhileLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+        do_while_vnode = Mock(spec=BaseVNode)
+        do_while_vnode.raw = Mock()
+        do_while_vnode.raw.kind = sl.SyntaxKind.DoWhileStatement
+        context = Context().push(do_while_vnode)
+
+        assert rule.applies(mock_vnode, context) is False
+
+    def test_report_returns_correct_format(self, rule: NoWhileLoopRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of while loops is discouraged in synthesizable RTL"
+
+
+class TestNoForeachLoopRule:
+    @pytest.fixture
+    def rule(self) -> NoForeachLoopRule:
+        return NoForeachLoopRule()
+
+    def test_rule_has_correct_code(self, rule: NoForeachLoopRule) -> None:
+        assert rule.code == "NO_FOREACH_LOOP"
+
+    def test_rule_has_correct_message(self, rule: NoForeachLoopRule) -> None:
+        assert rule.message == "Use of foreach loops is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_foreach_keyword(self, rule: NoForeachLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.ForeachKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_for_keyword(self, rule: NoForeachLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.ForKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoForeachLoopRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of foreach loops is discouraged in synthesizable RTL"
+
+
+class TestNoDoWhileLoopRule:
+    @pytest.fixture
+    def rule(self) -> NoDoWhileLoopRule:
+        return NoDoWhileLoopRule()
+
+    def test_rule_has_correct_code(self, rule: NoDoWhileLoopRule) -> None:
+        assert rule.code == "NO_DO_WHILE_LOOP"
+
+    def test_rule_has_correct_message(self, rule: NoDoWhileLoopRule) -> None:
+        assert rule.message == "Use of do-while loops is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_do_keyword(self, rule: NoDoWhileLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.DoKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_while_keyword(self, rule: NoDoWhileLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoDoWhileLoopRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of do-while loops is discouraged in synthesizable RTL"
+
+
+class TestNoForLoopRule:
+    @pytest.fixture
+    def rule(self) -> NoForLoopRule:
+        return NoForLoopRule()
+
+    def test_rule_has_correct_code(self, rule: NoForLoopRule) -> None:
+        assert rule.code == "NO_FOR_LOOP"
+
+    def test_rule_has_correct_message(self, rule: NoForLoopRule) -> None:
+        assert rule.message == "Use of for loops is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_for_keyword(self, rule: NoForLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.ForKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_foreach_keyword(self, rule: NoForLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.ForeachKeyword)
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_false_for_generate_for_token(self, rule: NoForLoopRule) -> None:
+        mock_vnode = token_vnode(sl.TokenKind.ForKeyword)
+        loop_generate_vnode = Mock(spec=BaseVNode)
+        loop_generate_vnode.raw = Mock()
+        loop_generate_vnode.raw.kind = sl.SyntaxKind.LoopGenerate
+        context = Context().push(loop_generate_vnode)
+
+        assert rule.applies(mock_vnode, context) is False
+
+    def test_report_returns_correct_format(self, rule: NoForLoopRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 11}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 11
+        assert result["message"] == "Use of for loops is discouraged in synthesizable RTL"
+
+
+class TestNoGenerateForRule:
+    @pytest.fixture
+    def rule(self) -> NoGenerateForRule:
+        return NoGenerateForRule()
+
+    def test_rule_has_correct_code(self, rule: NoGenerateForRule) -> None:
+        assert rule.code == "NO_GENERATE_FOR"
+
+    def test_rule_has_correct_message(self, rule: NoGenerateForRule) -> None:
+        assert rule.message == "Use of generate-for loops can make structural intent harder to follow"
+
+    def test_applies_returns_true_for_loop_generate_node(self, rule: NoGenerateForRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "generate_for.v"))
+
+        def walk(node):
+            if isinstance(node, sl.LoopGenerateSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_procedural_for_statement(self, rule: NoGenerateForRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ForLoopStatement
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoGenerateForRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 5
+        assert result["message"] == "Use of generate-for loops can make structural intent harder to follow"
+
+
+class TestNoIfGenerateRule:
+    @pytest.fixture
+    def rule(self) -> NoIfGenerateRule:
+        return NoIfGenerateRule()
+
+    def test_rule_has_correct_code(self, rule: NoIfGenerateRule) -> None:
+        assert rule.code == "NO_IF_GENERATE"
+
+    def test_rule_has_correct_message(self, rule: NoIfGenerateRule) -> None:
+        assert rule.message == "Use of if-generate can make structural intent harder to follow"
+
+    def test_applies_returns_true_for_if_generate_node(self, rule: NoIfGenerateRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "if_generate.v"))
+
+        def walk(node):
+            if isinstance(node, sl.IfGenerateSyntax):
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_procedural_if_statement(self, rule: NoIfGenerateRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ConditionalStatement
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoIfGenerateRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 5
+        assert result["message"] == "Use of if-generate can make structural intent harder to follow"
+
+
+class TestNoTaskDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoTaskDeclarationRule:
+        return NoTaskDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoTaskDeclarationRule) -> None:
+        assert rule.code == "NO_TASK_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoTaskDeclarationRule) -> None:
+        assert rule.message == "Use of task declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_task_declaration_node(self, rule: NoTaskDeclarationRule) -> None:
+        tree = sl.SyntaxTree.fromFile(str(DATA / "task_declaration.v"))
+
+        def walk(node):
+            if getattr(node, "kind", None) == sl.SyntaxKind.TaskDeclaration:
+                return node
+            if hasattr(node, "__iter__"):
+                for child in node:
+                    found = walk(child)
+                    if found is not None:
+                        return found
+            return None
+
+        raw_node = walk(tree.root)
+        assert raw_node is not None
+
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = raw_node
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_function_declaration_node(self, rule: NoTaskDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.FunctionDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoTaskDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 3
+        assert result["message"] == "Use of task declarations is discouraged in synthesizable RTL"
+
+
+class TestNoProgramDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoProgramDeclarationRule:
+        return NoProgramDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoProgramDeclarationRule) -> None:
+        assert rule.code == "NO_PROGRAM_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoProgramDeclarationRule) -> None:
+        assert rule.message == "Use of program declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_program_declaration_node(self, rule: NoProgramDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ProgramDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_module_declaration_node(self, rule: NoProgramDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ModuleDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoProgramDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 1, "col": 1}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 1
+        assert result["col"] == 1
+        assert result["message"] == "Use of program declarations is discouraged in synthesizable RTL"
+
+
+class TestNoClockingDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoClockingDeclarationRule:
+        return NoClockingDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoClockingDeclarationRule) -> None:
+        assert rule.code == "NO_CLOCKING_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoClockingDeclarationRule) -> None:
+        assert rule.message == "Use of clocking declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_clocking_declaration_node(self, rule: NoClockingDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ClockingDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_program_declaration_node(self, rule: NoClockingDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ProgramDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoClockingDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 3
+        assert result["message"] == "Use of clocking declarations is discouraged in synthesizable RTL"
+
+
+class TestNoCheckerDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoCheckerDeclarationRule:
+        return NoCheckerDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoCheckerDeclarationRule) -> None:
+        assert rule.code == "NO_CHECKER_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoCheckerDeclarationRule) -> None:
+        assert rule.message == "Use of checker declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_checker_declaration_node(self, rule: NoCheckerDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.CheckerDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_clocking_declaration_node(self, rule: NoCheckerDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ClockingDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoCheckerDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 3
+        assert result["message"] == "Use of checker declarations is discouraged in synthesizable RTL"
+
+
+class TestNoInterfaceDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoInterfaceDeclarationRule:
+        return NoInterfaceDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoInterfaceDeclarationRule) -> None:
+        assert rule.code == "NO_INTERFACE_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoInterfaceDeclarationRule) -> None:
+        assert rule.message == "Use of interface declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_interface_declaration_node(self, rule: NoInterfaceDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.InterfaceDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_program_declaration_node(self, rule: NoInterfaceDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ProgramDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoInterfaceDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 1, "col": 1}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 1
+        assert result["col"] == 1
+        assert result["message"] == "Use of interface declarations is discouraged in synthesizable RTL"
+
+
+class TestNoModportDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoModportDeclarationRule:
+        return NoModportDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoModportDeclarationRule) -> None:
+        assert rule.code == "NO_MODPORT_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoModportDeclarationRule) -> None:
+        assert rule.message == "Use of modport declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_modport_declaration_node(self, rule: NoModportDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ModportDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_interface_declaration_node(self, rule: NoModportDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.InterfaceDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoModportDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 1, "col": 1}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 1
+        assert result["col"] == 1
+        assert result["message"] == "Use of modport declarations is discouraged in synthesizable RTL"
+
+
+class TestNoPackageDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoPackageDeclarationRule:
+        return NoPackageDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoPackageDeclarationRule) -> None:
+        assert rule.code == "NO_PACKAGE_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoPackageDeclarationRule) -> None:
+        assert rule.message == "Use of package declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_package_declaration_node(self, rule: NoPackageDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.PackageDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_program_declaration_node(self, rule: NoPackageDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ProgramDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoPackageDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 1, "col": 1}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 1
+        assert result["col"] == 1
+        assert result["message"] == "Use of package declarations is discouraged in synthesizable RTL"
 
 
 class TestNoDisableStatementRule:
