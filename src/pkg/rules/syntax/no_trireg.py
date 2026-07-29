@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoTriregRule(Rule):
     code = "NO_TRIREG"
     message = "Use of trireg is discouraged in RTL; prefer explicit storage and connectivity modeling instead"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_trireg_token(vnode.raw)

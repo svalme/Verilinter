@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoTranRtranRule(Rule):
     code = "NO_TRAN_RTRAN"
     message = "Use of tran/rtran is discouraged in RTL; prefer explicit connectivity modeling instead"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_tran_rtran_token(vnode.raw)

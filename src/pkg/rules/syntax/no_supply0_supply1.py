@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoSupply0Supply1Rule(Rule):
     code = "NO_SUPPLY0_SUPPLY1"
     message = "Use of supply0/supply1 is discouraged in RTL; prefer explicit constant-driving intent instead"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_supply0_supply1_token(vnode.raw)

@@ -70,3 +70,19 @@ where a given piece of logic belongs — this file doesn't repeat that split, ju
 `dict` by hand in `run()`), a syntax `Rule` can override `report()` rather than being forced into a static
 `message` string; `NoIncompleteSensitivityListRule` does this. Don't invent a second diagnostic-shaping
 mechanism alongside `BaseDiagnostic` for that case.
+
+## Rule Policy Metadata
+
+`BaseDiagnostic` also exposes lightweight policy metadata:
+
+- `category`
+- `default_profiles`
+
+Right now these are descriptive only; they do not change runtime rule selection. Use them to record policy
+intent, not to build per-rule behavior:
+
+- `category` answers "what kind of restriction is this?" such as `classic_rtl_exclusion` or `sv_subset`.
+- `default_profiles` answers "if built-in profiles are added later, which ones should include this rule by default?"
+
+If profile selection is added later, it should happen centrally in config / runner code using this shared
+metadata, not inside individual rule files.

@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoAssignDeassignRule(Rule):
     code = "NO_ASSIGN_DEASSIGN"
     message = "Use of assign/deassign is discouraged in RTL; prefer explicit continuous or procedural intent"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_assign_deassign_token(vnode.raw)

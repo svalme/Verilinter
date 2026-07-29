@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoWandWorRule(Rule):
     code = "NO_WAND_WOR"
     message = "Use of wand/wor is discouraged in RTL; prefer explicit logic composition instead"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_wand_wor_token(vnode.raw)

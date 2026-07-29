@@ -7,6 +7,8 @@ from ..vnodes.base_vnode import BaseVNode
 class BaseDiagnostic(ABC):
     code: str = "UNSPEC"
     message: str = "No message"
+    category: str = "uncategorized"
+    default_profiles: tuple[str, ...] = ()
 
     def report(self, vnode: BaseVNode) -> dict[str, Any]:
         diagnostic: dict[str, Any] = {

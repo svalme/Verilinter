@@ -121,3 +121,18 @@ Before adding rule-specific state to a handler, ask:
 
 If yes, it is probably a semantic-model or shared-analysis addition, not just a one-off rule hack.
 
+## Policy Category vs Implementation Shape
+
+Implementation shape and policy category are different axes.
+
+- Implementation shape answers "how does this rule work technically?"
+- Policy category answers "what kind of restriction is this rule expressing?"
+
+Example:
+
+- `NO_PACKAGE_DECLARATION` is a simple syntax rule and an `sv_subset` policy rule.
+- `NO_DEFPARAM` is a simple syntax rule and a `classic_rtl_exclusion` policy rule.
+
+That distinction matters because future configuration should key off policy metadata without forcing a file or
+folder reorganization first.
+

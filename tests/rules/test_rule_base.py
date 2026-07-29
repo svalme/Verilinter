@@ -48,6 +48,14 @@ class TestRule:
         assert hasattr(Rule, 'message')
         assert Rule.message == "No message"
 
+    def test_rule_has_category_attribute(self) -> None:
+        assert hasattr(Rule, "category")
+        assert Rule.category == "uncategorized"
+
+    def test_rule_has_default_profiles_attribute(self) -> None:
+        assert hasattr(Rule, "default_profiles")
+        assert Rule.default_profiles == ()
+
     def test_rule_cannot_be_instantiated_directly(self) -> None:
         """applies() is abstract -- Rule itself has no usable default and must
         not be instantiable, unlike a subclass that implements applies()."""
@@ -119,6 +127,23 @@ class TestCustomRule:
     def test_custom_rule_message(self, custom_rule: Rule) -> None:
         """Test that custom rules can set their own message."""
         assert custom_rule.message == "This is a custom rule"
+
+    def test_custom_rule_inherits_default_metadata(self, custom_rule: Rule) -> None:
+        assert custom_rule.category == "uncategorized"
+        assert custom_rule.default_profiles == ()
+
+    def test_custom_rule_can_override_metadata(self) -> None:
+        class CategorizedRule(Rule):
+            category = "sv_subset"
+            default_profiles = ("sv_rtl_subset",)
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return True
+
+        rule = CategorizedRule()
+
+        assert rule.category == "sv_subset"
+        assert rule.default_profiles == ("sv_rtl_subset",)
 
     def test_custom_rule_applies_implementation(self, custom_rule: Rule, mock_vnode: Mock, mock_ctx: Mock) -> None:
         """Test that custom rules can implement applies()."""

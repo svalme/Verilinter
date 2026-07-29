@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoDefparamRule(Rule):
     code = "NO_DEFPARAM"
     message = "Use of defparam is discouraged; prefer explicit parameter overrides at instantiation"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_defparam_token(vnode.raw)
