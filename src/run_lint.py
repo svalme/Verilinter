@@ -10,6 +10,7 @@ from pkg.parser.parse import file_uses_default_nettype_none, parse_file
 from pkg.vnodes.register_vnodes import *
 from pkg.handlers.register_handlers import *
 from pkg.rules.register_rules import *
+from pkg.rules.rule_selection import RuleSelection
 
 
 def collect_paths(raw: list[str]) -> list[Path]:
@@ -24,7 +25,11 @@ def collect_paths(raw: list[str]) -> list[Path]:
     return paths
 
 
-def run(paths: list[Path], jobs: int = 1) -> list[dict]:
+def run(
+    paths: list[Path],
+    jobs: int = 1,
+    rule_selection: RuleSelection | None = None,
+) -> list[dict]:
     if jobs < 1:
         raise ValueError(f"jobs must be >= 1, got {jobs}")
     if jobs > 1:
@@ -39,7 +44,7 @@ def run(paths: list[Path], jobs: int = 1) -> list[dict]:
     ast_diagnostics: list[dict] = []
 
     def on_node(vnode, node_ctx) -> None:
-        ast_diagnostics.extend(rule_runner.check(vnode, node_ctx))
+        ast_diagnostics.extend(rule_runner.check(vnode, node_ctx, rule_selection))
 
     for path in paths:
         if not path.exists():
@@ -49,8 +54,8 @@ def run(paths: list[Path], jobs: int = 1) -> list[dict]:
         tree = parse_file(str(path))
         walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 
-    symbol_diagnostics = symbol_rule_runner.run(symbol_table)
-    module_diagnostics = module_rule_runner.run(symbol_table)
+    symbol_diagnostics = symbol_rule_runner.run(symbol_table, rule_selection)
+    module_diagnostics = module_rule_runner.run(symbol_table, rule_selection)
     return ast_diagnostics + symbol_diagnostics + module_diagnostics
 
 

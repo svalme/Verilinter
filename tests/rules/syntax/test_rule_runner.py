@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 from src.pkg.rules.syntax.rule_runner import RuleRunner
 from src.pkg.rules.base_rule import Rule
+from src.pkg.rules.rule_selection import RuleSelection
 from src.pkg.vnodes.base_vnode import BaseVNode
 
 
@@ -194,3 +195,76 @@ class TestRuleRunner:
 
         # 2 vnodes × 2 rules = 4 diagnostics
         assert len(diagnostics) == 4
+
+
+class TestRuleRunnerSelection:
+    def test_check_filters_by_category(self, runner: RuleRunner, mock_vnode: Mock, mock_ctx: Mock) -> None:
+        class SVRule(Rule):
+            code = "SV_RULE"
+            category = "sv_subset"
+            message = "sv"
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return True
+
+        class ClassicRule(Rule):
+            code = "CLASSIC_RULE"
+            category = "classic_rtl_exclusion"
+            message = "classic"
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return True
+
+        runner.register(SVRule)
+        runner.register(ClassicRule)
+
+        diagnostics = runner.check(
+            mock_vnode,
+            mock_ctx,
+            RuleSelection(enabled_categories=frozenset({"sv_subset"})),
+        )
+
+        assert [d["code"] for d in diagnostics] == ["SV_RULE"]
+
+    def test_check_filters_by_profile_but_keeps_untagged_rules(
+        self,
+        runner: RuleRunner,
+        mock_vnode: Mock,
+        mock_ctx: Mock,
+    ) -> None:
+        class UntaggedRule(Rule):
+            code = "UNTAGGED"
+            message = "untagged"
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return True
+
+        class TaggedRule(Rule):
+            code = "TAGGED"
+            category = "sv_subset"
+            default_profiles = ("sv_rtl_subset",)
+            message = "tagged"
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return True
+
+        class OtherProfileRule(Rule):
+            code = "OTHER"
+            category = "classic_rtl_exclusion"
+            default_profiles = ("rtl_strict",)
+            message = "other"
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return True
+
+        runner.register(UntaggedRule)
+        runner.register(TaggedRule)
+        runner.register(OtherProfileRule)
+
+        diagnostics = runner.check(
+            mock_vnode,
+            mock_ctx,
+            RuleSelection(enabled_profiles=frozenset({"sv_rtl_subset"})),
+        )
+
+        assert [d["code"] for d in diagnostics] == ["UNTAGGED", "TAGGED"]
