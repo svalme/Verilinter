@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoInitialBlockRule(Rule):
     code = "NO_INITIAL_BLOCK"
     message = "Use of initial blocks can be unsafe in synthesizable RTL"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_initial_block(vnode.raw)

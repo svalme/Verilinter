@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoInsideOperatorRule(Rule):
     code = "NO_INSIDE_OPERATOR"
     message = "Use of the inside operator is discouraged in this RTL subset"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_inside_operator_token(vnode.raw, vnode.tree)

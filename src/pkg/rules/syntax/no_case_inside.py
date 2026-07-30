@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoCaseInsideRule(Rule):
     code = "NO_CASE_INSIDE"
     message = "Use of case inside is discouraged in this RTL subset"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_case_inside_token(vnode.raw, vnode.tree)

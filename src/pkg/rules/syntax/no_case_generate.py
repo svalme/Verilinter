@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoCaseGenerateRule(Rule):
     code = "NO_CASE_GENERATE"
     message = "Use of case generate can make structural intent harder to follow"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_case_generate_node(vnode.raw)

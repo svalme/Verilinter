@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoForkJoinRule(Rule):
     code = "NO_FORK_JOIN"
     message = "Use of fork/join style parallel blocks is discouraged in synthesizable RTL"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_parallel_block_statement(vnode.raw)

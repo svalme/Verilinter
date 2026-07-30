@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoRepeatLoopRule(Rule):
     code = "NO_REPEAT_LOOP"
     message = "Use of repeat loops is discouraged in synthesizable RTL"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_repeat_token(vnode.raw)

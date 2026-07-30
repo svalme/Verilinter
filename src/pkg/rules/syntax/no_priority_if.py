@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoPriorityIfRule(Rule):
     code = "NO_PRIORITY_IF"
     message = "Use of priority if can overstate branch ordering assumptions"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_priority_if_token(vnode.raw, ctx)

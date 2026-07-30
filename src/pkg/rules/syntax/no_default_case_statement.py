@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoDefaultCaseStatementRule(Rule):
     code = "NO_DEFAULT_CASE_STATEMENT"
     message = "Case statement missing default case"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_endcase_token(vnode.raw):

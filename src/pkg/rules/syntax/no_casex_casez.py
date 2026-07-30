@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoCaseXCaseZRule(Rule):
     code = "NO_CASEX_CASEZ"
     message = "Use of casex/casez can hide X/Z mismatches"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_casex_casez_token(vnode.raw)

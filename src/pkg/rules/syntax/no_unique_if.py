@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoUniqueIfRule(Rule):
     code = "NO_UNIQUE_IF"
     message = "Use of unique if can overstate branch exclusivity assumptions"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_unique_if_token(vnode.raw, ctx)

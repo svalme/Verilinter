@@ -8,6 +8,8 @@ from .rule_runner import rule_runner
 class NoBlockingAssignmentInSequentialRule(Rule):
     code = "NO_BLOCKING_SEQUENTIAL"
     message = "Blocking assignment used in sequential logic"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         return is_blocking_assignment_token(vnode.raw) and ctx.has(ContextFlag.ALWAYS)

@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoInternalInoutRule(Rule):
     code = "NO_INOUT_INTERNAL"
     message = "Internal inout declarations are not allowed"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_internal_inout_port_declaration(vnode.raw)

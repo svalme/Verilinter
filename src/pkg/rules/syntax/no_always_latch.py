@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoAlwaysLatchRule(Rule):
     code = "NO_ALWAYS_LATCH"
     message = "Use of always_latch can hide unintended latch-oriented design choices"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_always_latch_block(vnode.raw)

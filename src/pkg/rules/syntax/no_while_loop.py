@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoWhileLoopRule(Rule):
     code = "NO_WHILE_LOOP"
     message = "Use of while loops is discouraged in synthesizable RTL"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_plain_while_token(vnode.raw, ctx)

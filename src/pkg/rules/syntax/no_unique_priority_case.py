@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoUniquePriorityCaseRule(Rule):
     code = "NO_UNIQUE_PRIORITY_CASE"
     message = "Use of unique/priority case can overstate case completeness or exclusivity"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_unique_priority_case_token(vnode.raw, ctx)

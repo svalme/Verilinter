@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoDisableStatementRule(Rule):
     code = "NO_DISABLE_STATEMENT"
     message = "Use of disable statements is discouraged in synthesizable RTL"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_disable_token(vnode.raw)

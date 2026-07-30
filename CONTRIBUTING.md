@@ -86,3 +86,22 @@ intent, not to build per-rule behavior:
 
 If profile selection is added later, it should happen centrally in config / runner code using this shared
 metadata, not inside individual rule files.
+
+## Rule Checklist
+
+When adding a rule, use this checklist by default:
+
+- choose the right rule family:
+  syntax, symbol, or module
+- add a stable `code`
+- add a clear `message`
+- add `category` and `default_profiles` when the policy bucket is clear
+- register the rule
+- add focused tests
+- update `RULES.md`
+- document any non-obvious implementation reason in `RULE_IMPLEMENTATION.md`
+
+Two quality checks matter especially here:
+
+- avoid duplicating parser-shape logic across multiple rules when a helper can own it once
+- add at least one "near miss" test so the rule proves what it does *not* flag, not just what it does flag

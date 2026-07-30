@@ -8,6 +8,8 @@ from .symbol_rule_runner import symbol_rule_runner
 @symbol_rule_runner.register
 class NoImplicitNetRule(BaseSymbolRule):
     code = "NO_IMPLICIT_NET"
+    category = "semantic_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []

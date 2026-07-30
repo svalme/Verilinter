@@ -7,6 +7,8 @@ from .symbol_rule_runner import symbol_rule_runner
 class ReadBeforeWriteRule(BaseSymbolRule):
     code = "READ_BEFORE_WRITE"
     message = "Variable read before write"
+    category = "semantic_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def run(self, symbol_table: SymbolTable) -> list[dict]:
         diagnostics = []

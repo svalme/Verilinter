@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoEventTriggerRule(Rule):
     code = "NO_EVENT_TRIGGER"
     message = "Use of event trigger statements is discouraged in synthesizable RTL"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_event_trigger_token(vnode.raw)

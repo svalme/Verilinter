@@ -33,6 +33,8 @@ def _mix_trigger_node(block: SyntaxVNode) -> SyntaxNode | None:
 class NoMixedAssignmentStyleRule(Rule):
     code = "NO_MIXED_ASSIGNMENT_STYLE"
     message = "Mixed blocking and non-blocking assignments used in the same procedural block"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_assignment_expression(vnode.raw):

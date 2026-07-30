@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoForeachLoopRule(Rule):
     code = "NO_FOREACH_LOOP"
     message = "Use of foreach loops is discouraged in synthesizable RTL"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_foreach_token(vnode.raw)

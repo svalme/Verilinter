@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoWaitStatementRule(Rule):
     code = "NO_WAIT_STATEMENT"
     message = "Use of wait statements is discouraged in synthesizable RTL"
+    category = "rtl_subset"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_wait_token(vnode.raw)

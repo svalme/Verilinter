@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoAlwaysFFRule(Rule):
     code = "NO_ALWAYS_FF"
     message = "Use of always_ff is discouraged in this RTL subset"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_always_ff_block(vnode.raw)

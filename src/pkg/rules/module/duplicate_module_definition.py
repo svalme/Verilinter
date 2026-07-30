@@ -8,6 +8,8 @@ from .module_rule_runner import module_rule_runner
 class DuplicateModuleDefinitionRule(BaseSymbolRule):
     code = "DUPLICATE_MODULE"
     message = "Duplicate module definition"
+    category = "module_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []

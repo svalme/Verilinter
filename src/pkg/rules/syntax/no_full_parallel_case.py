@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoFullParallelCaseRule(Rule):
     code = "NO_FULL_PARALLEL_CASE"
     message = "Use of full_case / parallel_case pragmas can hide real case coverage issues"
+    category = "classic_rtl_exclusion"
+    default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_case_keyword_token(vnode.raw) and has_full_parallel_case_pragma(vnode.raw, vnode.tree)

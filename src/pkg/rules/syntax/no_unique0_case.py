@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 class NoUnique0CaseRule(Rule):
     code = "NO_UNIQUE0_CASE"
     message = "Use of unique0 case can overstate case coverage assumptions"
+    category = "sv_subset"
+    default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_unique0_case_token(vnode.raw, ctx)

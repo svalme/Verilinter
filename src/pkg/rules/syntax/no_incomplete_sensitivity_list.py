@@ -48,6 +48,8 @@ def _missing_sensitivity_trigger_nodes(block_raw: object) -> dict[str, SyntaxNod
 class NoIncompleteSensitivityListRule(Rule):
     code = "NO_INCOMPLETE_SENSITIVITY_LIST"
     message = "Signal is read in this block but missing from its explicit sensitivity list"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not isinstance(vnode.raw, (IdentifierNameNode, IdentifierSelectNameNode)):

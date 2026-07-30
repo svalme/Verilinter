@@ -10,6 +10,8 @@ _WHITE, _GRAY, _BLACK = 0, 1, 2
 @module_rule_runner.register
 class CircularModuleInstantiationRule(BaseSymbolRule):
     code = "CIRCULAR_MODULE_INSTANTIATION"
+    category = "module_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []

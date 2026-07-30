@@ -8,6 +8,8 @@ from .rule_runner import rule_runner
 class DefaultCaseRule(Rule):
     code = "DEFAULT_CASE"
     message = "Case statement missing default case"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         return is_endcase_token(vnode.raw) \

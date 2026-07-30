@@ -73,6 +73,8 @@ def _has_latch_pattern(statement: SyntaxNode) -> bool:
 class NoLatchInAlwaysCombRule(Rule):
     code = "NO_LATCH_IN_ALWAYS_COMB"
     message = "always_comb block contains a conditional-only assignment that can infer latch-like storage"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_always_comb_block(vnode.raw):
