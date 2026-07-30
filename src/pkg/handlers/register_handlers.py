@@ -7,6 +7,7 @@ from .default_handler import DefaultHandler
 from .token_handler import TokenHandler
 from .syntax_node_handler import SyntaxNodeHandler
 from .module_declaration_handler import ModuleDeclarationHandler
+from .primitive_declaration_handler import PrimitiveDeclarationHandler
 
 # blocks
 from .procedural_block_handler import ProceduralBlockHandler

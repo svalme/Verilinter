@@ -47,7 +47,17 @@ from src.pkg.rules.syntax.no_unique0_case import NoUnique0CaseRule
 from src.pkg.rules.syntax.no_unique_if import NoUniqueIfRule
 from src.pkg.rules.syntax.no_unique_priority_case import NoUniquePriorityCaseRule
 from src.pkg.rules.syntax.no_wand_wor import NoWandWorRule
-from tests.support.syntax_context_builders import case_context, conditional_context, token_vnode
+from src.pkg.rules.syntax.no_specify_block import NoSpecifyBlockRule
+from src.pkg.rules.syntax.no_primitive_declaration import NoPrimitiveDeclarationRule
+from src.pkg.rules.syntax.no_gate_primitive import NoGatePrimitiveRule
+from src.pkg.rules.syntax.no_alias_statement import NoAliasStatementRule
+from src.pkg.rules.syntax.no_bind_directive import NoBindDirectiveRule
+from src.pkg.rules.syntax.no_delay_control import NoDelayControlRule
+from src.pkg.rules.syntax.no_immediate_assertion import NoImmediateAssertionRule
+from src.pkg.rules.syntax.no_concurrent_assertion import NoConcurrentAssertionRule
+from src.pkg.rules.syntax.no_display_system_task import NoDisplaySystemTaskRule
+from src.pkg.rules.syntax.no_simulation_control_task import NoSimulationControlTaskRule
+from tests.support.syntax_context_builders import case_context, conditional_context, continuous_assign_context, token_vnode
 from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.vnodes.token_vnode import TokenVNode
@@ -1717,6 +1727,13 @@ class TestNoAssignDeassignRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
+    def test_applies_returns_false_for_assign_keyword_inside_continuous_assign(self, rule: NoAssignDeassignRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.AssignKeyword
+
+        assert rule.applies(mock_vnode, continuous_assign_context()) is False
+
     def test_report_returns_correct_format(self, rule: NoAssignDeassignRule, mock_vnode: Mock) -> None:
         mock_vnode.location = {"line": 5, "col": 9}
         result = rule.report(mock_vnode)
@@ -1922,3 +1939,383 @@ class TestNoTranifRtranifRule:
         assert result["line"] == 10
         assert result["col"] == 5
         assert result["message"] == "Use of tranif/rtranif is discouraged in RTL; prefer explicit connectivity modeling instead"
+
+
+class TestNoSpecifyBlockRule:
+    @pytest.fixture
+    def rule(self) -> NoSpecifyBlockRule:
+        return NoSpecifyBlockRule()
+
+    def test_rule_has_correct_code(self, rule: NoSpecifyBlockRule) -> None:
+        assert rule.code == "NO_SPECIFY_BLOCK"
+
+    def test_rule_has_correct_message(self, rule: NoSpecifyBlockRule) -> None:
+        assert rule.message == "Use of specify blocks is discouraged in synthesizable RTL; pin-to-pin timing modeling is not synthesizable"
+
+    def test_applies_returns_true_for_specify_block_node(self, rule: NoSpecifyBlockRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.SpecifyBlock
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_node(self, rule: NoSpecifyBlockRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ProgramDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoSpecifyBlockRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 5
+        assert result["message"] == "Use of specify blocks is discouraged in synthesizable RTL; pin-to-pin timing modeling is not synthesizable"
+
+
+class TestNoPrimitiveDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoPrimitiveDeclarationRule:
+        return NoPrimitiveDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoPrimitiveDeclarationRule) -> None:
+        assert rule.code == "NO_PRIMITIVE_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoPrimitiveDeclarationRule) -> None:
+        assert rule.message == "Use of user-defined primitive (UDP) declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_udp_declaration_node(self, rule: NoPrimitiveDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.UdpDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_node(self, rule: NoPrimitiveDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.TaskDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoPrimitiveDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 1, "col": 1}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 1
+        assert result["col"] == 1
+        assert result["message"] == "Use of user-defined primitive (UDP) declarations is discouraged in synthesizable RTL"
+
+
+class TestNoGatePrimitiveRule:
+    @pytest.fixture
+    def rule(self) -> NoGatePrimitiveRule:
+        return NoGatePrimitiveRule()
+
+    def test_rule_has_correct_code(self, rule: NoGatePrimitiveRule) -> None:
+        assert rule.code == "NO_GATE_PRIMITIVE"
+
+    def test_rule_has_correct_message(self, rule: NoGatePrimitiveRule) -> None:
+        assert rule.message == "Use of gate-level primitives is discouraged in RTL; prefer behavioral or operator-level modeling"
+
+    def test_applies_returns_true_for_and_keyword(self, rule: NoGatePrimitiveRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.AndKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_bufif0_keyword(self, rule: NoGatePrimitiveRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.BufIf0Keyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_token(self, rule: NoGatePrimitiveRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.InitialKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoGatePrimitiveRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 5
+        assert result["message"] == "Use of gate-level primitives is discouraged in RTL; prefer behavioral or operator-level modeling"
+
+
+class TestNoAliasStatementRule:
+    @pytest.fixture
+    def rule(self) -> NoAliasStatementRule:
+        return NoAliasStatementRule()
+
+    def test_rule_has_correct_code(self, rule: NoAliasStatementRule) -> None:
+        assert rule.code == "NO_ALIAS_STATEMENT"
+
+    def test_rule_has_correct_message(self, rule: NoAliasStatementRule) -> None:
+        assert rule.message == "Use of alias statements is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_net_alias_node(self, rule: NoAliasStatementRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.NetAlias
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_node(self, rule: NoAliasStatementRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.BindDirective
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoAliasStatementRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 5
+        assert result["message"] == "Use of alias statements is discouraged in synthesizable RTL"
+
+
+class TestNoBindDirectiveRule:
+    @pytest.fixture
+    def rule(self) -> NoBindDirectiveRule:
+        return NoBindDirectiveRule()
+
+    def test_rule_has_correct_code(self, rule: NoBindDirectiveRule) -> None:
+        assert rule.code == "NO_BIND_DIRECTIVE"
+
+    def test_rule_has_correct_message(self, rule: NoBindDirectiveRule) -> None:
+        assert rule.message == "Use of bind directives is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_bind_directive_node(self, rule: NoBindDirectiveRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.BindDirective
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_node(self, rule: NoBindDirectiveRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.NetAlias
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoBindDirectiveRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 5, "col": 1}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 5
+        assert result["col"] == 1
+        assert result["message"] == "Use of bind directives is discouraged in synthesizable RTL"
+
+
+class TestNoDelayControlRule:
+    @pytest.fixture
+    def rule(self) -> NoDelayControlRule:
+        return NoDelayControlRule()
+
+    def test_rule_has_correct_code(self, rule: NoDelayControlRule) -> None:
+        assert rule.code == "NO_DELAY_CONTROL"
+
+    def test_rule_has_correct_message(self, rule: NoDelayControlRule) -> None:
+        assert rule.message == "Use of delay controls (#delay) is discouraged in synthesizable RTL; delays are simulation-only timing"
+
+    def test_applies_returns_true_for_delay_control_node(self, rule: NoDelayControlRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.DelayControl
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_delay3_node(self, rule: NoDelayControlRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.Delay3
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_node(self, rule: NoDelayControlRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ContinuousAssign
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoDelayControlRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 12}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 12
+        assert result["message"] == "Use of delay controls (#delay) is discouraged in synthesizable RTL; delays are simulation-only timing"
+
+
+class TestNoImmediateAssertionRule:
+    @pytest.fixture
+    def rule(self) -> NoImmediateAssertionRule:
+        return NoImmediateAssertionRule()
+
+    def test_rule_has_correct_code(self, rule: NoImmediateAssertionRule) -> None:
+        assert rule.code == "NO_IMMEDIATE_ASSERTION"
+
+    def test_rule_has_correct_message(self, rule: NoImmediateAssertionRule) -> None:
+        assert rule.message == "Use of immediate assertions (assert/assume/cover) is discouraged in synthesizable RTL; assertions belong in verification, not design"
+
+    def test_applies_returns_true_for_immediate_assert_statement(self, rule: NoImmediateAssertionRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ImmediateAssertStatement
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_immediate_cover_statement(self, rule: NoImmediateAssertionRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ImmediateCoverStatement
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_concurrent_assertion(self, rule: NoImmediateAssertionRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AssertPropertyStatement
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoImmediateAssertionRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 3, "col": 9}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 3
+        assert result["col"] == 9
+        assert result["message"] == "Use of immediate assertions (assert/assume/cover) is discouraged in synthesizable RTL; assertions belong in verification, not design"
+
+
+class TestNoConcurrentAssertionRule:
+    @pytest.fixture
+    def rule(self) -> NoConcurrentAssertionRule:
+        return NoConcurrentAssertionRule()
+
+    def test_rule_has_correct_code(self, rule: NoConcurrentAssertionRule) -> None:
+        assert rule.code == "NO_CONCURRENT_ASSERTION"
+
+    def test_rule_has_correct_message(self, rule: NoConcurrentAssertionRule) -> None:
+        assert rule.message == "Use of concurrent assertions (assert/assume/cover property) is discouraged in synthesizable RTL; assertions belong in verification, not design"
+
+    def test_applies_returns_true_for_assert_property_statement(self, rule: NoConcurrentAssertionRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AssertPropertyStatement
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_true_for_cover_property_statement(self, rule: NoConcurrentAssertionRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.CoverPropertyStatement
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_immediate_assertion(self, rule: NoConcurrentAssertionRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ImmediateAssertStatement
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoConcurrentAssertionRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 5}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 5
+        assert result["message"] == "Use of concurrent assertions (assert/assume/cover property) is discouraged in synthesizable RTL; assertions belong in verification, not design"
+
+
+def _system_name_vnode(name: str) -> Mock:
+    mock_vnode = Mock(spec=BaseVNode)
+    mock_vnode.raw = Mock(spec=sl.SystemNameSyntax)
+    mock_vnode.raw.systemIdentifier = Mock()
+    mock_vnode.raw.systemIdentifier.valueText = name
+    return mock_vnode
+
+
+class TestNoDisplaySystemTaskRule:
+    @pytest.fixture
+    def rule(self) -> NoDisplaySystemTaskRule:
+        return NoDisplaySystemTaskRule()
+
+    def test_rule_has_correct_code(self, rule: NoDisplaySystemTaskRule) -> None:
+        assert rule.code == "NO_DISPLAY_SYSTEM_TASK"
+
+    def test_rule_has_correct_message(self, rule: NoDisplaySystemTaskRule) -> None:
+        assert rule.message == "Use of $display/$write/$monitor/$strobe-family system tasks is discouraged in synthesizable RTL; these are simulation-only debug output"
+
+    def test_applies_returns_true_for_display(self, rule: NoDisplaySystemTaskRule) -> None:
+        assert rule.applies(_system_name_vnode("$display"), Context()) is True
+
+    def test_applies_returns_true_for_monitorh(self, rule: NoDisplaySystemTaskRule) -> None:
+        assert rule.applies(_system_name_vnode("$monitorh"), Context()) is True
+
+    def test_applies_returns_false_for_unrelated_system_task(self, rule: NoDisplaySystemTaskRule) -> None:
+        assert rule.applies(_system_name_vnode("$finish"), Context()) is False
+
+    def test_applies_returns_false_for_non_system_name_node(self, rule: NoDisplaySystemTaskRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ProgramDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoDisplaySystemTaskRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 4, "col": 9}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 4
+        assert result["col"] == 9
+        assert result["message"] == "Use of $display/$write/$monitor/$strobe-family system tasks is discouraged in synthesizable RTL; these are simulation-only debug output"
+
+
+class TestNoSimulationControlTaskRule:
+    @pytest.fixture
+    def rule(self) -> NoSimulationControlTaskRule:
+        return NoSimulationControlTaskRule()
+
+    def test_rule_has_correct_code(self, rule: NoSimulationControlTaskRule) -> None:
+        assert rule.code == "NO_SIMULATION_CONTROL_TASK"
+
+    def test_rule_has_correct_message(self, rule: NoSimulationControlTaskRule) -> None:
+        assert rule.message == "Use of $stop/$finish is discouraged in synthesizable RTL; these are simulation-only control tasks"
+
+    def test_applies_returns_true_for_stop(self, rule: NoSimulationControlTaskRule) -> None:
+        assert rule.applies(_system_name_vnode("$stop"), Context()) is True
+
+    def test_applies_returns_true_for_finish(self, rule: NoSimulationControlTaskRule) -> None:
+        assert rule.applies(_system_name_vnode("$finish"), Context()) is True
+
+    def test_applies_returns_false_for_unrelated_system_task(self, rule: NoSimulationControlTaskRule) -> None:
+        assert rule.applies(_system_name_vnode("$display"), Context()) is False
+
+    def test_applies_returns_false_for_non_system_name_node(self, rule: NoSimulationControlTaskRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ProgramDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoSimulationControlTaskRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 7, "col": 9}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 7
+        assert result["col"] == 9
+        assert result["message"] == "Use of $stop/$finish is discouraged in synthesizable RTL; these are simulation-only control tasks"

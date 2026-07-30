@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 import src.run_lint as run_lint_module
+from src.pkg.rules.rule_selection import RuleSelection
 from src.run_lint import main, run
 
 DATA = Path(__file__).parent / "data" / "simple.v"
@@ -50,6 +51,16 @@ TRIREG_DATA = Path(__file__).parent / "data" / "trireg.v"
 SUPPLY0_SUPPLY1_DATA = Path(__file__).parent / "data" / "supply0_supply1.v"
 TRAN_RTRAN_DATA = Path(__file__).parent / "data" / "tran_rtran.v"
 TRANIF_RTRANIF_DATA = Path(__file__).parent / "data" / "tranif_rtranif.v"
+SPECIFY_BLOCK_DATA = Path(__file__).parent / "data" / "specify_block.v"
+PRIMITIVE_DECLARATION_DATA = Path(__file__).parent / "data" / "primitive_declaration.v"
+GATE_PRIMITIVE_DATA = Path(__file__).parent / "data" / "gate_primitive.v"
+ALIAS_STATEMENT_DATA = Path(__file__).parent / "data" / "alias_statement.sv"
+BIND_DIRECTIVE_DATA = Path(__file__).parent / "data" / "bind_directive.sv"
+DELAY_CONTROL_DATA = Path(__file__).parent / "data" / "delay_control.v"
+IMMEDIATE_ASSERTION_DATA = Path(__file__).parent / "data" / "immediate_assertion.sv"
+CONCURRENT_ASSERTION_DATA = Path(__file__).parent / "data" / "concurrent_assertion.sv"
+DISPLAY_SYSTEM_TASK_DATA = Path(__file__).parent / "data" / "display_system_task.v"
+SIMULATION_CONTROL_TASK_DATA = Path(__file__).parent / "data" / "simulation_control_task.v"
 
 
 class TestRunJobsValidation:
@@ -352,6 +363,70 @@ class TestRunJobsValidation:
         assert codes.count("NO_TRANIF_RTRANIF") == 4
         assert any("tranif/rtranif" in d["message"] for d in diagnostics)
 
+    def test_run_reports_specify_block_rule(self) -> None:
+        diagnostics = run([SPECIFY_BLOCK_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_SPECIFY_BLOCK" for d in diagnostics)
+        assert any("specify block" in d["message"] for d in diagnostics)
+
+    def test_run_reports_primitive_declaration_rule(self) -> None:
+        diagnostics = run([PRIMITIVE_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_PRIMITIVE_DECLARATION" for d in diagnostics)
+        assert any("primitive" in d["message"] for d in diagnostics)
+
+    def test_run_reports_gate_primitive_rule(self) -> None:
+        diagnostics = run([GATE_PRIMITIVE_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_GATE_PRIMITIVE") == 2
+        assert any("gate-level primitives" in d["message"] for d in diagnostics)
+
+    def test_run_reports_alias_statement_rule(self) -> None:
+        diagnostics = run([ALIAS_STATEMENT_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_ALIAS_STATEMENT" for d in diagnostics)
+        assert any("alias statement" in d["message"] for d in diagnostics)
+
+    def test_run_reports_bind_directive_rule(self) -> None:
+        diagnostics = run([BIND_DIRECTIVE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_BIND_DIRECTIVE" for d in diagnostics)
+        assert any("bind directive" in d["message"] for d in diagnostics)
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
+
+    def test_run_reports_delay_control_rule(self) -> None:
+        diagnostics = run([DELAY_CONTROL_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_DELAY_CONTROL" for d in diagnostics)
+        assert any("delay control" in d["message"] for d in diagnostics)
+
+    def test_run_reports_immediate_assertion_rule(self) -> None:
+        diagnostics = run([IMMEDIATE_ASSERTION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_IMMEDIATE_ASSERTION" for d in diagnostics)
+        assert any("immediate assertions" in d["message"] for d in diagnostics)
+
+    def test_run_reports_concurrent_assertion_rule(self) -> None:
+        diagnostics = run([CONCURRENT_ASSERTION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_CONCURRENT_ASSERTION" for d in diagnostics)
+        assert any("concurrent assertions" in d["message"] for d in diagnostics)
+
+    def test_run_reports_display_system_task_rule(self) -> None:
+        diagnostics = run([DISPLAY_SYSTEM_TASK_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_DISPLAY_SYSTEM_TASK") == 2
+        assert any("$display" in d["message"] for d in diagnostics)
+
+    def test_run_reports_simulation_control_task_rule(self) -> None:
+        diagnostics = run([SIMULATION_CONTROL_TASK_DATA], jobs=1)
+
+        codes = [d["code"] for d in diagnostics]
+        assert codes.count("NO_SIMULATION_CONTROL_TASK") == 2
+        assert any("$stop" in d["message"] for d in diagnostics)
+
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
         second = INITIAL_BLOCK_DATA
@@ -386,8 +461,16 @@ class TestRunJobsValidation:
         monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
         monkeypatch.setattr(run_lint_module, "file_uses_default_nettype_none", lambda path: False)
         monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
-        monkeypatch.setattr(run_lint_module.symbol_rule_runner, "run", lambda symbol_table: [])
-        monkeypatch.setattr(run_lint_module.module_rule_runner, "run", lambda symbol_table: [])
+        monkeypatch.setattr(
+            run_lint_module.symbol_rule_runner,
+            "run",
+            lambda symbol_table, _selection=None: [],
+        )
+        monkeypatch.setattr(
+            run_lint_module.module_rule_runner,
+            "run",
+            lambda symbol_table, _selection=None: [],
+        )
 
         diagnostics = run([first, second], jobs=1)
 
@@ -440,7 +523,11 @@ class TestRunJobsValidation:
                     object(),
                 )
 
-        def fake_rule_check(vnode: object, _ctx: object) -> list[dict[str, object]]:
+        def fake_rule_check(
+            vnode: object,
+            _ctx: object,
+            _selection: RuleSelection | None = None,
+        ) -> list[dict[str, object]]:
             location = getattr(vnode, "location")
             return [
                 {
@@ -459,7 +546,7 @@ class TestRunJobsValidation:
         monkeypatch.setattr(
             run_lint_module.symbol_rule_runner,
             "run",
-            lambda symbol_table: [
+            lambda symbol_table, _selection=None: [
                 {
                     "code": "SYMBOL_FAKE",
                     "line": 2,
@@ -472,7 +559,7 @@ class TestRunJobsValidation:
         monkeypatch.setattr(
             run_lint_module.module_rule_runner,
             "run",
-            lambda _symbol_table: [
+            lambda _symbol_table, _selection=None: [
                 {
                     "code": "MODULE_FAKE",
                     "line": 3,
@@ -566,3 +653,75 @@ class TestMain:
         assert result == 0
         assert "demo_a.sv:3:7 - [FIRST] First diagnostic" in captured.out
         assert "demo_b.sv:8:2 - [SECOND] Second diagnostic" in captured.out
+
+
+class TestRunRuleSelection:
+    def test_run_passes_rule_selection_to_all_runners(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        selection = RuleSelection(enabled_categories=frozenset({"sv_subset"}))
+        seen: dict[str, object] = {}
+
+        class FakeTree:
+            def __init__(self, path: str) -> None:
+                self.path = path
+                self.root = object()
+
+        def fake_parse_file(path: str) -> FakeTree:
+            return FakeTree(path)
+
+        class FakeWalker:
+            def __init__(self, dispatch: object) -> None:
+                self.dispatch = dispatch
+
+            def walk(
+                self,
+                root: object,
+                tree: FakeTree,
+                _ctx: object,
+                symbol_table: object,
+                on_node: object | None = None,
+            ) -> None:
+                assert root is tree.root
+                assert getattr(symbol_table, "current_file", None) == tree.path
+                assert on_node is not None
+                on_node(type("FakeVNode", (), {"location": {"line": 1, "col": 1, "file": tree.path}})(), object())
+
+        def fake_rule_check(
+            vnode: object,
+            ctx: object,
+            passed_selection: RuleSelection | None = None,
+        ) -> list[dict[str, object]]:
+            seen["syntax"] = passed_selection
+            return []
+
+        def fake_symbol_run(
+            symbol_table: object,
+            passed_selection: RuleSelection | None = None,
+        ) -> list[dict[str, object]]:
+            seen["symbol"] = passed_selection
+            return []
+
+        def fake_module_run(
+            symbol_table: object,
+            passed_selection: RuleSelection | None = None,
+        ) -> list[dict[str, object]]:
+            seen["module"] = passed_selection
+            return []
+
+        monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
+        monkeypatch.setattr(run_lint_module, "file_uses_default_nettype_none", lambda path: False)
+        monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
+        monkeypatch.setattr(run_lint_module.rule_runner, "check", fake_rule_check)
+        monkeypatch.setattr(run_lint_module.symbol_rule_runner, "run", fake_symbol_run)
+        monkeypatch.setattr(run_lint_module.module_rule_runner, "run", fake_module_run)
+
+        diagnostics = run([DATA], jobs=1, rule_selection=selection)
+
+        assert diagnostics == []
+        assert seen == {
+            "syntax": selection,
+            "symbol": selection,
+            "module": selection,
+        }

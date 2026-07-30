@@ -24,3 +24,5 @@ HierarchicalInstanceNode: TypeAlias = sl.HierarchicalInstanceSyntax
 DefaultCaseItemNode: TypeAlias = sl.DefaultCaseItemSyntax
 PortDeclarationNode: TypeAlias = sl.PortDeclarationSyntax
 IfGenerateNode: TypeAlias = sl.IfGenerateSyntax
+PrimitiveDeclarationNode: TypeAlias = sl.UdpDeclarationSyntax
+SystemNameNode: TypeAlias = sl.SystemNameSyntax

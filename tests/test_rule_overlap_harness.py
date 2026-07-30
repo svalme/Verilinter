@@ -564,3 +564,124 @@ def test_fork_join_can_coexist_with_initial_block_rule(
 
     result.expect_code_once("NO_INITIAL_BLOCK")
     result.expect_code_once("NO_FORK_JOIN")
+
+
+def test_udp_instantiation_uses_primitive_declaration_rule_not_undefined_module(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "udp_instance.sv": """
+            primitive my_udp(o, a, b);
+              output o;
+              input a, b;
+              table
+                00 : 0;
+                01 : 1;
+                10 : 1;
+                11 : 1;
+              endtable
+            endprimitive
+
+            module top(input a, input b, output c);
+              my_udp g1(c, a, b);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_PRIMITIVE_DECLARATION")
+    result.expect_no_code("UNDEFINED_MODULE")
+
+
+def test_gate_primitive_uses_gate_rule_not_tran_rtran_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "gate_and_tran.sv": """
+            module top(
+                input a, input b, output c,
+                inout wire d, inout wire e
+            );
+              and g1(c, a, b);
+              tran t1(d, e);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_GATE_PRIMITIVE")
+    result.expect_code_once("NO_TRAN_RTRAN")
+
+
+def test_display_system_task_can_coexist_with_initial_block_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "display_system_task.sv": """
+            module top;
+              initial $display("hello");
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_DISPLAY_SYSTEM_TASK")
+    result.expect_no_code("NO_SIMULATION_CONTROL_TASK")
+
+
+def test_simulation_control_task_uses_its_own_rule_not_display_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "simulation_control_task.sv": """
+            module top;
+              initial $finish;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INITIAL_BLOCK")
+    result.expect_code_once("NO_SIMULATION_CONTROL_TASK")
+    result.expect_no_code("NO_DISPLAY_SYSTEM_TASK")
+
+
+def test_ordinary_continuous_assign_does_not_trigger_assign_deassign_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "continuous_assign.sv": """
+            module top(input a, input b, output c);
+              assign c = a & b;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_no_code("NO_ASSIGN_DEASSIGN")
+
+
+def test_procedural_assign_deassign_still_uses_its_own_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "procedural_assign.sv": """
+            module top;
+              reg a;
+              initial begin
+                assign a = 1'b1;
+                deassign a;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_count("NO_ASSIGN_DEASSIGN", 2)

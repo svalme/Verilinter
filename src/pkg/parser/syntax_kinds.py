@@ -194,22 +194,79 @@ PORT_DIRECTION_TOKEN_KINDS = {
     sl.TokenKind.RefKeyword: "ref",
 }
 
+SPECIFY_BLOCK_KIND = _syntax_kind("SpecifyBlock")
+PRIMITIVE_DECLARATION_KIND = _syntax_kind("UdpDeclaration")
+ALIAS_STATEMENT_KIND = _syntax_kind("NetAlias")
+BIND_DIRECTIVE_KIND = _syntax_kind("BindDirective")
+
+GATE_PRIMITIVE_TOKEN_KINDS = {
+    kind
+    for kind in (
+        getattr(sl.TokenKind, name, None)
+        for name in (
+            "AndKeyword",
+            "OrKeyword",
+            "NandKeyword",
+            "NorKeyword",
+            "XorKeyword",
+            "XnorKeyword",
+            "NotKeyword",
+            "BufKeyword",
+            "BufIf0Keyword",
+            "BufIf1Keyword",
+            "NotIf0Keyword",
+            "NotIf1Keyword",
+        )
+    )
+    if kind is not None
+}
+
+DELAY_CONTROL_KINDS = {
+    kind
+    for kind in (_syntax_kind("DelayControl"), _syntax_kind("Delay3"))
+    if kind is not None
+}
+
+IMMEDIATE_ASSERTION_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("ImmediateAssertStatement"),
+        _syntax_kind("ImmediateAssumeStatement"),
+        _syntax_kind("ImmediateCoverStatement"),
+    )
+    if kind is not None
+}
+
+CONCURRENT_ASSERTION_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("AssertPropertyStatement"),
+        _syntax_kind("AssumePropertyStatement"),
+        _syntax_kind("CoverPropertyStatement"),
+    )
+    if kind is not None
+}
+
 
 __all__ = [
+    "ALIAS_STATEMENT_KIND",
     "ALWAYS_BLOCK_KIND",
     "ALWAYS_COMB_BLOCK_KIND",
     "ALWAYS_FF_BLOCK_KIND",
     "ALWAYS_LATCH_BLOCK_KIND",
     "ASSIGNMENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
+    "BIND_DIRECTIVE_KIND",
     "BLOCK_STATEMENT_KINDS",
     "CASE_STATEMENT_KIND",
     "CASE_STYLE_TOKEN_KINDS",
     "CASE_TOKEN_KINDS",
     "CHECKER_DECLARATION_KIND",
     "CLOCKING_DECLARATION_KIND",
+    "CONCURRENT_ASSERTION_KINDS",
     "CONDITIONAL_STATEMENT_KIND",
     "CONTINUOUS_ASSIGN_KIND",
+    "DELAY_CONTROL_KINDS",
     "DISABLE_TOKEN_KIND",
     "DO_TOKEN_KIND",
     "DO_WHILE_STATEMENT_KIND",
@@ -221,6 +278,8 @@ __all__ = [
     "FINAL_BLOCK_KIND",
     "FOREVER_TOKEN_KIND",
     "FORCE_RELEASE_TOKEN_KINDS",
+    "GATE_PRIMITIVE_TOKEN_KINDS",
+    "IMMEDIATE_ASSERTION_KINDS",
     "INITIAL_BLOCK_KIND",
     "INTERFACE_DECLARATION_KIND",
     "INSIDE_TOKEN_KIND",
@@ -229,12 +288,14 @@ __all__ = [
     "PACKAGE_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
     "PORT_DIRECTION_TOKEN_KINDS",
+    "PRIMITIVE_DECLARATION_KIND",
     "PROGRAM_DECLARATION_KIND",
     "PROCEDURAL_BLOCK_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
     "REPEAT_TOKEN_KIND",
     "SIMPLE_ASSIGNMENT_KINDS",
+    "SPECIFY_BLOCK_KIND",
     "TASK_DECLARATION_KIND",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
     "TIMING_CONTROL_STATEMENT_KIND",

@@ -14,6 +14,7 @@ class SymbolTable:
         self.scopes: list[Scope] = [self.global_scope]  # registry - all scopes ever created
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name -> all scopes defining it, across files
+        self.primitives: set[str] = set()  # user-defined primitive (UDP) names, across files
         self.module_references: list[tuple[str, Location]] = []
         self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
         self.current_file: str | None = None
@@ -62,6 +63,10 @@ class SymbolTable:
     def register_module(self, name: str, scope: Scope) -> None:
         """Record a module definition. Appends if the name was already registered."""
         self.modules.setdefault(name, []).append(scope)
+
+    def register_primitive(self, name: str) -> None:
+        """Record a user-defined primitive (UDP) declaration by name."""
+        self.primitives.add(name)
 
     def register_module_reference(self, name: str, location: Location) -> None:
         """Record an instantiation site referencing a module type by name."""

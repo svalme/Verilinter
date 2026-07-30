@@ -31,4 +31,11 @@ def conditional_context(*, unique_or_priority: str | None = None) -> Context:
     return Context().push(vnode)
 
 
-__all__ = ["case_context", "conditional_context", "token_vnode"]
+def continuous_assign_context() -> Context:
+    vnode = Mock(spec=BaseVNode)
+    vnode.raw = Mock()
+    vnode.raw.kind = sl.SyntaxKind.ContinuousAssign
+    return Context().push(vnode)
+
+
+__all__ = ["case_context", "conditional_context", "continuous_assign_context", "token_vnode"]

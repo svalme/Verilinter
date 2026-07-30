@@ -53,6 +53,16 @@ from .syntax.no_tran_rtran import NoTranRtranRule
 from .syntax.no_tranif_rtranif import NoTranifRtranifRule
 from .syntax.no_incomplete_sensitivity_list import NoIncompleteSensitivityListRule
 from .syntax.no_wait_statement import NoWaitStatementRule
+from .syntax.no_specify_block import NoSpecifyBlockRule
+from .syntax.no_primitive_declaration import NoPrimitiveDeclarationRule
+from .syntax.no_gate_primitive import NoGatePrimitiveRule
+from .syntax.no_alias_statement import NoAliasStatementRule
+from .syntax.no_bind_directive import NoBindDirectiveRule
+from .syntax.no_delay_control import NoDelayControlRule
+from .syntax.no_immediate_assertion import NoImmediateAssertionRule
+from .syntax.no_concurrent_assertion import NoConcurrentAssertionRule
+from .syntax.no_display_system_task import NoDisplaySystemTaskRule
+from .syntax.no_simulation_control_task import NoSimulationControlTaskRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule

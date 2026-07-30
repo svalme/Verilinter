@@ -8,12 +8,16 @@ from .module_rule_runner import module_rule_runner
 class UndefinedModuleRule(BaseSymbolRule):
     code = "UNDEFINED_MODULE"
     message = "Instantiation of undefined module"
+    category = "module_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
 
         for name, loc in symbol_table.module_references:
             if symbol_table.lookup_module(name) is not None:
+                continue
+            if name in symbol_table.primitives:
                 continue
 
             diagnostic = {

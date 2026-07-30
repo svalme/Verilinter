@@ -5,20 +5,24 @@ from typing import TYPE_CHECKING, cast
 import pyslang as sl
 
 from .syntax_kinds import (
+    ALIAS_STATEMENT_KIND,
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
     ALWAYS_FF_BLOCK_KIND,
     ALWAYS_LATCH_BLOCK_KIND,
     ASSIGNMENT_KINDS,
     ASSIGN_DEASSIGN_TOKEN_KINDS,
+    BIND_DIRECTIVE_KIND,
     BLOCK_STATEMENT_KINDS,
     CASE_STATEMENT_KIND,
     CASE_STYLE_TOKEN_KINDS,
     CASE_TOKEN_KINDS,
     CHECKER_DECLARATION_KIND,
     CLOCKING_DECLARATION_KIND,
+    CONCURRENT_ASSERTION_KINDS,
     CONDITIONAL_STATEMENT_KIND,
     CONTINUOUS_ASSIGN_KIND,
+    DELAY_CONTROL_KINDS,
     DISABLE_TOKEN_KIND,
     DO_TOKEN_KIND,
     DO_WHILE_STATEMENT_KIND,
@@ -30,6 +34,8 @@ from .syntax_kinds import (
     FINAL_BLOCK_KIND,
     FOREVER_TOKEN_KIND,
     FORCE_RELEASE_TOKEN_KINDS,
+    GATE_PRIMITIVE_TOKEN_KINDS,
+    IMMEDIATE_ASSERTION_KINDS,
     INITIAL_BLOCK_KIND,
     INTERFACE_DECLARATION_KIND,
     INSIDE_TOKEN_KIND,
@@ -38,11 +44,13 @@ from .syntax_kinds import (
     PARALLEL_BLOCK_STATEMENT_KIND,
     PACKAGE_DECLARATION_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
+    PRIMITIVE_DECLARATION_KIND,
     PROGRAM_DECLARATION_KIND,
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
     REPEAT_TOKEN_KIND,
+    SPECIFY_BLOCK_KIND,
     SUPPLY0_SUPPLY1_TOKEN_KINDS,
     TASK_DECLARATION_KIND,
     TIMING_CONTROL_STATEMENT_KIND,
@@ -71,6 +79,7 @@ from .types import (
     SignalEventExpressionNode,
     SyntaxNode,
     SyntaxTree,
+    SystemNameNode,
 )
 
 if TYPE_CHECKING:
@@ -156,6 +165,46 @@ def is_program_declaration_node(raw: object) -> bool:
 
 def is_package_declaration_node(raw: object) -> bool:
     return getattr(raw, "kind", None) == PACKAGE_DECLARATION_KIND
+
+
+def is_specify_block_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == SPECIFY_BLOCK_KIND
+
+
+def is_primitive_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == PRIMITIVE_DECLARATION_KIND
+
+
+def is_alias_statement_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == ALIAS_STATEMENT_KIND
+
+
+def is_bind_directive_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == BIND_DIRECTIVE_KIND
+
+
+def is_bind_directive_target(raw: object) -> bool:
+    """True if `raw` is the target-module-name identifier of a `bind` directive.
+
+    That identifier names a module/scope, not a variable, so it must not be treated
+    as an ordinary identifier read (which would otherwise register it as an implicit net).
+    """
+    parent = getattr(raw, "parent", None)
+    if getattr(parent, "kind", None) != BIND_DIRECTIVE_KIND:
+        return False
+    return getattr(parent, "target", None) is raw
+
+
+def is_delay_control_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) in DELAY_CONTROL_KINDS
+
+
+def is_immediate_assertion_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) in IMMEDIATE_ASSERTION_KINDS
+
+
+def is_concurrent_assertion_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) in CONCURRENT_ASSERTION_KINDS
 
 
 def is_case_statement(raw: object) -> bool:
@@ -340,8 +389,12 @@ def is_force_release_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in FORCE_RELEASE_TOKEN_KINDS
 
 
-def is_assign_deassign_token(raw: object) -> bool:
-    return getattr(raw, "kind", None) in ASSIGN_DEASSIGN_TOKEN_KINDS
+def is_assign_deassign_token(raw: object, ctx: "Context") -> bool:
+    if getattr(raw, "kind", None) not in ASSIGN_DEASSIGN_TOKEN_KINDS:
+        return False
+    # `assign` also begins an ordinary continuous assignment (`assign x = y;`), which is
+    # completely standard RTL, not the legacy procedural assign/deassign this rule targets.
+    return enclosing_continuous_assign(ctx) is None
 
 
 def is_wand_wor_token(raw: object) -> bool:
@@ -362,6 +415,10 @@ def is_tran_rtran_token(raw: object) -> bool:
 
 def is_tranif_rtranif_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in TRANIF_RTRANIF_TOKEN_KINDS
+
+
+def is_gate_primitive_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) in GATE_PRIMITIVE_TOKEN_KINDS
 
 
 def is_endcase_token(raw: object) -> bool:
@@ -390,6 +447,38 @@ def module_declaration_name(raw: object) -> str | None:
     name = getattr(header, "name", None)
     value = getattr(name, "value", None)
     return value if isinstance(value, str) and value else None
+
+
+def primitive_declaration_name(raw: object) -> str | None:
+    name = getattr(raw, "name", None)
+    value = getattr(name, "value", None)
+    return value if isinstance(value, str) and value else None
+
+
+DISPLAY_SYSTEM_TASK_NAMES = {
+    "$display", "$displayb", "$displayh", "$displayo",
+    "$write", "$writeb", "$writeh", "$writeo",
+    "$monitor", "$monitorb", "$monitorh", "$monitoro",
+    "$strobe", "$strobeb", "$strobeh", "$strobeo",
+}
+
+SIMULATION_CONTROL_TASK_NAMES = {"$stop", "$finish"}
+
+
+def system_task_name(raw: object) -> str | None:
+    if not isinstance(raw, SystemNameNode):
+        return None
+    identifier = getattr(raw, "systemIdentifier", None)
+    value = getattr(identifier, "valueText", None)
+    return value if isinstance(value, str) and value else None
+
+
+def is_display_system_task(raw: object) -> bool:
+    return system_task_name(raw) in DISPLAY_SYSTEM_TASK_NAMES
+
+
+def is_simulation_control_task(raw: object) -> bool:
+    return system_task_name(raw) in SIMULATION_CONTROL_TASK_NAMES
 
 
 def declarator_name(raw: object) -> str | None:
@@ -716,11 +805,14 @@ __all__ = [
     "identifier_is_assignment_lhs",
     "identifier_name",
     "instantiation_type_name",
+    "is_alias_statement_node",
     "is_always_comb_block",
     "is_always_ff_block",
     "is_always_latch_block",
     "is_assign_deassign_token",
     "is_assignment_expression",
+    "is_bind_directive_node",
+    "is_bind_directive_target",
     "is_block_statement",
     "is_blocking_assignment_token",
     "is_case_generate_keyword_pair",
@@ -731,9 +823,12 @@ __all__ = [
     "is_casex_casez_token",
     "is_checker_declaration_node",
     "is_clocking_declaration_node",
+    "is_concurrent_assertion_node",
     "is_conditional_statement",
     "is_continuous_assign",
+    "is_delay_control_node",
     "is_disable_token",
+    "is_display_system_task",
     "is_do_token",
     "is_do_while_statement",
     "is_defparam_token",
@@ -744,7 +839,9 @@ __all__ = [
     "is_final_block",
     "is_forever_token",
     "is_force_release_token",
+    "is_gate_primitive_token",
     "is_if_generate_node",
+    "is_immediate_assertion_node",
     "is_initial_block",
     "is_interface_declaration_node",
     "is_inside_operator_token",
@@ -756,6 +853,7 @@ __all__ = [
     "is_parallel_block_statement",
     "is_plain_for_token",
     "is_posedge_event",
+    "is_primitive_declaration_node",
     "is_priority_if_token",
     "is_package_declaration_node",
     "is_program_declaration_node",
@@ -764,6 +862,8 @@ __all__ = [
     "is_read_write_assignment_expression",
     "is_read_write_unary_expression",
     "is_repeat_token",
+    "is_simulation_control_task",
+    "is_specify_block_node",
     "is_supply0_supply1_token",
     "is_task_declaration_node",
     "is_tranif_rtranif_token",
@@ -779,7 +879,9 @@ __all__ = [
     "iter_identifier_reads",
     "iter_statement_nodes",
     "module_declaration_name",
+    "primitive_declaration_name",
     "procedural_block_sensitivity_names",
     "procedural_block_statement",
+    "system_task_name",
     "unary_write_operand",
 ]

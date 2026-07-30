@@ -57,6 +57,13 @@ class TestUndefinedModuleRule:
     def test_no_references_returns_no_diagnostics(self, rule: UndefinedModuleRule) -> None:
         assert rule.run(SymbolTable()) == []
 
+    def test_does_not_flag_reference_to_a_declared_primitive(self, rule: UndefinedModuleRule) -> None:
+        st = SymbolTable()
+        st.register_primitive("my_udp")
+        st.register_module_reference("my_udp", {"line": 3, "col": 3, "file": "a.v"})
+
+        assert rule.run(st) == []
+
     def test_against_real_parsed_source(self, rule: UndefinedModuleRule) -> None:
         """`top` instantiates `foo_mod`, which is defined in the same source."""
         symbol_table = SymbolTable()

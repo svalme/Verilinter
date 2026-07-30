@@ -7,6 +7,121 @@ Use it alongside [RULES.md](RULES.md):
 - `RULES.md` answers: "What rules exist and what do they cover?"
 - `RULE_IMPLEMENTATION.md` answers: "What parts of the system usually need to change to implement a rule?"
 
+## Rule Standards
+
+These are the default standards for adding or changing a rule in this repo.
+If a rule intentionally breaks one of them, document the reason in `RULES.md`
+or in this file rather than leaving it implicit.
+
+### Required wiring
+
+Every new rule should, unless there is a documented exception:
+
+- have a stable diagnostic `code`
+- have a clear user-facing `message`
+- be registered in the appropriate registry
+- be listed in `RULES.md` in the same change
+- include focused tests
+
+For syntax rules, "focused tests" usually means:
+
+- unit coverage in `tests/rules/syntax/...`
+- at least one lint-path test in `tests/test_run_lint.py`
+- an overlap/regression test when the rule could plausibly collide with another rule
+
+For symbol or module rules, focused tests usually means:
+
+- a dedicated rule test under `tests/rules/symbol/...` or `tests/rules/module/...`
+- a lint-path or multi-file test when file attribution or cross-file behavior matters
+
+### Layering standard
+
+Put logic in the narrowest layer that can own it cleanly:
+
+- parser helper:
+  reusable syntax normalization or awkward `pyslang` shape access
+- handler:
+  traversal-time fact gathering that may be useful to more than one rule
+- rule:
+  the diagnostic decision itself
+
+Do not put parser-shape knowledge directly into multiple rules if a shared parser
+helper can express it once.
+
+Do not add handler state for a fact that is only needed by one syntax rule if the
+ same fact can be derived statelessly from `vnode.raw` and `ctx.stack`.
+
+### Matching standard
+
+Each rule should have a deliberate match shape:
+
+- `token` when the policy is really about a specific keyword/operator
+- `node` when the policy is about a whole construct
+- `block` when the diagnostic should attach to a whole procedural/structural region
+
+Choose the smallest anchor that still produces the right diagnostic location and
+avoids accidental overlap.
+
+If a rule is intentionally specific, prefer that over a broad umbrella rule.
+Only add broad umbrella rules when overlapping diagnostics are an explicit policy
+choice.
+
+### Diagnostic standard
+
+Diagnostics should be:
+
+- stable in code
+- understandable without reading the implementation
+- anchored as close as practical to the construct being banned or diagnosed
+
+If a rule needs a per-instance message, override `report()` or build the
+diagnostic in `run()` rather than weakening the whole rule shape.
+
+### Metadata standard
+
+Policy-oriented rules should set:
+
+- `category`
+- `default_profiles`
+
+Use the existing vocabulary unless there is a strong reason to extend it.
+Current categories in use include:
+
+- `classic_rtl_exclusion`
+- `sv_subset`
+- `rtl_subset`
+- `rtl_correctness`
+- `semantic_correctness`
+- `module_correctness`
+
+Profile metadata is descriptive first. Do not add per-rule self-disabling logic;
+selection should stay centralized in runner/config code.
+
+### Testing standard
+
+New tests should try to protect against both false negatives and false positives.
+
+That usually means checking:
+
+- the intended construct does fire
+- a nearby-but-different construct does not fire
+- related rules still behave correctly when this one is present
+
+If the rule fixes a subtle bug or architectural pitfall, add a regression test for
+that exact shape.
+
+### Documentation standard
+
+When adding a rule, update the docs that answer these questions:
+
+- `RULES.md`:
+  what does the rule cover?
+- `RULE_IMPLEMENTATION.md`:
+  did this rule require a non-obvious implementation choice?
+
+If the implementation was shaped by a pitfall, write down *why* it was built that
+way, not just what files changed.
+
 ## Write Down *Why*, Not Just *What*
 
 When a rule's design was shaped by a non-obvious pitfall, write that reasoning
@@ -52,6 +167,9 @@ They work because the walker accumulates facts during traversal, and the rule ru
 | `NO_WRITE_ONLY_INPUT_PORT` | Shared-analysis / semantic | No (reused) | No (reused) | Declaration/write/use accumulation, plus `Symbol.port_direction` | Pure rule-side addition once `NO_UNDRIVEN_OUTPUT_PORT` had already introduced `port_direction` — no handler or semantic-model changes were needed for this one, just a second consumer of the same shared fact. Good example of the payoff of putting a fact in the shared model instead of a one-off rule hack. |
 | `CIRCULAR_MODULE_INSTANTIATION` | Shared-analysis / semantic, cross-file | Yes | Yes | `SymbolTable.instantiation_edges` | Needs explicit module-to-module edge tracking, not just flat reference collection. |
 | `NO_INCOMPLETE_SENSITIVITY_LIST` | Syntax with helper logic and handler caching | Yes | No | `procedural_block_sensitivity_names`, `iter_identifier_reads`, cached in `Context.data` | The fact is syntax-local, but caching it once per procedural block avoids repeated subtree walks. |
+| `NO_GATE_PRIMITIVE` | Simple syntax (token-based) | No | No | Raw token matching (`GATE_PRIMITIVE_TOKEN_KINDS`) | Deliberately matches the gate *keyword token* (`and`/`or`/`nand`/.../`notif1`) rather than the wrapping `PrimitiveInstantiationSyntax` node, mirroring this repo's existing `NO_TRAN_RTRAN`/`NO_TRANIF_RTRANIF` precedent (`tran`/`rtran` are themselves gate-primitive keywords parsed inside the same node kind, and both were already built as token checks). **Known blind spot, by design, not an oversight**: an instance of a user-declared `primitive` (UDP, see `NO_PRIMITIVE_DECLARATION`) parses as an ordinary `HierarchyInstantiationSyntax` — syntactically indistinguishable from a normal module instantiation without resolving the instantiated type name against known UDP declarations. Only built-in gate keywords are catchable this way; a UDP-instance-aware version would need to become a shared-analysis rule (module-reference resolution, like `UNDEFINED_MODULE`) instead of a token check. Not built that way now because it would be new machinery for a rare case (behavioral RTL rarely instantiates UDPs directly). |
+| `NO_DELAY_CONTROL` | Simple syntax | No | No | Raw node-kind matching (`DELAY_CONTROL_KINDS = {DelayControl, Delay3}`) | Covers `#5` (assignment/gate single-value delay) and `#(1,2,3)` (parenthesized multi-value gate delay) via two distinct pyslang node kinds. Deliberately does *not* include cycle delays (`##N`, `SyntaxKind.CycleDelay`) or one-step/event controls (`@`) — those are different timing-control concepts (clocking-block relative delay, event sensitivity) rather than the classic non-synthesizable `#delay` this rule targets; folding them in would make one rule do the job of several more specific ones, the same reasoning `RULES.md`'s Notes section gives for preferring precise rules over broad umbrellas. |
+| `NO_DISPLAY_SYSTEM_TASK` / `NO_SIMULATION_CONTROL_TASK` | Simple syntax (text-based, new matching mechanism) | No | No | Token-**text** matching (`system_task_name`, comparing `.systemIdentifier.valueText` against a name set) — not `SyntaxKind`/`TokenKind` identity | Every other rule in this codebase matches on `SyntaxKind`/`TokenKind` enum identity because pyslang gives each construct a distinct kind. System tasks/functions (`$display`, `$finish`, etc.) don't get that treatment — they all parse as one `SystemNameSyntax` node (`SyntaxKind.SystemName`), whether called bare (`$finish;`) or via `InvocationExpressionSyntax` (`$display(...)`), and the actual task name is only available as the identifier token's text. Verified by parsing both forms directly with pyslang: `SystemNameSyntax` is visited as its own vnode by the walker either way, so the rule doesn't need to special-case the invoked-vs-bare distinction — it just checks `is_display_system_task`/`is_simulation_control_task` (`src/pkg/parser/syntax_queries.py`) against whichever vnode it's handed. Two separate rules/codes rather than one, since "print debug output" and "halt the simulator" are different policy concerns despite both being system tasks. |
 
 ## Where To Change Things
 

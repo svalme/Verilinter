@@ -92,3 +92,17 @@ class TestIdentifierHandlerAgainstRealFile:
         raw_identifier_count = len(_find_identifier_nodes(tree.root))
 
         assert len(identifier_results) == raw_identifier_count
+
+
+class TestIdentifierHandlerSkipsBindDirectiveTarget:
+    def test_bind_directive_target_name_is_not_registered_as_a_symbol(self) -> None:
+        """A `bind` directive's target names a module, not a variable; walking it must
+        not create an implicit-net symbol the way an ordinary identifier read would."""
+        tree = sl.SyntaxTree.fromFile(str(DATA / "bind_directive.sv"))
+        walker = Walker(dispatch)
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert symbol_table.global_scope.lookup("bind_directive_target") is None

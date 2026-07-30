@@ -9,6 +9,7 @@ from ..parser.syntax import (
     enclosing_continuous_assign,
     enclosing_procedural_block,
     identifier_access_modes,
+    is_bind_directive_target,
 )
 from ..parser.types import IdentifierNameNode, IdentifierSelectNameNode
 from ..walk.context import Context
@@ -20,7 +21,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
 
     def update_context(self, ctx: Context, vnode: IdentifierNameVNode, symbol_table: SymbolTable) -> Context:
         name = vnode.identifier_name
-        if not name:
+        if not name or is_bind_directive_target(vnode.raw):
             return ctx.push(vnode)
 
         is_read, is_write = identifier_access_modes(ctx, vnode.raw)
