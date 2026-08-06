@@ -10,6 +10,7 @@ from pkg.parser.parse import file_uses_default_nettype_none, parse_file
 from pkg.vnodes.register_vnodes import *
 from pkg.handlers.register_handlers import *
 from pkg.rules.register_rules import *
+from pkg.rules.profiles import rule_selection_for_profile
 from pkg.rules.rule_selection import RuleSelection
 
 
@@ -29,6 +30,7 @@ def run(
     paths: list[Path],
     jobs: int = 1,
     rule_selection: RuleSelection | None = None,
+    rule_profile: str | None = None,
 ) -> list[dict]:
     if jobs < 1:
         raise ValueError(f"jobs must be >= 1, got {jobs}")
@@ -36,6 +38,11 @@ def run(
         raise NotImplementedError(
             "parallel linting (jobs > 1) is not implemented yet"
         )
+    if rule_selection is not None and rule_profile is not None:
+        raise ValueError("pass either rule_selection or rule_profile, not both")
+
+    if rule_selection is None and rule_profile is not None:
+        rule_selection = rule_selection_for_profile(rule_profile)
 
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)

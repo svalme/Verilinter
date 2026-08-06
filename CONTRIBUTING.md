@@ -87,6 +87,10 @@ intent, not to build per-rule behavior:
 If profile selection is added later, it should happen centrally in config / runner code using this shared
 metadata, not inside individual rule files.
 
+A small internal built-in mapping lives in `src/pkg/rules/profiles.py`.
+Use that for code/tests that need a named profile instead of hardcoding profile
+strings in multiple places. The CLI still does not expose profile selection.
+
 ## Rule Checklist
 
 When adding a rule, use this checklist by default:

@@ -61,6 +61,18 @@ IMMEDIATE_ASSERTION_DATA = Path(__file__).parent / "data" / "immediate_assertion
 CONCURRENT_ASSERTION_DATA = Path(__file__).parent / "data" / "concurrent_assertion.sv"
 DISPLAY_SYSTEM_TASK_DATA = Path(__file__).parent / "data" / "display_system_task.v"
 SIMULATION_CONTROL_TASK_DATA = Path(__file__).parent / "data" / "simulation_control_task.v"
+CLASS_DECLARATION_DATA = Path(__file__).parent / "data" / "class_declaration.sv"
+COVERGROUP_DECLARATION_DATA = Path(__file__).parent / "data" / "covergroup_declaration.sv"
+SEQUENCE_DECLARATION_DATA = Path(__file__).parent / "data" / "sequence_declaration.sv"
+PROPERTY_DECLARATION_DATA = Path(__file__).parent / "data" / "property_declaration.sv"
+FUNCTION_DECLARATION_DATA = Path(__file__).parent / "data" / "function_declaration.sv"
+UWIRE_DATA = Path(__file__).parent / "data" / "uwire.v"
+READ_BEFORE_WRITE_DATA = Path(__file__).parent / "data" / "read_before_write.v"
+MIXED_ASSIGNMENT_STYLE_DATA = Path(__file__).parent / "data" / "mixed_assignment_style.v"
+NAMED_TYPE_REFERENCE_DATA = Path(__file__).parent / "data" / "named_type_reference.sv"
+INVOCATION_CALLEE_DATA = Path(__file__).parent / "data" / "invocation_callee.sv"
+COVER_CROSS_DATA = Path(__file__).parent / "data" / "cover_cross.sv"
+EXTENDS_CLAUSE_DATA = Path(__file__).parent / "data" / "extends_clause.sv"
 
 
 class TestRunJobsValidation:
@@ -83,6 +95,15 @@ class TestRunJobsValidation:
     def test_jobs_above_one_raises_not_implemented(self) -> None:
         with pytest.raises(NotImplementedError, match="parallel linting"):
             run([DATA], jobs=2)
+
+    def test_run_rejects_rule_selection_and_profile_together(self) -> None:
+        with pytest.raises(ValueError, match="either rule_selection or rule_profile"):
+            run(
+                [DATA],
+                jobs=1,
+                rule_selection=RuleSelection(enabled_profiles=frozenset({"rtl_strict"})),
+                rule_profile="rtl_strict",
+            )
 
     def test_run_reports_initial_block_rule(self) -> None:
         diagnostics = run([INITIAL_BLOCK_DATA], jobs=1)
@@ -107,6 +128,7 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_ALWAYS_FF" for d in diagnostics)
         assert any("always_ff" in d["message"] for d in diagnostics)
+        assert not any(d["code"] == "READ_BEFORE_WRITE" for d in diagnostics)
 
     def test_run_reports_forever_loop_rule(self) -> None:
         diagnostics = run([FOREVER_LOOP_DATA], jobs=1)
@@ -167,6 +189,7 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_TASK_DECLARATION" for d in diagnostics)
         assert any("task declarations" in d["message"] for d in diagnostics)
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
 
     def test_run_reports_program_declaration_rule(self) -> None:
         diagnostics = run([PROGRAM_DECLARATION_DATA], jobs=1)
@@ -209,6 +232,7 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_DISABLE_STATEMENT" for d in diagnostics)
         assert any("disable statements" in d["message"] for d in diagnostics)
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
 
     def test_run_reports_event_trigger_rule(self) -> None:
         diagnostics = run([EVENT_TRIGGER_DATA], jobs=1)
@@ -314,6 +338,7 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_DEFPARAM" for d in diagnostics)
         assert any("defparam" in d["message"] for d in diagnostics)
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
 
     def test_run_reports_force_release_rule(self) -> None:
         diagnostics = run([FORCE_RELEASE_DATA], jobs=1)
@@ -426,6 +451,79 @@ class TestRunJobsValidation:
         codes = [d["code"] for d in diagnostics]
         assert codes.count("NO_SIMULATION_CONTROL_TASK") == 2
         assert any("$stop" in d["message"] for d in diagnostics)
+
+    def test_run_reports_class_declaration_rule(self) -> None:
+        diagnostics = run([CLASS_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_CLASS_DECLARATION" for d in diagnostics)
+        assert any("class declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_covergroup_declaration_rule(self) -> None:
+        diagnostics = run([COVERGROUP_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_COVERGROUP_DECLARATION" for d in diagnostics)
+        assert any("covergroup declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_sequence_declaration_rule(self) -> None:
+        diagnostics = run([SEQUENCE_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_SEQUENCE_DECLARATION" for d in diagnostics)
+        assert any("sequence declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_property_declaration_rule(self) -> None:
+        diagnostics = run([PROPERTY_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_PROPERTY_DECLARATION" for d in diagnostics)
+        assert any("property declarations" in d["message"] for d in diagnostics)
+
+    def test_run_reports_function_declaration_rule(self) -> None:
+        diagnostics = run([FUNCTION_DECLARATION_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_FUNCTION_DECLARATION" for d in diagnostics)
+        assert any("function declarations" in d["message"] for d in diagnostics)
+        assert not any(
+            d["code"] == "NO_IMPLICIT_NET" and "do_work" in d["message"] for d in diagnostics
+        )
+
+    def test_run_reports_uwire_rule(self) -> None:
+        diagnostics = run([UWIRE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_UWIRE" for d in diagnostics)
+        assert any("uwire" in d["message"] for d in diagnostics)
+
+    def test_run_reports_read_before_write_rule(self) -> None:
+        diagnostics = run([READ_BEFORE_WRITE_DATA], jobs=1)
+
+        assert any(d["code"] == "READ_BEFORE_WRITE" for d in diagnostics)
+        assert any("read before write" in d["message"] for d in diagnostics)
+
+    def test_run_reports_mixed_assignment_style_rule(self) -> None:
+        diagnostics = run([MIXED_ASSIGNMENT_STYLE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_MIXED_ASSIGNMENT_STYLE" for d in diagnostics)
+        assert any("Mixed blocking and non-blocking" in d["message"] for d in diagnostics)
+
+    def test_run_does_not_flag_named_type_reference_as_implicit_net(self) -> None:
+        diagnostics = run([NAMED_TYPE_REFERENCE_DATA], jobs=1)
+
+        assert diagnostics == []
+
+    def test_run_does_not_flag_invocation_callee_as_implicit_net(self) -> None:
+        diagnostics = run([INVOCATION_CALLEE_DATA], jobs=1)
+
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
+
+    def test_run_does_not_flag_cover_cross_items_as_implicit_net(self) -> None:
+        diagnostics = run([COVER_CROSS_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_COVERGROUP_DECLARATION" for d in diagnostics)
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
+
+    def test_run_does_not_flag_extends_clause_base_name_as_implicit_net(self) -> None:
+        diagnostics = run([EXTENDS_CLAUSE_DATA], jobs=1)
+
+        assert any(d["code"] == "NO_CLASS_DECLARATION" for d in diagnostics)
+        assert not any(d["code"] == "NO_IMPLICIT_NET" for d in diagnostics)
 
     def test_run_uses_parser_boundary_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         first = DATA
@@ -656,6 +754,61 @@ class TestMain:
 
 
 class TestRunRuleSelection:
+    def test_run_resolves_named_rule_profile(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: dict[str, object] = {}
+
+        class FakeTree:
+            def __init__(self, path: str) -> None:
+                self.path = path
+                self.root = object()
+
+        def fake_parse_file(path: str) -> FakeTree:
+            return FakeTree(path)
+
+        class FakeWalker:
+            def __init__(self, dispatch: object) -> None:
+                self.dispatch = dispatch
+
+            def walk(
+                self,
+                root: object,
+                tree: FakeTree,
+                _ctx: object,
+                symbol_table: object,
+                on_node: object | None = None,
+            ) -> None:
+                assert root is tree.root
+                assert getattr(symbol_table, "current_file", None) == tree.path
+                assert on_node is not None
+                on_node(type("FakeVNode", (), {"location": {"line": 1, "col": 1, "file": tree.path}})(), object())
+
+        def fake_rule_check(
+            vnode: object,
+            ctx: object,
+            passed_selection: RuleSelection | None = None,
+        ) -> list[dict[str, object]]:
+            seen["selection"] = passed_selection
+            return []
+
+        monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
+        monkeypatch.setattr(run_lint_module, "file_uses_default_nettype_none", lambda path: False)
+        monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
+        monkeypatch.setattr(run_lint_module.rule_runner, "check", fake_rule_check)
+        monkeypatch.setattr(run_lint_module.symbol_rule_runner, "run", lambda symbol_table, passed_selection=None: [])
+        monkeypatch.setattr(run_lint_module.module_rule_runner, "run", lambda symbol_table, passed_selection=None: [])
+
+        diagnostics = run([DATA], jobs=1, rule_profile="sv_rtl_subset")
+
+        assert diagnostics == []
+        selection = seen["selection"]
+        assert selection is not None
+        assert getattr(selection, "enabled_codes") is None
+        assert getattr(selection, "enabled_categories") is None
+        assert getattr(selection, "enabled_profiles") == frozenset({"sv_rtl_subset"})
+
     def test_run_passes_rule_selection_to_all_runners(
         self,
         monkeypatch: pytest.MonkeyPatch,
