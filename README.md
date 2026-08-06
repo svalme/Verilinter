@@ -22,9 +22,9 @@ A basic set of rules are implemented. Right now, it checks for:
 - Duplicate module definitions across files.
 - Instantiation of a module that isn't defined anywhere in the linted files.
 
-See [RULES.md](RULES.md) for the maintained rule catalog and the specific cases each rule covers.
-See [RULE_IMPLEMENTATION.md](RULE_IMPLEMENTATION.md) for contributor-facing notes on when rules need parser helpers, handlers, or semantic-model updates.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for coding-style requirements (type annotations, design patterns).
+See [RULES.md](docs/RULES.md) for the maintained rule catalog and the specific cases each rule covers.
+See [RULE_IMPLEMENTATION.md](docs/RULE_IMPLEMENTATION.md) for contributor-facing notes on when rules need parser helpers, handlers, or semantic-model updates.
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for coding-style requirements (type annotations, design patterns).
 
 ## Setup
 
@@ -82,4 +82,3 @@ python src/run_lint.py tests/data/simple.v
 ```bash
 python -m pytest
 ```
-
