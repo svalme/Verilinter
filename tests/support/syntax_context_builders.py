@@ -38,4 +38,27 @@ def continuous_assign_context() -> Context:
     return Context().push(vnode)
 
 
-__all__ = ["case_context", "conditional_context", "continuous_assign_context", "token_vnode"]
+def primitive_instantiation_context() -> Context:
+    vnode = Mock(spec=BaseVNode)
+    vnode.raw = Mock()
+    vnode.raw.kind = sl.SyntaxKind.PrimitiveInstantiation
+    return Context().push(vnode)
+
+
+def event_trigger_statement_context(*, nonblocking: bool = False) -> Context:
+    vnode = Mock(spec=BaseVNode)
+    vnode.raw = Mock()
+    vnode.raw.kind = (
+        sl.SyntaxKind.NonblockingEventTriggerStatement if nonblocking else sl.SyntaxKind.BlockingEventTriggerStatement
+    )
+    return Context().push(vnode)
+
+
+__all__ = [
+    "case_context",
+    "conditional_context",
+    "continuous_assign_context",
+    "event_trigger_statement_context",
+    "primitive_instantiation_context",
+    "token_vnode",
+]

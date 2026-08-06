@@ -7,6 +7,8 @@ from ..parser.syntax import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
     ALWAYS_LATCH_BLOCK_KIND,
+    missing_sensitivity_trigger_nodes,
+    mixed_assignment_trigger_node,
 )
 from ..parser.types import (
     ProceduralBlockNode,
@@ -27,6 +29,14 @@ class ProceduralBlockHandler(SyntaxNodeHandler):
 
         elif kind == ALWAYS_LATCH_BLOCK_KIND:
             ctx = ctx.with_flag(ContextFlag.ALWAYS_LATCH)
+
+        # Computed once per block here rather than once per matching descendant node
+        # in the rules themselves, which would re-walk the block's subtree O(K^2)
+        # times. A deliberate exception to the usual layering
+        # standard of not putting handler state behind a fact a rule could derive
+        # statelessly -- here it can, but only cheaply if computed once per block.
+        ctx = ctx.with_data("missing_sensitivity", missing_sensitivity_trigger_nodes(vnode.raw))
+        ctx = ctx.with_data("mix_trigger", mixed_assignment_trigger_node(vnode.raw))
 
         return ctx
 

@@ -63,6 +63,12 @@ from .syntax.no_immediate_assertion import NoImmediateAssertionRule
 from .syntax.no_concurrent_assertion import NoConcurrentAssertionRule
 from .syntax.no_display_system_task import NoDisplaySystemTaskRule
 from .syntax.no_simulation_control_task import NoSimulationControlTaskRule
+from .syntax.no_class_declaration import NoClassDeclarationRule
+from .syntax.no_covergroup_declaration import NoCovergroupDeclarationRule
+from .syntax.no_sequence_declaration import NoSequenceDeclarationRule
+from .syntax.no_property_declaration import NoPropertyDeclarationRule
+from .syntax.no_function_declaration import NoFunctionDeclarationRule
+from .syntax.no_uwire import NoUwireRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule

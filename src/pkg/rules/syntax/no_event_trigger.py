@@ -17,4 +17,4 @@ class NoEventTriggerRule(Rule):
     default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        return is_event_trigger_token(vnode.raw)
+        return is_event_trigger_token(vnode.raw, ctx)

@@ -685,3 +685,326 @@ def test_procedural_assign_deassign_still_uses_its_own_rule(
     )
 
     result.expect_code_count("NO_ASSIGN_DEASSIGN", 2)
+
+
+def test_function_declaration_uses_its_own_rule_not_task_declaration_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "function_and_task.sv": """
+            module top;
+              function automatic int add_one(input int x);
+                add_one = x + 1;
+              endfunction
+
+              task automatic do_work;
+              endtask
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_FUNCTION_DECLARATION")
+    result.expect_code_once("NO_TASK_DECLARATION")
+
+
+def test_property_declaration_and_concurrent_assertion_fire_independently(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "property_and_assert.sv": """
+            module top(input clk, input a);
+              property p1;
+                @(posedge clk) a;
+              endproperty
+              assert property (p1);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_PROPERTY_DECLARATION")
+    result.expect_code_once("NO_CONCURRENT_ASSERTION")
+    result.expect_no_code("NO_IMMEDIATE_ASSERTION")
+
+
+def test_uwire_uses_its_own_rule_not_wand_wor_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "uwire_and_wand.sv": """
+            module top(input a, input b, output c, output d);
+              uwire w1;
+              wand w2;
+              assign w1 = a;
+              assign c = w1;
+              assign w2 = b;
+              assign d = w2;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_UWIRE")
+    result.expect_code_once("NO_WAND_WOR")
+
+
+def test_task_and_function_declaration_names_do_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "task_name_regression.sv": """
+            module top;
+              task automatic do_work;
+              endtask
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_TASK_DECLARATION")
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_or_joined_sensitivity_list_does_not_trigger_gate_primitive_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    """`or` is a gate-primitive keyword (`or g1(c, a, b);`) but is also the classic
+    event/sensitivity-list separator (`@(posedge clk or negedge rst_n)`), sharing the
+    same TokenKind.OrKeyword. Only the former is a gate instantiation."""
+    result = lint_inline_case(
+        {
+            "or_sensitivity_list.sv": """
+            module top(input clk, input rst_n, input d, output reg q);
+              always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) q <= 1'b0;
+                else q <= d;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_no_code("NO_GATE_PRIMITIVE")
+
+
+def test_plain_or_joined_sensitivity_list_does_not_trigger_gate_primitive_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "plain_or_sensitivity_list.sv": """
+            module top(input a, input b, output reg y);
+              always @(a or b) y = a & b;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_no_code("NO_GATE_PRIMITIVE")
+
+
+def test_or_gate_instantiation_still_triggers_gate_primitive_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "or_gate.sv": """
+            module top(input a, input b, output c);
+              or g1(c, a, b);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_GATE_PRIMITIVE")
+
+
+def test_input_port_read_with_no_local_write_does_not_trigger_read_before_write(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "input_port_read.sv": """
+            module top(input logic clk, input logic d, output logic q);
+              always_ff @(posedge clk) begin
+                q <= d;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_no_code("READ_BEFORE_WRITE")
+
+
+def test_defparam_hierarchical_target_does_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "defparam_hierarchical.sv": """
+            module child #(parameter WIDTH = 1) ();
+            endmodule
+
+            module top;
+              child u_child();
+              defparam u_child.WIDTH = 8;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_DEFPARAM")
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_disable_statement_label_does_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "disable_label.sv": """
+            module top;
+              initial begin : blk
+                disable blk;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_DISABLE_STATEMENT")
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_typedef_reference_does_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "named_type.sv": """
+            typedef logic [7:0] byte_t;
+            module top;
+              byte_t v;
+              always_comb v = 8'd0;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_scoped_typedef_reference_does_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "scoped_named_type.sv": """
+            package pkg2;
+              typedef logic [7:0] byte_t;
+            endpackage
+            module top;
+              pkg2::byte_t v;
+              always_comb v = 8'd0;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_PACKAGE_DECLARATION")
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_function_call_site_does_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "call_site.sv": """
+            module caller;
+              logic [7:0] result;
+              always_comb result = add_one(3);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_cover_cross_items_do_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "cover_cross.sv": """
+            module top(input logic [1:0] x, input logic [1:0] y);
+              covergroup cg;
+                cpx: coverpoint x;
+                cpy: coverpoint y;
+                crs: cross cpx, cpy;
+              endgroup
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_COVERGROUP_DECLARATION")
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_extends_clause_base_name_does_not_trigger_implicit_net(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "extends.sv": """
+            class Base;
+            endclass
+            class C extends Base;
+            endclass
+            """
+        }
+    )
+
+    result.expect_code_count("NO_CLASS_DECLARATION", 2)
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_disable_iff_in_concurrent_assertion_does_not_trigger_disable_statement_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "disable_iff.sv": """
+            module top(input clk, input rst, input a, input b);
+              assert property (@(posedge clk) disable iff (rst) a |-> b);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_CONCURRENT_ASSERTION")
+    result.expect_no_code("NO_DISABLE_STATEMENT")
+
+
+def test_implication_operator_in_expression_does_not_trigger_event_trigger_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "implication_expr.sv": """
+            module m(input a, input b, output y);
+              assign y = (a -> b);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_no_code("NO_EVENT_TRIGGER")

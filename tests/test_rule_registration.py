@@ -60,4 +60,10 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "NO_CONCURRENT_ASSERTION",
         "NO_DISPLAY_SYSTEM_TASK",
         "NO_SIMULATION_CONTROL_TASK",
+        "NO_CLASS_DECLARATION",
+        "NO_COVERGROUP_DECLARATION",
+        "NO_SEQUENCE_DECLARATION",
+        "NO_PROPERTY_DECLARATION",
+        "NO_FUNCTION_DECLARATION",
+        "NO_UWIRE",
     }.issubset(codes)

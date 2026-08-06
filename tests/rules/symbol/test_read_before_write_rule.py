@@ -85,6 +85,23 @@ module top;
 endmodule
 """
 
+INPUT_PORT_READ_CODE = """
+module top(input logic clk, input logic d, output logic q);
+  always_ff @(posedge clk) begin
+    q <= d;
+  end
+endmodule
+"""
+
+OUTPUT_PORT_READ_BEFORE_WRITE_CODE = """
+module top(output logic y);
+  logic z;
+  always_comb begin
+    z = y;
+  end
+endmodule
+"""
+
 
 class TestReadBeforeWriteRule:
     @pytest.fixture
@@ -209,3 +226,65 @@ class TestReadBeforeWriteRule:
         assert len(diagnostics) == 1
         assert diagnostics[0]["code"] == "READ_BEFORE_WRITE"
         assert "x" in diagnostics[0]["message"]
+
+    def test_does_not_flag_input_port_read_with_no_local_write(self, rule: ReadBeforeWriteRule) -> None:
+        """A read of an `input` port with no local write is the normal case -- the value
+        comes from outside this scope, not a read-before-write bug."""
+        st = SymbolTable()
+        sym = Symbol(name="d", kind="variable")
+        sym.is_port = True
+        sym.port_direction = "input"
+        sym.add_declaration({"line": 1, "col": 8})
+        sym.add_use({"line": 3, "col": 5}, read=True)
+        st.global_scope.define(sym)
+
+        assert rule.run(st) == []
+
+    def test_does_not_flag_inout_port_read_with_no_local_write(self, rule: ReadBeforeWriteRule) -> None:
+        st = SymbolTable()
+        sym = Symbol(name="io", kind="variable")
+        sym.is_port = True
+        sym.port_direction = "inout"
+        sym.add_declaration({"line": 1, "col": 8})
+        sym.add_use({"line": 3, "col": 5}, read=True)
+        st.global_scope.define(sym)
+
+        assert rule.run(st) == []
+
+    def test_still_flags_output_port_read_before_local_write(self, rule: ReadBeforeWriteRule) -> None:
+        """Output ports keep the check: reading one before it's ever locally driven is
+        the real undriven-output bug shape (companion to NO_UNDRIVEN_OUTPUT_PORT)."""
+        st = SymbolTable()
+        sym = Symbol(name="y", kind="variable")
+        sym.is_port = True
+        sym.port_direction = "output"
+        sym.add_declaration({"line": 1, "col": 8})
+        sym.add_use({"line": 3, "col": 5}, read=True)
+        st.global_scope.define(sym)
+
+        diagnostics = rule.run(st)
+
+        assert len(diagnostics) == 1
+        assert "y" in diagnostics[0]["message"]
+
+    def test_against_real_source_does_not_flag_input_ports(self, rule: ReadBeforeWriteRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(INPUT_PORT_READ_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
+    def test_against_real_source_still_flags_output_port(self, rule: ReadBeforeWriteRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(OUTPUT_PORT_READ_BEFORE_WRITE_CODE)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        assert any("y" in d["message"] for d in diagnostics)

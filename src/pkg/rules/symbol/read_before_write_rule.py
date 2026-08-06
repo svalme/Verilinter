@@ -17,6 +17,13 @@ class ReadBeforeWriteRule(BaseSymbolRule):
             for sym in scope.symbols.values():
                 if sym.kind != "variable" or not sym.declarations or sym.is_implicit:
                     continue
+                # A read with no local write is the normal, intended case for input and
+                # inout/ref ports (the value comes from outside this scope) -- mirrors the
+                # same is_port/port_direction exclusion NO_UNDRIVEN_OUTPUT_PORT and
+                # NO_WRITE_ONLY_INPUT_PORT already use. Output ports keep the check: a read
+                # before any local write there is the real "undriven output" bug shape.
+                if sym.is_port and sym.port_direction in ("input", "inout", "ref"):
+                    continue
 
                 seen_write = False
                 for event in sym.use_events:

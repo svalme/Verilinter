@@ -17,4 +17,4 @@ class NoDisableStatementRule(Rule):
     default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        return is_disable_token(vnode.raw)
+        return is_disable_token(vnode.raw, ctx)

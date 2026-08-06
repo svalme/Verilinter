@@ -18,38 +18,54 @@ from .syntax_kinds import (
     CASE_STYLE_TOKEN_KINDS,
     CASE_TOKEN_KINDS,
     CHECKER_DECLARATION_KIND,
+    CLASS_DECLARATION_KIND,
     CLOCKING_DECLARATION_KIND,
     CONCURRENT_ASSERTION_KINDS,
     CONDITIONAL_STATEMENT_KIND,
     CONTINUOUS_ASSIGN_KIND,
+    COVERGROUP_DECLARATION_KIND,
+    COVER_CROSS_KIND,
     DELAY_CONTROL_KINDS,
+    DISABLE_IFF_KIND,
+    DISABLE_STATEMENT_KIND,
     DISABLE_TOKEN_KIND,
     DO_TOKEN_KIND,
     DO_WHILE_STATEMENT_KIND,
+    DEFPARAM_ASSIGNMENT_KIND,
     DEFPARAM_TOKEN_KIND,
     ENDCASE_TOKEN_KIND,
+    EVENT_TRIGGER_STATEMENT_KINDS,
     EVENT_TRIGGER_TOKEN_KINDS,
+    EXTENDS_CLAUSE_KIND,
     FOR_TOKEN_KIND,
     FOREACH_TOKEN_KIND,
     FINAL_BLOCK_KIND,
     FOREVER_TOKEN_KIND,
     FORCE_RELEASE_TOKEN_KINDS,
+    FUNCTION_DECLARATION_KIND,
+    FUNCTION_PROTOTYPE_KIND,
     GATE_PRIMITIVE_TOKEN_KINDS,
     IMMEDIATE_ASSERTION_KINDS,
     INITIAL_BLOCK_KIND,
     INTERFACE_DECLARATION_KIND,
     INSIDE_TOKEN_KIND,
+    INVOCATION_EXPRESSION_KIND,
     LOOP_GENERATE_KIND,
     MODPORT_DECLARATION_KIND,
+    NAMED_TYPE_KIND,
     PARALLEL_BLOCK_STATEMENT_KIND,
     PACKAGE_DECLARATION_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
     PRIMITIVE_DECLARATION_KIND,
+    PRIMITIVE_INSTANTIATION_KIND,
     PROGRAM_DECLARATION_KIND,
     PROCEDURAL_BLOCK_KINDS,
+    PROPERTY_DECLARATION_KIND,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
     REPEAT_TOKEN_KIND,
+    SCOPED_NAME_KIND,
+    SEQUENCE_DECLARATION_KIND,
     SPECIFY_BLOCK_KIND,
     SUPPLY0_SUPPLY1_TOKEN_KINDS,
     TASK_DECLARATION_KIND,
@@ -58,6 +74,7 @@ from .syntax_kinds import (
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
     UNIQUE0_TOKEN_KIND,
+    UWIRE_TOKEN_KIND,
     WAIT_TOKEN_KIND,
     WHILE_TOKEN_KIND,
     WAND_WOR_TOKEN_KINDS,
@@ -159,6 +176,26 @@ def is_task_declaration_node(raw: object) -> bool:
     return getattr(raw, "kind", None) == TASK_DECLARATION_KIND
 
 
+def is_function_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == FUNCTION_DECLARATION_KIND
+
+
+def is_class_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == CLASS_DECLARATION_KIND
+
+
+def is_covergroup_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == COVERGROUP_DECLARATION_KIND
+
+
+def is_sequence_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == SEQUENCE_DECLARATION_KIND
+
+
+def is_property_declaration_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == PROPERTY_DECLARATION_KIND
+
+
 def is_program_declaration_node(raw: object) -> bool:
     return getattr(raw, "kind", None) == PROGRAM_DECLARATION_KIND
 
@@ -193,6 +230,103 @@ def is_bind_directive_target(raw: object) -> bool:
     if getattr(parent, "kind", None) != BIND_DIRECTIVE_KIND:
         return False
     return getattr(parent, "target", None) is raw
+
+
+def is_subroutine_prototype_name(raw: object) -> bool:
+    """True if `raw` is the declared name of a task/function prototype
+    (`FunctionPrototypeSyntax.name`, shared by both `TaskDeclarationSyntax` and
+    `FunctionDeclarationSyntax` -- pyslang uses one prototype node for both).
+
+    That identifier declares the subroutine's name, not a variable read, so it must
+    not be treated as an ordinary identifier reference (which would otherwise
+    register it as an implicit net).
+    """
+    parent = getattr(raw, "parent", None)
+    if getattr(parent, "kind", None) != FUNCTION_PROTOTYPE_KIND:
+        return False
+    return getattr(parent, "name", None) is raw
+
+
+def _is_scoped_name_target(raw: object, owner_kind: object, field: str = "name") -> bool:
+    """Walk up through any chain of `ScopedNameSyntax` segments (`a.b.c`) from `raw`
+    and return True if the outermost segment is the `field` field of a node whose
+    kind is `owner_kind`. Shared by defparam-target and similar hierarchical-path
+    checks below. `field` defaults to `"name"`, the common case; pass e.g.
+    `field="left"` for owners (like `InvocationExpressionSyntax`) that use a
+    different field name for the name/path in this position."""
+    node = getattr(raw, "parent", None)
+    while node is not None and getattr(node, "kind", None) == SCOPED_NAME_KIND:
+        parent = getattr(node, "parent", None)
+        if getattr(parent, "kind", None) == owner_kind and getattr(parent, field, None) is node:
+            return True
+        node = parent
+    return getattr(node, "kind", None) == owner_kind and getattr(node, field, None) is raw
+
+
+def is_defparam_target(raw: object) -> bool:
+    """True if `raw` is (or is a `ScopedNameSyntax` segment of) the hierarchical
+    target of a `defparam` assignment (`defparam a.b.c = ...;`).
+
+    That identifier chain names a hierarchical parameter-override path, not a
+    variable read, so it must not be treated as an ordinary identifier reference
+    (which would otherwise register the trailing segment as an implicit net).
+    """
+    return _is_scoped_name_target(raw, DEFPARAM_ASSIGNMENT_KIND)
+
+
+def is_disable_statement_target(raw: object) -> bool:
+    """True if `raw` is (or is a `ScopedNameSyntax` segment of) the block/task
+    label named by a `disable` statement (`disable blk;` / `disable pkg::blk;`).
+
+    That identifier names a structural label, not a variable read, so it must not
+    be treated as an ordinary identifier reference.
+    """
+    return _is_scoped_name_target(raw, DISABLE_STATEMENT_KIND)
+
+
+def is_named_type_reference(raw: object) -> bool:
+    """True if `raw` is (or is a `ScopedNameSyntax` segment of) the type name in a
+    `NamedTypeSyntax` (a plain typedef'd type `my_t v;`, or a package-scoped type
+    `pkg::my_t v;`).
+
+    That identifier names a type, not a variable, so it must not be treated as an
+    ordinary identifier reference -- unlike the other structural-name cases here,
+    this one is not gated behind any already-banned construct, so it can misfire
+    on completely ordinary, rule-compliant RTL using a typedef.
+    """
+    return _is_scoped_name_target(raw, NAMED_TYPE_KIND)
+
+
+def is_invocation_callee(raw: object) -> bool:
+    """True if `raw` is (or is a `ScopedNameSyntax` segment of) the callee name of
+    a function/task/`let` call (`InvocationExpressionSyntax.left`, e.g. `f(1, 2)`
+    or `pkg::f(1, 2)`).
+
+    That identifier names the thing being called, not a variable being read, so it
+    must not be treated as an ordinary identifier reference. Companion to
+    `is_subroutine_prototype_name`, which only covers the *declaration* name --
+    without this, calling any subroutine (including a DPI import, which has no
+    banning rule at all) produces a false implicit net at the call site.
+    """
+    return _is_scoped_name_target(raw, INVOCATION_EXPRESSION_KIND, field="left")
+
+
+def is_cover_cross_item(raw: object) -> bool:
+    """True if `raw` is one of the coverpoint-label arguments of a `cross`
+    statement (`CoverCrossSyntax.items`, e.g. `cpx`/`cpy` in `crs: cross cpx, cpy;`).
+
+    Those identifiers name previously-declared coverpoint labels, not variables.
+    """
+    return getattr(getattr(raw, "parent", None), "kind", None) == COVER_CROSS_KIND
+
+
+def is_extends_clause_base_name(raw: object) -> bool:
+    """True if `raw` is (or is a `ScopedNameSyntax` segment of) the base-class name
+    in a class `extends` clause (`class C extends Base;` / `class C extends pkg::Base;`).
+
+    That identifier names a class, not a variable.
+    """
+    return _is_scoped_name_target(raw, EXTENDS_CLAUSE_KIND, field="baseName")
 
 
 def is_delay_control_node(raw: object) -> bool:
@@ -235,16 +369,33 @@ def is_case_keyword_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in CASE_TOKEN_KINDS
 
 
-def is_disable_token(raw: object) -> bool:
-    return getattr(raw, "kind", None) == DISABLE_TOKEN_KIND
+def is_disable_token(raw: object, ctx: "Context") -> bool:
+    if getattr(raw, "kind", None) != DISABLE_TOKEN_KIND:
+        return False
+    # `disable iff (...)` (a property's clock/reset qualifier) reuses the same
+    # DisableKeyword token as an ordinary `disable <label>;` statement, but is a
+    # completely different grammatical construct (DisableIffSyntax, not
+    # DisableStatementSyntax) -- not a disable statement at all.
+    for ancestor in reversed(ctx.stack):
+        if getattr(ancestor.raw, "kind", None) == DISABLE_IFF_KIND:
+            return False
+    return True
 
 
 def is_do_token(raw: object) -> bool:
     return getattr(raw, "kind", None) == DO_TOKEN_KIND
 
 
-def is_event_trigger_token(raw: object) -> bool:
-    return getattr(raw, "kind", None) in EVENT_TRIGGER_TOKEN_KINDS
+def is_event_trigger_token(raw: object, ctx: "Context") -> bool:
+    if getattr(raw, "kind", None) not in EVENT_TRIGGER_TOKEN_KINDS:
+        return False
+    # `->` is also SystemVerilog's ordinary logical-implication operator, usable in
+    # any expression (`a -> b`), not just an event-trigger statement (`-> done;`).
+    # Both share TokenKind.MinusArrow; only the statement form is an event trigger.
+    for ancestor in reversed(ctx.stack):
+        if getattr(ancestor.raw, "kind", None) in EVENT_TRIGGER_STATEMENT_KINDS:
+            return True
+    return False
 
 
 def is_for_token(raw: object) -> bool:
@@ -405,6 +556,10 @@ def is_trireg_token(raw: object) -> bool:
     return getattr(raw, "kind", None) == TRIREG_TOKEN_KIND
 
 
+def is_uwire_token(raw: object) -> bool:
+    return getattr(raw, "kind", None) == UWIRE_TOKEN_KIND
+
+
 def is_supply0_supply1_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in SUPPLY0_SUPPLY1_TOKEN_KINDS
 
@@ -417,8 +572,14 @@ def is_tranif_rtranif_token(raw: object) -> bool:
     return getattr(raw, "kind", None) in TRANIF_RTRANIF_TOKEN_KINDS
 
 
-def is_gate_primitive_token(raw: object) -> bool:
-    return getattr(raw, "kind", None) in GATE_PRIMITIVE_TOKEN_KINDS
+def is_gate_primitive_token(raw: object, ctx: "Context") -> bool:
+    if getattr(raw, "kind", None) not in GATE_PRIMITIVE_TOKEN_KINDS:
+        return False
+    # `and`/`or`/`not`/... keywords are only gate-primitive types inside a
+    # PrimitiveInstantiationSyntax. `TokenKind.OrKeyword` is also the separator in
+    # classic event/sensitivity lists (`@(posedge clk or negedge rst_n)`), which is
+    # a completely different, non-gate construct sharing the same token kind.
+    return enclosing_primitive_instantiation(ctx) is not None
 
 
 def is_endcase_token(raw: object) -> bool:
@@ -663,6 +824,13 @@ def enclosing_procedural_block(ctx: "Context") -> "BaseVNode | None":
     return None
 
 
+def enclosing_primitive_instantiation(ctx: "Context") -> "BaseVNode | None":
+    for ancestor in reversed(ctx.stack):
+        if getattr(ancestor.raw, "kind", None) == PRIMITIVE_INSTANTIATION_KIND:
+            return ancestor
+    return None
+
+
 def enclosing_continuous_assign(ctx: "Context") -> "BaseVNode | None":
     for ancestor in reversed(ctx.stack):
         if is_continuous_assign(ancestor.raw):
@@ -769,6 +937,31 @@ def procedural_block_sensitivity_names(raw: object) -> set[str] | None:
     return names
 
 
+def missing_sensitivity_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode]:
+    """For a plain `always` block with an explicit sensitivity list, return
+    {name: first_read_node} for every signal read in the body that is not listed,
+    in first-occurrence order. Returns {} if there's no explicit list to check
+    (wildcard, edge-sensitive, or not a plain `always` block).
+
+    Computed once per block by `ProceduralBlockHandler` and ridden down the walk's
+    `Context.data` rather than recomputed per matching node.
+    """
+    sensitivity_names = procedural_block_sensitivity_names(block_raw)
+    if sensitivity_names is None:
+        return {}
+
+    timing_statement = procedural_block_statement(block_raw)
+    body = procedural_block_statement(timing_statement) if timing_statement is not None else None
+    if body is None:
+        return {}
+
+    missing: dict[str, SyntaxNode] = {}
+    for name, node in iter_identifier_reads(body):
+        if name not in sensitivity_names and name not in missing:
+            missing[name] = node
+    return missing
+
+
 def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
     if is_assignment_expression(node):
         yield node
@@ -779,6 +972,24 @@ def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
         if isinstance(child, ProceduralBlockNode):
             continue
         yield from iter_assignment_nodes(child)
+
+
+def mixed_assignment_trigger_node(block_raw: object) -> SyntaxNode | None:
+    """Return the first assignment node in `block_raw` whose blocking/non-blocking
+    style differs from the block's first assignment, or None if the block is
+    consistent (or empty).
+
+    Computed once per block by `ProceduralBlockHandler` and ridden down the walk's
+    `Context.data` rather than recomputed per matching node.
+    """
+    seen_kinds: set[object] = set()
+
+    for node in iter_assignment_nodes(block_raw):
+        if node.kind not in seen_kinds and seen_kinds:
+            return node
+        seen_kinds.add(node.kind)
+
+    return None
 
 
 __all__ = [
@@ -796,6 +1007,7 @@ __all__ = [
     "enclosing_case_statement",
     "enclosing_conditional_statement",
     "enclosing_continuous_assign",
+    "enclosing_primitive_instantiation",
     "enclosing_procedural_block",
     "expression_statement_expression",
     "has_default_case_item",
@@ -822,12 +1034,18 @@ __all__ = [
     "is_case_statement",
     "is_casex_casez_token",
     "is_checker_declaration_node",
+    "is_class_declaration_node",
     "is_clocking_declaration_node",
     "is_concurrent_assertion_node",
     "is_conditional_statement",
     "is_continuous_assign",
+    "is_covergroup_declaration_node",
+    "is_cover_cross_item",
+    "is_defparam_target",
     "is_delay_control_node",
+    "is_disable_statement_target",
     "is_disable_token",
+    "is_extends_clause_base_name",
     "is_display_system_task",
     "is_do_token",
     "is_do_while_statement",
@@ -839,6 +1057,7 @@ __all__ = [
     "is_final_block",
     "is_forever_token",
     "is_force_release_token",
+    "is_function_declaration_node",
     "is_gate_primitive_token",
     "is_if_generate_node",
     "is_immediate_assertion_node",
@@ -846,8 +1065,10 @@ __all__ = [
     "is_interface_declaration_node",
     "is_inside_operator_token",
     "is_internal_inout_port_declaration",
+    "is_invocation_callee",
     "is_loop_generate_node",
     "is_modport_declaration_node",
+    "is_named_type_reference",
     "is_negedge_event",
     "is_nonblocking_assignment_token",
     "is_parallel_block_statement",
@@ -859,11 +1080,14 @@ __all__ = [
     "is_program_declaration_node",
     "is_plain_while_token",
     "is_procedural_block",
+    "is_property_declaration_node",
     "is_read_write_assignment_expression",
     "is_read_write_unary_expression",
     "is_repeat_token",
+    "is_sequence_declaration_node",
     "is_simulation_control_task",
     "is_specify_block_node",
+    "is_subroutine_prototype_name",
     "is_supply0_supply1_token",
     "is_task_declaration_node",
     "is_tranif_rtranif_token",
@@ -872,12 +1096,15 @@ __all__ = [
     "is_unique0_case_token",
     "is_unique_if_token",
     "is_unique_priority_case_token",
+    "is_uwire_token",
     "is_wait_token",
     "is_while_token",
     "is_wand_wor_token",
     "iter_assignment_nodes",
     "iter_identifier_reads",
     "iter_statement_nodes",
+    "mixed_assignment_trigger_node",
+    "missing_sensitivity_trigger_nodes",
     "module_declaration_name",
     "primitive_declaration_name",
     "procedural_block_sensitivity_names",

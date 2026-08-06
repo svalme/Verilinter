@@ -114,6 +114,54 @@ class TestContext:
         assert ctx.has(ContextFlag.POSEDGE) is True
         assert ctx.has(ContextFlag.NEGEDGE) is False
 
+    def test_context_initializes_with_empty_data(self, context: Context) -> None:
+        assert context.data == {}
+
+    def test_with_data_adds_entry(self, context: Context) -> None:
+        new_context = context.with_data("mix_trigger", "sentinel")
+
+        assert new_context.data["mix_trigger"] == "sentinel"
+
+    def test_with_data_preserves_existing_entries(self, context: Context) -> None:
+        ctx = context.with_data("a", 1)
+        new_context = ctx.with_data("b", 2)
+
+        assert new_context.data == {"a": 1, "b": 2}
+
+    def test_with_data_overwrites_same_key(self, context: Context) -> None:
+        ctx = context.with_data("a", 1)
+        new_context = ctx.with_data("a", 2)
+
+        assert new_context.data == {"a": 2}
+
+    def test_with_data_returns_new_context(self, context: Context) -> None:
+        new_context = context.with_data("a", 1)
+
+        assert new_context is not context
+        assert context.data == {}
+
+    def test_push_preserves_data(self, context: Context, mock_vnode: Mock) -> None:
+        ctx = context.with_data("a", 1)
+        new_context = ctx.push(mock_vnode)
+
+        assert new_context.data == {"a": 1}
+
+    def test_data_set_after_push_does_not_leak_back_to_parent(self, context: Context, mock_vnode: Mock) -> None:
+        """Sibling-isolation guard: data set on a context derived from a push()
+        must not be visible on the context it was pushed from, mirroring how the
+        walker never lets a child's context updates leak into later siblings."""
+        parent = context.push(mock_vnode)
+        child = parent.with_data("a", 1)
+
+        assert child.data == {"a": 1}
+        assert parent.data == {}
+
+    def test_with_flag_preserves_data(self, context: Context) -> None:
+        ctx = context.with_data("a", 1)
+        new_context = ctx.with_flag(ContextFlag.ALWAYS)
+
+        assert new_context.data == {"a": 1}
+
     def test_context_chaining(self, context: Context, mock_vnode: Mock) -> None:
         """Test that context operations can be chained."""
         mock_vnode1 = Mock(spec=BaseVNode)

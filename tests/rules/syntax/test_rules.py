@@ -57,7 +57,20 @@ from src.pkg.rules.syntax.no_immediate_assertion import NoImmediateAssertionRule
 from src.pkg.rules.syntax.no_concurrent_assertion import NoConcurrentAssertionRule
 from src.pkg.rules.syntax.no_display_system_task import NoDisplaySystemTaskRule
 from src.pkg.rules.syntax.no_simulation_control_task import NoSimulationControlTaskRule
-from tests.support.syntax_context_builders import case_context, conditional_context, continuous_assign_context, token_vnode
+from src.pkg.rules.syntax.no_class_declaration import NoClassDeclarationRule
+from src.pkg.rules.syntax.no_covergroup_declaration import NoCovergroupDeclarationRule
+from src.pkg.rules.syntax.no_sequence_declaration import NoSequenceDeclarationRule
+from src.pkg.rules.syntax.no_property_declaration import NoPropertyDeclarationRule
+from src.pkg.rules.syntax.no_function_declaration import NoFunctionDeclarationRule
+from src.pkg.rules.syntax.no_uwire import NoUwireRule
+from tests.support.syntax_context_builders import (
+    case_context,
+    conditional_context,
+    continuous_assign_context,
+    event_trigger_statement_context,
+    primitive_instantiation_context,
+    token_vnode,
+)
 from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.vnodes.token_vnode import TokenVNode
@@ -1168,6 +1181,19 @@ class TestNoDisableStatementRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
+    def test_applies_returns_false_for_disable_keyword_inside_disable_iff(self, rule: NoDisableStatementRule) -> None:
+        """`disable iff (...)` (a property's clock/reset qualifier) reuses the same
+        DisableKeyword token as an ordinary `disable <label>;` statement, but is a
+        different grammatical construct (DisableIffSyntax) and not a disable
+        statement at all."""
+        mock_vnode = token_vnode(sl.TokenKind.DisableKeyword)
+        ancestor = Mock(spec=BaseVNode)
+        ancestor.raw = Mock()
+        ancestor.raw.kind = sl.SyntaxKind.DisableIff
+        ctx = Context().push(ancestor)
+
+        assert rule.applies(mock_vnode, ctx) is False
+
     def test_report_returns_correct_format(self, rule: NoDisableStatementRule, mock_vnode: Mock) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
@@ -1191,15 +1217,24 @@ class TestNoEventTriggerRule:
     def test_applies_returns_true_for_blocking_event_trigger(self, rule: NoEventTriggerRule) -> None:
         mock_vnode = token_vnode(sl.TokenKind.MinusArrow)
 
-        assert rule.applies(mock_vnode, Context()) is True
+        assert rule.applies(mock_vnode, event_trigger_statement_context()) is True
 
     def test_applies_returns_true_for_nonblocking_event_trigger(self, rule: NoEventTriggerRule) -> None:
         mock_vnode = token_vnode(sl.TokenKind.MinusDoubleArrow)
 
-        assert rule.applies(mock_vnode, Context()) is True
+        assert rule.applies(mock_vnode, event_trigger_statement_context(nonblocking=True)) is True
 
     def test_applies_returns_false_for_greater_than(self, rule: NoEventTriggerRule) -> None:
         mock_vnode = token_vnode(sl.TokenKind.GreaterThan)
+
+        assert rule.applies(mock_vnode, event_trigger_statement_context()) is False
+
+    def test_applies_returns_false_for_minus_arrow_used_as_implication_operator(self, rule: NoEventTriggerRule) -> None:
+        """`->` is also the logical-implication operator in ordinary expressions
+        (`a -> b`), not just an event-trigger statement (`-> done;`). Outside a
+        BlockingEventTriggerStatement/NonblockingEventTriggerStatement ancestor, it
+        must not be flagged."""
+        mock_vnode = token_vnode(sl.TokenKind.MinusArrow)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2020,26 +2055,43 @@ class TestNoGatePrimitiveRule:
     def test_rule_has_correct_message(self, rule: NoGatePrimitiveRule) -> None:
         assert rule.message == "Use of gate-level primitives is discouraged in RTL; prefer behavioral or operator-level modeling"
 
-    def test_applies_returns_true_for_and_keyword(self, rule: NoGatePrimitiveRule) -> None:
+    def test_applies_returns_true_for_and_keyword_inside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.AndKeyword
 
-        assert rule.applies(mock_vnode, Context()) is True
+        assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
-    def test_applies_returns_true_for_bufif0_keyword(self, rule: NoGatePrimitiveRule) -> None:
+    def test_applies_returns_true_for_bufif0_keyword_inside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.BufIf0Keyword
 
-        assert rule.applies(mock_vnode, Context()) is True
+        assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoGatePrimitiveRule) -> None:
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = Mock()
         mock_vnode.raw.kind = sl.TokenKind.InitialKeyword
 
+        assert rule.applies(mock_vnode, primitive_instantiation_context()) is False
+
+    def test_applies_returns_false_for_or_keyword_outside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
+        """`or` is also the separator in classic event/sensitivity lists
+        (`@(posedge clk or negedge rst_n)`), which shares the same TokenKind.OrKeyword
+        as the `or` gate-primitive keyword but is not a gate instantiation at all."""
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.OrKeyword
+
         assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_true_for_or_keyword_inside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.OrKeyword
+
+        assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
     def test_report_returns_correct_format(self, rule: NoGatePrimitiveRule, mock_vnode: Mock) -> None:
         mock_vnode.location = {"line": 2, "col": 5}
@@ -2319,3 +2371,214 @@ class TestNoSimulationControlTaskRule:
         assert result["line"] == 7
         assert result["col"] == 9
         assert result["message"] == "Use of $stop/$finish is discouraged in synthesizable RTL; these are simulation-only control tasks"
+
+
+class TestNoClassDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoClassDeclarationRule:
+        return NoClassDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoClassDeclarationRule) -> None:
+        assert rule.code == "NO_CLASS_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoClassDeclarationRule) -> None:
+        assert rule.message == "Use of class declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_class_declaration_node(self, rule: NoClassDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ClassDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_node(self, rule: NoClassDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.InterfaceDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoClassDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 1, "col": 1}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 1
+        assert result["col"] == 1
+        assert result["message"] == "Use of class declarations is discouraged in synthesizable RTL"
+
+
+class TestNoCovergroupDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoCovergroupDeclarationRule:
+        return NoCovergroupDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoCovergroupDeclarationRule) -> None:
+        assert rule.code == "NO_COVERGROUP_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoCovergroupDeclarationRule) -> None:
+        assert rule.message == "Use of covergroup declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_covergroup_declaration_node(self, rule: NoCovergroupDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.CovergroupDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_other_node(self, rule: NoCovergroupDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.ClassDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoCovergroupDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 3
+        assert result["message"] == "Use of covergroup declarations is discouraged in synthesizable RTL"
+
+
+class TestNoSequenceDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoSequenceDeclarationRule:
+        return NoSequenceDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoSequenceDeclarationRule) -> None:
+        assert rule.code == "NO_SEQUENCE_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoSequenceDeclarationRule) -> None:
+        assert rule.message == "Use of sequence declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_sequence_declaration_node(self, rule: NoSequenceDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.SequenceDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_property_declaration_node(self, rule: NoSequenceDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.PropertyDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoSequenceDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 3
+        assert result["message"] == "Use of sequence declarations is discouraged in synthesizable RTL"
+
+
+class TestNoPropertyDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoPropertyDeclarationRule:
+        return NoPropertyDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoPropertyDeclarationRule) -> None:
+        assert rule.code == "NO_PROPERTY_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoPropertyDeclarationRule) -> None:
+        assert rule.message == "Use of property declarations is discouraged in synthesizable RTL"
+
+    def test_applies_returns_true_for_property_declaration_node(self, rule: NoPropertyDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.PropertyDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_sequence_declaration_node(self, rule: NoPropertyDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.SequenceDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_applies_returns_false_for_assert_property_statement(self, rule: NoPropertyDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.AssertPropertyStatement
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoPropertyDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 3
+        assert result["message"] == "Use of property declarations is discouraged in synthesizable RTL"
+
+
+class TestNoFunctionDeclarationRule:
+    @pytest.fixture
+    def rule(self) -> NoFunctionDeclarationRule:
+        return NoFunctionDeclarationRule()
+
+    def test_rule_has_correct_code(self, rule: NoFunctionDeclarationRule) -> None:
+        assert rule.code == "NO_FUNCTION_DECLARATION"
+
+    def test_rule_has_correct_message(self, rule: NoFunctionDeclarationRule) -> None:
+        assert rule.message == "Use of function declarations is discouraged in this restricted RTL subset"
+
+    def test_applies_returns_true_for_function_declaration_node(self, rule: NoFunctionDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.FunctionDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_task_declaration_node(self, rule: NoFunctionDeclarationRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.SyntaxKind.TaskDeclaration
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoFunctionDeclarationRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 3
+        assert result["message"] == "Use of function declarations is discouraged in this restricted RTL subset"
+
+
+class TestNoUwireRule:
+    @pytest.fixture
+    def rule(self) -> NoUwireRule:
+        return NoUwireRule()
+
+    def test_rule_has_correct_code(self, rule: NoUwireRule) -> None:
+        assert rule.code == "NO_UWIRE"
+
+    def test_rule_has_correct_message(self, rule: NoUwireRule) -> None:
+        assert rule.message == "Use of uwire is discouraged in RTL; prefer explicit wire/tri declarations"
+
+    def test_applies_returns_true_for_uwire_keyword(self, rule: NoUwireRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.UWireKeyword
+
+        assert rule.applies(mock_vnode, Context()) is True
+
+    def test_applies_returns_false_for_wand_keyword(self, rule: NoUwireRule) -> None:
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = Mock()
+        mock_vnode.raw.kind = sl.TokenKind.WAndKeyword
+
+        assert rule.applies(mock_vnode, Context()) is False
+
+    def test_report_returns_correct_format(self, rule: NoUwireRule, mock_vnode: Mock) -> None:
+        mock_vnode.location = {"line": 2, "col": 3}
+        result = rule.report(mock_vnode)
+
+        assert result["line"] == 2
+        assert result["col"] == 3
+        assert result["message"] == "Use of uwire is discouraged in RTL; prefer explicit wire/tri declarations"

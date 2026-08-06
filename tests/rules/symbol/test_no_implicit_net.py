@@ -66,7 +66,15 @@ class TestNoImplicitNetRule:
         diagnostics = rule.run(symbol_table)
 
         flagged_names = {d["message"].split("'")[1] for d in diagnostics}
-        assert flagged_names == {"a", "b", "c", "d", "y", "z", "sel", "out"}
+        # simple.v's `case(sel) 0: out = a; endcase` is invalid at module-item scope
+        # (case must be inside a procedural or generate block) and produces real
+        # pyslang parse diagnostics; pyslang's error recovery parses it as a
+        # malformed data declaration with `out` in NamedType position rather than
+        # as a variable reference. `is_named_type_reference` now (correctly)
+        # excludes NamedType positions from implicit-net treatment -- `out` was
+        # never a genuine variable read here, just an artifact of the syntax
+        # error, so it drops out of the flagged set.
+        assert flagged_names == {"a", "b", "c", "d", "y", "z", "sel"}
 
     def test_does_not_flag_when_file_uses_default_nettype_none(self, rule: NoImplicitNetRule) -> None:
         symbol_table = SymbolTable()

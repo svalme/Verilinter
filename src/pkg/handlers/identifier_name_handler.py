@@ -10,9 +10,37 @@ from ..parser.syntax import (
     enclosing_procedural_block,
     identifier_access_modes,
     is_bind_directive_target,
+    is_cover_cross_item,
+    is_defparam_target,
+    is_disable_statement_target,
+    is_extends_clause_base_name,
+    is_invocation_callee,
+    is_named_type_reference,
+    is_subroutine_prototype_name,
 )
 from ..parser.types import IdentifierNameNode, IdentifierSelectNameNode
 from ..walk.context import Context
+
+# Every check here recognizes an IdentifierNameSyntax-shaped node that names a
+# module/scope/type/label/callee/parameter-path rather than a variable being read
+# or written. Each was found the same way: some rule/audit exercised a construct
+# IdentifierNameHandler had never been taught about, and the identifier fell
+# through to implicit-net creation. Add to this list rather than inlining another
+# `or` clause in update_context -- it is expected to keep growing.
+_STRUCTURAL_NAME_PREDICATES = (
+    is_bind_directive_target,
+    is_subroutine_prototype_name,
+    is_defparam_target,
+    is_disable_statement_target,
+    is_named_type_reference,
+    is_invocation_callee,
+    is_cover_cross_item,
+    is_extends_clause_base_name,
+)
+
+
+def _is_structural_name_reference(raw: object) -> bool:
+    return any(predicate(raw) for predicate in _STRUCTURAL_NAME_PREDICATES)
 
 
 @dispatch.register(IdentifierNameNode)
@@ -21,7 +49,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
 
     def update_context(self, ctx: Context, vnode: IdentifierNameVNode, symbol_table: SymbolTable) -> Context:
         name = vnode.identifier_name
-        if not name or is_bind_directive_target(vnode.raw):
+        if not name or _is_structural_name_reference(vnode.raw):
             return ctx.push(vnode)
 
         is_read, is_write = identifier_access_modes(ctx, vnode.raw)
