@@ -49,7 +49,11 @@ Do not put parser-shape knowledge directly into multiple rules if a shared parse
 helper can express it once.
 
 Do not add handler state for a fact that is only needed by one syntax rule if the
- same fact can be derived statelessly from `vnode.raw` and `ctx.stack`.
+same fact can be derived statelessly from `vnode.raw` and `ctx.stack`.
+
+Use `Context.data` only for cheap traversal-scoped memoization when a syntax fact
+is still local to the current block/ancestor chain but would be too expensive to
+recompute from scratch at every matching descendant node.
 
 ### Matching standard
 
@@ -97,6 +101,10 @@ Current categories in use include:
 Profile metadata is descriptive first. Do not add per-rule self-disabling logic;
 selection should stay centralized in runner/config code.
 
+The internal named-profile mapping lives in `src/pkg/rules/profiles.py`. Use it
+from code/tests that need a stable built-in profile name instead of hardcoding
+those names in multiple places.
+
 ### Testing standard
 
 New tests should try to protect against both false negatives and false positives.
@@ -140,10 +148,12 @@ Most rules in this repo fall into one of two buckets:
 2. Shared-analysis / semantic rules
 
 Simple syntax rules usually do **not** need handler changes.
-They work because `pyslang` already exposes a distinct token or syntax node that the rule can match directly.
+They work because `pyslang` already exposes a distinct token or syntax node that
+the rule can match directly.
 
-Shared-analysis / semantic rules usually **do** need handler or symbol-model changes.
-They work because the walker accumulates facts during traversal, and the rule runs later over those facts.
+Shared-analysis / semantic rules usually **do** need handler or symbol-model
+changes. They work because the walker accumulates facts during traversal, and the
+rule runs later over those facts.
 
 ## Rule Shape Map
 
@@ -152,25 +162,29 @@ They work because the walker accumulates facts during traversal, and the rule ru
 | `NO_CASEX_CASEZ` | Simple syntax | No | No | Raw token matching | Good example of a cheap token-level rule. |
 | `NO_DEFPARAM` | Simple syntax | No | No | Raw token matching | Keyword-only legacy rule. |
 | `NO_FORCE_RELEASE` | Simple syntax | No | No | Raw token matching | Flags both `force` and `release`. |
-| `NO_ASSIGN_DEASSIGN` | Simple syntax | No | No | Raw token matching | Flags both procedural `assign` and `deassign`. |
+| `NO_ASSIGN_DEASSIGN` | Simple syntax | No | No | Raw token matching, gated by `enclosing_continuous_assign(ctx)` | The policy is about procedural `assign` / `deassign`, not ordinary continuous `assign`. |
 | `NO_WAND_WOR` | Simple syntax | No | No | Raw token matching | Flags both resolved-net keywords. |
 | `NO_TRIREG` | Simple syntax | No | No | Raw token matching | Another legacy keyword rule. |
 | `NO_ALWAYS_LATCH` | Simple syntax | No | No | Procedural block node matching | Cheap block-level syntax rule. |
 | `NO_LATCH_IN_ALWAYS_COMB` | Syntax with helper logic | No new handler | No new semantic model | Parser-side block / conditional helpers | More logic than a keyword rule, but still syntax-driven. |
 | `DEFAULT_CASE` | Simple syntax (flag-based) | No | No | `CaseGenerateHandler`'s `CASE_GENERATE` / `DEFAULT` flags | Good example of a rule built around traversal context rather than post-walk semantic facts. |
-| `NO_DEFAULT_CASE_STATEMENT` | Syntax with helper logic | No new handler | No new semantic model | `enclosing_case_statement` ancestor walk (`ctx.stack`), `has_default_case_item` | Deliberately *not* a `ContextFlag`-based design like `DEFAULT_CASE` (case generate's sibling rule, directly above) for the reason described there: Context flags accumulate downward and never clear, so a nested case statement would inherit an outer case's `DEFAULT` flag even with no default of its own — a false negative for the single most common shape this rule needs to handle correctly (nested case statements). Resolving the *nearest* enclosing `CaseStatementSyntax` fresh per `endcase` token sidesteps that entirely, at the cost of walking `ctx.stack` once per `endcase` rather than reading a flag. |
+| `NO_DEFAULT_CASE_STATEMENT` | Syntax with helper logic | No new handler | No new semantic model | `enclosing_case_statement` ancestor walk, `has_default_case_item` | Uses the nearest enclosing case statement instead of a flag so nested case statements stay independent. |
 | `READ_BEFORE_WRITE` | Shared-analysis / semantic | Yes | Yes | Identifier read/write access classification | Relies on traversal-time read / write recording, plus parser helpers for read+write cases like compound assignments. |
 | `NO_IMPLICIT_NET` | Shared-analysis / semantic | Yes | Yes | Unresolved identifier classification | Depends on handler logic that decides whether an unresolved use becomes an implicit net. |
 | `NO_MULTIPLE_DRIVERS` | Shared-analysis / semantic | Yes | Yes | Procedural + continuous-assign driver identity tracking | Needs write events tied to an enclosing driver site. |
 | `NO_UNDRIVEN_SIGNAL` | Shared-analysis / semantic | Yes | Yes | Declaration/write/use accumulation | Needs declarations, reads, writes, and port-vs-internal distinctions to be tracked consistently. |
-| `NO_UNDRIVEN_OUTPUT_PORT` | Shared-analysis / semantic | Yes | Yes | Declaration/write/use accumulation, plus port direction classification | Same read/write facts as `NO_UNDRIVEN_SIGNAL`, filtered to the port case that rule excludes. Needed a new shared fact, `Symbol.port_direction`, since the existing `is_port` bool couldn't distinguish `output` from `input`/`inout`/`ref`. That fact is gathered once in `DeclaratorHandler` via `declarator_port_direction` (mirrors the existing `declarator_is_port` ancestor walk) so any future port-direction-aware rule can reuse it without re-deriving it from the AST. |
-| `NO_WRITE_ONLY_INPUT_PORT` | Shared-analysis / semantic | No (reused) | No (reused) | Declaration/write/use accumulation, plus `Symbol.port_direction` | Pure rule-side addition once `NO_UNDRIVEN_OUTPUT_PORT` had already introduced `port_direction` — no handler or semantic-model changes were needed for this one, just a second consumer of the same shared fact. Good example of the payoff of putting a fact in the shared model instead of a one-off rule hack. |
+| `NO_UNDRIVEN_OUTPUT_PORT` | Shared-analysis / semantic | Yes | Yes | Declaration/write/use accumulation, plus port direction classification | Uses shared port-direction data rather than re-deriving it in the rule. |
+| `NO_WRITE_ONLY_INPUT_PORT` | Shared-analysis / semantic | No (reused) | No (reused) | Declaration/write/use accumulation, plus `Symbol.port_direction` | Good example of a second consumer of an existing shared fact. |
 | `CIRCULAR_MODULE_INSTANTIATION` | Shared-analysis / semantic, cross-file | Yes | Yes | `SymbolTable.instantiation_edges` | Needs explicit module-to-module edge tracking, not just flat reference collection. |
 | `NO_INCOMPLETE_SENSITIVITY_LIST` | Syntax with helper logic and handler caching | Yes | No | `procedural_block_sensitivity_names`, `iter_identifier_reads`, cached in `Context.data` | The fact is syntax-local, but caching it once per procedural block avoids repeated subtree walks. |
 | `NO_MIXED_ASSIGNMENT_STYLE` | Syntax with helper logic and handler caching | Yes | No | `mixed_assignment_trigger_node`, cached in `Context.data` | Same caching shape as `NO_INCOMPLETE_SENSITIVITY_LIST`: syntax-local fact, computed once per block. |
-| `NO_GATE_PRIMITIVE` | Simple syntax (token-based) | No | No | Raw token matching (`GATE_PRIMITIVE_TOKEN_KINDS`) | Deliberately matches the gate *keyword token* (`and`/`or`/`nand`/.../`notif1`) rather than the wrapping `PrimitiveInstantiationSyntax` node, mirroring this repo's existing `NO_TRAN_RTRAN`/`NO_TRANIF_RTRANIF` precedent (`tran`/`rtran` are themselves gate-primitive keywords parsed inside the same node kind, and both were already built as token checks). **Known blind spot, by design, not an oversight**: an instance of a user-declared `primitive` (UDP, see `NO_PRIMITIVE_DECLARATION`) parses as an ordinary `HierarchyInstantiationSyntax` — syntactically indistinguishable from a normal module instantiation without resolving the instantiated type name against known UDP declarations. Only built-in gate keywords are catchable this way; a UDP-instance-aware version would need to become a shared-analysis rule (module-reference resolution, like `UNDEFINED_MODULE`) instead of a token check. Not built that way now because it would be new machinery for a rare case (behavioral RTL rarely instantiates UDPs directly). |
-| `NO_DELAY_CONTROL` | Simple syntax | No | No | Raw node-kind matching (`DELAY_CONTROL_KINDS = {DelayControl, Delay3}`) | Covers `#5` (assignment/gate single-value delay) and `#(1,2,3)` (parenthesized multi-value gate delay) via two distinct pyslang node kinds. Deliberately does *not* include cycle delays (`##N`, `SyntaxKind.CycleDelay`) or one-step/event controls (`@`) — those are different timing-control concepts (clocking-block relative delay, event sensitivity) rather than the classic non-synthesizable `#delay` this rule targets; folding them in would make one rule do the job of several more specific ones, the same reasoning `RULES.md`'s Notes section gives for preferring precise rules over broad umbrellas. |
-| `NO_DISPLAY_SYSTEM_TASK` / `NO_SIMULATION_CONTROL_TASK` | Simple syntax (text-based, new matching mechanism) | No | No | Token-**text** matching (`system_task_name`, comparing `.systemIdentifier.valueText` against a name set) — not `SyntaxKind`/`TokenKind` identity | Every other rule in this codebase matches on `SyntaxKind`/`TokenKind` enum identity because pyslang gives each construct a distinct kind. System tasks/functions (`$display`, `$finish`, etc.) don't get that treatment — they all parse as one `SystemNameSyntax` node (`SyntaxKind.SystemName`), whether called bare (`$finish;`) or via `InvocationExpressionSyntax` (`$display(...)`), and the actual task name is only available as the identifier token's text. Verified by parsing both forms directly with pyslang: `SystemNameSyntax` is visited as its own vnode by the walker either way, so the rule doesn't need to special-case the invoked-vs-bare distinction — it just checks `is_display_system_task`/`is_simulation_control_task` (`src/pkg/parser/syntax_queries.py`) against whichever vnode it's handed. Two separate rules/codes rather than one, since "print debug output" and "halt the simulator" are different policy concerns despite both being system tasks. |
+| `NO_GATE_PRIMITIVE` | Simple syntax (token-based, context-gated) | No | No | Token matching plus `enclosing_primitive_instantiation(ctx)` | Keyword tokens such as `or` need positive gating so non-primitive contexts are not misclassified. |
+| `NO_DELAY_CONTROL` | Simple syntax | No | No | Raw node-kind matching | Covers classic `#delay` forms without broadening into unrelated timing-control constructs. |
+| `NO_PRIMITIVE_DECLARATION` / `UNDEFINED_MODULE` | Shared-analysis / semantic | Yes | Yes | `SymbolTable.primitives` | UDP declarations and UDP instances need shared tracking so they are not misread as undefined modules. |
+| `NO_DISPLAY_SYSTEM_TASK` / `NO_SIMULATION_CONTROL_TASK` | Simple syntax (text-based) | No | No | System-task name text matching | These match by system-task name text because the AST kind is too generic on its own. |
+| `NO_BIND_DIRECTIVE` / `IdentifierNameHandler` | Shared-analysis / semantic | No new handler | No new model, targeted predicate | `is_bind_directive_target` | Structural names inside syntax that looks like an identifier reference may need to be excluded before implicit-net creation. |
+| Structural-name exclusions in `IdentifierNameHandler` | Shared-analysis / semantic | No new handler | No new model, targeted predicates | `is_bind_directive_target`, `is_subroutine_prototype_name`, `is_defparam_target`, `is_disable_statement_target`, `is_named_type_reference`, `is_invocation_callee`, `is_cover_cross_item`, `is_extends_clause_base_name` | Keep this pattern centralized so parser-shape exceptions do not sprawl across many rules. |
+| `NO_DISABLE_STATEMENT` / `NO_EVENT_TRIGGER` | Simple syntax (token-based, context-gated) | No | No | Ancestor-based gating in parser helpers | Good examples of a token rule that still needs context to distinguish nearby grammar forms. |
 
 ## Where To Change Things
 
@@ -240,6 +254,10 @@ Before adding rule-specific state to a handler, ask:
 
 If yes, it is probably a semantic-model or shared-analysis addition, not just a one-off rule hack.
 
+If the fact is still syntax-local but expensive to recompute repeatedly inside one
+block, prefer parser helpers plus `Context.data` over pushing it into the semantic
+model.
+
 ## Policy Category vs Implementation Shape
 
 Implementation shape and policy category are different axes.
@@ -252,6 +270,5 @@ Example:
 - `NO_PACKAGE_DECLARATION` is a simple syntax rule and an `sv_subset` policy rule.
 - `NO_DEFPARAM` is a simple syntax rule and a `classic_rtl_exclusion` policy rule.
 
-That distinction matters because future configuration should key off policy metadata without forcing a file or
-folder reorganization first.
-
+That distinction matters because rule selection should key off policy metadata
+without forcing a file or folder reorganization first.
