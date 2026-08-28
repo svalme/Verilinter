@@ -23,7 +23,7 @@ def test_default_nettype_none_routes_unresolved_names_to_undeclared_not_implicit
         }
     )
 
-    result.expect_codes({"UNDECLARED_VARIABLE"})
+    result.expect_codes({"UNDECLARED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE"})
     result.expect_code_count("UNDECLARED_VARIABLE", 2)
     result.expect_no_code("NO_IMPLICIT_NET")
 
@@ -40,7 +40,7 @@ def test_completely_unused_output_port_stays_with_unused_variable_not_undriven_o
         }
     )
 
-    result.expect_codes({"UNUSED_VARIABLE"})
+    result.expect_codes({"UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE"})
     result.expect_code_once("UNUSED_VARIABLE")
     result.expect_no_code("NO_UNDRIVEN_OUTPUT_PORT")
 
@@ -66,7 +66,7 @@ def test_read_but_undriven_output_port_uses_output_specific_rule_not_unused_vari
     result.expect_no_code("UNUSED_VARIABLE")
 
 
-def test_written_but_unread_input_port_uses_input_specific_rule_not_unused_variable(
+def test_written_but_unread_input_port_uses_both_input_write_rules_not_unused_variable(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:
     result = lint_inline_case(
@@ -83,8 +83,51 @@ def test_written_but_unread_input_port_uses_input_specific_rule_not_unused_varia
         }
     )
 
-    result.expect_codes({"NO_WRITE_ONLY_INPUT_PORT"})
+    result.expect_codes({"NO_WRITE_ONLY_INPUT_PORT", "NO_INPUT_PORT_WRITE", "MISSING_TIMESCALE_DIRECTIVE"})
     result.expect_code_once("NO_WRITE_ONLY_INPUT_PORT")
+    result.expect_code_once("NO_INPUT_PORT_WRITE")
+    result.expect_no_code("UNUSED_VARIABLE")
+
+
+def test_written_input_port_still_flags_when_input_is_also_read(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "read_and_write_input.sv": """
+            module top(input logic a, output logic y);
+              logic z = 1'b0;
+              always_comb begin
+                y = a;
+                a = z;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_INPUT_PORT_WRITE")
+    result.expect_no_code("NO_WRITE_ONLY_INPUT_PORT")
+
+
+def test_written_but_unread_local_variable_uses_write_only_variable_not_unused_variable(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "write_only_local.sv": """
+            module top(input logic a, output logic y);
+              logic x;
+              always_comb begin
+                x = a;
+                y = 1'b0;
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_WRITE_ONLY_VARIABLE")
     result.expect_no_code("UNUSED_VARIABLE")
 
 
@@ -107,7 +150,7 @@ def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_ru
         }
     )
 
-    result.expect_codes({"DEFAULT_CASE", "NO_CASE_GENERATE", "UNUSED_VARIABLE"})
+    result.expect_codes({"DEFAULT_CASE", "NO_CASE_GENERATE", "UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE"})
     result.expect_code_once("DEFAULT_CASE")
     result.expect_code_once("NO_CASE_GENERATE")
     result.expect_no_code("NO_DEFAULT_CASE_STATEMENT")

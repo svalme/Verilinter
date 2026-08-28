@@ -48,6 +48,11 @@ Put logic in the narrowest layer that can own it cleanly:
 Do not put parser-shape knowledge directly into multiple rules if a shared parser
 helper can express it once.
 
+If multiple rules or wrappers need the same raw node family, keep the family
+definition in `src/pkg/parser/types.py` and expose any "is this one of those
+nodes?" question through a parser helper such as `is_identifier_name_node(raw)`
+instead of repeating `isinstance(..., (...))` tuples across non-parser files.
+
 Do not add handler state for a fact that is only needed by one syntax rule if the
 same fact can be derived statelessly from `vnode.raw` and `ctx.stack`.
 
@@ -97,6 +102,7 @@ Current categories in use include:
 - `rtl_correctness`
 - `semantic_correctness`
 - `module_correctness`
+- `module_style`
 
 Profile metadata is descriptive first. Do not add per-rule self-disabling logic;
 selection should stay centralized in runner/config code.
@@ -185,6 +191,12 @@ rule runs later over those facts.
 | `NO_BIND_DIRECTIVE` / `IdentifierNameHandler` | Shared-analysis / semantic | No new handler | No new model, targeted predicate | `is_bind_directive_target` | Structural names inside syntax that looks like an identifier reference may need to be excluded before implicit-net creation. |
 | Structural-name exclusions in `IdentifierNameHandler` | Shared-analysis / semantic | No new handler | No new model, targeted predicates | `is_bind_directive_target`, `is_subroutine_prototype_name`, `is_defparam_target`, `is_disable_statement_target`, `is_named_type_reference`, `is_invocation_callee`, `is_cover_cross_item`, `is_extends_clause_base_name` | Keep this pattern centralized so parser-shape exceptions do not sprawl across many rules. |
 | `NO_DISABLE_STATEMENT` / `NO_EVENT_TRIGGER` | Simple syntax (token-based, context-gated) | No | No | Ancestor-based gating in parser helpers | Good examples of a token rule that still needs context to distinguish nearby grammar forms. |
+| `NO_UNSIZED_LITERAL` | Simple syntax | No | No | `.parent`/`.right` check against `SIMPLE_ASSIGNMENT_KINDS`, plus a `ForLoopStatement` parent exclusion | No ancestor-stack walk needed at all -- a direct one-level-up `.parent` check on `vnode.raw` is enough, since pyslang parents an assignment's RHS literal directly. |
+| `NO_IF_WITHOUT_BEGIN_END` / `NO_ELSE_WITHOUT_BEGIN_END` | Syntax with helper logic | No | No | `is_unwrapped_if_body`/`is_unwrapped_else_body` in `src/pkg/parser/syntax_queries.py` | One user-facing policy ("wrap every if/else branch") is split into two codes, following the repo's precedent of precise, separate codes (e.g. `DEFAULT_CASE`/`NO_DEFAULT_CASE_STATEMENT`) over one code shared across two `Rule` classes. |
+| `MISSING_TIMESCALE_DIRECTIVE` | Syntax with helper logic (file-scoped, text-scan) | No | No | `is_first_module_declaration_in_file`/`has_timescale_directive_before` in `src/pkg/parser/syntax_queries.py`, same text-scan precedent as `has_full_parallel_case_pragma` | The only rule anchored on absence rather than presence. `SyntaxTree.root` is the bare `ModuleDeclarationSyntax` itself (no wrapper) for a single-top-level-construct file, and only becomes `CompilationUnitSyntax` with a `.members` list once there are two or more; handling only one shape would silently miss every single-module file. |
+| `NO_MIXED_RESET_STYLE` | Shared-analysis / semantic | Yes | Yes | `SymbolTable.reset_style_events`, `classify_reset_style` in `src/pkg/parser/syntax_queries.py` | `ProceduralBlockHandler` needs `enclosing_module_scope`, a shared function on `src/pkg/semantic/scope.py` (the same "second consumer of an existing shared fact" shape documented for `NO_WRITE_ONLY_INPUT_PORT`). `is_posedge_event`/`is_negedge_event` strip token text before comparing, because the second signal in an `or`-joined sensitivity list carries leading trivia and would otherwise be misclassified, which this rule's exact per-signal edge count depends on. |
+| `COMBINATIONAL_LOOP` | Shared-analysis / semantic | Yes | Yes | `SymbolTable.combinational_driver_ids`, DFS cycle detection mirroring `CIRCULAR_MODULE_INSTANTIATION` one level down (signals instead of modules) | `IdentifierNameHandler` computes `driver_id` for every access, reads included, not only writes. `NO_MULTIPLE_DRIVERS`, the only other `driver_id` consumer, filters to write events before reading it, and a dedicated regression test (`tests/rules/combinational_logic/test_no_multiple_drivers.py`) covers this because `IdentifierNameHandler` is the most heavily depended-on handler in the codebase. |
+| `INSTANCE_OUTPUT_DRIVER_CONFLICT` | Shared-analysis / semantic, cross-file | No new handler | No new model (reuses `Symbol.is_written`) | `instance_output_driver_conflicts` in `src/pkg/rules/module/connection_analysis.py`, mirroring `unread_instance_output_details` | Port-connection expressions are never walked: `HierarchyInstantiationHandler` does not override `children()`, so a connected signal's `Symbol` gets no `UseEvent` from the connection itself. The rule therefore reads connections through the small `connection_analysis.py` helper rather than through `IdentifierNameHandler`/`identifier_access_modes`. |
 
 ## Where To Change Things
 
@@ -239,6 +251,9 @@ Use this split:
 
 If rule logic starts duplicating parser-shape digging, move that shape knowledge into a parser helper.
 If multiple rules need the same traversal-time fact, move that fact gathering into a handler or semantic model.
+If generic vnode behavior needs parser-specific child, snippet, or location access,
+prefer a small parser helper over embedding those raw field paths directly in
+`vnodes/`.
 
 ## Good Contributor Heuristic
 

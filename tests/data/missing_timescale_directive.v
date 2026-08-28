@@ -1,0 +1,2 @@
+module missing_timescale_directive_example;
+endmodule
