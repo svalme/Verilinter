@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Any
 
-from ...parser.syntax import identifier_name
-from ...parser.types import IdentifierNameNode, IdentifierSelectNameNode
+from ...parser.syntax import identifier_name, is_identifier_name_node
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from .rule_runner import rule_runner
@@ -18,7 +17,7 @@ class NoIncompleteSensitivityListRule(Rule):
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        if not isinstance(vnode.raw, (IdentifierNameNode, IdentifierSelectNameNode)):
+        if not is_identifier_name_node(vnode.raw):
             return False
 
         # Computed once per enclosing block by ProceduralBlockHandler rather

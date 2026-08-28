@@ -14,6 +14,11 @@ FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
 CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
 CLOCKING_DECLARATION_KIND = _syntax_kind("ClockingDeclaration")
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
+ELSE_CLAUSE_KIND = _syntax_kind("ElseClause")
+MODULE_DECLARATION_KIND = _syntax_kind("ModuleDeclaration")
+COMPILATION_UNIT_KIND = _syntax_kind("CompilationUnit")
+INTEGER_LITERAL_EXPRESSION_KIND = _syntax_kind("IntegerLiteralExpression")
+FOR_LOOP_STATEMENT_KIND = _syntax_kind("ForLoopStatement")
 CASE_STATEMENT_KIND = _syntax_kind("CaseStatement")
 CHECKER_DECLARATION_KIND = _syntax_kind("CheckerDeclaration")
 DO_WHILE_STATEMENT_KIND = _syntax_kind("DoWhileStatement")
@@ -221,6 +226,24 @@ GATE_PRIMITIVE_TOKEN_KINDS = {
     if kind is not None
 }
 
+SWITCH_PRIMITIVE_TOKEN_KINDS = {
+    kind
+    for kind in (
+        getattr(sl.TokenKind, name, None)
+        for name in (
+            "CmosKeyword",
+            "RcmosKeyword",
+            "NmosKeyword",
+            "PmosKeyword",
+            "RnmosKeyword",
+            "RpmosKeyword",
+            "PullUpKeyword",
+            "PullDownKeyword",
+        )
+    )
+    if kind is not None
+}
+
 DELAY_CONTROL_KINDS = {
     kind
     for kind in (_syntax_kind("DelayControl"), _syntax_kind("Delay3"))
@@ -270,6 +293,33 @@ EVENT_TRIGGER_STATEMENT_KINDS = {
 
 UWIRE_TOKEN_KIND = getattr(sl.TokenKind, "UWireKeyword", None)
 
+LET_DECLARATION_KIND = _syntax_kind("LetDeclaration")
+CONFIG_DECLARATION_KIND = _syntax_kind("ConfigDeclaration")
+RANDSEQUENCE_STATEMENT_KIND = _syntax_kind("RandSequenceStatement")
+EXPECT_RESTRICT_PROPERTY_KINDS = {
+    kind
+    for kind in (_syntax_kind("ExpectPropertyStatement"), _syntax_kind("RestrictPropertyStatement"))
+    if kind is not None
+}
+VIRTUAL_INTERFACE_TYPE_KIND = _syntax_kind("VirtualInterfaceType")
+DPI_IMPORT_EXPORT_KINDS = {
+    kind
+    for kind in (_syntax_kind("DPIImport"), _syntax_kind("DPIExport"))
+    if kind is not None
+}
+REAL_TYPE_KINDS = {
+    kind
+    for kind in (_syntax_kind("RealType"), _syntax_kind("ShortRealType"), _syntax_kind("RealTimeType"))
+    if kind is not None
+}
+STRING_TYPE_KIND = _syntax_kind("StringType")
+CHANDLE_TYPE_KIND = _syntax_kind("CHandleType")
+
+VARIABLE_DIMENSION_KIND = _syntax_kind("VariableDimension")
+QUEUE_DIMENSION_SPECIFIER_KIND = _syntax_kind("QueueDimensionSpecifier")
+WILDCARD_DIMENSION_SPECIFIER_KIND = _syntax_kind("WildcardDimensionSpecifier")
+RANGE_DIMENSION_SPECIFIER_KIND = _syntax_kind("RangeDimensionSpecifier")
+
 
 __all__ = [
     "ALIAS_STATEMENT_KIND",
@@ -284,11 +334,14 @@ __all__ = [
     "CASE_STATEMENT_KIND",
     "CASE_STYLE_TOKEN_KINDS",
     "CASE_TOKEN_KINDS",
+    "CHANDLE_TYPE_KIND",
     "CHECKER_DECLARATION_KIND",
     "CLASS_DECLARATION_KIND",
     "CLOCKING_DECLARATION_KIND",
+    "COMPILATION_UNIT_KIND",
     "CONCURRENT_ASSERTION_KINDS",
     "CONDITIONAL_STATEMENT_KIND",
+    "CONFIG_DECLARATION_KIND",
     "CONTINUOUS_ASSIGN_KIND",
     "COVERGROUP_DECLARATION_KIND",
     "COVER_CROSS_KIND",
@@ -300,10 +353,14 @@ __all__ = [
     "DO_WHILE_STATEMENT_KIND",
     "DEFPARAM_ASSIGNMENT_KIND",
     "DEFPARAM_TOKEN_KIND",
+    "DPI_IMPORT_EXPORT_KINDS",
+    "ELSE_CLAUSE_KIND",
     "ENDCASE_TOKEN_KIND",
+    "EXPECT_RESTRICT_PROPERTY_KINDS",
     "EVENT_TRIGGER_STATEMENT_KINDS",
     "EVENT_TRIGGER_TOKEN_KINDS",
     "EXTENDS_CLAUSE_KIND",
+    "FOR_LOOP_STATEMENT_KIND",
     "FOR_TOKEN_KIND",
     "FOREACH_TOKEN_KIND",
     "FINAL_BLOCK_KIND",
@@ -314,11 +371,14 @@ __all__ = [
     "GATE_PRIMITIVE_TOKEN_KINDS",
     "IMMEDIATE_ASSERTION_KINDS",
     "INITIAL_BLOCK_KIND",
+    "INTEGER_LITERAL_EXPRESSION_KIND",
     "INTERFACE_DECLARATION_KIND",
     "INSIDE_TOKEN_KIND",
     "INVOCATION_EXPRESSION_KIND",
+    "LET_DECLARATION_KIND",
     "LOOP_GENERATE_KIND",
     "MODPORT_DECLARATION_KIND",
+    "MODULE_DECLARATION_KIND",
     "NAMED_TYPE_KIND",
     "PACKAGE_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
@@ -328,15 +388,21 @@ __all__ = [
     "PROGRAM_DECLARATION_KIND",
     "PROCEDURAL_BLOCK_KINDS",
     "PROPERTY_DECLARATION_KIND",
+    "QUEUE_DIMENSION_SPECIFIER_KIND",
+    "RANDSEQUENCE_STATEMENT_KIND",
+    "RANGE_DIMENSION_SPECIFIER_KIND",
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
+    "REAL_TYPE_KINDS",
     "REPEAT_TOKEN_KIND",
     "SCOPED_NAME_KIND",
     "SEQUENCE_DECLARATION_KIND",
     "SIMPLE_ASSIGNMENT_KINDS",
     "SPECIFY_BLOCK_KIND",
+    "STRING_TYPE_KIND",
     "TASK_DECLARATION_KIND",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
+    "SWITCH_PRIMITIVE_TOKEN_KINDS",
     "TIMING_CONTROL_STATEMENT_KIND",
     "TRANIF_RTRANIF_TOKEN_KINDS",
     "TRAN_RTRAN_TOKEN_KINDS",
@@ -344,7 +410,10 @@ __all__ = [
     "UNIQUE0_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
     "UWIRE_TOKEN_KIND",
+    "VARIABLE_DIMENSION_KIND",
+    "VIRTUAL_INTERFACE_TYPE_KIND",
     "WAIT_TOKEN_KIND",
     "WHILE_TOKEN_KIND",
     "WAND_WOR_TOKEN_KINDS",
+    "WILDCARD_DIMENSION_SPECIFIER_KIND",
 ]

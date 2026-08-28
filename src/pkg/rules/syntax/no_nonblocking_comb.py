@@ -1,4 +1,7 @@
-from ...parser.syntax import is_nonblocking_assignment_token
+from ...parser.syntax import (
+    enclosing_combinational_style_always_block,
+    is_nonblocking_assignment_token,
+)
 from ...vnodes.base_vnode import BaseVNode
 from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
@@ -12,4 +15,11 @@ class NoNonBlockingAssignmentInCombRule(Rule):
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
-        return is_nonblocking_assignment_token(vnode.raw) and ctx.has(ContextFlag.ALWAYS_COMB)
+        if not is_nonblocking_assignment_token(vnode.raw):
+            return False
+        # `always_comb` is the SystemVerilog-only spelling; classic Verilog writes the
+        # same combinational intent as a plain `always @*` / `always @(*)` / `always
+        # @(a or b)` block, which parses to a generic AlwaysBlock and never sets
+        # ContextFlag.ALWAYS_COMB. Without this, the same bug shape went uncaught in
+        # any file that can't use `always_comb`.
+        return ctx.has(ContextFlag.ALWAYS_COMB) or enclosing_combinational_style_always_block(ctx) is not None

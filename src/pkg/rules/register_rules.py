@@ -69,6 +69,32 @@ from .syntax.no_sequence_declaration import NoSequenceDeclarationRule
 from .syntax.no_property_declaration import NoPropertyDeclarationRule
 from .syntax.no_function_declaration import NoFunctionDeclarationRule
 from .syntax.no_uwire import NoUwireRule
+from .syntax.no_self_assignment import NoSelfAssignmentRule
+from .syntax.no_multiple_nonblocking_writes import NoMultipleNonblockingWritesRule
+from .syntax.no_duplicate_case_item import NoDuplicateCaseItemRule
+from .syntax.no_let_declaration import NoLetDeclarationRule
+from .syntax.no_config_declaration import NoConfigDeclarationRule
+from .syntax.no_randsequence import NoRandsequenceRule
+from .syntax.no_expect_restrict_property import NoExpectRestrictPropertyRule
+from .syntax.no_virtual_interface import NoVirtualInterfaceRule
+from .syntax.no_dpi_import_export import NoDpiImportExportRule
+from .syntax.no_real_type import NoRealTypeRule
+from .syntax.no_string_type import NoStringTypeRule
+from .syntax.no_chandle_type import NoChandleTypeRule
+from .syntax.no_random_system_function import NoRandomSystemFunctionRule
+from .syntax.no_time_system_function import NoTimeSystemFunctionRule
+from .syntax.no_vcd_dump_task import NoVcdDumpTaskRule
+from .syntax.no_file_io_system_task import NoFileIoSystemTaskRule
+from .syntax.no_plusargs_system_function import NoPlusargsSystemFunctionRule
+from .syntax.no_assertion_control_task import NoAssertionControlTaskRule
+from .syntax.no_queue import NoQueueRule
+from .syntax.no_dynamic_array import NoDynamicArrayRule
+from .syntax.no_associative_array import NoAssociativeArrayRule
+from .syntax.no_unique0_if import NoUnique0IfRule
+from .syntax.no_switch_primitive import NoSwitchPrimitiveRule
+from .syntax.no_unsized_literal import NoUnsizedLiteralRule
+from .syntax.no_if_without_begin_end import NoIfWithoutBeginEndRule, NoElseWithoutBeginEndRule
+from .syntax.missing_timescale_directive import MissingTimescaleDirectiveRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
@@ -78,6 +104,9 @@ from .symbol.no_multiple_drivers import NoMultipleDriversRule
 from .symbol.no_undriven_signal import NoUndrivenSignalRule
 from .symbol.no_undriven_output_port import NoUndrivenOutputPortRule
 from .symbol.no_write_only_input_port import NoWriteOnlyInputPortRule
+from .symbol.no_input_port_write import NoInputPortWriteRule
+from .symbol.no_write_only_variable import NoWriteOnlyVariableRule
+from .symbol.no_unused_parameter import NoUnusedParameterRule
 from .symbol.redeclared_variable import RedeclaredVariableRule
 from .symbol.read_before_write_rule import ReadBeforeWriteRule
 from .symbol.no_mixed_reset_style import NoMixedResetStyleRule
