@@ -20,6 +20,7 @@ DO_WHILE_LOOP_DATA = Path(__file__).parent / "data" / "do_while_loop.v"
 FOR_LOOP_DATA = Path(__file__).parent / "data" / "for_loop.v"
 GENERATE_FOR_DATA = Path(__file__).parent / "data" / "generate_for.v"
 IF_GENERATE_DATA = Path(__file__).parent / "data" / "if_generate.v"
+GENERATE_BLOCK_MISSING_LABEL_DATA = Path(__file__).parent / "data" / "generate_block_missing_label.v"
 TASK_DECLARATION_DATA = Path(__file__).parent / "data" / "task_declaration.v"
 PROGRAM_DECLARATION_DATA = Path(__file__).parent / "data" / "program_declaration.sv"
 CLOCKING_DECLARATION_DATA = Path(__file__).parent / "data" / "clocking_declaration.sv"
@@ -238,6 +239,12 @@ class TestRunJobsValidation:
 
         assert any(d["code"] == "NO_IF_GENERATE" for d in diagnostics)
         assert any("if-generate" in d["message"] for d in diagnostics)
+
+    def test_run_reports_missing_generate_block_label_rule(self) -> None:
+        diagnostics = run([GENERATE_BLOCK_MISSING_LABEL_DATA], jobs=1)
+
+        assert any(d["code"] == "MISSING_GENERATE_BLOCK_LABEL" for d in diagnostics)
+        assert any("missing an explicit label" in d["message"] for d in diagnostics)
 
     def test_run_reports_task_declaration_rule(self) -> None:
         diagnostics = run([TASK_DECLARATION_DATA], jobs=1)

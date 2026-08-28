@@ -150,9 +150,12 @@ def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_ru
         }
     )
 
-    result.expect_codes({"DEFAULT_CASE", "NO_CASE_GENERATE", "UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE"})
+    result.expect_codes(
+        {"DEFAULT_CASE", "NO_CASE_GENERATE", "UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE", "MISSING_GENERATE_BLOCK_LABEL"}
+    )
     result.expect_code_once("DEFAULT_CASE")
     result.expect_code_once("NO_CASE_GENERATE")
+    result.expect_code_once("MISSING_GENERATE_BLOCK_LABEL")
     result.expect_no_code("NO_DEFAULT_CASE_STATEMENT")
 
 

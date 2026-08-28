@@ -7,6 +7,7 @@ from ..syntax_kinds import (
     COMPILATION_UNIT_KIND,
     CONDITIONAL_STATEMENT_KIND,
     ELSE_CLAUSE_KIND,
+    GENERATE_BLOCK_KIND,
     MODULE_DECLARATION_KIND,
     PARALLEL_BLOCK_STATEMENT_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
@@ -246,6 +247,26 @@ def declarator_is_signed(ctx: "Context") -> bool | None:
     type_text = _declarator_owner_type_text(ctx)
     _width, signed = type_text_width_and_signed(type_text)
     return signed
+
+
+def is_generate_block_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == GENERATE_BLOCK_KIND
+
+
+def is_unlabeled_generate_block(raw: object) -> bool:
+    """True if `raw` is a `GenerateBlockSyntax` (the `begin ... end` body of an
+    if/loop/case-generate branch, or a bare nested block directly inside a
+    `generate` region) with no `: label` on its `begin`.
+
+    An unlabeled generate block still gets an implicit `genblkN` name during
+    elaboration, but that name is index-based and shifts if a sibling branch is
+    added or removed -- an explicit label keeps hierarchical paths (and
+    waveform/debug views) stable. The unwrapped single-statement generate body
+    (`if (cond) wire w;`, no `begin`/`end` at all) is a different, unnamed shape
+    entirely -- it never becomes a `GenerateBlockSyntax`, so it is intentionally
+    not covered here.
+    """
+    return is_generate_block_node(raw) and getattr(raw, "beginName", None) is None
 
 
 def named_port_connection_name(raw: object) -> str | None:

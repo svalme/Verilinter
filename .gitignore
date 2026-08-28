@@ -29,6 +29,8 @@ coverage.xml
 # Own folder (not tests/expected/) so it can never be mistaken for a golden file to keep.
 tests/artifacts/
 tests/_tmp_harness/
+tests/_tmp_analysis_store/
+tests/_tmp_cli_features/
 
 # Mypy
 .mypy_cache/

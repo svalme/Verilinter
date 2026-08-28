@@ -12,6 +12,7 @@ ALWAYS_LATCH_BLOCK_KIND = sl.SyntaxKind.AlwaysLatchBlock
 INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
 CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
+GENERATE_BLOCK_KIND = sl.SyntaxKind.GenerateBlock
 CLOCKING_DECLARATION_KIND = _syntax_kind("ClockingDeclaration")
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
 ELSE_CLAUSE_KIND = _syntax_kind("ElseClause")
@@ -369,6 +370,7 @@ __all__ = [
     "FUNCTION_DECLARATION_KIND",
     "FUNCTION_PROTOTYPE_KIND",
     "GATE_PRIMITIVE_TOKEN_KINDS",
+    "GENERATE_BLOCK_KIND",
     "IMMEDIATE_ASSERTION_KINDS",
     "INITIAL_BLOCK_KIND",
     "INTEGER_LITERAL_EXPRESSION_KIND",

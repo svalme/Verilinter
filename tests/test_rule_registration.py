@@ -93,4 +93,5 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "NO_IF_WITHOUT_BEGIN_END",
         "NO_ELSE_WITHOUT_BEGIN_END",
         "MISSING_TIMESCALE_DIRECTIVE",
+        "MISSING_GENERATE_BLOCK_LABEL",
     }.issubset(codes)

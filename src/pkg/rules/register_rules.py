@@ -95,6 +95,7 @@ from .syntax.no_switch_primitive import NoSwitchPrimitiveRule
 from .syntax.no_unsized_literal import NoUnsizedLiteralRule
 from .syntax.no_if_without_begin_end import NoIfWithoutBeginEndRule, NoElseWithoutBeginEndRule
 from .syntax.missing_timescale_directive import MissingTimescaleDirectiveRule
+from .syntax.missing_generate_block_label import MissingGenerateBlockLabelRule
 
 # symbol rules (single-file, post-walk)
 from .symbol.unused_variable_rule import UnusedVariableRule
