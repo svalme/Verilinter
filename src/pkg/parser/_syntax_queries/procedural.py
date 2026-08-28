@@ -1,0 +1,228 @@
+from collections.abc import Iterator
+
+from ..syntax_kinds import (
+    ALWAYS_BLOCK_KIND,
+    ALWAYS_FF_BLOCK_KIND,
+    SIMPLE_ASSIGNMENT_KINDS,
+    TIMING_CONTROL_STATEMENT_KIND,
+)
+from ..types import (
+    BinaryEventExpressionNode,
+    ImplicitEventControlNode,
+    ParenthesizedEventExpressionNode,
+    ProceduralBlockNode,
+    SignalEventExpressionNode,
+    SyntaxNode,
+)
+
+
+def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
+    """Yield (name, raw_node) for every read-access identifier under `root`, in document
+    order. Does not descend into a nested procedural block."""
+
+    from ..syntax_queries import identifier_name, is_identifier_name_node
+    from .access import _identifier_access_modes_over_ancestors
+
+    def _walk(node: SyntaxNode, ancestors: list[object]) -> Iterator[tuple[str, SyntaxNode]]:
+        if is_identifier_name_node(node):
+            name = identifier_name(node)
+            if name:
+                is_read, _is_write = _identifier_access_modes_over_ancestors(ancestors, node)
+                if is_read:
+                    yield name, node
+
+        ancestors.append(node)
+        for child in node:
+            if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
+                yield from _walk(child, ancestors)
+        ancestors.pop()
+
+    yield from _walk(root, [])
+
+
+def _iter_identifier_nodes(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
+    from ..syntax_queries import identifier_name, is_identifier_name_node
+
+    if is_identifier_name_node(root):
+        name = identifier_name(root)
+        if name:
+            yield name, root
+
+    for child in root:
+        if isinstance(child, SyntaxNode):
+            yield from _iter_identifier_nodes(child)
+
+
+def _collect_sensitivity_events(node: object) -> tuple[set[str], bool]:
+    from ..syntax_queries import is_negedge_event, is_posedge_event
+
+    names: set[str] = set()
+    has_edge = False
+
+    def _collect(current: object) -> None:
+        nonlocal has_edge
+        if current is None:
+            return
+        if isinstance(current, ParenthesizedEventExpressionNode):
+            _collect(getattr(current, "expr", None))
+        elif isinstance(current, BinaryEventExpressionNode):
+            _collect(getattr(current, "left", None))
+            _collect(getattr(current, "right", None))
+        elif isinstance(current, SignalEventExpressionNode):
+            if is_posedge_event(current) or is_negedge_event(current):
+                has_edge = True
+            expr = getattr(current, "expr", None)
+            if isinstance(expr, SyntaxNode):
+                for name, _identifier in _iter_identifier_nodes(expr):
+                    names.add(name)
+
+    _collect(node)
+    return names, has_edge
+
+
+def procedural_block_sensitivity_names(raw: object) -> set[str] | None:
+    if getattr(raw, "kind", None) != ALWAYS_BLOCK_KIND:
+        return None
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return None
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return None
+
+    names, has_edge = _collect_sensitivity_events(getattr(event_control, "expr", None))
+    if has_edge:
+        return None
+    return names
+
+
+def is_combinational_style_always_block(raw: object) -> bool:
+    if getattr(raw, "kind", None) != ALWAYS_BLOCK_KIND:
+        return False
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return False
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return True
+
+    _names, has_edge = _collect_sensitivity_events(getattr(event_control, "expr", None))
+    return not has_edge
+
+
+def _count_edge_qualified_signals(node: object) -> int:
+    from ..syntax_queries import is_negedge_event, is_posedge_event
+
+    count = 0
+
+    def _walk(current: object) -> None:
+        nonlocal count
+        if current is None:
+            return
+        if isinstance(current, ParenthesizedEventExpressionNode):
+            _walk(getattr(current, "expr", None))
+        elif isinstance(current, BinaryEventExpressionNode):
+            _walk(getattr(current, "left", None))
+            _walk(getattr(current, "right", None))
+        elif isinstance(current, SignalEventExpressionNode):
+            if is_posedge_event(current) or is_negedge_event(current):
+                count += 1
+
+    _walk(node)
+    return count
+
+
+def classify_reset_style(raw: object) -> str | None:
+    if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
+        return None
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return None
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return None
+
+    edge_count = _count_edge_qualified_signals(getattr(event_control, "expr", None))
+    if edge_count == 1:
+        return "sync"
+    if edge_count >= 2:
+        return "async"
+    return None
+
+
+def enclosing_combinational_style_always_block(ctx: "Context") -> "BaseVNode | None":
+    for ancestor in reversed(ctx.stack):
+        if is_combinational_style_always_block(ancestor.raw):
+            return ancestor
+    return None
+
+
+def missing_sensitivity_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode]:
+    from ..syntax_queries import procedural_block_statement
+
+    sensitivity_names = procedural_block_sensitivity_names(block_raw)
+    if sensitivity_names is None:
+        return {}
+
+    timing_statement = procedural_block_statement(block_raw)
+    body = procedural_block_statement(timing_statement) if timing_statement is not None else None
+    if body is None:
+        return {}
+
+    missing: dict[str, SyntaxNode] = {}
+    for name, node in iter_identifier_reads(body):
+        if name not in sensitivity_names and name not in missing:
+            missing[name] = node
+    return missing
+
+
+def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
+    from ..syntax_queries import is_assignment_expression
+
+    if is_assignment_expression(node):
+        yield node
+
+    for child in node:
+        if not isinstance(child, SyntaxNode):
+            continue
+        if isinstance(child, ProceduralBlockNode):
+            continue
+        yield from iter_assignment_nodes(child)
+
+
+def mixed_assignment_trigger_node(block_raw: object) -> SyntaxNode | None:
+    seen_kinds: set[object] = set()
+
+    for node in iter_assignment_nodes(block_raw):
+        if node.kind not in seen_kinds and seen_kinds:
+            return node
+        seen_kinds.add(node.kind)
+
+    return None
+
+
+def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode]:
+    from .access import assignment_target_identifier_name
+
+    triggers: dict[str, SyntaxNode] = {}
+    seen_targets: set[str] = set()
+
+    for node in iter_assignment_nodes(block_raw):
+        if getattr(node, "kind", None) not in SIMPLE_ASSIGNMENT_KINDS:
+            continue
+        if str(getattr(node, "kind", "")) != "SyntaxKind.NonblockingAssignmentExpression":
+            continue
+        name = assignment_target_identifier_name(node)
+        if name is None:
+            continue
+        if name in seen_targets and name not in triggers:
+            triggers[name] = node
+        seen_targets.add(name)
+
+    return triggers

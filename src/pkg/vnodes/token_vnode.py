@@ -1,7 +1,7 @@
 # src/pkg/vnode/token_vnode.py
 
-import pyslang as sl
 from .base_vnode import BaseVNode, Location
+from ..parser.syntax import token_location, token_raw_text
 from ..parser.types import SyntaxTree, Token
 
 class TokenVNode(BaseVNode):
@@ -10,23 +10,14 @@ class TokenVNode(BaseVNode):
 
     @property
     def location(self) -> Location:
-        loc: sl.SourceLocation = self.raw.location
-        if not loc:
-            return {"line": 0, "col": 0}
-
-        sm: sl.SourceManager = self.tree.sourceManager
-        return {
-            "line": sm.getLineNumber(loc),
-            "col": sm.getColumnNumber(loc),
-            "file": str(sm.getFileName(loc)),
-        }
+        return token_location(self.raw, self.tree)
 
     def snippet(self) -> str:
-        return self.raw.rawText
+        return token_raw_text(self.raw)
 
     def __repr__(self) -> str:
         loc = self.location
         loc_str = f"{loc['line']}:{loc['col']}" if loc else "?:?"
-        return f"TokenVNode {self.raw.kind.name} '{self.raw.rawText}' @ {loc_str}"
+        return f"TokenVNode {self.raw.kind.name} '{self.snippet()}' @ {loc_str}"
 
 

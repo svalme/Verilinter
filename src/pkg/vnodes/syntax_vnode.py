@@ -1,6 +1,6 @@
 from .base_vnode import BaseVNode, Location
+from ..parser.syntax import node_location, raw_node_children, syntax_node_snippet
 from ..parser.types import RawNode, SyntaxNode, SyntaxTree
-import pyslang as sl
 
 class SyntaxVNode(BaseVNode):
     def __init__(self, raw: SyntaxNode, tree: SyntaxTree) -> None:
@@ -11,7 +11,7 @@ class SyntaxVNode(BaseVNode):
         return self.raw.kind
 
     def snippet(self) -> str:
-        return self.raw.__str__()
+        return syntax_node_snippet(self.raw)
 
     def __repr__(self) -> str:
         loc = self.location
@@ -20,17 +20,7 @@ class SyntaxVNode(BaseVNode):
 
     @property
     def location(self) -> Location:
-        sr: sl.SourceRange | None = self.raw.sourceRange
-
-        if not sr or not sr.start:
-            return {"line": 0, "col": 0}
-
-        sm: sl.SourceManager = self.tree.sourceManager
-        return {
-            "line": sm.getLineNumber(sr.start),
-            "col": sm.getColumnNumber(sr.start),
-            "file": str(sm.getFileName(sr.start)),
-        }
+        return node_location(self.raw, self.tree)
 
     @property
     def children(self) -> list[RawNode]:
@@ -38,4 +28,4 @@ class SyntaxVNode(BaseVNode):
 
     @property
     def raw_children(self) -> list[RawNode]:
-        return list(self.raw.__iter__())
+        return raw_node_children(self.raw)
