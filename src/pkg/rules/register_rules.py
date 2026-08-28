@@ -80,8 +80,29 @@ from .symbol.no_undriven_output_port import NoUndrivenOutputPortRule
 from .symbol.no_write_only_input_port import NoWriteOnlyInputPortRule
 from .symbol.redeclared_variable import RedeclaredVariableRule
 from .symbol.read_before_write_rule import ReadBeforeWriteRule
+from .symbol.no_mixed_reset_style import NoMixedResetStyleRule
+from .symbol.combinational_loop import CombinationalLoopRule
 
 # module rules (cross-file)
 from .module.duplicate_module_definition import DuplicateModuleDefinitionRule
 from .module.undefined_module import UndefinedModuleRule
 from .module.circular_module_instantiation import CircularModuleInstantiationRule
+from .module.connection_analysis import *
+from .module.no_unconnected_instance_ports import NoUnconnectedInstancePortsRule
+from .module.no_duplicate_named_port_connection import NoDuplicateNamedPortConnectionRule
+from .module.no_mixed_port_connection_style import NoMixedPortConnectionStyleRule
+from .module.no_ordered_parameter_overrides import NoOrderedParameterOverridesRule
+from .module.no_ordered_port_connections import NoOrderedPortConnectionsRule
+from .module.port_connection_width_mismatch import (
+    PortConnectionSignednessMismatchRule,
+    PortConnectionWidthUnknownRule,
+    PortConnectionWidthMismatchRule,
+)
+from .module.unknown_named_port_connection import UnknownNamedPortConnectionRule
+from .module.no_wildcard_port_connection import NoWildcardPortConnectionRule
+from .module.unread_instance_output import UnreadInstanceOutputRule
+from .module.unknown_named_parameter_override import UnknownNamedParameterOverrideRule
+from .module.no_duplicate_named_parameter_override import NoDuplicateNamedParameterOverrideRule
+from .module.no_mixed_parameter_override_style import NoMixedParameterOverrideStyleRule
+from .module.extra_ordered_port_connection import ExtraOrderedPortConnectionRule
+from .module.instance_output_driver_conflict import InstanceOutputDriverConflictRule

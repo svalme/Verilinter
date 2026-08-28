@@ -31,8 +31,13 @@ class Symbol:
         self.is_implicit: bool = False
         self.is_port: bool = False
         self.port_direction: str | None = None  # "input" / "output" / "inout" / "ref" when is_port
+        self.bit_width: int | None = None
+        self.is_signed: bool | None = None
         self.is_read: bool = False
         self.is_written: bool = False
+        self.use_count: int = 0
+        self.read_count: int = 0
+        self.write_count: int = 0
 
     def set_scope(self, scope: Scope | None) -> None:
         self.scope = scope
@@ -57,6 +62,9 @@ class Symbol:
         self.use_events.append(event)
         self.is_read |= read
         self.is_written |= write
+        self.use_count += 1
+        self.read_count += 1 if read else 0
+        self.write_count += 1 if write else 0
 
     @property
     def is_declared(self) -> bool:

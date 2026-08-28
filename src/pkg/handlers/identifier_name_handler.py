@@ -10,6 +10,7 @@ from ..parser.syntax import (
     enclosing_procedural_block,
     identifier_access_modes,
     is_bind_directive_target,
+    is_combinational_driver_block,
     is_cover_cross_item,
     is_defparam_target,
     is_disable_statement_target,
@@ -18,7 +19,7 @@ from ..parser.syntax import (
     is_named_type_reference,
     is_subroutine_prototype_name,
 )
-from ..parser.types import IdentifierNameNode, IdentifierSelectNameNode
+from ..parser.types import IDENTIFIER_NAME_NODE_TYPES
 from ..walk.context import Context
 
 # Every check here recognizes an IdentifierNameSyntax-shaped node that names a
@@ -43,8 +44,6 @@ def _is_structural_name_reference(raw: object) -> bool:
     return any(predicate(raw) for predicate in _STRUCTURAL_NAME_PREDICATES)
 
 
-@dispatch.register(IdentifierNameNode)
-@dispatch.register(IdentifierSelectNameNode)
 class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
 
     def update_context(self, ctx: Context, vnode: IdentifierNameVNode, symbol_table: SymbolTable) -> Context:
@@ -54,9 +53,11 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
 
         is_read, is_write = identifier_access_modes(ctx, vnode.raw)
         symbol = symbol_table.lookup_from_scope(name, ctx.scope())
-        driver_block = None
-        if is_write:
-            driver_block = enclosing_procedural_block(ctx) or enclosing_continuous_assign(ctx)
+        # Computed for reads too (not just writes) so COMBINATIONAL_LOOP can group
+        # every read/write in one combinational statement/block by driver_id. The
+        # only existing consumer, NO_MULTIPLE_DRIVERS, already filters to
+        # `event["write"]` before ever touching `driver_id`, so this is safe.
+        driver_block = enclosing_procedural_block(ctx) or enclosing_continuous_assign(ctx)
         driver_id = None
         driver_location = None
         if driver_block is not None:
@@ -65,6 +66,8 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 f"{driver_block.kind}:{loc.get('file', '')}:{loc['line']}:{loc['col']}"
             )
             driver_location = loc
+            if is_write and is_combinational_driver_block(driver_block):
+                symbol_table.mark_combinational_driver(driver_id)
 
         if symbol:
             symbol.add_use(
@@ -96,3 +99,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
 
     def __str__(self) -> str:
         return "IdentifierNameHandler"
+
+
+for _raw_type in IDENTIFIER_NAME_NODE_TYPES:
+    dispatch.register(_raw_type)(IdentifierNameHandler)

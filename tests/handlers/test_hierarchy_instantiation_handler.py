@@ -11,6 +11,7 @@ CODE = """
 module top;
   foo_mod u_foo();
   bar_mod #(.WIDTH(8)) u_bar(.clk(clk));
+  baz_mod u_baz(.*);
 endmodule
 """
 
@@ -41,10 +42,31 @@ class TestHierarchyInstantiationHandler:
         _, symbol_table = walked
 
         names = [name for name, _loc in symbol_table.module_references]
-        assert names == ["foo_mod", "bar_mod"]
+        assert names == ["foo_mod", "bar_mod", "baz_mod"]
 
     def test_module_reference_carries_a_real_location(self, walked: tuple[Walker, SymbolTable]) -> None:
         _, symbol_table = walked
 
         _, loc = symbol_table.module_references[0]
         assert loc["line"] == 3
+
+    def test_records_instantiation_connection_details(self, walked: tuple[Walker, SymbolTable]) -> None:
+        _, symbol_table = walked
+
+        assert len(symbol_table.instantiations) == 3
+        first = symbol_table.instantiations[0]
+        second = symbol_table.instantiations[1]
+        third = symbol_table.instantiations[2]
+
+        assert first["instance_name"] == "u_foo"
+        assert first["connection_style"] == "empty"
+        assert first["connections"] == []
+
+        assert second["instance_name"] == "u_bar"
+        assert second["connection_style"] == "named"
+        assert second["connections"][0]["port_name"] == "clk"
+        assert second["connections"][0]["expr_text"] == "clk"
+
+        assert third["instance_name"] == "u_baz"
+        assert third["connection_style"] == "wildcard"
+        assert third["connections"][0]["kind"] == "wildcard"

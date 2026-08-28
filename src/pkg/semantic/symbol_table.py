@@ -17,6 +17,9 @@ class SymbolTable:
         self.primitives: set[str] = set()  # user-defined primitive (UDP) names, across files
         self.module_references: list[tuple[str, Location]] = []
         self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
+        self.instantiations: list[dict[str, object]] = []
+        self.reset_style_events: list[tuple[str, str, Location]] = []  # (module_name, "sync"|"async", location)
+        self.combinational_driver_ids: set[str] = set()
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
 
@@ -75,6 +78,19 @@ class SymbolTable:
     def register_instantiation_edge(self, from_module: str, to_module: str, location: Location) -> None:
         """Record that `from_module` instantiates `to_module` at `location`, for hierarchy-cycle detection."""
         self.instantiation_edges.append((from_module, to_module, location))
+
+    def register_instantiation(self, record: dict[str, object]) -> None:
+        self.instantiations.append(record)
+
+    def register_reset_style_event(self, module_name: str, style: str, location: Location) -> None:
+        """Record that a procedural block in `module_name` is edge-sensitive with
+        reset style `style` ("sync" or "async"), for `NO_MIXED_RESET_STYLE`."""
+        self.reset_style_events.append((module_name, style, location))
+
+    def mark_combinational_driver(self, driver_id: str) -> None:
+        """Record that `driver_id` (a continuous assign or combinational-style
+        procedural block) drives combinationally, for `COMBINATIONAL_LOOP`."""
+        self.combinational_driver_ids.add(driver_id)
 
     def lookup_module(self, name: str) -> Scope | None:
         """Return the first scope for a named module, or None if not yet seen."""

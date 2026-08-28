@@ -192,3 +192,26 @@ class TestNoMultipleDriversRule:
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
+
+    def test_reads_carrying_a_driver_id_are_not_treated_as_drivers(self, rule: NoMultipleDriversRule) -> None:
+        """`IdentifierNameHandler` now computes `driver_id` for read events too
+        (needed by COMBINATIONAL_LOOP), not just writes. This rule must keep
+        ignoring read events entirely -- a signal read (never written) inside a
+        combinational block must not be flagged as multiply-driven just because
+        its read events now carry a `driver_id`."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top;
+              wire a, b, c;
+              assign b = a;
+              assign c = a;
+            endmodule
+            """
+        )
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []

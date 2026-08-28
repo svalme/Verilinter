@@ -30,6 +30,13 @@ class Scope:
             existing.is_read |= symbol.is_read
             existing.is_written |= symbol.is_written
             existing.is_port |= symbol.is_port
+            if symbol.bit_width is not None:
+                existing.bit_width = symbol.bit_width
+            if symbol.is_signed is not None:
+                existing.is_signed = symbol.is_signed
+            existing.use_count += symbol.use_count
+            existing.read_count += symbol.read_count
+            existing.write_count += symbol.write_count
             if symbol.declarations:
                 existing.kind = symbol.kind
                 existing.is_implicit = False
@@ -45,3 +52,11 @@ class Scope:
 
     def __repr__(self) -> str:
         return f"Scope: kind={self.kind}, name={self.name}, file={self.file} \nsymbols={list(self.symbols.keys())}"
+
+
+def enclosing_module_scope(scope: Scope | None) -> Scope | None:
+    while scope is not None:
+        if scope.kind == "module":
+            return scope
+        scope = scope.parent
+    return None
