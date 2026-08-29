@@ -128,6 +128,7 @@ from .syntax_kinds import (
     IMMEDIATE_ASSERTION_KINDS,
     INITIAL_BLOCK_KIND,
     INTEGER_LITERAL_EXPRESSION_KIND,
+    INTEGER_VECTOR_EXPRESSION_KIND,
     INTERFACE_DECLARATION_KIND,
     INSIDE_TOKEN_KIND,
     INVOCATION_EXPRESSION_KIND,
@@ -245,6 +246,48 @@ def is_unsized_literal_in_flagged_value_context(raw: object) -> bool:
     if getattr(getattr(assignment, "parent", None), "kind", None) == FOR_LOOP_STATEMENT_KIND:
         return False
     return True
+
+
+def sized_literal_overflow(raw: object) -> tuple[int, int] | None:
+    """Return `(declared_width, minimum_required_width)` if `raw` is a
+    fully-numeric (no `x`/`z`/`?`), unsigned sized literal (`4'hFF`) whose
+    value needs more bits than its declared width, else `None`.
+
+    First pass only covers unsigned literals -- a signed sized literal's
+    (`4'shF`) two's-complement minimum-width math is a separate, more careful
+    calculation not attempted here.
+    """
+    if getattr(raw, "kind", None) != INTEGER_VECTOR_EXPRESSION_KIND:
+        return None
+
+    size_token = getattr(raw, "size", None)
+    base_token = getattr(raw, "base", None)
+    value_token = getattr(raw, "value", None)
+    if size_token is None or base_token is None or value_token is None:
+        return None
+
+    size_text = str(size_token).strip()
+    base_text = str(base_token).strip().lstrip("'")
+    value_text = str(value_token).strip().replace("_", "")
+    if not size_text.isdigit() or not base_text:
+        return None
+    declared_width = int(size_text)
+
+    if base_text[:1].lower() == "s":
+        return None
+    radix = {"b": 2, "o": 8, "d": 10, "h": 16}.get(base_text[-1:].lower())
+    if radix is None or any(ch in "xz?" for ch in value_text.lower()):
+        return None
+
+    try:
+        numeric_value = int(value_text, radix)
+    except ValueError:
+        return None
+
+    minimum_width = max(numeric_value.bit_length(), 1)
+    if minimum_width > declared_width:
+        return declared_width, minimum_width
+    return None
 
 
 def is_initial_block(raw: object) -> bool:
@@ -1087,6 +1130,7 @@ __all__ = [
     "primitive_declaration_name",
     "procedural_block_sensitivity_names",
     "procedural_block_statement",
+    "sized_literal_overflow",
     "source_text_for_node",
     "system_task_name",
     "unary_write_operand",

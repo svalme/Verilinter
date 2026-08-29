@@ -19,6 +19,7 @@ ELSE_CLAUSE_KIND = _syntax_kind("ElseClause")
 MODULE_DECLARATION_KIND = _syntax_kind("ModuleDeclaration")
 COMPILATION_UNIT_KIND = _syntax_kind("CompilationUnit")
 INTEGER_LITERAL_EXPRESSION_KIND = _syntax_kind("IntegerLiteralExpression")
+INTEGER_VECTOR_EXPRESSION_KIND = _syntax_kind("IntegerVectorExpression")
 FOR_LOOP_STATEMENT_KIND = _syntax_kind("ForLoopStatement")
 CASE_STATEMENT_KIND = _syntax_kind("CaseStatement")
 CHECKER_DECLARATION_KIND = _syntax_kind("CheckerDeclaration")
@@ -374,6 +375,7 @@ __all__ = [
     "IMMEDIATE_ASSERTION_KINDS",
     "INITIAL_BLOCK_KIND",
     "INTEGER_LITERAL_EXPRESSION_KIND",
+    "INTEGER_VECTOR_EXPRESSION_KIND",
     "INTERFACE_DECLARATION_KIND",
     "INSIDE_TOKEN_KIND",
     "INVOCATION_EXPRESSION_KIND",

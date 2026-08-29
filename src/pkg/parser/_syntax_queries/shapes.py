@@ -231,7 +231,15 @@ def _declarator_owner_type_text(ctx: "Context") -> str | None:
         if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
             header = getattr(raw, "header", None)
             return str(header).strip() if header is not None else None
-        if type_name.endswith("DataDeclarationSyntax"):
+        if type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+            # Both node kinds expose their packed-dimension text via `.type`
+            # (e.g. `reg [7:0]` / ` [7:0]` for a `wire [7:0]` -- the `wire`
+            # keyword itself lives in NetDeclarationSyntax's separate
+            # `.netType` field, not `.type`, but `type_text_width_and_signed`
+            # only needs the bracket range so that's irrelevant here).
+            # Both `DataDeclarationSyntax` (`reg`/`logic`/plain variable
+            # declarations) and `NetDeclarationSyntax` (`wire [N:0] sig;`) carry
+            # the bracket range.
             data_type = getattr(raw, "type", None)
             return str(data_type).strip() if data_type is not None else None
     return None
