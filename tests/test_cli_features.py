@@ -166,3 +166,47 @@ def test_connection_report_mentions_wildcard_and_ordered_style_issues(capsys: py
     assert ordered_result == 0
     assert "uses ordered port connections" in ordered_captured.out
     assert "uses ordered parameter overrides" in ordered_captured.out
+
+
+def test_prune_runs_keep_flag_requires_no_paths(capsys: pytest.CaptureFixture[str]) -> None:
+    tmp = _prepare_scratch("prune_runs_cli")
+    store_path = tmp / "verilinter.sqlite"
+
+    main(["--store", str(store_path), str(PORT_DATA)])
+    main(["--store", str(store_path), str(PORT_DATA)])
+
+    result = main(["--store", str(store_path), "--prune-runs-keep", "1"])
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "Pruned 1 run(s)" in captured.out
+
+
+def test_prune_cache_days_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    tmp = _prepare_scratch("prune_cache_cli")
+    store_path = tmp / "verilinter.sqlite"
+
+    main(["--store", str(store_path), str(PORT_DATA)])
+
+    result = main(["--store", str(store_path), "--prune-cache-days", "365"])
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "Pruned 0 cached file result(s)" in captured.out
+
+
+def test_vacuum_store_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    tmp = _prepare_scratch("vacuum_cli")
+    store_path = tmp / "verilinter.sqlite"
+
+    main(["--store", str(store_path), str(PORT_DATA)])
+
+    result = main(["--store", str(store_path), "--vacuum-store"])
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "Vacuumed store." in captured.out
+
+
+def test_maintenance_flag_without_store_errors(capsys: pytest.CaptureFixture[str]) -> None:
+    result = main(["--prune-runs-keep", "1"])
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "--store is required" in captured.err

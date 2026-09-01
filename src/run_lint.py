@@ -311,7 +311,11 @@ def analyze(
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="SystemVerilog static analyzer")
-    parser.add_argument("paths", nargs="+", help="Verilog/SystemVerilog source files or directories")
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help="Verilog/SystemVerilog source files or directories (not required for --store maintenance flags)",
+    )
     parser.add_argument(
         "--jobs",
         "-j",
@@ -375,6 +379,23 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="disable reuse of cached per-file analysis results from the local store",
     )
+    parser.add_argument(
+        "--prune-cache-days",
+        type=int,
+        metavar="N",
+        help="delete cached per-file results older than N days from --store, then exit",
+    )
+    parser.add_argument(
+        "--prune-runs-keep",
+        type=int,
+        metavar="N",
+        help="keep only the N most recently recorded runs in --store, deleting the rest, then exit",
+    )
+    parser.add_argument(
+        "--vacuum-store",
+        action="store_true",
+        help="reclaim disk space in --store after pruning, then exit",
+    )
     return parser.parse_args(argv)
 
 
@@ -404,8 +425,33 @@ def _resolve_config(args: argparse.Namespace) -> LintConfig:
     return merge_config(config, cli_config)
 
 
+def _run_store_maintenance(args: argparse.Namespace) -> int:
+    if not args.store:
+        print("Error: --store is required for store maintenance flags", file=sys.stderr)
+        return 1
+
+    store = AnalysisStore(Path(args.store))
+    if args.prune_cache_days is not None:
+        removed = store.prune_cache(older_than_days=args.prune_cache_days)
+        print(f"Pruned {removed} cached file result(s) older than {args.prune_cache_days} day(s).")
+    if args.prune_runs_keep is not None:
+        removed = store.prune_runs(keep_last=args.prune_runs_keep)
+        print(f"Pruned {removed} run(s), keeping the {args.prune_runs_keep} most recent.")
+    if args.vacuum_store:
+        store.vacuum()
+        print("Vacuumed store.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+
+    maintenance_requested = (
+        args.prune_cache_days is not None or args.prune_runs_keep is not None or args.vacuum_store
+    )
+    if maintenance_requested:
+        return _run_store_maintenance(args)
+
     try:
         config = _resolve_config(args)
     except ValueError as exc:

@@ -3,10 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
@@ -44,10 +45,20 @@ class AnalysisStore:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
+    @contextmanager
+    def _transaction(self) -> Iterator[sqlite3.Connection]:
+        conn = self._connect()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def _ensure_schema(self) -> None:
-        with self._connect() as conn:
+        with self._transaction() as conn:
             conn.executescript(
                 """
                 PRAGMA journal_mode = WAL;
@@ -206,7 +217,7 @@ class AnalysisStore:
         rule_selection: RuleSelection | None,
     ) -> dict[str, Any] | None:
         key = selection_key(rule_selection)
-        with self._connect() as conn:
+        with self._transaction() as conn:
             row = conn.execute(
                 """
                 SELECT worker_result_json
@@ -228,7 +239,7 @@ class AnalysisStore:
         worker_result: dict[str, Any],
     ) -> None:
         key = selection_key(rule_selection)
-        with self._connect() as conn:
+        with self._transaction() as conn:
             conn.execute(
                 """
                 INSERT INTO cached_file_analysis(file_path, file_hash, selection_key, cached_at, worker_result_json)
@@ -259,7 +270,7 @@ class AnalysisStore:
         diagnostics: list[dict[str, Any]],
         symbol_table: SymbolTable,
     ) -> int:
-        with self._connect() as conn:
+        with self._transaction() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO analysis_runs(created_at, cwd, format, report_kind, jobs, selection_key, baseline_path)
@@ -379,3 +390,35 @@ class AnalysisStore:
                     )
 
         return run_id
+
+    def prune_cache(self, *, older_than_days: int) -> int:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).isoformat()
+        with self._transaction() as conn:
+            cursor = conn.execute(
+                "DELETE FROM cached_file_analysis WHERE cached_at < ?",
+                (cutoff,),
+            )
+            return cursor.rowcount
+
+    def prune_runs(self, *, keep_last: int) -> int:
+        with self._transaction() as conn:
+            rows = conn.execute(
+                "SELECT id FROM analysis_runs ORDER BY id DESC LIMIT -1 OFFSET ?",
+                (keep_last,),
+            ).fetchall()
+            run_ids = [int(row["id"]) for row in rows]
+            for run_id in run_ids:
+                conn.execute("DELETE FROM analysis_run_connections WHERE run_id = ?", (run_id,))
+                conn.execute("DELETE FROM analysis_run_instantiations WHERE run_id = ?", (run_id,))
+                conn.execute("DELETE FROM analysis_run_modules WHERE run_id = ?", (run_id,))
+                conn.execute("DELETE FROM analysis_run_diagnostics WHERE run_id = ?", (run_id,))
+                conn.execute("DELETE FROM analysis_run_files WHERE run_id = ?", (run_id,))
+                conn.execute("DELETE FROM analysis_runs WHERE id = ?", (run_id,))
+            return len(run_ids)
+
+    def vacuum(self) -> None:
+        conn = self._connect()
+        try:
+            conn.execute("VACUUM")
+        finally:
+            conn.close()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -211,3 +212,97 @@ def test_analyze_migrates_supported_older_schema_version() -> None:
         conn.close()
 
     assert version == analysis_store_module.SCHEMA_VERSION
+
+
+def test_prune_cache_removes_entries_older_than_cutoff() -> None:
+    tmp = _scratch_dir("prune_cache")
+    store_path = tmp / "verilinter.sqlite"
+
+    analyze([PORT_DATA], store_path=store_path)
+
+    conn = sqlite3.connect(store_path)
+    try:
+        conn.execute(
+            "UPDATE cached_file_analysis SET cached_at = ?",
+            ((datetime.now(timezone.utc) - timedelta(days=10)).isoformat(),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    store = analysis_store_module.AnalysisStore(store_path)
+    removed = store.prune_cache(older_than_days=5)
+    assert removed == 1
+
+    conn = sqlite3.connect(store_path)
+    try:
+        remaining = conn.execute("SELECT COUNT(*) FROM cached_file_analysis").fetchone()[0]
+    finally:
+        conn.close()
+    assert remaining == 0
+
+
+def test_prune_cache_keeps_entries_within_cutoff() -> None:
+    tmp = _scratch_dir("prune_cache_keep")
+    store_path = tmp / "verilinter.sqlite"
+
+    analyze([PORT_DATA], store_path=store_path)
+
+    store = analysis_store_module.AnalysisStore(store_path)
+    removed = store.prune_cache(older_than_days=5)
+    assert removed == 0
+
+    conn = sqlite3.connect(store_path)
+    try:
+        remaining = conn.execute("SELECT COUNT(*) FROM cached_file_analysis").fetchone()[0]
+    finally:
+        conn.close()
+    assert remaining == 1
+
+
+def test_prune_runs_keeps_last_n_and_removes_child_rows() -> None:
+    tmp = _scratch_dir("prune_runs")
+    store_path = tmp / "verilinter.sqlite"
+
+    for _ in range(3):
+        analyze([PORT_DATA], store_path=store_path, fmt="text", report_kind="connections")
+
+    store = analysis_store_module.AnalysisStore(store_path)
+    removed = store.prune_runs(keep_last=1)
+    assert removed == 2
+
+    conn = sqlite3.connect(store_path)
+    try:
+        run_ids = [row[0] for row in conn.execute("SELECT id FROM analysis_runs").fetchall()]
+        assert len(run_ids) == 1
+        remaining_id = run_ids[0]
+
+        for table in (
+            "analysis_run_files",
+            "analysis_run_diagnostics",
+            "analysis_run_modules",
+            "analysis_run_instantiations",
+            "analysis_run_connections",
+        ):
+            orphaned = conn.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE run_id != ?", (remaining_id,)
+            ).fetchone()[0]
+            assert orphaned == 0
+    finally:
+        conn.close()
+
+
+def test_vacuum_store_preserves_data() -> None:
+    tmp = _scratch_dir("vacuum")
+    store_path = tmp / "verilinter.sqlite"
+
+    analyze([PORT_DATA], store_path=store_path)
+    store = analysis_store_module.AnalysisStore(store_path)
+    store.vacuum()
+
+    conn = sqlite3.connect(store_path)
+    try:
+        run_count = conn.execute("SELECT COUNT(*) FROM analysis_runs").fetchone()[0]
+    finally:
+        conn.close()
+    assert run_count == 1
