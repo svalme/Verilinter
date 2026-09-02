@@ -88,6 +88,35 @@ Current refresh behavior is:
 
 Verilinter avoids repeated parsing and walking for unchanged files without a VCS-aware index or a separate "changed files only" database. It does not do Git-index-aware candidate selection, file watching, or whole-repo incremental scheduling.
 
+## Retention and Maintenance
+
+Stores are created or migrated automatically when a lint run uses `--store PATH`. Cached file results and
+recorded run history are retained until you remove them; Verilinter does not apply automatic retention.
+
+Use the maintenance flags with `--store`; source paths are not required. Each command performs its work and then exits:
+
+```bash
+# Remove cached per-file results older than 30 days.
+verilinter --store .verilinter.sqlite --prune-cache-days 30
+
+# Keep the 100 most recently recorded runs and remove older run history.
+verilinter --store .verilinter.sqlite --prune-runs-keep 100
+
+# Reclaim unused SQLite pages after pruning.
+verilinter --store .verilinter.sqlite --vacuum-store
+```
+
+The maintenance flags can be combined. They run in this order: cache pruning, run-history pruning, then vacuuming.
+For example, a periodic cleanup can prune both kinds of data and reclaim the resulting disk space in one command:
+
+```bash
+verilinter --store .verilinter.sqlite --prune-cache-days 30 --prune-runs-keep 100 --vacuum-store
+```
+
+`--prune-cache-days` affects only reusable per-file cache entries. `--prune-runs-keep` removes older recorded
+run summaries and their associated rows. `--vacuum-store` preserves remaining data but may take longer for a
+large store, so it is most useful after pruning rather than on every lint run.
+
 ## Single Store Design
 
 Separate databases for "input-file edits" versus "analyzer-version edits" are not required by the current

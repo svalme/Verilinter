@@ -109,3 +109,18 @@ Two quality checks matter especially here:
 
 - avoid duplicating parser-shape logic across multiple rules when a helper can own it once
 - add at least one "near miss" test so the rule proves what it does *not* flag, not just what it does flag
+
+## CLI Change Checklist
+
+When adding or changing a command-line option, use this checklist by default:
+
+- define clear argument names, defaults, help text, and metavar values in the argument parser
+- validate invalid or incompatible option combinations and return a useful non-zero exit code
+- preserve existing behavior for invocations that do not use the new option
+- add focused tests for the intended behavior, validation failures, and output or exit status when applicable
+- update `CLI.md` with the option's purpose, requirements, and an example invocation
+- update the relevant domain documentation when the option changes a workflow, lifecycle, storage format, or configuration behavior
+- update `README.md` when the option is part of the primary user workflow or deserves a quick-start example
+
+For options that perform maintenance or make destructive changes, document what data is affected, whether the
+operation can be combined with other options, and any follow-up step needed to reclaim resources or restore state.

@@ -184,6 +184,35 @@ Disable cache reuse while still writing the current run to the local SQLite stor
 verilinter --store .verilinter.sqlite --no-cache tests/data
 ```
 
+### Store Maintenance
+
+The following flags require `--store PATH`, do not require source paths, and exit after maintenance completes.
+They can be combined; cache pruning runs first, then run-history pruning, then vacuuming.
+
+#### `--prune-cache-days N`
+
+Delete cached per-file results older than `N` days.
+
+```bash
+verilinter --store .verilinter.sqlite --prune-cache-days 30
+```
+
+#### `--prune-runs-keep N`
+
+Keep the `N` most recently recorded runs and delete older run history.
+
+```bash
+verilinter --store .verilinter.sqlite --prune-runs-keep 100
+```
+
+#### `--vacuum-store`
+
+Reclaim unused SQLite disk space after pruning without removing remaining data.
+
+```bash
+verilinter --store .verilinter.sqlite --vacuum-store
+```
+
 ## Output Modes
 
 ### Text Output
