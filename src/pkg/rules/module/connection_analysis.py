@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any
 
 from ...semantic.symbol import Symbol
@@ -303,4 +304,58 @@ def instance_output_driver_conflicts(
         if symbol is None or not symbol.is_written:
             continue
         conflicts.append((port.name, expr_name))
+    return conflicts
+
+
+def multiple_instance_driver_conflicts(
+    symbol_table: SymbolTable,
+) -> list[tuple[dict[str, object], str, str, dict[str, object], str]]:
+    """Return (instance, port_name, signal_name, first_instance, first_port_name)
+    tuples where two or more instantiations in the same parent module bind their
+    own `output`/`inout` ports to the same parent-scope signal.
+
+    `instance_output_driver_conflicts` only catches an instance output colliding
+    with an `assign` or procedural write on the same signal, because it relies on
+    `Symbol.is_written`. Two instances that both drive a net purely through their
+    own output ports (`sub1 u1(.out(x)); sub2 u2(.out(x));`) never touch
+    `Symbol.is_written` at all -- port-connection expressions are never walked by
+    `IdentifierNameHandler` (see `instance_output_driver_conflicts`'s docstring),
+    so neither connection leaves any trace on `x`'s `Symbol`. This groups
+    instantiations by parent module instead of relying on `Symbol` write state.
+
+    Deliberately scoped to conflicts between *distinct* instances: one instance
+    binding two of its own output ports to the same net (`u1(.out1(x), .out2(x))`)
+    is a different, narrower bug shape and is left for a future rule rather than
+    silently folded in here."""
+    conflicts: list[tuple[dict[str, object], str, str, dict[str, object], str]] = []
+    by_parent_module: dict[object, list[dict[str, object]]] = defaultdict(list)
+    for inst in symbol_table.instantiations:
+        by_parent_module[inst.get("parent_module")].append(inst)
+
+    for parent_module, instantiations in by_parent_module.items():
+        if parent_module is None:
+            continue
+        drivers: dict[str, list[tuple[dict[str, object], str]]] = defaultdict(list)
+        for inst in instantiations:
+            for port, conn in bound_port_pairs(symbol_table, inst):
+                if port.port_direction not in ("output", "inout") or conn is None or conn.get("kind") == "empty":
+                    continue
+                expr_name = conn.get("expr_name")
+                if not isinstance(expr_name, str):
+                    continue
+                drivers[expr_name].append((inst, port.name))
+
+        for signal_name, entries in drivers.items():
+            for index, (inst, port_name) in enumerate(entries):
+                prior = next(
+                    (
+                        (prior_inst, prior_port)
+                        for prior_inst, prior_port in entries[:index]
+                        if prior_inst is not inst
+                    ),
+                    None,
+                )
+                if prior is not None:
+                    conflicts.append((inst, port_name, signal_name, prior[0], prior[1]))
+
     return conflicts

@@ -143,3 +143,4 @@ from .module.no_duplicate_named_parameter_override import NoDuplicateNamedParame
 from .module.no_mixed_parameter_override_style import NoMixedParameterOverrideStyleRule
 from .module.extra_ordered_port_connection import ExtraOrderedPortConnectionRule
 from .module.instance_output_driver_conflict import InstanceOutputDriverConflictRule
+from .module.multiple_instance_driver_conflict import MultipleInstanceDriverConflictRule
