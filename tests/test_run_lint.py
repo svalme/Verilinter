@@ -111,6 +111,8 @@ IF_WITHOUT_BEGIN_END_DATA = Path(__file__).parent / "data" / "if_without_begin_e
 MISSING_TIMESCALE_DIRECTIVE_DATA = Path(__file__).parent / "data" / "missing_timescale_directive.v"
 HAS_TIMESCALE_DIRECTIVE_DATA = Path(__file__).parent / "data" / "has_timescale_directive.v"
 ONE_MODULE_PER_FILE_DATA = Path(__file__).parent / "data" / "one_module_per_file.v"
+MODULE_FILENAME_MISMATCH_DATA = Path(__file__).parent / "data" / "module_filename_mismatch.v"
+MODULE_FILENAME_MATCH_DATA = Path(__file__).parent / "data" / "module_filename_match.v"
 
 
 class TestRunJobsValidation:
@@ -1073,6 +1075,16 @@ class TestRunJobsValidation:
         diagnostics = run([DATA], jobs=1)
 
         assert not any(d["code"] == "ONE_MODULE_PER_FILE" for d in diagnostics)
+
+    def test_run_reports_module_filename_mismatch_rule(self) -> None:
+        diagnostics = run([MODULE_FILENAME_MISMATCH_DATA], jobs=1)
+
+        assert any(d["code"] == "MODULE_FILENAME_MISMATCH" for d in diagnostics)
+
+    def test_run_does_not_report_module_filename_mismatch_when_names_match(self) -> None:
+        diagnostics = run([MODULE_FILENAME_MATCH_DATA], jobs=1)
+
+        assert not any(d["code"] == "MODULE_FILENAME_MISMATCH" for d in diagnostics)
 
 
 class TestMain:

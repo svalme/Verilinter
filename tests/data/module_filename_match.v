@@ -1,0 +1,2 @@
+module module_filename_match;
+endmodule

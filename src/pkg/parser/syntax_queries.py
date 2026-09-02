@@ -1,4 +1,5 @@
 import re
+from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 import pyslang as sl
@@ -135,6 +136,7 @@ from .syntax_kinds import (
     INVOCATION_EXPRESSION_KIND,
     LET_DECLARATION_KIND,
     LOOP_GENERATE_KIND,
+    COMPILATION_UNIT_KIND,
     MODPORT_DECLARATION_KIND,
     MODULE_DECLARATION_KIND,
     NAMED_TYPE_KIND,
@@ -890,6 +892,39 @@ def module_declaration_name(raw: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def module_declaration_names_in_file(tree: SyntaxTree) -> list[str]:
+    root = tree.root
+    names: list[str] = []
+    if getattr(root, "kind", None) == COMPILATION_UNIT_KIND:
+        for member in getattr(root, "members", None) or []:
+            if getattr(member, "kind", None) != MODULE_DECLARATION_KIND:
+                continue
+            name = module_declaration_name(member)
+            if name:
+                names.append(name)
+        return names
+    if is_module_declaration_node(root):
+        name = module_declaration_name(root)
+        if name:
+            names.append(name)
+    return names
+
+
+def module_declaration_file_stem(current_file: str | None) -> str | None:
+    if not current_file:
+        return None
+    return PurePath(current_file).stem
+
+
+def is_module_filename_mismatch(raw: object, tree: SyntaxTree, current_file: str | None) -> bool:
+    if not is_first_module_declaration_in_file(raw, tree):
+        return False
+    stem = module_declaration_file_stem(current_file)
+    if not stem:
+        return False
+    return stem not in module_declaration_names_in_file(tree)
+
+
 def primitive_declaration_name(raw: object) -> str | None:
     name = getattr(raw, "name", None)
     value = getattr(name, "value", None)
@@ -1127,6 +1162,9 @@ __all__ = [
     "multiple_nonblocking_write_trigger_nodes",
     "missing_sensitivity_trigger_nodes",
     "module_declaration_name",
+    "module_declaration_names_in_file",
+    "module_declaration_file_stem",
+    "is_module_filename_mismatch",
     "named_parameter_override_name",
     "parameter_override_list",
     "primitive_declaration_name",

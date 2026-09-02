@@ -97,6 +97,7 @@ from .syntax.no_if_without_begin_end import NoIfWithoutBeginEndRule, NoElseWitho
 from .syntax.missing_timescale_directive import MissingTimescaleDirectiveRule
 from .syntax.missing_generate_block_label import MissingGenerateBlockLabelRule
 from .syntax.one_module_per_file import OneModulePerFileRule
+from .syntax.module_filename_mismatch import ModuleFilenameMismatchRule
 from .syntax.no_assignment_width_mismatch import (
     NoAssignmentWidthMismatchRule,
     NoAssignmentSignednessMismatchRule,

@@ -95,4 +95,5 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "MISSING_TIMESCALE_DIRECTIVE",
         "MISSING_GENERATE_BLOCK_LABEL",
         "ONE_MODULE_PER_FILE",
+        "MODULE_FILENAME_MISMATCH",
     }.issubset(codes)

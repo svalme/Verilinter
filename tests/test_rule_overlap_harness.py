@@ -23,7 +23,7 @@ def test_default_nettype_none_routes_unresolved_names_to_undeclared_not_implicit
         }
     )
 
-    result.expect_codes({"UNDECLARED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE"})
+    result.expect_codes({"UNDECLARED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE", "MODULE_FILENAME_MISMATCH"})
     result.expect_code_count("UNDECLARED_VARIABLE", 2)
     result.expect_no_code("NO_IMPLICIT_NET")
 
@@ -40,7 +40,7 @@ def test_completely_unused_output_port_stays_with_unused_variable_not_undriven_o
         }
     )
 
-    result.expect_codes({"UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE"})
+    result.expect_codes({"UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE", "MODULE_FILENAME_MISMATCH"})
     result.expect_code_once("UNUSED_VARIABLE")
     result.expect_no_code("NO_UNDRIVEN_OUTPUT_PORT")
 
@@ -83,7 +83,9 @@ def test_written_but_unread_input_port_uses_both_input_write_rules_not_unused_va
         }
     )
 
-    result.expect_codes({"NO_WRITE_ONLY_INPUT_PORT", "NO_INPUT_PORT_WRITE", "MISSING_TIMESCALE_DIRECTIVE"})
+    result.expect_codes(
+        {"NO_WRITE_ONLY_INPUT_PORT", "NO_INPUT_PORT_WRITE", "MISSING_TIMESCALE_DIRECTIVE", "MODULE_FILENAME_MISMATCH"}
+    )
     result.expect_code_once("NO_WRITE_ONLY_INPUT_PORT")
     result.expect_code_once("NO_INPUT_PORT_WRITE")
     result.expect_no_code("UNUSED_VARIABLE")
@@ -151,7 +153,14 @@ def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_ru
     )
 
     result.expect_codes(
-        {"DEFAULT_CASE", "NO_CASE_GENERATE", "UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE", "MISSING_GENERATE_BLOCK_LABEL"}
+        {
+            "DEFAULT_CASE",
+            "NO_CASE_GENERATE",
+            "UNUSED_VARIABLE",
+            "MISSING_TIMESCALE_DIRECTIVE",
+            "MISSING_GENERATE_BLOCK_LABEL",
+            "MODULE_FILENAME_MISMATCH",
+        }
     )
     result.expect_code_once("DEFAULT_CASE")
     result.expect_code_once("NO_CASE_GENERATE")

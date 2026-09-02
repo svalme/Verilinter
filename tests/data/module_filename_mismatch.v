@@ -1,0 +1,2 @@
+module a_totally_different_name;
+endmodule
