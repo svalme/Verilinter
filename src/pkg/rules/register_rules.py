@@ -96,6 +96,7 @@ from .syntax.no_unsized_literal import NoUnsizedLiteralRule
 from .syntax.no_if_without_begin_end import NoIfWithoutBeginEndRule, NoElseWithoutBeginEndRule
 from .syntax.missing_timescale_directive import MissingTimescaleDirectiveRule
 from .syntax.missing_generate_block_label import MissingGenerateBlockLabelRule
+from .syntax.one_module_per_file import OneModulePerFileRule
 from .syntax.no_assignment_width_mismatch import (
     NoAssignmentWidthMismatchRule,
     NoAssignmentSignednessMismatchRule,

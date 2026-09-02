@@ -110,6 +110,7 @@ UNSIZED_LITERAL_DATA = Path(__file__).parent / "data" / "unsized_literal.v"
 IF_WITHOUT_BEGIN_END_DATA = Path(__file__).parent / "data" / "if_without_begin_end.v"
 MISSING_TIMESCALE_DIRECTIVE_DATA = Path(__file__).parent / "data" / "missing_timescale_directive.v"
 HAS_TIMESCALE_DIRECTIVE_DATA = Path(__file__).parent / "data" / "has_timescale_directive.v"
+ONE_MODULE_PER_FILE_DATA = Path(__file__).parent / "data" / "one_module_per_file.v"
 
 
 class TestRunJobsValidation:
@@ -1062,6 +1063,16 @@ class TestRunJobsValidation:
         diagnostics = run([HAS_TIMESCALE_DIRECTIVE_DATA], jobs=1)
 
         assert not any(d["code"] == "MISSING_TIMESCALE_DIRECTIVE" for d in diagnostics)
+
+    def test_run_reports_one_module_per_file_rule(self) -> None:
+        diagnostics = run([ONE_MODULE_PER_FILE_DATA], jobs=1)
+
+        assert sum(1 for d in diagnostics if d["code"] == "ONE_MODULE_PER_FILE") == 1
+
+    def test_run_does_not_report_one_module_per_file_for_single_module_file(self) -> None:
+        diagnostics = run([DATA], jobs=1)
+
+        assert not any(d["code"] == "ONE_MODULE_PER_FILE" for d in diagnostics)
 
 
 class TestMain:

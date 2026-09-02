@@ -208,6 +208,27 @@ def is_first_module_declaration_in_file(raw: object, tree: SyntaxTree) -> bool:
     return root is raw
 
 
+def is_extra_module_declaration_in_file(raw: object, tree: SyntaxTree) -> bool:
+    if not is_module_declaration_node(raw):
+        return False
+    root = tree.root
+    if getattr(root, "kind", None) != COMPILATION_UNIT_KIND:
+        return False
+    members = getattr(root, "members", None)
+    if members is None:
+        return False
+    seen_first = False
+    for member in members:
+        if getattr(member, "kind", None) != MODULE_DECLARATION_KIND:
+            continue
+        if not seen_first:
+            seen_first = True
+            continue
+        if member is raw:
+            return True
+    return False
+
+
 TIMESCALE_DIRECTIVE_RE = re.compile(r"`timescale\b")
 
 

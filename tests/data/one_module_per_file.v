@@ -1,0 +1,5 @@
+module one_module_per_file_first;
+endmodule
+
+module one_module_per_file_second;
+endmodule
