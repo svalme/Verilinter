@@ -12,7 +12,7 @@ from typing import Any, Callable, Iterator
 from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 ANALYZER_CACHE_VERSION = "2026-08-28"
 
 
@@ -95,7 +95,7 @@ class AnalysisStore:
                     file_hash TEXT NOT NULL,
                     cache_hit INTEGER NOT NULL,
                     PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id)
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS analysis_run_diagnostics (
@@ -109,7 +109,7 @@ class AnalysisStore:
                     col INTEGER NOT NULL,
                     message TEXT NOT NULL,
                     PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id)
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS analysis_run_modules (
@@ -120,7 +120,7 @@ class AnalysisStore:
                     line INTEGER NOT NULL,
                     col INTEGER NOT NULL,
                     PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id)
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS analysis_run_instantiations (
@@ -134,7 +134,7 @@ class AnalysisStore:
                     col INTEGER NOT NULL,
                     connection_style TEXT,
                     PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id)
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS analysis_run_connections (
@@ -151,7 +151,7 @@ class AnalysisStore:
                     line INTEGER NOT NULL,
                     col INTEGER NOT NULL,
                     PRIMARY KEY (run_id, instantiation_ordinal, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id)
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
                 );
                 """
             )
@@ -186,6 +186,7 @@ class AnalysisStore:
 
         migrations: dict[str, Callable[[sqlite3.Connection], str]] = {
             "0": self._migrate_schema_0_to_1,
+            "1": self._migrate_schema_1_to_2,
         }
 
         version = existing_version
@@ -208,6 +209,98 @@ class AnalysisStore:
             """
         )
         return "1"
+
+    def _migrate_schema_1_to_2(self, conn: sqlite3.Connection) -> str:
+        """Add ON DELETE CASCADE to the analysis_run_* child tables so
+        prune_runs no longer has to delete children in a hand-maintained order."""
+        rebuilds = {
+            "analysis_run_files": """
+                CREATE TABLE analysis_run_files_v2 (
+                    run_id INTEGER NOT NULL,
+                    ordinal INTEGER NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_hash TEXT NOT NULL,
+                    cache_hit INTEGER NOT NULL,
+                    PRIMARY KEY (run_id, ordinal),
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+                )
+            """,
+            "analysis_run_diagnostics": """
+                CREATE TABLE analysis_run_diagnostics_v2 (
+                    run_id INTEGER NOT NULL,
+                    ordinal INTEGER NOT NULL,
+                    code TEXT NOT NULL,
+                    category TEXT,
+                    severity TEXT,
+                    file TEXT,
+                    line INTEGER NOT NULL,
+                    col INTEGER NOT NULL,
+                    message TEXT NOT NULL,
+                    PRIMARY KEY (run_id, ordinal),
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+                )
+            """,
+            "analysis_run_modules": """
+                CREATE TABLE analysis_run_modules_v2 (
+                    run_id INTEGER NOT NULL,
+                    ordinal INTEGER NOT NULL,
+                    module_name TEXT NOT NULL,
+                    file TEXT,
+                    line INTEGER NOT NULL,
+                    col INTEGER NOT NULL,
+                    PRIMARY KEY (run_id, ordinal),
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+                )
+            """,
+            "analysis_run_instantiations": """
+                CREATE TABLE analysis_run_instantiations_v2 (
+                    run_id INTEGER NOT NULL,
+                    ordinal INTEGER NOT NULL,
+                    parent_module TEXT,
+                    child_module TEXT,
+                    instance_name TEXT,
+                    file TEXT,
+                    line INTEGER NOT NULL,
+                    col INTEGER NOT NULL,
+                    connection_style TEXT,
+                    PRIMARY KEY (run_id, ordinal),
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+                )
+            """,
+            "analysis_run_connections": """
+                CREATE TABLE analysis_run_connections_v2 (
+                    run_id INTEGER NOT NULL,
+                    instantiation_ordinal INTEGER NOT NULL,
+                    ordinal INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    port_name TEXT,
+                    expr_text TEXT,
+                    expr_name TEXT,
+                    expr_width INTEGER,
+                    expr_signed INTEGER,
+                    file TEXT,
+                    line INTEGER NOT NULL,
+                    col INTEGER NOT NULL,
+                    PRIMARY KEY (run_id, instantiation_ordinal, ordinal),
+                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+                )
+            """,
+        }
+
+        for table, create_sql in rebuilds.items():
+            conn.execute(create_sql)
+            conn.execute(f"INSERT INTO {table}_v2 SELECT * FROM {table}")
+            conn.execute(f"DROP TABLE {table}")
+            conn.execute(f"ALTER TABLE {table}_v2 RENAME TO {table}")
+
+        conn.execute(
+            """
+            UPDATE schema_meta
+            SET value = '2'
+            WHERE key = 'schema_version'
+            """
+        )
+        return "2"
 
     def load_cached_worker_result(
         self,
@@ -408,11 +501,8 @@ class AnalysisStore:
             ).fetchall()
             run_ids = [int(row["id"]) for row in rows]
             for run_id in run_ids:
-                conn.execute("DELETE FROM analysis_run_connections WHERE run_id = ?", (run_id,))
-                conn.execute("DELETE FROM analysis_run_instantiations WHERE run_id = ?", (run_id,))
-                conn.execute("DELETE FROM analysis_run_modules WHERE run_id = ?", (run_id,))
-                conn.execute("DELETE FROM analysis_run_diagnostics WHERE run_id = ?", (run_id,))
-                conn.execute("DELETE FROM analysis_run_files WHERE run_id = ?", (run_id,))
+                # ON DELETE CASCADE on the analysis_run_* child tables removes
+                # their rows for this run automatically.
                 conn.execute("DELETE FROM analysis_runs WHERE id = ?", (run_id,))
             return len(run_ids)
 

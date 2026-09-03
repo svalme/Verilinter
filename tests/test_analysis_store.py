@@ -214,6 +214,57 @@ def test_analyze_migrates_supported_older_schema_version() -> None:
     assert version == analysis_store_module.SCHEMA_VERSION
 
 
+def test_migrate_schema_1_to_2_preserves_rows_and_adds_cascade() -> None:
+    tmp = _scratch_dir("schema_migrate_cascade")
+    store_path = tmp / "verilinter.sqlite"
+
+    analyze([PORT_DATA], store_path=store_path, fmt="text", report_kind="connections")
+
+    conn = sqlite3.connect(store_path)
+    try:
+        conn.execute(
+            "UPDATE schema_meta SET value = ? WHERE key = 'schema_version'",
+            ("1",),
+        )
+        conn.commit()
+        before = {
+            table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in (
+                "analysis_run_files",
+                "analysis_run_diagnostics",
+                "analysis_run_modules",
+                "analysis_run_instantiations",
+                "analysis_run_connections",
+            )
+        }
+    finally:
+        conn.close()
+
+    # Reopening the store triggers the 1 -> 2 migration.
+    store = analysis_store_module.AnalysisStore(store_path)
+
+    conn = sqlite3.connect(store_path)
+    conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        version = conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()[0]
+        assert version == "2"
+
+        for table, expected_count in before.items():
+            actual = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            assert actual == expected_count
+
+        run_id = conn.execute("SELECT id FROM analysis_runs").fetchone()[0]
+        conn.execute("DELETE FROM analysis_runs WHERE id = ?", (run_id,))
+        conn.commit()
+
+        for table in before:
+            remaining = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            assert remaining == 0
+    finally:
+        conn.close()
+    del store
+
+
 def test_prune_cache_removes_entries_older_than_cutoff() -> None:
     tmp = _scratch_dir("prune_cache")
     store_path = tmp / "verilinter.sqlite"
