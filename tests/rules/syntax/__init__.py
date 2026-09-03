@@ -1,1 +1,0 @@
-"""Syntax rules tests package."""

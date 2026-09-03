@@ -23,15 +23,42 @@ Every new rule should, unless there is a documented exception:
 - be listed in `RULES.md` in the same change
 - include focused tests
 
-For syntax rules, "focused tests" usually means:
+### Rule folder organization
 
-- unit coverage in `tests/rules/syntax/...`
+Rule files live under `src/pkg/rules/<category>/`, one folder per general RTL-lint
+category (`combinational_logic`, `sequential_logic`, `clock_and_reset`, `latches`,
+`conditional_and_case_statements`, `connectivity_and_hierarchy`,
+`arrays_and_indexing`, `parameters_and_generate_logic`, `simulation_vs_synthesis`,
+`unused_and_dead_code`, `naming_and_style`, `maintainability_and_complexity`,
+`assertions_and_verification`, `declarations_and_types`, `width_and_signedness`,
+`syntax_and_structure` — plus `fsms`, `operators_and_expressions`,
+`race_conditions`, and `security_and_safety`, currently unused since no rule fits
+them yet). Tests mirror this under
+`tests/rules/<category>/`.
+
+This is a docs/discoverability grouping, not the implementation-shape split
+described below (`Rule` vs `BaseSymbolRule`) and not the policy-metadata
+`category` attribute on each rule class (see "Policy Category vs Implementation
+Shape") — a rule's folder, base class, and `category` attribute are three
+independent axes that happen to often correlate. The registries
+(`rule_runner`/`symbol_rule_runner`/`module_rule_runner`, all at
+`src/pkg/rules/`) don't care which folder a rule lives in; placement is purely
+for humans browsing the tree. Pick the category folder whose name most closely matches what the rule actually catches.
+
+Tests live under `tests/rules/<category>/`, mirroring the rule's own location
+under `src/pkg/rules/<category>/`.
+
+For syntax rules (subclassing `Rule`, registered with `rule_runner`), "focused
+tests" usually means:
+
+- unit coverage in `tests/rules/<category>/...`
 - at least one lint-path test in `tests/test_run_lint.py`
 - an overlap/regression test when the rule could plausibly collide with another rule
 
-For symbol or module rules, focused tests usually means:
+For symbol or module rules (subclassing `BaseSymbolRule`, registered with
+`symbol_rule_runner` or `module_rule_runner`), focused tests usually means:
 
-- a dedicated rule test under `tests/rules/symbol/...` or `tests/rules/module/...`
+- a dedicated rule test under `tests/rules/<category>/...`
 - a lint-path or multi-file test when file attribution or cross-file behavior matters
 
 ### Layering standard
@@ -196,8 +223,8 @@ rule runs later over those facts.
 | `MISSING_TIMESCALE_DIRECTIVE` | Syntax with helper logic (file-scoped, text-scan) | No | No | `is_first_module_declaration_in_file`/`has_timescale_directive_before` in `src/pkg/parser/syntax_queries.py`, same text-scan precedent as `has_full_parallel_case_pragma` | The only rule anchored on absence rather than presence. `SyntaxTree.root` is the bare `ModuleDeclarationSyntax` itself (no wrapper) for a single-top-level-construct file, and only becomes `CompilationUnitSyntax` with a `.members` list once there are two or more; handling only one shape would silently miss every single-module file. |
 | `NO_MIXED_RESET_STYLE` | Shared-analysis / semantic | Yes | Yes | `SymbolTable.reset_style_events`, `classify_reset_style` in `src/pkg/parser/syntax_queries.py` | `ProceduralBlockHandler` needs `enclosing_module_scope`, a shared function on `src/pkg/semantic/scope.py` (the same "second consumer of an existing shared fact" shape documented for `NO_WRITE_ONLY_INPUT_PORT`). `is_posedge_event`/`is_negedge_event` strip token text before comparing, because the second signal in an `or`-joined sensitivity list carries leading trivia and would otherwise be misclassified, which this rule's exact per-signal edge count depends on. |
 | `COMBINATIONAL_LOOP` | Shared-analysis / semantic | Yes | Yes | `SymbolTable.combinational_driver_ids`, DFS cycle detection mirroring `CIRCULAR_MODULE_INSTANTIATION` one level down (signals instead of modules) | `IdentifierNameHandler` computes `driver_id` for every access, reads included, not only writes. `NO_MULTIPLE_DRIVERS`, the only other `driver_id` consumer, filters to write events before reading it, and a dedicated regression test (`tests/rules/combinational_logic/test_no_multiple_drivers.py`) covers this because `IdentifierNameHandler` is the most heavily depended-on handler in the codebase. |
-| `INSTANCE_OUTPUT_DRIVER_CONFLICT` | Shared-analysis / semantic, cross-file | No new handler | No new model (reuses `Symbol.is_written`) | `instance_output_driver_conflicts` in `src/pkg/rules/module/connection_analysis.py`, mirroring `unread_instance_output_details` | Port-connection expressions are never walked: `HierarchyInstantiationHandler` does not override `children()`, so a connected signal's `Symbol` gets no `UseEvent` from the connection itself. The rule therefore reads connections through the small `connection_analysis.py` helper rather than through `IdentifierNameHandler`/`identifier_access_modes`. |
-| `MULTIPLE_INSTANCE_DRIVER_CONFLICT` | Shared-analysis / semantic, cross-file | No new handler | No new model | `multiple_instance_driver_conflicts` in `src/pkg/rules/module/connection_analysis.py`, reusing `bound_port_pairs` (same building block as its sibling) | Because port-connection expressions are never walked (see `INSTANCE_OUTPUT_DRIVER_CONFLICT`), two instances driving one net through their own output ports leave no `UseEvent` and no `Symbol.is_written` signal on either side, so there is no write-state fact to reuse. The rule groups `symbol_table.instantiations` by `parent_module`, then by connected signal name, using dict identity (`is`) to tell distinct instantiations apart. One instance binding two of its own output ports to the same net (`u1(.out1(x), .out2(x))`) is deliberately not flagged: that is a different bug shape than two instances colliding. |
+| `INSTANCE_OUTPUT_DRIVER_CONFLICT` | Shared-analysis / semantic, cross-file | No new handler | No new model (reuses `Symbol.is_written`) | `instance_output_driver_conflicts` in `src/pkg/rules/connection_analysis.py`, mirroring `unread_instance_output_details` | Port-connection expressions are never walked: `HierarchyInstantiationHandler` does not override `children()`, so a connected signal's `Symbol` gets no `UseEvent` from the connection itself. The rule therefore reads connections through the small `connection_analysis.py` helper rather than through `IdentifierNameHandler`/`identifier_access_modes`. |
+| `MULTIPLE_INSTANCE_DRIVER_CONFLICT` | Shared-analysis / semantic, cross-file | No new handler | No new model | `multiple_instance_driver_conflicts` in `src/pkg/rules/connection_analysis.py`, reusing `bound_port_pairs` (same building block as its sibling) | Because port-connection expressions are never walked (see `INSTANCE_OUTPUT_DRIVER_CONFLICT`), two instances driving one net through their own output ports leave no `UseEvent` and no `Symbol.is_written` signal on either side, so there is no write-state fact to reuse. The rule groups `symbol_table.instantiations` by `parent_module`, then by connected signal name, using dict identity (`is`) to tell distinct instantiations apart. One instance binding two of its own output ports to the same net (`u1(.out1(x), .out2(x))`) is deliberately not flagged: that is a different bug shape than two instances colliding. |
 | `MISSING_GENERATE_BLOCK_LABEL` | Simple syntax | No | No | `is_unlabeled_generate_block` in `src/pkg/parser/syntax_queries.py`, matching `SyntaxKind.GenerateBlock` plus `beginName is None` | No context-gating is needed: `GenerateBlockSyntax` is a distinct node kind pyslang uses only for a generate branch's `begin...end` body, so a direct kind check is unambiguous with no ancestor-stack walk (same shape as `NO_UNSIZED_LITERAL`'s one-level-up check). `default_profiles` excludes `rtl_strict`/`sv_rtl_subset`, since `NO_IF_GENERATE`/`NO_GENERATE_FOR`/`NO_CASE_GENERATE` already ban generate constructs entirely there; only `legacy_verilog` permits generate blocks, so only there is a labeling-style rule meaningful. The `beginName` field holds the `NamedBlockClauseSyntax`; `label` is always `None` at the syntax layer and is not the field to check. |
 | `ONE_MODULE_PER_FILE` | Simple syntax (file-scoped) | No | No | `is_extra_module_declaration_in_file` in `src/pkg/parser/_syntax_queries/shapes.py`, reusing `is_module_declaration_node` and the same `CompilationUnitSyntax`-or-bare-root shape `is_first_module_declaration_in_file`/`MISSING_TIMESCALE_DIRECTIVE` already established | Built as the mirror image of `is_first_module_declaration_in_file`: walks `root.members` once, skips the first `ModuleDeclaration`-kind member, then flags every later one by identity (`member is raw`). A bare (unwrapped) `SyntaxTree.root` means the file has exactly one top-level construct, so it can never contain a second module and short-circuits to `False` (the same pyslang quirk documented on the `MISSING_TIMESCALE_DIRECTIVE` row). Counts `ModuleDeclaration`-kind members only, so a `package`/`interface`/etc. sharing a file with exactly one module does not trigger a false positive. |
 | `MODULE_FILENAME_MISMATCH` | Simple syntax (file-scoped), reads existing semantic state | No new handler | No new model | `is_module_filename_mismatch` in `src/pkg/parser/syntax_queries.py` (composed from `module_declaration_names_in_file` and `module_declaration_file_stem`), fed by `enclosing_module_scope(ctx.scope()).file` in `src/pkg/semantic/scope.py` | Anchored on `is_first_module_declaration_in_file` (fires at most once per file, the same shape as `MISSING_TIMESCALE_DIRECTIVE`) and gathers every module name in the file via a second pass over `root.members` before deciding, since a multi-module file needs only one module to match the filename; this cannot be a single-node check like `ONE_MODULE_PER_FILE`. The file path comes from `enclosing_module_scope(ctx.scope()).file`, not from `tree.sourceManager.getFileName(...)`: pyslang reports the fixed placeholder `"source"` for every `SyntaxTree.fromText(...)` tree regardless of the logical filename the multi-file inline harness assigns via `symbol_table.set_current_file(file_name)`. `ModuleDeclarationHandler.update_context` calls `symbol_table.new_scope(...)`, which stamps `scope.file = symbol_table.current_file`, and the walker pushes that module scope onto `ctx` before `on_node`/`rule_runner.check` fires for the module-declaration vnode (`Walker._walk`: `update_context`, then `on_node`). So `ctx.scope()` inside `applies()` is the module's own scope and returns the correct file in both production and the test harness, with no handler changes. Inline-harness fixtures whose module name does not match their filename (e.g. `module top;` inside `"case_generate.sv"` in `tests/test_rule_overlap_harness.py`) also report this code and list it in their `expect_codes`. |

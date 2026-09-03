@@ -7,7 +7,7 @@ from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.syntax.default_case import DefaultCaseRule
+from src.pkg.rules.conditional_and_case_statements.default_case import DefaultCaseRule
 
 WITH_DEFAULT = """
 module m;

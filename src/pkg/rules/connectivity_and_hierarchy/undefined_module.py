@@ -1,0 +1,33 @@
+from typing import Any
+
+from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.symbol_table import SymbolTable
+from ..module_rule_runner import module_rule_runner
+
+@module_rule_runner.register
+class UndefinedModuleRule(BaseSymbolRule):
+    code = "UNDEFINED_MODULE"
+    message = "Instantiation of undefined module"
+    category = "module_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+
+    def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
+        diagnostics: list[dict[str, Any]] = []
+
+        for name, loc in symbol_table.module_references:
+            if symbol_table.lookup_module(name) is not None:
+                continue
+            if name in symbol_table.primitives:
+                continue
+
+            diagnostic = {
+                "code": self.code,
+                "line": loc.get("line", 0),
+                "col": loc.get("col", 0),
+                "message": f"Instantiation of undefined module '{name}'",
+            }
+            if "file" in loc:
+                diagnostic["file"] = loc["file"]
+            diagnostics.append(diagnostic)
+
+        return diagnostics

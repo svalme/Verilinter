@@ -1,1 +1,0 @@
-"""Symbol rules tests package."""

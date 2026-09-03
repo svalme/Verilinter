@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 from .diagnostics import Diagnostic, metadata_by_code
-from .rules.module.connection_analysis import (
+from .rules.connection_analysis import (
     duplicate_named_port_names,
     has_ordered_parameter_overrides,
     has_ordered_port_connections,

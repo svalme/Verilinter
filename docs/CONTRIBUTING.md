@@ -49,9 +49,9 @@ collections of the same shape should follow it, not invent a new one.** Five thi
 |---|---|---|
 | `Dispatch` (`walk/dispatch.py`) | `@dispatch.register(NodeType)` | `Dispatch.get(vnode)` |
 | `VNodeFactory` (`vnodes/vnode_factory.py`) | `@vnode_factory.register(...)` | `vnode_factory.create(...)` |
-| `RuleRunner` (`rules/syntax/rule_runner.py`) | `@rule_runner.register` | `rule_runner.check(vnode, ctx)` / `.run(walk_results)` |
-| `SymbolRuleRunner` (`rules/symbol/symbol_rule_runner.py`) | `@symbol_rule_runner.register` | `symbol_rule_runner.run(symbol_table)` |
-| `ModuleRuleRunner` (`rules/module/module_rule_runner.py`) | `@module_rule_runner.register` | `module_rule_runner.run(symbol_table)` |
+| `RuleRunner` (`rules/rule_runner.py`) | `@rule_runner.register` | `rule_runner.check(vnode, ctx)` / `.run(walk_results)` |
+| `SymbolRuleRunner` (`rules/symbol_rule_runner.py`) | `@symbol_rule_runner.register` | `symbol_rule_runner.run(symbol_table)` |
+| `ModuleRuleRunner` (`rules/module_rule_runner.py`) | `@module_rule_runner.register` | `module_rule_runner.run(symbol_table)` |
 
 The shape: a single module-level instance, a `register` method used as a decorator so registration is a *side
 effect of importing the module* (see `RULE_IMPLEMENTATION.md`'s Wiring Checklist for why every one of these
