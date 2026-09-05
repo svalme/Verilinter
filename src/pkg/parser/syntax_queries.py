@@ -114,6 +114,7 @@ from .syntax_kinds import (
     DPI_IMPORT_EXPORT_KINDS,
     ELSE_CLAUSE_KIND,
     ENDCASE_TOKEN_KIND,
+    EQUALITY_EXPRESSION_KIND,
     EVENT_TRIGGER_STATEMENT_KINDS,
     EVENT_TRIGGER_TOKEN_KINDS,
     EXPECT_RESTRICT_PROPERTY_KINDS,
@@ -128,6 +129,7 @@ from .syntax_kinds import (
     FUNCTION_PROTOTYPE_KIND,
     GATE_PRIMITIVE_TOKEN_KINDS,
     IMMEDIATE_ASSERTION_KINDS,
+    INEQUALITY_EXPRESSION_KIND,
     INITIAL_BLOCK_KIND,
     INTEGER_LITERAL_EXPRESSION_KIND,
     INTEGER_VECTOR_EXPRESSION_KIND,
@@ -166,6 +168,7 @@ from .syntax_kinds import (
     TRANIF_RTRANIF_TOKEN_KINDS,
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
+    UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
     UNIQUE0_TOKEN_KIND,
     UWIRE_TOKEN_KIND,
     VARIABLE_DIMENSION_KIND,
@@ -291,6 +294,82 @@ def sized_literal_overflow(raw: object) -> tuple[int, int] | None:
     if minimum_width > declared_width:
         return declared_width, minimum_width
     return None
+
+
+def _xz_literal_bit_text(raw: object) -> str | None:
+    """Return the lowercase literal-value text for `raw` if it is an
+    unbased-unsized literal (`'x`) or a sized vector literal (`4'bx01z`),
+    else `None`. Shared text-extraction step for `is_explicit_xz_literal` and
+    `has_casex_casez_wildcard_case_item`.
+    """
+    kind = getattr(raw, "kind", None)
+    if kind == UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND:
+        literal_token = getattr(raw, "literal", None)
+        if literal_token is None:
+            return None
+        return str(literal_token).strip().lstrip("'").lower()
+    if kind == INTEGER_VECTOR_EXPRESSION_KIND:
+        value_token = getattr(raw, "value", None)
+        if value_token is None:
+            return None
+        return str(value_token).strip().replace("_", "").lower()
+    return None
+
+
+def is_explicit_xz_literal(raw: object) -> bool:
+    """True if `raw` is an unbased-unsized `'x`/`'z` literal, or a sized
+    literal (`4'bx01z`) whose value contains an explicit x/z/? bit -- a value
+    that can never occur on real synthesized hardware and defeats
+    reset/comparison determinism if written directly into RTL as a value.
+    """
+    text = _xz_literal_bit_text(raw)
+    if text is None:
+        return False
+    if getattr(raw, "kind", None) == UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND:
+        return text in ("x", "z")
+    return any(ch in "xz?" for ch in text)
+
+
+def is_xz_equality_comparison(raw: object) -> bool:
+    """True if `raw` is a plain `==`/`!=` (EqualityExpression/InequalityExpression
+    -- distinct SyntaxKinds from case-equality `===`/`!==` and wildcard-equality
+    `==?`/`!=?`) comparing against an explicit X/Z literal on either side.
+    """
+    if getattr(raw, "kind", None) not in (EQUALITY_EXPRESSION_KIND, INEQUALITY_EXPRESSION_KIND):
+        return False
+    left = getattr(raw, "left", None)
+    right = getattr(raw, "right", None)
+    return is_explicit_xz_literal(left) or is_explicit_xz_literal(right)
+
+
+def _is_all_wildcard_text(raw: object, wildcard_chars: str) -> bool:
+    text = _xz_literal_bit_text(raw)
+    return bool(text) and all(ch in wildcard_chars for ch in text)
+
+
+def has_casex_casez_wildcard_case_item(raw: object) -> bool:
+    """True if `raw` is a `casex`/`casez` CaseStatementSyntax containing a case
+    item whose every expression is composed entirely of that case style's
+    wildcard characters -- `x`/`z`/`?` for `casex`, but only `z`/`?` for
+    `casez` (`x` is not a wildcard there) -- meaning the item silently matches
+    every possible value.
+    """
+    if not is_case_statement(raw):
+        return False
+
+    style_kind = getattr(getattr(raw, "caseKeyword", None), "kind", None)
+    if style_kind == sl.TokenKind.CaseXKeyword:
+        wildcard_chars = "xz?"
+    elif style_kind == sl.TokenKind.CaseZKeyword:
+        wildcard_chars = "z?"
+    else:
+        return False
+
+    for item in case_statement_items(raw):
+        expressions = case_item_expressions(item)
+        if expressions and all(_is_all_wildcard_text(expression, wildcard_chars) for expression in expressions):
+            return True
+    return False
 
 
 def is_initial_block(raw: object) -> bool:
@@ -1083,6 +1162,7 @@ __all__ = [
     "is_endcase_token",
     "is_event_trigger_token",
     "is_expect_restrict_property_node",
+    "is_explicit_xz_literal",
     "is_extra_module_declaration_in_file",
     "is_file_io_system_task",
     "is_first_module_declaration_in_file",
@@ -1093,6 +1173,7 @@ __all__ = [
     "is_force_release_token",
     "is_function_declaration_node",
     "is_gate_primitive_token",
+    "has_casex_casez_wildcard_case_item",
     "is_if_generate_node",
     "is_immediate_assertion_node",
     "is_initial_block",
@@ -1155,6 +1236,7 @@ __all__ = [
     "is_wait_token",
     "is_while_token",
     "is_wand_wor_token",
+    "is_xz_equality_comparison",
     "iter_assignment_nodes",
     "iter_identifier_reads",
     "iter_statement_nodes",

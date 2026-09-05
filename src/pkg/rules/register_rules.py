@@ -103,6 +103,9 @@ from .width_and_signedness.no_assignment_width_mismatch import (
     NoAssignmentSignednessMismatchRule,
 )
 from .width_and_signedness.literal_width_overflow import LiteralWidthOverflowRule
+from .width_and_signedness.explicit_xz_literal import ExplicitXZLiteralRule
+from .conditional_and_case_statements.casex_casez_wildcard_case_item import CasexCasezWildcardCaseItemRule
+from .operators_and_expressions.xz_equality_comparison import XZEqualityComparisonRule
 
 # symbol rules (single-file, post-walk)
 from .unused_and_dead_code.unused_variable_rule import UnusedVariableRule
