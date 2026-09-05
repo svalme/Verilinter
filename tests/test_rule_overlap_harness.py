@@ -1,3 +1,17 @@
+"""Regression tests for rules that can plausibly collide on the same construct.
+
+`symbol_rule_runner`/`module_rule_runner`/`rule_runner` do no dedup or precedence
+resolution -- they just concatenate every selected rule's diagnostics. Any "more
+specific rule wins" or "these two legitimately co-fire" behavior lives entirely in
+each rule's own conditions, so this file is the only thing that actually exercises
+rules together and pins the expected outcome.
+
+When adding a rule, check whether an existing rule could match the same
+symbol/construct under some condition. If so, add a case here asserting which
+rule(s) fire and which are suppressed (see `RULE_IMPLEMENTATION.md`'s Testing
+standard section for the full guidance).
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -131,6 +145,26 @@ def test_written_but_unread_local_variable_uses_write_only_variable_not_unused_v
 
     result.expect_code_once("NO_WRITE_ONLY_VARIABLE")
     result.expect_no_code("UNUSED_VARIABLE")
+
+
+def test_async_reset_xz_value_also_flagged_as_explicit_xz_literal(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "top.sv": """
+            module top(input clk, input rst, output reg q);
+              always @(posedge clk or posedge rst) begin
+                if (rst) begin
+                  q <= 1'bx;
+                end
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_codes({"MISSING_TIMESCALE_DIRECTIVE", "EXPLICIT_XZ_LITERAL", "ASYNC_RESET_XZ_VALUE"})
 
 
 def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_rule(

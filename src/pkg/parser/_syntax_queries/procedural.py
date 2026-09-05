@@ -156,6 +156,53 @@ def classify_reset_style(raw: object) -> str | None:
     return None
 
 
+def _edge_qualified_signal_names(node: object) -> set[str]:
+    from ..syntax_queries import is_negedge_event, is_posedge_event
+
+    names: set[str] = set()
+
+    def _walk(current: object) -> None:
+        if current is None:
+            return
+        if isinstance(current, ParenthesizedEventExpressionNode):
+            _walk(getattr(current, "expr", None))
+        elif isinstance(current, BinaryEventExpressionNode):
+            _walk(getattr(current, "left", None))
+            _walk(getattr(current, "right", None))
+        elif isinstance(current, SignalEventExpressionNode):
+            if is_posedge_event(current) or is_negedge_event(current):
+                expr = getattr(current, "expr", None)
+                if isinstance(expr, SyntaxNode):
+                    for name, _identifier in _iter_identifier_nodes(expr):
+                        names.add(name)
+
+    _walk(node)
+    return names
+
+
+def async_reset_signal_names(raw: object) -> set[str]:
+    """Return the names of every edge-qualified signal in `raw`'s (an
+    AlwaysBlock/AlwaysFFBlock) sensitivity list, when it classifies as an
+    async-reset block (2+ edge-qualified signals, see `classify_reset_style`)
+    -- else an empty set. A sync-reset block's reset signal isn't in the
+    sensitivity list at all and has no structural marker distinguishing it
+    from any other identifier, so it can't be identified this way -- see
+    `ASYNC_RESET_XZ_VALUE`'s deliberately async-only scope.
+    """
+    if classify_reset_style(raw) != "async":
+        return set()
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return set()
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return set()
+
+    return _edge_qualified_signal_names(getattr(event_control, "expr", None))
+
+
 def enclosing_combinational_style_always_block(ctx: "Context") -> "BaseVNode | None":
     for ancestor in reversed(ctx.stack):
         if is_combinational_style_always_block(ancestor.raw):

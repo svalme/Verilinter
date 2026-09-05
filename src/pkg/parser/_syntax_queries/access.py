@@ -116,6 +116,49 @@ def enclosing_case_statement(ctx: "Context") -> "BaseVNode | None":
     return None
 
 
+def _conditional_references_any_name(raw: object, names: set[str]) -> bool:
+    from .procedural import _iter_identifier_nodes
+
+    predicate = getattr(raw, "predicate", None)
+    conditions = getattr(predicate, "conditions", None) or []
+    for condition in conditions:
+        expr = getattr(condition, "expr", None)
+        if expr is None:
+            continue
+        for name, _identifier in _iter_identifier_nodes(expr):
+            if name in names:
+                return True
+    return False
+
+
+def is_within_async_reset_conditional(ctx: "Context") -> bool:
+    """True if the current traversal position is inside a conditional whose
+    predicate references one of the enclosing procedural block's async-reset
+    sensitivity-list signals -- e.g. inside the `if (rst)`/`else` of
+    `always @(posedge clk or posedge rst) if (rst) ...`. Used by
+    `ASYNC_RESET_XZ_VALUE`; deliberately does not distinguish the
+    reset-asserted branch from the other one (avoids guessing at polarity
+    conventions like `if(rst)` vs `if(!rst_n)` vs `if(rst_n==0)`), and
+    deliberately does not attempt a sync-reset block at all, since a
+    sync-reset signal has no structural marker to find it by.
+    """
+    from ..syntax_queries import async_reset_signal_names, is_conditional_statement
+
+    block = enclosing_procedural_block(ctx)
+    if block is None:
+        return False
+    reset_names = async_reset_signal_names(block.raw)
+    if not reset_names:
+        return False
+
+    for ancestor in reversed(ctx.stack):
+        if ancestor is block:
+            break
+        if is_conditional_statement(ancestor.raw) and _conditional_references_any_name(ancestor.raw, reset_names):
+            return True
+    return False
+
+
 def identifier_is_assignment_lhs(ctx: "Context", raw_identifier: SyntaxNode) -> bool:
     _read, write = identifier_access_modes(ctx, raw_identifier)
     return write

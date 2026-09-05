@@ -15,6 +15,7 @@ CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
 GENERATE_BLOCK_KIND = sl.SyntaxKind.GenerateBlock
 CLOCKING_DECLARATION_KIND = _syntax_kind("ClockingDeclaration")
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
+CONDITIONAL_EXPRESSION_KIND = _syntax_kind("ConditionalExpression")
 ELSE_CLAUSE_KIND = _syntax_kind("ElseClause")
 MODULE_DECLARATION_KIND = _syntax_kind("ModuleDeclaration")
 COMPILATION_UNIT_KIND = _syntax_kind("CompilationUnit")
@@ -345,6 +346,7 @@ __all__ = [
     "CLOCKING_DECLARATION_KIND",
     "COMPILATION_UNIT_KIND",
     "CONCURRENT_ASSERTION_KINDS",
+    "CONDITIONAL_EXPRESSION_KIND",
     "CONDITIONAL_STATEMENT_KIND",
     "CONFIG_DECLARATION_KIND",
     "CONTINUOUS_ASSIGN_KIND",

@@ -16,7 +16,7 @@ class NoUndrivenSignalRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if sym.kind != "variable" or not sym.declarations or sym.is_implicit or sym.is_port:
+                if not sym.is_explicit_kind("variable") or sym.is_port:
                     continue
                 if not sym.is_read or sym.is_written:
                     continue

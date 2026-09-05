@@ -69,3 +69,14 @@ class Symbol:
     @property
     def is_declared(self) -> bool:
         return bool(self.declarations)
+
+    def is_explicit_kind(self, kind: str) -> bool:
+        """True when this is a genuine, explicitly-declared symbol of `kind`.
+
+        Filters out implicit nets and declaration-less placeholder symbols --
+        the entry guard most symbol rules need before applying their own
+        condition (e.g. `sym.is_explicit_kind("variable")` for
+        `NO_UNDRIVEN_OUTPUT_PORT`/`READ_BEFORE_WRITE`/etc.,
+        `sym.is_explicit_kind("parameter")` for `NO_UNUSED_PARAMETER`).
+        """
+        return self.kind == kind and self.is_declared and not self.is_implicit

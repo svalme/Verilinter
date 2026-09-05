@@ -9,6 +9,7 @@ class UnusedVariableRule(BaseSymbolRule):
     code = "UNUSED_VARIABLE"
     category = "semantic_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    overlaps_with = ("NO_UNDRIVEN_OUTPUT_PORT", "NO_WRITE_ONLY_VARIABLE", "NO_WRITE_ONLY_INPUT_PORT")
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []

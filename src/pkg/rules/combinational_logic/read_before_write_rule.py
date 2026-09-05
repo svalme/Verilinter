@@ -9,13 +9,14 @@ class ReadBeforeWriteRule(BaseSymbolRule):
     message = "Variable read before write"
     category = "semantic_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    overlaps_with = ("NO_UNDRIVEN_OUTPUT_PORT",)
 
     def run(self, symbol_table: SymbolTable) -> list[dict]:
         diagnostics = []
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if sym.kind != "variable" or not sym.declarations or sym.is_implicit:
+                if not sym.is_explicit_kind("variable"):
                     continue
                 # A read with no local write is the normal, intended case for input and
                 # inout/ref ports (the value comes from outside this scope) -- mirrors the

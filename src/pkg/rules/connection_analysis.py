@@ -359,3 +359,27 @@ def multiple_instance_driver_conflicts(
                     conflicts.append((inst, port_name, signal_name, prior[0], prior[1]))
 
     return conflicts
+
+
+def signal_names_connected_to_instances(symbol_table: SymbolTable, parent_module: object) -> set[str]:
+    """Return every simple-identifier signal name referenced in any port
+    connection of an instantiation whose parent module is `parent_module`.
+
+    Needed because a port-connection expression is never walked by
+    `IdentifierNameHandler` at all (see `instance_output_driver_conflicts`'s
+    docstring), so such a signal's own `Symbol` carries no trace of the
+    connection -- this is the only way to tell "this net is wired to an
+    instance" from existing data, used by `UNDRIVEN_TRISTATE_SIGNAL` to
+    exclude a signal that something outside this module could legitimately
+    drive or pull.
+    """
+    names: set[str] = set()
+    for inst in symbol_table.instantiations:
+        if inst.get("parent_module") != parent_module:
+            continue
+        for conn in inst.get("connections", []):
+            if isinstance(conn, dict):
+                expr_name = conn.get("expr_name")
+                if isinstance(expr_name, str):
+                    names.add(expr_name)
+    return names

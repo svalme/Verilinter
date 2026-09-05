@@ -11,6 +11,7 @@ from ..parser.syntax import (
     identifier_access_modes,
     is_bind_directive_target,
     is_combinational_driver_block,
+    is_continuous_assign,
     is_cover_cross_item,
     is_defparam_target,
     is_disable_statement_target,
@@ -18,6 +19,7 @@ from ..parser.syntax import (
     is_invocation_callee,
     is_named_type_reference,
     is_subroutine_prototype_name,
+    is_tristate_continuous_assign,
 )
 from ..parser.types import IDENTIFIER_NAME_NODE_TYPES
 from ..walk.context import Context
@@ -68,6 +70,8 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
             driver_location = loc
             if is_write and is_combinational_driver_block(driver_block):
                 symbol_table.mark_combinational_driver(driver_id)
+            if is_write and is_continuous_assign(driver_block.raw) and is_tristate_continuous_assign(driver_block.raw):
+                symbol_table.mark_tristate_driver(driver_id)
 
         if symbol:
             symbol.add_use(

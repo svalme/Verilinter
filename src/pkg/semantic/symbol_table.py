@@ -20,6 +20,7 @@ class SymbolTable:
         self.instantiations: list[dict[str, object]] = []
         self.reset_style_events: list[tuple[str, str, Location]] = []  # (module_name, "sync"|"async", location)
         self.combinational_driver_ids: set[str] = set()
+        self.tristate_driver_ids: set[str] = set()
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
 
@@ -91,6 +92,11 @@ class SymbolTable:
         """Record that `driver_id` (a continuous assign or combinational-style
         procedural block) drives combinationally, for `COMBINATIONAL_LOOP`."""
         self.combinational_driver_ids.add(driver_id)
+
+    def mark_tristate_driver(self, driver_id: str) -> None:
+        """Record that `driver_id` (a continuous assign) drives via a tri-state
+        (`cond ? value : 'bz`) ternary, for `UNDRIVEN_TRISTATE_SIGNAL`."""
+        self.tristate_driver_ids.add(driver_id)
 
     def lookup_module(self, name: str) -> Scope | None:
         """Return the first scope for a named module, or None if not yet seen."""

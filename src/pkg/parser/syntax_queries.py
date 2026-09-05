@@ -27,10 +27,12 @@ from ._syntax_queries.access import (
     identifier_access_modes,
     identifier_is_assignment_lhs,
     is_combinational_driver_block,
+    is_within_async_reset_conditional,
     simple_expression_width_and_signed,
     unary_write_operand,
 )
 from ._syntax_queries.procedural import (
+    async_reset_signal_names,
     classify_reset_style,
     enclosing_combinational_style_always_block,
     is_combinational_style_always_block,
@@ -98,6 +100,7 @@ from .syntax_kinds import (
     CLASS_DECLARATION_KIND,
     CLOCKING_DECLARATION_KIND,
     CONCURRENT_ASSERTION_KINDS,
+    CONDITIONAL_EXPRESSION_KIND,
     CONDITIONAL_STATEMENT_KIND,
     CONFIG_DECLARATION_KIND,
     CONTINUOUS_ASSIGN_KIND,
@@ -368,6 +371,28 @@ def has_casex_casez_wildcard_case_item(raw: object) -> bool:
     for item in case_statement_items(raw):
         expressions = case_item_expressions(item)
         if expressions and all(_is_all_wildcard_text(expression, wildcard_chars) for expression in expressions):
+            return True
+    return False
+
+
+def is_tristate_continuous_assign(raw: object) -> bool:
+    """True if `raw` (a ContinuousAssignSyntax, the same node
+    `enclosing_continuous_assign`/`is_continuous_assign` return/check) contains
+    a sub-assignment whose right-hand side is a ternary with a fully
+    high-impedance (`z`-only) branch -- the classic tri-state driver-enable
+    pattern (`assign bus = enable ? value : 'bz;`, or the reversed form).
+    """
+    assignments = getattr(raw, "assignments", None)
+    if not assignments:
+        return False
+
+    for assignment in assignments:
+        rhs = getattr(assignment, "right", None)
+        if getattr(rhs, "kind", None) != CONDITIONAL_EXPRESSION_KIND:
+            continue
+        left = getattr(rhs, "left", None)
+        right = getattr(rhs, "right", None)
+        if _is_all_wildcard_text(left, "z") or _is_all_wildcard_text(right, "z"):
             return True
     return False
 
@@ -1090,6 +1115,7 @@ __all__ = [
     "assignment_left",
     "assignment_right",
     "assignment_target_identifier_name",
+    "async_reset_signal_names",
     "case_statement_unique_or_priority",
     "classify_reset_style",
     "conditional_statement_unique_or_priority",
@@ -1221,6 +1247,7 @@ __all__ = [
     "is_tranif_rtranif_token",
     "is_tran_rtran_token",
     "is_trireg_token",
+    "is_tristate_continuous_assign",
     "is_unique0_case_token",
     "is_unique0_if_token",
     "is_unique_if_token",
@@ -1236,6 +1263,7 @@ __all__ = [
     "is_wait_token",
     "is_while_token",
     "is_wand_wor_token",
+    "is_within_async_reset_conditional",
     "is_xz_equality_comparison",
     "iter_assignment_nodes",
     "iter_identifier_reads",

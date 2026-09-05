@@ -18,7 +18,7 @@ class NoMultipleDriversRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if sym.kind != "variable" or not sym.declarations or sym.is_implicit:
+                if not sym.is_explicit_kind("variable"):
                     continue
 
                 seen_driver_ids: dict[str, tuple[UseEvent, Location]] = {}
