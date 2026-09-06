@@ -326,6 +326,31 @@ QUEUE_DIMENSION_SPECIFIER_KIND = _syntax_kind("QueueDimensionSpecifier")
 WILDCARD_DIMENSION_SPECIFIER_KIND = _syntax_kind("WildcardDimensionSpecifier")
 RANGE_DIMENSION_SPECIFIER_KIND = _syntax_kind("RangeDimensionSpecifier")
 
+SHIFT_EXPRESSION_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("LogicalShiftLeftExpression"),
+        _syntax_kind("LogicalShiftRightExpression"),
+        _syntax_kind("ArithmeticShiftLeftExpression"),
+        _syntax_kind("ArithmeticShiftRightExpression"),
+    )
+    if kind is not None
+}
+DIVIDE_EXPRESSION_KIND = _syntax_kind("DivideExpression")
+MOD_EXPRESSION_KIND = _syntax_kind("ModExpression")
+UNARY_MINUS_EXPRESSION_KIND = _syntax_kind("UnaryMinusExpression")
+EMPTY_STATEMENT_KIND = _syntax_kind("EmptyStatement")
+BIT_SELECT_KIND = _syntax_kind("BitSelect")
+RANGE_SELECT_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("SimpleRangeSelect"),
+        _syntax_kind("AscendingRangeSelect"),
+        _syntax_kind("DescendingRangeSelect"),
+    )
+    if kind is not None
+}
+
 
 __all__ = [
     "ALIAS_STATEMENT_KIND",
@@ -336,6 +361,7 @@ __all__ = [
     "ASSIGNMENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
     "BIND_DIRECTIVE_KIND",
+    "BIT_SELECT_KIND",
     "BLOCK_STATEMENT_KINDS",
     "CASE_STATEMENT_KIND",
     "CASE_STYLE_TOKEN_KINDS",
@@ -356,12 +382,14 @@ __all__ = [
     "DISABLE_IFF_KIND",
     "DISABLE_STATEMENT_KIND",
     "DISABLE_TOKEN_KIND",
+    "DIVIDE_EXPRESSION_KIND",
     "DO_TOKEN_KIND",
     "DO_WHILE_STATEMENT_KIND",
     "DEFPARAM_ASSIGNMENT_KIND",
     "DEFPARAM_TOKEN_KIND",
     "DPI_IMPORT_EXPORT_KINDS",
     "ELSE_CLAUSE_KIND",
+    "EMPTY_STATEMENT_KIND",
     "ENDCASE_TOKEN_KIND",
     "EQUALITY_EXPRESSION_KIND",
     "EXPECT_RESTRICT_PROPERTY_KINDS",
@@ -390,6 +418,7 @@ __all__ = [
     "LOOP_GENERATE_KIND",
     "MODPORT_DECLARATION_KIND",
     "MODULE_DECLARATION_KIND",
+    "MOD_EXPRESSION_KIND",
     "NAMED_TYPE_KIND",
     "PACKAGE_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
@@ -402,12 +431,14 @@ __all__ = [
     "QUEUE_DIMENSION_SPECIFIER_KIND",
     "RANDSEQUENCE_STATEMENT_KIND",
     "RANGE_DIMENSION_SPECIFIER_KIND",
+    "RANGE_SELECT_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
     "REAL_TYPE_KINDS",
     "REPEAT_TOKEN_KIND",
     "SCOPED_NAME_KIND",
     "SEQUENCE_DECLARATION_KIND",
+    "SHIFT_EXPRESSION_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
     "SPECIFY_BLOCK_KIND",
     "STRING_TYPE_KIND",
@@ -418,6 +449,7 @@ __all__ = [
     "TRANIF_RTRANIF_TOKEN_KINDS",
     "TRAN_RTRAN_TOKEN_KINDS",
     "TRIREG_TOKEN_KIND",
+    "UNARY_MINUS_EXPRESSION_KIND",
     "UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND",
     "UNIQUE0_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",

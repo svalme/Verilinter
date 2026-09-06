@@ -26,6 +26,17 @@ def assignment_left(raw: object) -> SyntaxNode | None:
     return left if isinstance(left, SyntaxNode) else None
 
 
+def binary_operands(raw: object) -> tuple[SyntaxNode, SyntaxNode] | None:
+    """Return `(left, right)` for any binary-expression-shaped node -- shift,
+    divide, and mod expressions all share this plain `.left`/`.right` shape --
+    else `None`."""
+    left = getattr(raw, "left", None)
+    right = getattr(raw, "right", None)
+    if isinstance(left, SyntaxNode) and isinstance(right, SyntaxNode):
+        return left, right
+    return None
+
+
 def unary_write_operand(raw: object) -> SyntaxNode | None:
     from ..syntax_queries import is_read_write_unary_expression
 

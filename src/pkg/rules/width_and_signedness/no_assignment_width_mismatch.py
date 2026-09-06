@@ -99,3 +99,24 @@ class NoAssignmentSignednessMismatchRule(Rule):
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _signedness_mismatch(vnode, ctx) is not None
+
+
+@rule_runner.register
+class NoAssignmentTruncationRule(Rule):
+    """Narrower, direction-specific sibling of `ASSIGNMENT_WIDTH_MISMATCH`:
+    fires only when the right-hand side is wider than the target, the lossy
+    (data-dropping) direction of a width mismatch, as opposed to a safe
+    zero/sign-extending narrower-to-wider assignment. Always co-fires with
+    `ASSIGNMENT_WIDTH_MISMATCH` on the same construct -- see `overlaps_with`
+    and the matching regression case in `tests/test_rule_overlap_harness.py`.
+    """
+
+    code = "ASSIGNMENT_TRUNCATION"
+    message = "Assignment right-hand side is wider than its target, causing implicit truncation"
+    category = "rtl_correctness"
+    default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    overlaps_with = ("ASSIGNMENT_WIDTH_MISMATCH",)
+
+    def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
+        widths = _width_mismatch(vnode, ctx)
+        return widths is not None and widths[1] > widths[0]

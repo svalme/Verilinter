@@ -2,17 +2,20 @@ from collections.abc import Iterator
 import re
 
 from ..syntax_kinds import (
+    BIT_SELECT_KIND,
     BLOCK_STATEMENT_KINDS,
     CASE_TOKEN_KINDS,
     COMPILATION_UNIT_KIND,
     CONDITIONAL_STATEMENT_KIND,
     ELSE_CLAUSE_KIND,
+    EMPTY_STATEMENT_KIND,
     GENERATE_BLOCK_KIND,
     MODULE_DECLARATION_KIND,
     PARALLEL_BLOCK_STATEMENT_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
+    RANGE_SELECT_KINDS,
 )
-from ..types import SyntaxNode, SyntaxTree
+from ..types import IdentifierSelectNameNode, SyntaxNode, SyntaxTree
 from .shared import type_text_width_and_signed
 
 
@@ -296,6 +299,121 @@ def is_unlabeled_generate_block(raw: object) -> bool:
     not covered here.
     """
     return is_generate_block_node(raw) and getattr(raw, "beginName", None) is None
+
+
+def _generate_block_label(raw: object) -> str | None:
+    if not is_generate_block_node(raw):
+        return None
+    begin_name = getattr(raw, "beginName", None)
+    value = getattr(getattr(begin_name, "name", None), "value", None)
+    return value if isinstance(value, str) and value else None
+
+
+def duplicate_generate_branch_label(raw: object) -> bool:
+    """True if `raw` (an `IfGenerateSyntax` or `CaseGenerateSyntax`) has two or
+    more direct generate-block branches sharing the same explicit label --
+    the `if`/`else` branches of one if-generate, or the case items of one
+    case-generate. An unlabeled branch (`MISSING_GENERATE_BLOCK_LABEL`'s own
+    concern) is never compared against anything here, since two unlabeled
+    branches are not a genuine name collision.
+
+    Deliberately per-construct, matching `is_unlabeled_generate_block`'s own
+    anchoring: two labels colliding across two separate top-level
+    `generate...endgenerate` regions in the same module are a real
+    elaboration-time hierarchical-path collision too, but that needs
+    module-wide generate-label collection this first pass doesn't attempt.
+    """
+    from .node_kind_checks import is_case_generate_node, is_if_generate_node
+
+    labels: list[str] = []
+    if is_if_generate_node(raw):
+        block_label = _generate_block_label(getattr(raw, "block", None))
+        if block_label is not None:
+            labels.append(block_label)
+        else_clause = getattr(raw, "elseClause", None)
+        else_label = _generate_block_label(getattr(else_clause, "clause", None))
+        if else_label is not None:
+            labels.append(else_label)
+    elif is_case_generate_node(raw):
+        for item in getattr(raw, "items", None) or []:
+            label = _generate_block_label(getattr(item, "clause", None))
+            if label is not None:
+                labels.append(label)
+    else:
+        return False
+
+    return len(labels) != len(set(labels))
+
+
+def is_empty_conditional_or_case_branch(raw: object) -> bool:
+    """True if `raw` is an empty `begin...end` block or a bare `;`
+    (`EmptyStatementSyntax`) sitting directly in an if/else/case-item branch
+    position -- `ConditionalStatementSyntax.statement`, `ElseClauseSyntax.clause`,
+    or a case item's `.clause`. Needs no ancestor walk, same one-level-up
+    `.parent` check style as `is_unsized_literal_in_flagged_value_context`.
+    """
+    kind = getattr(raw, "kind", None)
+    if kind == EMPTY_STATEMENT_KIND:
+        is_empty = True
+    elif is_block_statement(raw):
+        items = getattr(raw, "items", None)
+        is_empty = next(iter(items), None) is None if items is not None else True
+    else:
+        return False
+    if not is_empty:
+        return False
+
+    parent = getattr(raw, "parent", None)
+    parent_type = type(parent).__name__
+    if parent_type == "ConditionalStatementSyntax":
+        return getattr(parent, "statement", None) is raw
+    if parent_type == "ElseClauseSyntax":
+        return getattr(parent, "clause", None) is raw
+    if parent_type in ("StandardCaseItemSyntax", "DefaultCaseItemSyntax"):
+        return getattr(parent, "clause", None) is raw
+    return False
+
+
+def identifier_select_base_and_selectors(raw: object) -> tuple[str, list[SyntaxNode]] | None:
+    """Return `(base_name, selectors)` for an `IdentifierSelectNameSyntax`
+    (`a[2]`, `a[6:3]`, `a[3+:4]`) -- its base identifier name plus the list of
+    `ElementSelectSyntax` selector nodes -- else `None`."""
+    if not isinstance(raw, IdentifierSelectNameNode):
+        return None
+    identifier = getattr(raw, "identifier", None)
+    name = getattr(identifier, "value", None)
+    if not isinstance(name, str) or not name:
+        return None
+    selectors = getattr(raw, "selectors", None)
+    if selectors is None:
+        return None
+    return name, [selector for selector in selectors if isinstance(selector, SyntaxNode)]
+
+
+def element_select_index_or_range(
+    selector: object,
+) -> tuple[str, object] | None:
+    """Unwrap one `ElementSelectSyntax` selector into a `(shape, payload)` pair:
+    `("bit", expr)` for `a[N]`, or `("simple_range" | "ascending" | "descending",
+    (left, right))` for `a[M:L]` / `a[base+:W]` / `a[base-:W]`. Else `None`.
+    """
+    inner = getattr(selector, "selector", None)
+    inner_kind = getattr(inner, "kind", None)
+    if inner_kind == BIT_SELECT_KIND:
+        expr = getattr(inner, "expr", None)
+        return ("bit", expr) if isinstance(expr, SyntaxNode) else None
+    if inner_kind in RANGE_SELECT_KINDS:
+        left = getattr(inner, "left", None)
+        right = getattr(inner, "right", None)
+        if not isinstance(left, SyntaxNode) or not isinstance(right, SyntaxNode):
+            return None
+        shape = {
+            "SimpleRangeSelect": "simple_range",
+            "AscendingRangeSelect": "ascending",
+            "DescendingRangeSelect": "descending",
+        }.get(str(inner_kind).rsplit(".", 1)[-1])
+        return (shape, (left, right)) if shape is not None else None
+    return None
 
 
 def named_port_connection_name(raw: object) -> str | None:

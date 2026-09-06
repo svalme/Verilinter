@@ -203,6 +203,96 @@ def async_reset_signal_names(raw: object) -> set[str]:
     return _edge_qualified_signal_names(getattr(event_control, "expr", None))
 
 
+def sync_clock_signal_name(raw: object) -> str | None:
+    """Return the sole edge-qualified signal name in `raw`'s (an
+    AlwaysBlock/AlwaysFFBlock) sensitivity list, when it classifies as a
+    sync block (exactly one edge-qualified signal -- unambiguously the clock,
+    see `classify_reset_style`), else `None`. Deliberately does not attempt an
+    async block (2+ edge-qualified signals) -- same "don't guess which one is
+    the clock" restraint as `async_reset_signal_names`.
+    """
+    if classify_reset_style(raw) != "sync":
+        return None
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return None
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return None
+
+    names = _edge_qualified_signal_names(getattr(event_control, "expr", None))
+    return next(iter(names)) if len(names) == 1 else None
+
+
+def async_reset_signal_edges(raw: object) -> dict[str, str]:
+    """Async-block companion to `async_reset_signal_names` that keeps each
+    edge-qualified signal's polarity (`"posedge"`/`"negedge"`) instead of
+    discarding it into a flat set. Only populated when `classify_reset_style`
+    is `"async"` -- same async-only scope as `async_reset_signal_names`, used
+    by `RESET_SIGNAL_NAMING` to check every edge-qualified name's suffix
+    convention without needing to guess which one is "the reset".
+    """
+    from ..syntax_queries import is_negedge_event, is_posedge_event
+
+    if classify_reset_style(raw) != "async":
+        return {}
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return {}
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return {}
+
+    edges: dict[str, str] = {}
+
+    def _walk(current: object) -> None:
+        if current is None:
+            return
+        if isinstance(current, ParenthesizedEventExpressionNode):
+            _walk(getattr(current, "expr", None))
+        elif isinstance(current, BinaryEventExpressionNode):
+            _walk(getattr(current, "left", None))
+            _walk(getattr(current, "right", None))
+        elif isinstance(current, SignalEventExpressionNode):
+            if is_posedge_event(current):
+                edge = "posedge"
+            elif is_negedge_event(current):
+                edge = "negedge"
+            else:
+                edge = None
+            if edge is not None:
+                expr = getattr(current, "expr", None)
+                if isinstance(expr, SyntaxNode):
+                    for name, _identifier in _iter_identifier_nodes(expr):
+                        edges[name] = edge
+
+    _walk(getattr(event_control, "expr", None))
+    return edges
+
+
+def procedural_nesting_depth(ctx: "Context") -> int:
+    """Count block/conditional/case-statement ancestors above the current
+    position, back to (but not including) the nearest enclosing procedural
+    block. The current node itself (the last entry of `ctx.stack`) is
+    excluded -- callers add 1 back in for it. Loop statements are
+    deliberately not counted -- `DEEPLY_NESTED_BLOCK` only tracks begin/end
+    and if/case nesting, not loop-body nesting.
+    """
+    from ..syntax_queries import is_block_statement, is_case_statement, is_conditional_statement, is_procedural_block
+
+    depth = 0
+    for ancestor in reversed(ctx.stack[:-1]):
+        if is_procedural_block(ancestor.raw):
+            break
+        if is_block_statement(ancestor.raw) or is_conditional_statement(ancestor.raw) or is_case_statement(ancestor.raw):
+            depth += 1
+    return depth
+
+
 def enclosing_combinational_style_always_block(ctx: "Context") -> "BaseVNode | None":
     for ancestor in reversed(ctx.stack):
         if is_combinational_style_always_block(ancestor.raw):

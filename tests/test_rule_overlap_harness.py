@@ -54,7 +54,9 @@ def test_completely_unused_output_port_stays_with_unused_variable_not_undriven_o
         }
     )
 
-    result.expect_codes({"UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE", "MODULE_FILENAME_MISMATCH"})
+    result.expect_codes(
+        {"UNUSED_VARIABLE", "MISSING_TIMESCALE_DIRECTIVE", "MODULE_FILENAME_MISMATCH", "PORT_DIRECTION_SUFFIX"}
+    )
     result.expect_code_once("UNUSED_VARIABLE")
     result.expect_no_code("NO_UNDRIVEN_OUTPUT_PORT")
 
@@ -98,7 +100,13 @@ def test_written_but_unread_input_port_uses_both_input_write_rules_not_unused_va
     )
 
     result.expect_codes(
-        {"NO_WRITE_ONLY_INPUT_PORT", "NO_INPUT_PORT_WRITE", "MISSING_TIMESCALE_DIRECTIVE", "MODULE_FILENAME_MISMATCH"}
+        {
+            "NO_WRITE_ONLY_INPUT_PORT",
+            "NO_INPUT_PORT_WRITE",
+            "MISSING_TIMESCALE_DIRECTIVE",
+            "MODULE_FILENAME_MISMATCH",
+            "PORT_DIRECTION_SUFFIX",
+        }
     )
     result.expect_code_once("NO_WRITE_ONLY_INPUT_PORT")
     result.expect_code_once("NO_INPUT_PORT_WRITE")
@@ -164,7 +172,28 @@ def test_async_reset_xz_value_also_flagged_as_explicit_xz_literal(
         }
     )
 
-    result.expect_codes({"MISSING_TIMESCALE_DIRECTIVE", "EXPLICIT_XZ_LITERAL", "ASYNC_RESET_XZ_VALUE"})
+    result.expect_codes(
+        {"MISSING_TIMESCALE_DIRECTIVE", "EXPLICIT_XZ_LITERAL", "ASYNC_RESET_XZ_VALUE", "PORT_DIRECTION_SUFFIX"}
+    )
+
+
+def test_assignment_truncation_also_flagged_as_assignment_width_mismatch(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "truncation.sv": """
+            module top;
+              wire [7:0] x;
+              wire [3:0] y_i;
+              assign y_i = x;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("ASSIGNMENT_WIDTH_MISMATCH")
+    result.expect_code_once("ASSIGNMENT_TRUNCATION")
 
 
 def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_rule(

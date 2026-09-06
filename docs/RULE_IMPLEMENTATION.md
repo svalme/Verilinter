@@ -85,6 +85,41 @@ its regression test later. See `UnusedVariableRule`/`NoUndrivenOutputPortRule`/
 `ReadBeforeWriteRule`/`NoWriteOnlyVariableRule`/`NoWriteOnlyInputPortRule`/
 `NoInputPortWriteRule` for the existing worked example.
 
+### Parser helper file organization
+
+`src/pkg/parser/syntax_queries.py` is the stable public import surface for
+every parser helper -- rules, handlers, and other parser code all import from
+it (or from `syntax.py`, which re-exports the same names plus the `syntax_kinds`
+constants it needs). It no longer defines helpers directly; it purely
+re-exports them from `src/pkg/parser/_syntax_queries/`, split by theme:
+
+- `shared.py`: low-level token/location/source-text plumbing
+- `access.py`: read/write access classification, `enclosing_*` ancestor walks
+- `procedural.py`: procedural-block sensitivity-list and reset-style facts
+- `shapes.py`: node-shape extraction (declarators, conditionals, ports, ...)
+- `literals.py`: literal/value/expression-kind checks (unsized literals, X/Z
+  literals, width overflow, tri-state ternary detection)
+- `node_kind_checks.py`: one-line "is this raw.kind == X" checks for banned
+  SystemVerilog constructs (declarations, types, array dimensions)
+- `structural_name_predicates.py`: identifier-exclusion predicates (is this
+  name a module/type/callee/label reference rather than a variable read?) --
+  the group `_STRUCTURAL_NAME_PREDICATES` in `identifier_name_handler.py` draws from
+- `keywords_and_tokens.py`: keyword/operator token-kind checks (loop
+  keywords, case/casex/casez, unique/priority, legacy net-type keywords)
+- `module_file.py`: file-scoped module-identity helpers
+- `system_tasks.py`: system task/function name-set checks
+
+Adding a new helper: put it in the submodule matching its theme (or a new one,
+following `_syntax_queries/__init__.py`'s own guidance to split "when groups of
+helpers can move without forcing repo-wide import churn"), then import it into
+`syntax_queries.py`'s existing import block for that submodule and add it to
+`syntax_queries.py`'s `__all__`. A submodule calling a helper that lives in
+`syntax_queries.py` itself (i.e. in a *different* submodule) must use the same
+lazy, function-body-scoped `from ..syntax_queries import name` pattern already
+used throughout `access.py`/`procedural.py` -- a top-level import back into the
+barrel module would be circular, since `syntax_queries.py` imports every
+submodule at its own module-load time.
+
 ### Layering standard
 
 Put logic in the narrowest layer that can own it cleanly:
@@ -274,7 +309,7 @@ rule runs later over those facts.
 | `CASEX_CASEZ_WILDCARD_CASE_ITEM` | Syntax with helper logic | No | No | `case_statement_items`/`case_item_expressions` (existing), `CaseStatementSyntax.caseKeyword` | Anchors at the `CaseStatement` node itself, the same shape as `NO_DUPLICATE_CASE_ITEM` in the same folder, rather than at individual case-item nodes. `x` is a wildcard character in `casex` but not in `casez` (only `z`/`?` are), so an all-`x` `casez` item (which does not match everything) is deliberately not classified like an all-`x` `casex` item (which does). `default_profiles` is `("legacy_verilog",)` only, since `NO_CASEX_CASEZ` already excludes both keywords under `rtl_strict`/`sv_rtl_subset` (the same reasoning as `MISSING_GENERATE_BLOCK_LABEL`). |
 | `ASYNC_RESET_XZ_VALUE` | Syntax with helper logic | No new handler | No new semantic model | `async_reset_signal_names` (new, `_syntax_queries/procedural.py`), `is_within_async_reset_conditional` (new, `_syntax_queries/access.py`), `enclosing_procedural_block`, `is_conditional_statement`, `is_explicit_xz_literal` | Async-reset only: a sync-reset block's reset signal never appears in the sensitivity list, so it has no structural marker distinguishing it from any other identifier, and guessing would risk false positives and negatives on ordinary data-path `if`s. It does not disambiguate the reset-asserted branch from the other one (avoiding assumptions about `if(rst)` vs `if(!rst_n)` vs `if(rst_n==0)` polarity); one visible consequence is that an `else if` chain's inner conditional is still "inside" the outer reset-testing conditional, so a data-path branch reached via `else if` after `if (rst) ...` can still fire -- only a fully separate sibling `if` is guaranteed excluded. Declares `overlaps_with = ("EXPLICIT_XZ_LITERAL",)` since it always co-fires with that rule (the literal is flagged everywhere already), and a regression test pins this per the Testing standard above. |
 | `UNDRIVEN_TRISTATE_SIGNAL` | Shared-analysis / semantic | Yes | Yes | `is_tristate_continuous_assign` (new, `syntax_queries.py`), `SymbolTable.tristate_driver_ids`/`mark_tristate_driver` (new, mirrors `combinational_driver_ids`/`mark_combinational_driver` exactly), `signal_names_connected_to_instances` (new, `connection_analysis.py`) | `IdentifierNameHandler` already computes `driver_id` for every write to a continuous-assign target, so this needed one additive `if` branch beside the existing `mark_combinational_driver` call. It touches no existing field or behavior, but because this is the most heavily depended-on handler in the codebase the full suite should be run after changing it (same caution as `COMBINATIONAL_LOOP`). "Purely internal" cannot be derived from `Symbol` state: a signal wired to an instance's port connection carries no `UseEvent` from that connection (`IdentifierNameHandler` never walks `.connections`, as documented on `INSTANCE_OUTPUT_DRIVER_CONFLICT`), so `signal_names_connected_to_instances` reads `symbol_table.instantiations`' `expr_name` fields directly, the same fields `multiple_instance_driver_conflicts` reads for its by-signal-name grouping. Requires exactly one driver (`NO_MULTIPLE_DRIVERS` owns the 2+-driver case regardless of tri-state intent) and a fully-`z` ternary branch (reusing `_is_all_wildcard_text` from `CASEX_CASEZ_WILDCARD_CASE_ITEM`, restricted to `"z"`; an `x`-else branch is `EXPLICIT_XZ_LITERAL`'s concern). No `overlaps_with` is declared: the rule is mutually exclusive by construction with `NO_UNDRIVEN_SIGNAL` (requires `is_written`) and `NO_MULTIPLE_DRIVERS` (requires exactly one driver), so ordinary "does not fire on a nearby case" unit tests in the rule's own file cover it. |
-| `MODULE_FILENAME_MISMATCH` | Simple syntax (file-scoped), reads existing semantic state | No new handler | No new model | `is_module_filename_mismatch` in `src/pkg/parser/syntax_queries.py` (composed from `module_declaration_names_in_file` and `module_declaration_file_stem`), fed by `enclosing_module_scope(ctx.scope()).file` in `src/pkg/semantic/scope.py` | Anchored on `is_first_module_declaration_in_file` (fires at most once per file, the same shape as `MISSING_TIMESCALE_DIRECTIVE`) and gathers every module name in the file via a second pass over `root.members` before deciding, since a multi-module file needs only one module to match the filename; this cannot be a single-node check like `ONE_MODULE_PER_FILE`. The file path comes from `enclosing_module_scope(ctx.scope()).file`, not from `tree.sourceManager.getFileName(...)`: pyslang reports the fixed placeholder `"source"` for every `SyntaxTree.fromText(...)` tree regardless of the logical filename the multi-file inline harness assigns via `symbol_table.set_current_file(file_name)`. `ModuleDeclarationHandler.update_context` calls `symbol_table.new_scope(...)`, which stamps `scope.file = symbol_table.current_file`, and the walker pushes that module scope onto `ctx` before `on_node`/`rule_runner.check` fires for the module-declaration vnode (`Walker._walk`: `update_context`, then `on_node`). So `ctx.scope()` inside `applies()` is the module's own scope and returns the correct file in both production and the test harness, with no handler changes. Inline-harness fixtures whose module name does not match their filename (e.g. `module top;` inside `"case_generate.sv"` in `tests/test_rule_overlap_harness.py`) also report this code and list it in their `expect_codes`. |
+| `MODULE_FILENAME_MISMATCH` | Simple syntax (file-scoped), reads existing semantic state | No new handler | No new model | `is_module_filename_mismatch` in `src/pkg/parser/_syntax_queries/module_file.py` (composed from `module_declaration_names_in_file` and `module_declaration_file_stem`), fed by `enclosing_module_scope(ctx.scope()).file` in `src/pkg/semantic/scope.py` | Anchored on `is_first_module_declaration_in_file` (fires at most once per file, the same shape as `MISSING_TIMESCALE_DIRECTIVE`) and gathers every module name in the file via a second pass over `root.members` before deciding, since a multi-module file needs only one module to match the filename; this cannot be a single-node check like `ONE_MODULE_PER_FILE`. The file path comes from `enclosing_module_scope(ctx.scope()).file`, not from `tree.sourceManager.getFileName(...)`: pyslang reports the fixed placeholder `"source"` for every `SyntaxTree.fromText(...)` tree regardless of the logical filename the multi-file inline harness assigns via `symbol_table.set_current_file(file_name)`. `ModuleDeclarationHandler.update_context` calls `symbol_table.new_scope(...)`, which stamps `scope.file = symbol_table.current_file`, and the walker pushes that module scope onto `ctx` before `on_node`/`rule_runner.check` fires for the module-declaration vnode (`Walker._walk`: `update_context`, then `on_node`). So `ctx.scope()` inside `applies()` is the module's own scope and returns the correct file in both production and the test harness, with no handler changes. Inline-harness fixtures whose module name does not match their filename (e.g. `module top;` inside `"case_generate.sv"` in `tests/test_rule_overlap_harness.py`) also report this code and list it in their `expect_codes`. |
 
 ## Where To Change Things
 

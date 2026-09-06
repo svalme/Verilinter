@@ -10,6 +10,7 @@ from src.pkg.rules.register_rules import rule_runner
 from src.pkg.rules.width_and_signedness.no_assignment_width_mismatch import (
     NoAssignmentWidthMismatchRule,
     NoAssignmentSignednessMismatchRule,
+    NoAssignmentTruncationRule,
 )
 
 
@@ -143,6 +144,59 @@ class TestNoAssignmentSignednessMismatchRule:
             endmodule
             """,
             "ASSIGNMENT_SIGNEDNESS_MISMATCH",
+        )
+
+        assert diagnostics == []
+
+
+class TestNoAssignmentTruncationRule:
+    @pytest.fixture
+    def rule(self) -> NoAssignmentTruncationRule:
+        return NoAssignmentTruncationRule()
+
+    def test_rule_has_correct_code(self, rule: NoAssignmentTruncationRule) -> None:
+        assert rule.code == "ASSIGNMENT_TRUNCATION"
+
+    def test_flags_wider_rhs_truncated_into_narrower_target(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [3:0] y;
+              assign y = x;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_narrower_rhs_into_wider_target(self) -> None:
+        # Safe zero/sign-extending direction -- ASSIGNMENT_WIDTH_MISMATCH's
+        # concern (any-direction), not this rule's (truncation-only).
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [3:0] y;
+              assign x = y;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+
+        assert diagnostics == []
+
+    def test_does_not_flag_matching_widths(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [7:0] y;
+              assign x = y;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
         )
 
         assert diagnostics == []
