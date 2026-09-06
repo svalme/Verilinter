@@ -4,7 +4,7 @@ from ..syntax_kinds import (
     ALWAYS_COMB_BLOCK_KIND,
     PRIMITIVE_INSTANTIATION_KIND,
 )
-from ..types import SyntaxNode
+from ..types import ProceduralBlockNode, SyntaxNode
 from .shared import _split_top_level, simple_identifier_text, source_text_for_node
 
 
@@ -168,6 +168,77 @@ def is_within_async_reset_conditional(ctx: "Context") -> bool:
         if is_conditional_statement(ancestor.raw) and _conditional_references_any_name(ancestor.raw, reset_names):
             return True
     return False
+
+
+def _statement_assigns_register(raw: object, register_name: str) -> bool:
+    from ..syntax_queries import assignment_target_identifier_name, is_assignment_expression
+
+    if raw is None:
+        return False
+    if (
+        is_assignment_expression(raw)
+        and str(getattr(raw, "kind", "")) == "SyntaxKind.NonblockingAssignmentExpression"
+        and assignment_target_identifier_name(raw) == register_name
+    ):
+        return True
+    for child in raw:
+        if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
+            if _statement_assigns_register(child, register_name):
+                return True
+    return False
+
+
+def is_state_register_reset_covered(block_raw: object, register_name: str) -> bool:
+    """True if `block_raw` (a procedural block) contains a conditional whose
+    predicate references one of the block's async-reset sensitivity-list
+    signals, and whose **`if`-branch specifically** (`.statement`, not
+    `.elseClause`) contains a nonblocking assignment to `register_name` --
+    i.e. the state register is actually driven to a value in the
+    reset-asserted branch, not left entirely to whatever a case statement
+    elsewhere would assign. Used by `MISSING_STATE_REGISTER_RESET`.
+
+    Unlike `is_within_async_reset_conditional` (which deliberately doesn't
+    distinguish the reset-asserted branch from the other one, since that
+    function only needs "is this node near a reset check at all"), this one
+    specifically needs to know it's the reset-asserted side -- checking both
+    branches indiscriminately would treat `if (rst) other_sig <= 0; else
+    case (state) ...` as "covered" for `state` too, since `state` does sit
+    inside *a* branch of a conditional that references `rst`; that would make
+    the rule almost never fire, since `if (reset) ... else case (state) ...`
+    is the standard FSM idiom. Assumes the conventional polarity where reset
+    is asserted in the `if`-branch (`if (rst) ...` / `if (!rst_n) ...`, both
+    common) -- an inverted style with reset asserted in the `else`-branch
+    instead is a known, undetected limitation, same "no polarity guessing"
+    restraint already documented elsewhere in this project.
+
+    Returns `False` immediately when the block has no async-reset signals at
+    all (`async_reset_signal_names` is empty) -- a sync-reset signal has no
+    structural marker to find it by, so a sync-classified block is never
+    checked here at all (the rule itself gates on `classify_reset_style(...)
+    == "async"` before ever calling this).
+    """
+    from ..syntax_queries import async_reset_signal_names, is_conditional_statement
+
+    reset_names = async_reset_signal_names(block_raw)
+    if not reset_names:
+        return False
+
+    found = False
+
+    def _walk(node: object) -> None:
+        nonlocal found
+        if found:
+            return
+        if is_conditional_statement(node) and _conditional_references_any_name(node, reset_names):
+            if _statement_assigns_register(getattr(node, "statement", None), register_name):
+                found = True
+                return
+        for child in node:
+            if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
+                _walk(child)
+
+    _walk(block_raw)
+    return found
 
 
 def identifier_is_assignment_lhs(ctx: "Context", raw_identifier: SyntaxNode) -> bool:

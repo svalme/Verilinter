@@ -3,6 +3,7 @@ from ..walk.context import Context
 from ..parser.syntax import (
     declarator_bit_width,
     declarator_has_initializer,
+    declarator_initializer_value,
     declarator_is_parameter,
     declarator_is_port,
     declarator_is_signed,
@@ -32,6 +33,8 @@ class DeclaratorHandler(SyntaxNodeHandler):
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):
             symbol.add_use(vnode.location, write=True)
+            if kind == "parameter":
+                symbol.value = declarator_initializer_value(vnode.raw)
         ctx.scope().define(symbol)
         return ctx.push(vnode)
 

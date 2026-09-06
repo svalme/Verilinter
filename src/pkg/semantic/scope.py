@@ -34,6 +34,8 @@ class Scope:
                 existing.bit_width = symbol.bit_width
             if symbol.is_signed is not None:
                 existing.is_signed = symbol.is_signed
+            if symbol.value is not None:
+                existing.value = symbol.value
             existing.use_count += symbol.use_count
             existing.read_count += symbol.read_count
             existing.write_count += symbol.write_count

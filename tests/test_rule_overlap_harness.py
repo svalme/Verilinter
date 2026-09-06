@@ -196,6 +196,32 @@ def test_assignment_truncation_also_flagged_as_assignment_width_mismatch(
     result.expect_code_once("ASSIGNMENT_TRUNCATION")
 
 
+def test_missing_default_on_state_case_also_flagged_as_no_default_case_statement(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "state_case.sv": """
+            module top(input clk, input rst_n, output reg y);
+              localparam IDLE = 2'b00;
+              localparam RUN = 2'b01;
+              reg [1:0] state;
+              always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) state <= IDLE;
+                else case (state)
+                  IDLE: state <= RUN;
+                  RUN: state <= IDLE;
+                endcase
+              end
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_DEFAULT_CASE_STATEMENT")
+    result.expect_code_once("MISSING_DEFAULT_ON_STATE_CASE")
+
+
 def test_case_generate_missing_default_uses_generate_rule_not_procedural_case_rule(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:

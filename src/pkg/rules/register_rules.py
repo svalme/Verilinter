@@ -122,6 +122,9 @@ from .arrays_and_indexing.constant_index_out_of_range import ConstantIndexOutOfR
 from .maintainability_and_complexity.deeply_nested_block import DeeplyNestedBlockRule
 from .maintainability_and_complexity.empty_conditional_branch import EmptyConditionalBranchRule
 from .parameters_and_generate_logic.duplicate_generate_block_label import DuplicateGenerateBlockLabelRule
+from .fsms.missing_default_on_state_case import MissingDefaultOnStateCaseRule
+from .fsms.missing_state_register_reset import MissingStateRegisterResetRule
+from .fsms.one_hot_encoding_violation import OneHotEncodingViolationRule
 
 # symbol rules (single-file, post-walk)
 from .unused_and_dead_code.unused_variable_rule import UnusedVariableRule

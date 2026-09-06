@@ -29,6 +29,20 @@ def declarator_has_initializer(raw: object) -> bool:
     return getattr(raw, "initializer", None) is not None
 
 
+def declarator_initializer_value(raw: object) -> int | None:
+    """Return a declarator's initializer expression constant-folded to an
+    `int` (via `constant_integer_value`), else `None` -- used to populate
+    `Symbol.value` for `parameter`/`localparam` declarators whose RHS is a
+    simple resolvable constant."""
+    from ..syntax_queries import constant_integer_value
+
+    initializer = getattr(raw, "initializer", None)
+    expr = getattr(initializer, "expr", None)
+    if expr is None:
+        return None
+    return constant_integer_value(expr)
+
+
 def declarator_is_port(ctx: "Context") -> bool:
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
