@@ -264,6 +264,22 @@ def assignment_right(raw: object) -> SyntaxNode | None:
     return right if isinstance(right, SyntaxNode) else None
 
 
+def _concatenation_member_width(scope: object, member_text: str) -> int | None:
+    """Width of one concatenation or replication member. IEEE 1800 fixes an
+    unsized decimal literal used as a concatenation member at exactly 32
+    bits -- unlike a bare top-level unsized literal, whose width is instead
+    context-determined from the assignment target and therefore treated as
+    unrecoverable everywhere else in this module (see the top-level
+    `unsized_decimal` branch below). Without this override, a concatenation
+    member's unsized literal made the *entire* concatenation's width
+    unrecoverable (`{a, 5}` silently skipped instead of correctly resolving
+    to a width `ASSIGNMENT_WIDTH_MISMATCH` can compare)."""
+    width, _signed = _infer_text_width_and_signed_direct(scope, member_text)
+    if width is None and re.match(r"\s*\d+\s*$", member_text):
+        return 32
+    return width
+
+
 def _infer_text_width_and_signed_direct(scope: object, expr_text: str) -> tuple[int | None, bool | None]:
     simple_identifier = simple_identifier_text(expr_text)
     if simple_identifier is not None and scope is not None:
@@ -301,7 +317,7 @@ def _infer_text_width_and_signed_direct(scope: object, expr_text: str) -> tuple[
         inner = expr_text[1:-1].strip()
         replication = re.match(r"^(?P<count>\d+)\s*\{(?P<body>.*)\}$", inner)
         if replication is not None:
-            inner_width, _inner_signed = _infer_text_width_and_signed_direct(scope, replication.group("body"))
+            inner_width = _concatenation_member_width(scope, replication.group("body"))
             if inner_width is None:
                 return None, None
             return int(replication.group("count")) * inner_width, None
@@ -311,7 +327,7 @@ def _infer_text_width_and_signed_direct(scope: object, expr_text: str) -> tuple[
             return None, None
         total = 0
         for part in parts:
-            width, _signed = _infer_text_width_and_signed_direct(scope, part)
+            width = _concatenation_member_width(scope, part)
             if width is None:
                 return None, None
             total += width

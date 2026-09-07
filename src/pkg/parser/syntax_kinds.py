@@ -338,6 +338,12 @@ SHIFT_EXPRESSION_KINDS = {
 }
 DIVIDE_EXPRESSION_KIND = _syntax_kind("DivideExpression")
 MOD_EXPRESSION_KIND = _syntax_kind("ModExpression")
+ADD_SUBTRACT_EXPRESSION_KINDS = {
+    kind
+    for kind in (_syntax_kind("AddExpression"), _syntax_kind("SubtractExpression"))
+    if kind is not None
+}
+MULTIPLY_EXPRESSION_KIND = _syntax_kind("MultiplyExpression")
 UNARY_MINUS_EXPRESSION_KIND = _syntax_kind("UnaryMinusExpression")
 EMPTY_STATEMENT_KIND = _syntax_kind("EmptyStatement")
 BIT_SELECT_KIND = _syntax_kind("BitSelect")
@@ -353,6 +359,7 @@ RANGE_SELECT_KINDS = {
 
 
 __all__ = [
+    "ADD_SUBTRACT_EXPRESSION_KINDS",
     "ALIAS_STATEMENT_KIND",
     "ALWAYS_BLOCK_KIND",
     "ALWAYS_COMB_BLOCK_KIND",
@@ -419,6 +426,7 @@ __all__ = [
     "MODPORT_DECLARATION_KIND",
     "MODULE_DECLARATION_KIND",
     "MOD_EXPRESSION_KIND",
+    "MULTIPLY_EXPRESSION_KIND",
     "NAMED_TYPE_KIND",
     "PACKAGE_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",

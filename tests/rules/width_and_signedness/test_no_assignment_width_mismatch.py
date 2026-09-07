@@ -111,6 +111,53 @@ class TestNoAssignmentWidthMismatchRule:
 
         assert diagnostics == []
 
+    def test_flags_concatenation_with_unsized_literal_member(self) -> None:
+        """IEEE 1800 sizes an unsized literal used as a concatenation member
+        to exactly 32 bits, not the context-determined width a top-level
+        unsized RHS gets -- without that override, this member's unrecoverable
+        width would make the *entire* concatenation's width unrecoverable,
+        silencing the check instead of reporting the enormous mismatch."""
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [7:0] x;
+              assign x = {a, 5};
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_replication_of_unsized_literal(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              assign x = {4{1}};
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_concatenation_with_matching_total_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [3:0] b;
+              wire [7:0] x;
+              assign x = {a, b};
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert diagnostics == []
+
 
 class TestNoAssignmentSignednessMismatchRule:
     @pytest.fixture

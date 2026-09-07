@@ -1,6 +1,7 @@
 import pyslang as sl
 
 from ..syntax_kinds import (
+    ADD_SUBTRACT_EXPRESSION_KINDS,
     ASSIGNMENT_KINDS,
     CONDITIONAL_EXPRESSION_KIND,
     CONTINUOUS_ASSIGN_KIND,
@@ -11,6 +12,7 @@ from ..syntax_kinds import (
     INTEGER_LITERAL_EXPRESSION_KIND,
     INTEGER_VECTOR_EXPRESSION_KIND,
     MOD_EXPRESSION_KIND,
+    MULTIPLY_EXPRESSION_KIND,
     PROCEDURAL_BLOCK_KINDS,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
@@ -202,6 +204,14 @@ def is_shift_expression(raw: object) -> bool:
 
 def is_divide_or_mod_expression(raw: object) -> bool:
     return getattr(raw, "kind", None) in (DIVIDE_EXPRESSION_KIND, MOD_EXPRESSION_KIND)
+
+
+def is_add_subtract_expression(raw: object) -> bool:
+    return getattr(raw, "kind", None) in ADD_SUBTRACT_EXPRESSION_KINDS
+
+
+def is_multiply_expression(raw: object) -> bool:
+    return getattr(raw, "kind", None) == MULTIPLY_EXPRESSION_KIND
 
 
 def _unsigned_literal_integer_value(raw: object) -> int | None:
