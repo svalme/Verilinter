@@ -140,6 +140,8 @@ python src/run_lint.py tests/data/simple.v
 python -m pytest
 ```
 
+See `docs/TESTING.md` for what kinds of tests exist and where new ones belong.
+
 ## Configuration
 
 Verilinter will automatically load `.verilinter.toml` or `verilinter.toml` from the current directory or one of its parents.

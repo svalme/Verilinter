@@ -101,7 +101,8 @@ When adding a rule, use this checklist by default:
 - add a clear `message`
 - add `category` and `default_profiles` when the policy bucket is clear
 - register the rule
-- add focused tests
+- add focused tests (see `TESTING.md` for the kinds of tests that exist and
+  where a new one belongs)
 - update `RULES.md`
 - document any non-obvious implementation reason in `RULE_IMPLEMENTATION.md`
 
