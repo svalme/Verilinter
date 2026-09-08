@@ -85,6 +85,7 @@ from src.pkg.rules.conditional_and_case_statements.no_unique0_if import NoUnique
 from src.pkg.rules.combinational_logic.no_switch_primitive import NoSwitchPrimitiveRule
 from tests.support.syntax_context_builders import (
     case_context,
+    case_inside_context,
     conditional_context,
     continuous_assign_context,
     event_trigger_statement_context,
@@ -719,23 +720,12 @@ class TestNoCaseInsideRule:
         assert rule.message == "Use of case inside is discouraged in this RTL subset"
 
     def test_applies_returns_true_for_case_inside_keyword(self, rule: NoCaseInsideRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "case_inside.v"))
+        """`case (expr) inside ... endcase` exposes `inside` as the case
+        statement's own `matchesOrInside` token (IEEE 1800-2017 SS12.5.4)."""
+        mock_vnode = token_vnode(sl.TokenKind.InsideKeyword)
+        ctx = case_inside_context(mock_vnode.raw)
 
-        def walk(node):
-            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
-                return node
-            if hasattr(node, "__iter__"):
-                for child in node:
-                    found = walk(child)
-                    if found is not None:
-                        return found
-            return None
-
-        raw_token = walk(tree.root)
-        assert raw_token is not None
-        vnode = TokenVNode(raw_token, tree)
-
-        assert rule.applies(vnode, Context()) is True
+        assert rule.applies(mock_vnode, ctx) is True
 
     def test_applies_returns_false_for_inside_operator(self, rule: NoCaseInsideRule) -> None:
         tree = sl.SyntaxTree.fromText(
@@ -765,7 +755,12 @@ class TestNoCaseInsideRule:
         assert raw_token is not None
         vnode = TokenVNode(raw_token, tree)
 
-        assert rule.applies(vnode, Context()) is False
+        # An ordinary `inside` operator nested in a case item's expression is a
+        # different token from the enclosing case statement's own
+        # `matchesOrInside` field, even though a CaseStatement ancestor exists.
+        ctx = case_inside_context(Mock())
+
+        assert rule.applies(vnode, ctx) is False
 
     def test_report_returns_correct_format(self, rule: NoCaseInsideRule, mock_vnode: Mock) -> None:
         mock_vnode.location = {"line": 4, "col": 10}
@@ -1504,23 +1499,12 @@ class TestNoInsideOperatorRule:
         assert rule.applies(vnode, Context()) is True
 
     def test_applies_returns_false_for_case_inside_keyword(self, rule: NoInsideOperatorRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "case_inside.v"))
+        """`case (expr) inside ... endcase` exposes `inside` as the case
+        statement's own `matchesOrInside` token, not an ordinary operator use."""
+        mock_vnode = token_vnode(sl.TokenKind.InsideKeyword)
+        ctx = case_inside_context(mock_vnode.raw)
 
-        def walk(node):
-            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
-                return node
-            if hasattr(node, "__iter__"):
-                for child in node:
-                    found = walk(child)
-                    if found is not None:
-                        return found
-            return None
-
-        raw_token = walk(tree.root)
-        assert raw_token is not None
-        vnode = TokenVNode(raw_token, tree)
-
-        assert rule.applies(vnode, Context()) is False
+        assert rule.applies(mock_vnode, ctx) is False
 
     def test_report_returns_correct_format(self, rule: NoInsideOperatorRule, mock_vnode: Mock) -> None:
         mock_vnode.location = {"line": 4, "col": 20}

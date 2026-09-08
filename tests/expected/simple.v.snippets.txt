@@ -8,9 +8,11 @@ module top(input logic clk);
   always_comb begin
     y <= z;
   end
-  case(sel)
-    0: out = a;
-  endcase
+  always @(*) begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
 endmodule
 ----------------------------------------
 SYNTAXNODE SyntaxList @ {'line': 1, 'col': 1, 'file': 'tests\\data\\simple.v'}
@@ -23,9 +25,11 @@ module top(input logic clk);
   always_comb begin
     y <= z;
   end
-  case(sel)
-    0: out = a;
-  endcase
+  always @(*) begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
 endmodule
 ----------------------------------------
 SYNTAXNODE ModuleDeclaration @ {'line': 1, 'col': 1, 'file': 'tests\\data\\simple.v'}
@@ -38,9 +42,11 @@ module top(input logic clk);
   always_comb begin
     y <= z;
   end
-  case(sel)
-    0: out = a;
-  endcase
+  always @(*) begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
 endmodule
 ----------------------------------------
 SYNTAXNODE ModuleHeader @ {'line': 1, 'col': 1, 'file': 'tests\\data\\simple.v'}
@@ -73,9 +79,11 @@ real x;
   always_comb begin
     y <= z;
   end
-  case(sel)
-    0: out = a;
-  endcase
+  always @(*) begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
 ----------------------------------------
 SYNTAXNODE DataDeclaration @ {'line': 2, 'col': 3, 'file': 'tests\\data\\simple.v'}
 real x;
@@ -172,47 +180,64 @@ y
 SYNTAXNODE IdentifierName @ {'line': 8, 'col': 10, 'file': 'tests\\data\\simple.v'}
 z
 ----------------------------------------
-SYNTAXNODE CaseGenerate @ {'line': 10, 'col': 3, 'file': 'tests\\data\\simple.v'}
-case(sel)
-    0: out = a;
-  endcase
+SYNTAXNODE AlwaysBlock @ {'line': 10, 'col': 3, 'file': 'tests\\data\\simple.v'}
+always @(*) begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
 ----------------------------------------
-SYNTAXNODE IdentifierName @ {'line': 10, 'col': 8, 'file': 'tests\\data\\simple.v'}
-sel
+SYNTAXNODE TimingControlStatement @ {'line': 10, 'col': 10, 'file': 'tests\\data\\simple.v'}
+@(*) begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
+----------------------------------------
+SYNTAXNODE ImplicitEventControl @ {'line': 10, 'col': 10, 'file': 'tests\\data\\simple.v'}
+@(*)
+----------------------------------------
+SYNTAXNODE SequentialBlockStatement @ {'line': 10, 'col': 15, 'file': 'tests\\data\\simple.v'}
+begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
 ----------------------------------------
 SYNTAXNODE SyntaxList @ {'line': 11, 'col': 5, 'file': 'tests\\data\\simple.v'}
+case(sel)
+      0: out = a;
+    endcase
+----------------------------------------
+SYNTAXNODE CaseStatement @ {'line': 11, 'col': 5, 'file': 'tests\\data\\simple.v'}
+case(sel)
+      0: out = a;
+    endcase
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 11, 'col': 10, 'file': 'tests\\data\\simple.v'}
+sel
+----------------------------------------
+SYNTAXNODE SyntaxList @ {'line': 12, 'col': 7, 'file': 'tests\\data\\simple.v'}
 0: out = a;
 ----------------------------------------
-SYNTAXNODE StandardCaseItem @ {'line': 11, 'col': 5, 'file': 'tests\\data\\simple.v'}
-0: out
+SYNTAXNODE StandardCaseItem @ {'line': 12, 'col': 7, 'file': 'tests\\data\\simple.v'}
+0: out = a;
 ----------------------------------------
-SYNTAXNODE SeparatedList @ {'line': 11, 'col': 5, 'file': 'tests\\data\\simple.v'}
+SYNTAXNODE SeparatedList @ {'line': 12, 'col': 7, 'file': 'tests\\data\\simple.v'}
 0
 ----------------------------------------
-SYNTAXNODE IntegerLiteralExpression @ {'line': 11, 'col': 5, 'file': 'tests\\data\\simple.v'}
+SYNTAXNODE IntegerLiteralExpression @ {'line': 12, 'col': 7, 'file': 'tests\\data\\simple.v'}
 0
 ----------------------------------------
-SYNTAXNODE DataDeclaration @ {'line': 11, 'col': 8, 'file': 'tests\\data\\simple.v'}
+SYNTAXNODE ExpressionStatement @ {'line': 12, 'col': 10, 'file': 'tests\\data\\simple.v'}
+out = a;
+----------------------------------------
+SYNTAXNODE AssignmentExpression @ {'line': 12, 'col': 10, 'file': 'tests\\data\\simple.v'}
+out = a
+----------------------------------------
+SYNTAXNODE IdentifierName @ {'line': 12, 'col': 10, 'file': 'tests\\data\\simple.v'}
 out
 ----------------------------------------
-SYNTAXNODE NamedType @ {'line': 11, 'col': 8, 'file': 'tests\\data\\simple.v'}
-out
-----------------------------------------
-SYNTAXNODE IdentifierName @ {'line': 11, 'col': 8, 'file': 'tests\\data\\simple.v'}
-out
-----------------------------------------
-SYNTAXNODE StandardCaseItem @ {'line': 11, 'col': 12, 'file': 'tests\\data\\simple.v'}
-= a;
-----------------------------------------
-SYNTAXNODE SeparatedList @ {'line': 11, 'col': 12, 'file': 'tests\\data\\simple.v'}
-= a
-----------------------------------------
-SYNTAXNODE AssignmentExpression @ {'line': 11, 'col': 12, 'file': 'tests\\data\\simple.v'}
-= a
-----------------------------------------
-SYNTAXNODE IdentifierName @ {'line': 11, 'col': 14, 'file': 'tests\\data\\simple.v'}
+SYNTAXNODE IdentifierName @ {'line': 12, 'col': 16, 'file': 'tests\\data\\simple.v'}
 a
-----------------------------------------
-SYNTAXNODE EmptyMember @ {'line': 11, 'col': 15, 'file': 'tests\\data\\simple.v'}
-;
 ----------------------------------------

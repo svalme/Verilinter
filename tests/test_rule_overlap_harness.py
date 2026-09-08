@@ -498,7 +498,7 @@ def test_case_inside_still_uses_procedural_missing_default_rule(
             "case_inside.sv": """
             module top(input logic [1:0] sel, output logic y);
               always_comb begin
-                case inside (sel)
+                case (sel) inside
                   2'b00: y = 1'b0;
                 endcase
               end

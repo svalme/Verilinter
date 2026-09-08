@@ -1,5 +1,3 @@
-import re
-
 import pyslang as sl
 
 from ..syntax_kinds import (
@@ -37,7 +35,7 @@ from ..syntax_kinds import (
     WAND_WOR_TOKEN_KINDS,
     WHILE_TOKEN_KIND,
 )
-from ..types import CaseStatementNode, DefaultCaseItemNode, PortDeclarationNode, SyntaxNode, SyntaxTree
+from ..types import CaseStatementNode, DefaultCaseItemNode, PortDeclarationNode, SyntaxNode
 
 
 def is_delay_control_node(raw: object) -> bool:
@@ -171,25 +169,21 @@ def is_plain_while_token(raw: object, ctx: "Context") -> bool:
     return not any(is_do_while_statement(ancestor.raw) for ancestor in reversed(ctx.stack))
 
 
-def is_case_inside_token(raw: object, tree: SyntaxTree) -> bool:
+def is_case_inside_token(raw: object, ctx: "Context") -> bool:
     if getattr(raw, "kind", None) != INSIDE_TOKEN_KIND:
         return False
 
-    location = getattr(raw, "location", None)
-    if location is None:
-        return False
-
-    source = tree.sourceManager.getSourceText(location.buffer)
-    prefix = source[max(0, location.offset - 32) : location.offset]
-
-    # `case inside (...)` is the only form where the `inside` token is preceded
-    # immediately by the `case` keyword in source text. Ordinary `inside`
-    # operators have an expression or identifier immediately before them.
-    return re.search(r"\bcase\s*$", prefix) is not None
+    # `case (expr) inside ... endcase` (IEEE 1800-2017 SS12.5.4) is the only form
+    # where `inside` is the case statement's own `matchesOrInside` token, rather
+    # than an ordinary `inside` operator used somewhere in an expression.
+    for ancestor in reversed(ctx.stack):
+        if is_case_statement(ancestor.raw):
+            return ancestor.raw.matchesOrInside == raw
+    return False
 
 
-def is_inside_operator_token(raw: object, tree: SyntaxTree) -> bool:
-    return getattr(raw, "kind", None) == INSIDE_TOKEN_KIND and not is_case_inside_token(raw, tree)
+def is_inside_operator_token(raw: object, ctx: "Context") -> bool:
+    return getattr(raw, "kind", None) == INSIDE_TOKEN_KIND and not is_case_inside_token(raw, ctx)
 
 
 def _normalized_unique_or_priority(raw: object) -> str | None:

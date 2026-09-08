@@ -7,7 +7,9 @@ module top(input logic clk);
   always_comb begin
     y <= z;
   end
-  case(sel)
-    0: out = a;
-  endcase
+  always @(*) begin
+    case(sel)
+      0: out = a;
+    endcase
+  end
 endmodule

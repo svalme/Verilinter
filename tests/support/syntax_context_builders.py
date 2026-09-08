@@ -23,6 +23,20 @@ def case_context(*, unique_or_priority: str | None = None) -> Context:
     return Context().push(vnode)
 
 
+def case_inside_context(inside_token: object) -> Context:
+    """A CaseStatement ancestor whose `matchesOrInside` is `inside_token`.
+
+    Mirrors `case (expr) inside ... endcase`, where pyslang exposes the
+    `inside` keyword as the case statement's own `matchesOrInside` field
+    rather than as a token nested inside an ordinary expression.
+    """
+    vnode = Mock(spec=BaseVNode)
+    vnode.raw = Mock()
+    vnode.raw.kind = sl.SyntaxKind.CaseStatement
+    vnode.raw.matchesOrInside = inside_token
+    return Context().push(vnode)
+
+
 def conditional_context(*, unique_or_priority: str | None = None) -> Context:
     vnode = Mock(spec=BaseVNode)
     vnode.raw = Mock()
@@ -56,6 +70,7 @@ def event_trigger_statement_context(*, nonblocking: bool = False) -> Context:
 
 __all__ = [
     "case_context",
+    "case_inside_context",
     "conditional_context",
     "continuous_assign_context",
     "event_trigger_statement_context",

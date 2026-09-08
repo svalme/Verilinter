@@ -17,4 +17,4 @@ class NoInsideOperatorRule(Rule):
     default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        return is_inside_operator_token(vnode.raw, vnode.tree)
+        return is_inside_operator_token(vnode.raw, ctx)

@@ -17,4 +17,4 @@ class NoCaseInsideRule(Rule):
     default_profiles = ("sv_rtl_subset",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        return is_case_inside_token(vnode.raw, vnode.tree)
+        return is_case_inside_token(vnode.raw, ctx)
