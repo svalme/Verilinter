@@ -17,32 +17,34 @@ from .support.lint_harness import (
 
 
 @pytest.fixture
-def lint_inline_case() -> Callable[[dict[str, str]], LintCaseResult]:
+def lint_inline_case() -> Callable[..., LintCaseResult]:
     """Lint inline HDL snippets without touching the filesystem."""
 
-    def _lint_case(files: dict[str, str]) -> LintCaseResult:
-        return run_inline_lint_case(files)
+    def _lint_case(files: dict[str, str], *, allow_parse_errors: bool = False) -> LintCaseResult:
+        return run_inline_lint_case(files, allow_parse_errors=allow_parse_errors)
 
     return _lint_case
 
 
 @pytest.fixture
-def lint_inline_case_spec() -> Callable[[dict[str, LintCaseFile]], LintCaseResult]:
+def lint_inline_case_spec() -> Callable[..., LintCaseResult]:
     """Lint inline HDL snippets with per-file metadata."""
 
-    def _lint_case(files: dict[str, LintCaseFile]) -> LintCaseResult:
-        return run_inline_lint_case_spec(files)
+    def _lint_case(
+        files: dict[str, LintCaseFile], *, allow_parse_errors: bool = False
+    ) -> LintCaseResult:
+        return run_inline_lint_case_spec(files, allow_parse_errors=allow_parse_errors)
 
     return _lint_case
 
 
 @pytest.fixture
-def lint_temp_file_case() -> Callable[[dict[str, str]], LintCaseResult]:
+def lint_temp_file_case() -> Callable[..., LintCaseResult]:
     """Lint generated HDL files through the real file-path parser flow."""
     scratch_root = Path(__file__).parent / "_tmp_harness"
     scratch_root.mkdir(parents=True, exist_ok=True)
 
-    def _lint_case(files: dict[str, str]) -> LintCaseResult:
+    def _lint_case(files: dict[str, str], *, allow_parse_errors: bool = False) -> LintCaseResult:
         case_dir = scratch_root / f"case_{uuid.uuid4().hex}"
         case_dir.mkdir(parents=True, exist_ok=False)
 
@@ -53,7 +55,7 @@ def lint_temp_file_case() -> Callable[[dict[str, str]], LintCaseResult]:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(contents.strip() + "\n", encoding="utf-8")
                 paths.append(path)
-            return run_file_lint_case(paths)
+            return run_file_lint_case(paths, allow_parse_errors=allow_parse_errors)
         finally:
             shutil.rmtree(case_dir, ignore_errors=True)
 

@@ -83,6 +83,7 @@ from src.pkg.rules.arrays_and_indexing.no_dynamic_array import NoDynamicArrayRul
 from src.pkg.rules.arrays_and_indexing.no_associative_array import NoAssociativeArrayRule
 from src.pkg.rules.conditional_and_case_statements.no_unique0_if import NoUnique0IfRule
 from src.pkg.rules.combinational_logic.no_switch_primitive import NoSwitchPrimitiveRule
+from tests.support.parse_diagnostics import assert_no_parse_errors
 from tests.support.syntax_context_builders import (
     case_context,
     case_inside_context,
@@ -314,6 +315,7 @@ class TestNoBlockingAssignmentInSequentialRule:
 def _always_block_and_token(src: str, token_kind: object) -> tuple[object, object]:
     """Parse `src` and return (first AlwaysBlock raw node, first raw token of `token_kind`)."""
     tree = sl.SyntaxTree.fromText(src)
+    assert_no_parse_errors(src, tree)
     block: object = None
     token: object = None
 
@@ -740,6 +742,7 @@ class TestNoCaseInsideRule:
             endmodule
             """
         )
+        assert_no_parse_errors("test_applies_returns_false_for_inside_operator", tree)
 
         def walk(node):
             if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
@@ -1725,6 +1728,7 @@ class TestNoInternalInoutRule:
 
     def test_applies_returns_false_for_ansi_inout_module_port(self, rule: NoInternalInoutRule) -> None:
         tree = sl.SyntaxTree.fromText("module top(inout wire io); endmodule")
+        assert_no_parse_errors("test_applies_returns_false_for_ansi_inout_module_port", tree)
 
         def walk(node):
             if isinstance(node, sl.ImplicitAnsiPortSyntax):
@@ -1774,6 +1778,7 @@ class TestNoLatchInAlwaysCombRule:
             endmodule
             """
         )
+        assert_no_parse_errors("test_applies_returns_true_for_missing_default_assignment", tree)
 
         def walk(node):
             if isinstance(node, sl.ProceduralBlockSyntax):
@@ -1804,6 +1809,7 @@ class TestNoLatchInAlwaysCombRule:
             endmodule
             """
         )
+        assert_no_parse_errors("test_applies_returns_false_with_prior_default_assignment", tree)
 
         def walk(node):
             if isinstance(node, sl.ProceduralBlockSyntax):
@@ -1834,6 +1840,7 @@ class TestNoLatchInAlwaysCombRule:
             endmodule
             """
         )
+        assert_no_parse_errors("test_applies_returns_false_with_explicit_else", tree)
 
         def walk(node):
             if isinstance(node, sl.ProceduralBlockSyntax):
@@ -3407,6 +3414,7 @@ class TestNoAssertionControlTaskRule:
 
 def _find_first_node_of_kind(src: str, kind: object) -> object:
     tree = sl.SyntaxTree.fromText(src)
+    assert_no_parse_errors(src, tree)
     found: object = None
 
     def walk(node: object) -> None:

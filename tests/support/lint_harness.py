@@ -12,6 +12,8 @@ from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.walk.walker import Walker
 
+from .parse_diagnostics import assert_no_parse_errors
+
 
 Diagnostic = dict[str, object]
 
@@ -82,10 +84,23 @@ def _run_walked_files(
     *,
     default_nettype_none_by_file: dict[str, bool] | None = None,
     jobs: int = 1,
+    allow_parse_errors: bool = False,
 ) -> LintCaseResult:
-    """Run already-parsed files through the real walker and rule runners."""
+    """Run already-parsed files through the real walker and rule runners.
+
+    By default, a file with real parser errors fails loudly here rather than
+    silently handing a parser-recovery AST to the walker: pyslang's recovery
+    can leave enough tree behind for a rule assertion to pass for reasons
+    unrelated to the RTL the case is meant to demonstrate. Pass
+    `allow_parse_errors=True` for cases that intentionally exercise recovery,
+    and assert on the expected parser errors in the test itself.
+    """
     if jobs != 1:
         raise NotImplementedError("lint case harness only supports sequential runs")
+
+    if not allow_parse_errors:
+        for file_name, tree in file_inputs:
+            assert_no_parse_errors(file_name, tree)
 
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
@@ -106,7 +121,9 @@ def _run_walked_files(
     return LintCaseResult(diagnostics=diagnostics)
 
 
-def run_inline_lint_case(files: dict[str, str], *, jobs: int = 1) -> LintCaseResult:
+def run_inline_lint_case(
+    files: dict[str, str], *, jobs: int = 1, allow_parse_errors: bool = False
+) -> LintCaseResult:
     """Run one or more pseudo-files through the real walker and rule runners.
 
     The harness stays in-memory so regression tests can cover multi-file cases
@@ -116,10 +133,12 @@ def run_inline_lint_case(files: dict[str, str], *, jobs: int = 1) -> LintCaseRes
         (str(relative_path), sl.SyntaxTree.fromText(contents.strip() + "\n"))
         for relative_path, contents in files.items()
     ]
-    return _run_walked_files(file_inputs, jobs=jobs)
+    return _run_walked_files(file_inputs, jobs=jobs, allow_parse_errors=allow_parse_errors)
 
 
-def run_inline_lint_case_spec(files: dict[str, LintCaseFile], *, jobs: int = 1) -> LintCaseResult:
+def run_inline_lint_case_spec(
+    files: dict[str, LintCaseFile], *, jobs: int = 1, allow_parse_errors: bool = False
+) -> LintCaseResult:
     """Run inline HDL snippets with per-file metadata such as default_nettype state."""
     file_inputs = [
         (str(relative_path), sl.SyntaxTree.fromText(file.contents.strip() + "\n"))
@@ -132,18 +151,23 @@ def run_inline_lint_case_spec(files: dict[str, LintCaseFile], *, jobs: int = 1) 
         file_inputs,
         default_nettype_none_by_file=default_nettype_none_by_file,
         jobs=jobs,
+        allow_parse_errors=allow_parse_errors,
     )
 
 
-def run_file_lint_case(paths: list[Path], *, jobs: int = 1) -> LintCaseResult:
+def run_file_lint_case(
+    paths: list[Path], *, jobs: int = 1, allow_parse_errors: bool = False
+) -> LintCaseResult:
     """Run real checked-in files through the parser boundary and full file path flow."""
     file_inputs = [
         (str(path), sl.SyntaxTree.fromFile(str(path)))
         for path in paths
     ]
-    return _run_walked_files(file_inputs, jobs=jobs)
+    return _run_walked_files(file_inputs, jobs=jobs, allow_parse_errors=allow_parse_errors)
 
 
-def run_lint_case(_case_root: Path, files: dict[str, str], *, jobs: int = 1) -> LintCaseResult:
+def run_lint_case(
+    _case_root: Path, files: dict[str, str], *, jobs: int = 1, allow_parse_errors: bool = False
+) -> LintCaseResult:
     """Backward-compatible alias for the inline rule-regression harness."""
-    return run_inline_lint_case(files, jobs=jobs)
+    return run_inline_lint_case(files, jobs=jobs, allow_parse_errors=allow_parse_errors)

@@ -15,6 +15,8 @@ from pathlib import Path
 import pyslang as sl
 import pytest
 
+from .support.parse_diagnostics import parse_errors, render_diagnostics
+
 DATA = Path(__file__).parent / "data"
 
 # Fixtures listed here are *expected* to fail to parse cleanly, and this test
@@ -27,27 +29,18 @@ FIXTURE_PATHS = sorted(
 )
 
 
-def _render_diagnostics(tree: sl.SyntaxTree) -> str:
-    engine = sl.DiagnosticEngine(tree.sourceManager)
-    client = sl.TextDiagnosticClient()
-    engine.addClient(client)
-    for diagnostic in tree.diagnostics:
-        engine.issue(diagnostic)
-    return client.getString()
-
-
 @pytest.mark.parametrize("path", FIXTURE_PATHS, ids=lambda p: p.name)
 def test_fixture_parses_without_errors(path: Path) -> None:
     if path.name in INTENTIONAL_PARSE_ERROR_FIXTURES:
         pytest.skip(f"{path.name} intentionally exercises parser recovery")
 
     tree = sl.SyntaxTree.fromFile(str(path))
-    errors = [d for d in tree.diagnostics if d.isError]
+    errors = parse_errors(tree)
 
     assert not errors, (
         f"{path.name} has real syntax errors; either fix the fixture or add it "
         f"to INTENTIONAL_PARSE_ERROR_FIXTURES with a comment explaining why:\n"
-        f"{_render_diagnostics(tree)}"
+        f"{render_diagnostics(tree)}"
     )
 
 
