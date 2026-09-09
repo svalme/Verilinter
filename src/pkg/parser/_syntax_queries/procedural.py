@@ -344,11 +344,41 @@ def mixed_assignment_trigger_node(block_raw: object) -> SyntaxNode | None:
     return None
 
 
+def _enclosing_statement_parent(node: object) -> object:
+    """Return the syntax parent of `node`'s nearest enclosing `ExpressionStatement`.
+
+    Two nonblocking writes to the same target sharing this identity are direct
+    siblings in the same straight-line statement list -- the second unconditionally
+    overwrites the first, making the first dead. Two writes in different branches
+    of the same `if`/`else`/`case` (or an unconditional default write followed by a
+    *nested* conditional override, the standard "default assignment" idiom) get
+    different parents here on purpose: `if`'s own body and its `ElseClause` are
+    distinct nodes even though both hang off the same `ConditionalStatement`, and a
+    conditionally-nested override's parent is the conditional, not the default
+    write's own enclosing block. A node with no `ExpressionStatement` ancestor (shouldn't
+    happen for an assignment used as a statement) gets a unique sentinel so it
+    never spuriously matches another write.
+    """
+    stmt = node
+    while stmt is not None and str(getattr(stmt, "kind", "")) != "SyntaxKind.ExpressionStatement":
+        stmt = getattr(stmt, "parent", None)
+    if stmt is None:
+        return object()
+    return getattr(stmt, "parent", None)
+
+
 def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode]:
+    """Return {target_name: second_write_node} for targets written by two or more
+    *direct-sibling* nonblocking assignments -- see `_enclosing_statement_parent`
+    for exactly what "sibling" excludes (mutually exclusive branches, and the
+    unconditional-default-then-nested-override idiom), both deliberately not
+    flagged since only the sibling case is definitely dead code rather than
+    ordinary, correct RTL control flow.
+    """
     from .access import assignment_target_identifier_name
 
     triggers: dict[str, SyntaxNode] = {}
-    seen_targets: set[str] = set()
+    seen_parents_by_target: dict[str, list[object]] = {}
 
     for node in iter_assignment_nodes(block_raw):
         if getattr(node, "kind", None) not in SIMPLE_ASSIGNMENT_KINDS:
@@ -358,8 +388,11 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
         name = assignment_target_identifier_name(node)
         if name is None:
             continue
-        if name in seen_targets and name not in triggers:
+
+        parent = _enclosing_statement_parent(node)
+        seen_parents = seen_parents_by_target.setdefault(name, [])
+        if name not in triggers and any(parent is existing for existing in seen_parents):
             triggers[name] = node
-        seen_targets.add(name)
+        seen_parents.append(parent)
 
     return triggers
