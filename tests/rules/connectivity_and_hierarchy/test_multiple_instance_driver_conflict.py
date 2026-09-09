@@ -84,12 +84,16 @@ endmodule
 """
 
 
+from tests.support.parse_diagnostics import assert_no_parse_errors
+
+
 def _run(code: str) -> list[dict]:
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
     tree = sl.SyntaxTree.fromText(code)
+    assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_multiple_instance_driver_conflict.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     return MultipleInstanceDriverConflictRule().run(symbol_table)

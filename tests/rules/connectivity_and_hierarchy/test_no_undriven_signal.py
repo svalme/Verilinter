@@ -8,6 +8,7 @@ from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.connectivity_and_hierarchy.no_undriven_signal import NoUndrivenSignalRule
+from tests.support.parse_diagnostics import assert_no_parse_errors
 
 
 UNDRIVEN_SIGNAL_CODE = """
@@ -90,6 +91,7 @@ class TestNoUndrivenSignalRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(INITIALIZED_SIGNAL_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -100,6 +102,7 @@ class TestNoUndrivenSignalRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(UNDRIVEN_SIGNAL_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -114,6 +117,7 @@ class TestNoUndrivenSignalRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(DRIVEN_SIGNAL_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

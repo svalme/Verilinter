@@ -12,12 +12,16 @@ from src.pkg.rules.conditional_and_case_statements.casex_casez_wildcard_case_ite
 )
 
 
+from tests.support.parse_diagnostics import assert_no_parse_errors
+
+
 def _diagnostics(code: str) -> list[dict]:
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
     tree = sl.SyntaxTree.fromText(code)
+    assert_no_parse_errors("tests/rules/conditional_and_case_statements/test_casex_casez_wildcard_case_item.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     return [d for d in rule_runner.run(walker.results) if d["code"] == "CASEX_CASEZ_WILDCARD_CASE_ITEM"]

@@ -10,12 +10,16 @@ from src.pkg.rules.register_rules import rule_runner
 from src.pkg.rules.parameters_and_generate_logic.missing_generate_block_label import MissingGenerateBlockLabelRule
 
 
+from tests.support.parse_diagnostics import assert_no_parse_errors
+
+
 def _diagnostics(code: str) -> list[dict]:
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
     tree = sl.SyntaxTree.fromText(code)
+    assert_no_parse_errors("tests/rules/parameters_and_generate_logic/test_missing_generate_block_label.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     return [d for d in rule_runner.run(walker.results) if d["code"] == "MISSING_GENERATE_BLOCK_LABEL"]

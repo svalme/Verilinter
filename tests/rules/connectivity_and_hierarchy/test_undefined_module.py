@@ -7,6 +7,7 @@ from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.connectivity_and_hierarchy.undefined_module import UndefinedModuleRule
+from tests.support.parse_diagnostics import assert_no_parse_errors
 
 CODE = """
 module top;
@@ -71,6 +72,7 @@ class TestUndefinedModuleRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_undefined_module.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -86,6 +88,7 @@ class TestUndefinedModuleRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(code)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_undefined_module.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)

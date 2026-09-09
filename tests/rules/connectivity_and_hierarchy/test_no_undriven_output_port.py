@@ -8,6 +8,7 @@ from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.connectivity_and_hierarchy.no_undriven_output_port import NoUndrivenOutputPortRule
+from tests.support.parse_diagnostics import assert_no_parse_errors
 
 
 UNDRIVEN_OUTPUT_CODE = """
@@ -100,6 +101,7 @@ class TestNoUndrivenOutputPortRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(UNDRIVEN_OUTPUT_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_output_port.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -114,6 +116,7 @@ class TestNoUndrivenOutputPortRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(DRIVEN_OUTPUT_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_output_port.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -125,6 +128,7 @@ class TestNoUndrivenOutputPortRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(UNUSED_OUTPUT_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_output_port.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

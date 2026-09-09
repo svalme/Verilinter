@@ -8,6 +8,7 @@ from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.combinational_logic.no_multiple_drivers import NoMultipleDriversRule
+from tests.support.parse_diagnostics import assert_no_parse_errors
 
 
 MULTIPLE_DRIVERS_CODE = """
@@ -127,6 +128,7 @@ class TestNoMultipleDriversRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(DECLARATION_AND_SINGLE_BLOCK_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -137,6 +139,7 @@ class TestNoMultipleDriversRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(MULTIPLE_DRIVERS_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -151,6 +154,7 @@ class TestNoMultipleDriversRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(SINGLE_DRIVER_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -161,6 +165,7 @@ class TestNoMultipleDriversRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(MULTIPLE_CONTINUOUS_ASSIGN_DRIVERS_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -175,6 +180,7 @@ class TestNoMultipleDriversRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(MIXED_ASSIGN_AND_PROCEDURAL_DRIVERS_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -189,6 +195,7 @@ class TestNoMultipleDriversRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(SINGLE_CONTINUOUS_ASSIGN_DRIVER_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -212,6 +219,7 @@ class TestNoMultipleDriversRule:
             endmodule
             """
         )
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

@@ -10,12 +10,16 @@ from src.pkg.rules.register_rules import rule_runner
 from src.pkg.rules.width_and_signedness.shift_amount_out_of_range import ShiftAmountOutOfRangeRule
 
 
+from tests.support.parse_diagnostics import assert_no_parse_errors
+
+
 def _diagnostics(code: str) -> list[dict]:
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
     tree = sl.SyntaxTree.fromText(code)
+    assert_no_parse_errors("tests/rules/width_and_signedness/test_shift_amount_out_of_range.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     return [d for d in rule_runner.run(walker.results) if d["code"] == "SHIFT_AMOUNT_OUT_OF_RANGE"]

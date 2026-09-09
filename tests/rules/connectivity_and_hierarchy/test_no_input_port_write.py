@@ -8,6 +8,7 @@ from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.walk.walker import Walker
+from tests.support.parse_diagnostics import assert_no_parse_errors
 
 
 WRITE_INPUT_CODE = """
@@ -90,6 +91,7 @@ class TestNoInputPortWriteRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(WRITE_INPUT_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_input_port_write.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -104,6 +106,7 @@ class TestNoInputPortWriteRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(READ_INPUT_ONLY_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_input_port_write.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -114,6 +117,7 @@ class TestNoInputPortWriteRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(READ_AND_WRITE_INPUT_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_input_port_write.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)

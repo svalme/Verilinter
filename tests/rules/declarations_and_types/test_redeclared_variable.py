@@ -8,6 +8,7 @@ from src.pkg.semantic.symbol import Symbol
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.declarations_and_types.redeclared_variable import RedeclaredVariableRule
+from tests.support.parse_diagnostics import assert_no_parse_errors
 
 REDECLARED_CODE = """
 module dup;
@@ -84,6 +85,7 @@ class TestRedeclaredVariableRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(REDECLARED_CODE)
+        assert_no_parse_errors("tests/rules/declarations_and_types/test_redeclared_variable.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)

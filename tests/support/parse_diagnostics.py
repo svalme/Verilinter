@@ -24,7 +24,7 @@ def render_diagnostics(tree: sl.SyntaxTree) -> str:
 
 def parse_errors(tree: sl.SyntaxTree) -> list[object]:
     """Return the subset of `tree.diagnostics` that are real errors (not warnings)."""
-    return [d for d in tree.diagnostics if d.isError]
+    return [d for d in tree.diagnostics if d.isError()]
 
 
 def assert_no_parse_errors(label: str, tree: sl.SyntaxTree) -> None:

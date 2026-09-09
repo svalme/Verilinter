@@ -9,12 +9,16 @@ from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.connectivity_and_hierarchy.undriven_tristate_signal import UndrivenTristateSignalRule
 
 
+from tests.support.parse_diagnostics import assert_no_parse_errors
+
+
 def _diagnostics(code: str) -> list[dict]:
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
     tree = sl.SyntaxTree.fromText(code)
+    assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_undriven_tristate_signal.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     return UndrivenTristateSignalRule().run(symbol_table)
