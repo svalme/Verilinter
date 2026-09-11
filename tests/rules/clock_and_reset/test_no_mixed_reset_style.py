@@ -65,6 +65,34 @@ module b(input logic clk, input logic rst_n);
 endmodule
 """
 
+THREE_BLOCKS_ONE_MISMATCH_CODE = """
+module top(input logic clk, input logic rst_n);
+  logic p, q, r;
+  always_ff @(posedge clk) begin
+    p <= p + 1;
+  end
+  always_ff @(posedge clk) begin
+    q <= q + 1;
+  end
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) r <= 0;
+    else r <= 1;
+  end
+endmodule
+"""
+
+SYNC_BLOCK_WITH_COMBINATIONAL_BLOCK_CODE = """
+module top(input logic clk, input logic a);
+  logic q, comb_out;
+  always_ff @(posedge clk) begin
+    q <= q + 1;
+  end
+  always_comb begin
+    comb_out = a;
+  end
+endmodule
+"""
+
 
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
@@ -104,3 +132,21 @@ class TestNoMixedResetStyleRule:
 
     def test_does_not_flag_across_two_different_single_style_modules(self) -> None:
         assert _run(TWO_MODULES_EACH_SINGLE_STYLE_CODE) == []
+
+    def test_flags_once_when_a_third_block_mismatches_the_first_two(self) -> None:
+        # Only one diagnostic per module: the rule remembers the module's
+        # first-seen style and reports (and stops, via `break`) at the first
+        # block that disagrees with it, not once per further mismatching block.
+        diagnostics = _run(THREE_BLOCKS_ONE_MISMATCH_CODE)
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_when_module_also_has_a_combinational_block(self) -> None:
+        # `classify_reset_style` only classifies `always`/`always_ff` blocks
+        # gated by a genuine edge-sensitive timing control; an `always_comb`
+        # block returns `None` and is never recorded as a reset-style event
+        # at all, so it cannot itself create a mismatch alongside a single
+        # sync-style `always_ff` block.
+        diagnostics = _run(SYNC_BLOCK_WITH_COMBINATIONAL_BLOCK_CODE)
+
+        assert diagnostics == []

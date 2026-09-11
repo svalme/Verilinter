@@ -84,6 +84,54 @@ class TestAsyncResetXZValueRule:
 
         assert diagnostics == []
 
+    def test_flags_x_with_negedge_active_low_reset_polarity(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input clk, input rst_n, output reg q);
+              always @(posedge clk or negedge rst_n) begin
+                if (!rst_n)
+                  q <= 1'bx;
+                else
+                  q <= 1'b0;
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_z_literal_in_async_reset_conditional(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input clk, input rst, output reg q);
+              always @(posedge clk or posedge rst) begin
+                if (rst)
+                  q <= 1'bz;
+                else
+                  q <= 1'b0;
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_x_assigned_with_blocking_assignment(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input clk, input rst, output reg q);
+              always @(posedge clk or posedge rst) begin
+                if (rst)
+                  q = 1'bx;
+                else
+                  q = 1'b0;
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
     def test_does_not_flag_unrelated_if_outside_reset_conditional(self) -> None:
         diagnostics = _diagnostics(
             """

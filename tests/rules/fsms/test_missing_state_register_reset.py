@@ -115,6 +115,35 @@ class TestMissingStateRegisterResetRule:
 
         assert diagnostics == []
 
+    def test_does_not_flag_missing_reset_under_inverted_reset_polarity(self) -> None:
+        # Documents a known limitation, not a claim of coverage:
+        # `is_state_register_reset_covered` assumes the conventional polarity
+        # where reset is asserted in the `if`-branch. Here reset (`rst_n` low)
+        # is asserted in the `else`-branch instead, and `state` is genuinely
+        # never assigned there -- a real missing-reset bug -- but the rule
+        # only inspects the `if`-branch, finds `state` assigned by the FSM's
+        # own transition case there, and concludes (wrongly) that it is
+        # covered.
+        diagnostics = _diagnostics(
+            """
+            module top(input clk, input rst_n, output reg z);
+              localparam IDLE = 2'b00;
+              localparam RUN  = 2'b01;
+              reg [1:0] state;
+              always @(posedge clk or negedge rst_n) begin
+                if (rst_n) case (state)
+                  IDLE: state <= RUN;
+                  RUN: state <= IDLE;
+                  default: state <= IDLE;
+                endcase
+                else z <= 1'b0;
+              end
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
     def test_does_not_flag_ordinary_non_fsm_case(self) -> None:
         diagnostics = _diagnostics(
             """

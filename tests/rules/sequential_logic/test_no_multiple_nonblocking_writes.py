@@ -152,6 +152,66 @@ class TestNoMultipleNonblockingWritesRule:
 
         assert diagnostics == []
 
+    def test_flags_only_once_for_three_sibling_writes_to_same_target(self) -> None:
+        """The trigger table stores one node per target name (`{target_name:
+        second_write_node}`), so a third sibling write to the same target adds
+        no further diagnostic beyond the one already raised for the second."""
+        diagnostics = _diagnostics(
+            """
+            module top(input logic clk, input logic a, input logic b, input logic c, output logic y);
+              always_ff @(posedge clk) begin
+                y <= a;
+                y <= b;
+                y <= c;
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_blocking_duplicate_writes(self) -> None:
+        """The rule is specific to non-blocking writes; two blocking writes to
+        the same target in one block are a different (unflagged-by-this-rule)
+        shape, matched here in an `always_comb` block."""
+        diagnostics = _diagnostics(
+            """
+            module top(input logic a, input logic b, output logic y);
+              always_comb begin
+                y = a;
+                y = b;
+              end
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_only_once_across_independent_duplicates_in_two_exclusive_branches(self) -> None:
+        # Documents a known limitation, not a claim of coverage: the trigger
+        # table records at most one flagged write per target name per block.
+        # Here `y` has its own independent sibling-duplicate bug in *each*
+        # mutually exclusive branch (`if`: a then b; `else`: c then d) -- two
+        # real, distinct dead-write bugs -- but only the first one found is
+        # reported.
+        diagnostics = _diagnostics(
+            """
+            module top(input logic clk, input logic en, input logic a, input logic b, input logic c, input logic d, output logic y);
+              always_ff @(posedge clk) begin
+                if (en) begin
+                  y <= a;
+                  y <= b;
+                end else begin
+                  y <= c;
+                  y <= d;
+                end
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
     def test_report_returns_correct_format(self, rule: NoMultipleNonblockingWritesRule) -> None:
         from unittest.mock import Mock
 
