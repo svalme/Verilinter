@@ -85,3 +85,74 @@ class TestShiftAmountOutOfRangeRule:
         )
 
         assert diagnostics == []
+
+    def test_does_not_flag_shift_amount_at_max_valid(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [7:0] y;
+              assign y = x << 7;
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_does_not_flag_shift_amount_of_zero(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [7:0] y;
+              assign y = x << 0;
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_logical_right_shift_amount_equal_to_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [7:0] y;
+              assign y = x >> 8;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_arithmetic_shift_amount_out_of_range(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [7:0] y;
+              assign y = x >>> 8;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_when_shifted_operand_is_not_an_identifier(self) -> None:
+        # Documents a known limitation: the rule only resolves the shifted
+        # operand's width when it is a plain identifier with a known
+        # `Symbol.bit_width`. A richer shifted operand -- here `(x + q)` --
+        # is silently skipped even though its self-determined width could in
+        # principle still make the shift amount out of range.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [7:0] q;
+              wire [7:0] y;
+              assign y = (x + q) << 8;
+            endmodule
+            """
+        )
+
+        assert diagnostics == []

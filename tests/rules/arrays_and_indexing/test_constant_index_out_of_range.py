@@ -111,3 +111,87 @@ class TestConstantIndexOutOfRangeRule:
         )
 
         assert diagnostics == []
+
+    def test_does_not_flag_bit_select_at_index_zero(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire b;
+              assign b = a[0];
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_does_not_flag_bit_select_at_max_valid_index(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire b;
+              assign b = a[7];
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_descending_indexed_part_select_width_exceeding_declared_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [15:0] b;
+              assign b = a[7-:16];
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_indexed_part_select_width_equal_to_declared_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [7:0] b;
+              assign b = a[0+:8];
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_constant_index_on_assignment_target(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire b;
+              assign a[9] = b;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_indexed_part_select_with_out_of_range_base_offset(self) -> None:
+        # Documents a known limitation, not a claim of coverage: for an
+        # indexed part-select (`a[base +: W]`), the rule only compares the
+        # width `W` against the declared bit width and ignores `base`
+        # entirely. Here `a[6+:4]` on an 8-bit `a` really does run past the
+        # end (base 6 + width 4 - 1 = 9 >= 8), but since the width alone (4)
+        # fits within 8 bits, the rule silently misses it.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [3:0] b;
+              assign b = a[6+:4];
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
