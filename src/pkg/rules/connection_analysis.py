@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from ..parser.syntax import is_mutually_exclusive_branch_pair
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 
@@ -294,6 +295,7 @@ def instance_output_driver_conflicts(
     if parent_scope is None:
         return conflicts
 
+    inst_signature = instantiation.get("generate_branch_signature", ())
     for port, conn in bound_port_pairs(symbol_table, instantiation):
         if port.port_direction not in ("output", "inout") or conn is None or conn.get("kind") == "empty":
             continue
@@ -302,6 +304,17 @@ def instance_output_driver_conflicts(
             continue
         symbol = parent_scope.lookup(expr_name)
         if symbol is None or not symbol.is_written:
+            continue
+        # A write confined to a `generate if`/`else` branch mutually exclusive with
+        # this instantiation's own branch (see branch_exclusivity_signature) can
+        # never coexist with this connection, so it is not a real conflict. Only
+        # skip when *every* write is exclusive with this instance; a genuine
+        # co-existing write anywhere still flags.
+        write_events = [event for event in symbol.use_events if event["write"]]
+        if write_events and all(
+            is_mutually_exclusive_branch_pair(inst_signature, event.get("branch_signature", ()))
+            for event in write_events
+        ):
             continue
         conflicts.append((port.name, expr_name))
     return conflicts
@@ -347,11 +360,15 @@ def multiple_instance_driver_conflicts(
 
         for signal_name, entries in drivers.items():
             for index, (inst, port_name) in enumerate(entries):
+                inst_signature = inst.get("generate_branch_signature", ())
                 prior = next(
                     (
                         (prior_inst, prior_port)
                         for prior_inst, prior_port in entries[:index]
                         if prior_inst is not inst
+                        and not is_mutually_exclusive_branch_pair(
+                            inst_signature, prior_inst.get("generate_branch_signature", ())
+                        )
                     ),
                     None,
                 )

@@ -83,6 +83,23 @@ module top;
 endmodule
 """
 
+GENERATE_IF_ELSE_MUTUALLY_EXCLUSIVE_INSTANCES_CODE = """
+module top #(parameter FAST = 1, parameter EN = 0);
+  wire x;
+  generate if (FAST) begin
+    fast_sub u1(.out(x));
+  end else if (EN) begin
+    slow_sub u1(.out(x));
+  end endgenerate
+endmodule
+
+module fast_sub(output wire out);
+endmodule
+
+module slow_sub(output wire out);
+endmodule
+"""
+
 
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
@@ -140,3 +157,9 @@ class TestMultipleInstanceDriverConflictRule:
         """UNDEFINED_MODULE's concern, not this rule's -- there's no real port
         list to resolve `out`'s direction against."""
         assert _run(UNDEFINED_MODULE_CODE) == []
+
+    def test_does_not_flag_generate_if_else_mutually_exclusive_instances(self) -> None:
+        """The same instance name reused across `generate if`/`else if` branches to
+        select one of several implementations is never simultaneously instantiated, so it is not a
+        real two-instances-drive-one-net conflict."""
+        assert _run(GENERATE_IF_ELSE_MUTUALLY_EXCLUSIVE_INSTANCES_CODE) == []

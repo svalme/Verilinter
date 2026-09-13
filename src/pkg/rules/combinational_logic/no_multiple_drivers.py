@@ -1,6 +1,7 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...parser.syntax import is_mutually_exclusive_branch_pair
 from ...semantic.symbol import UseEvent
 from ...semantic.symbol_table import SymbolTable
 from ...vnodes.base_vnode import Location
@@ -39,9 +40,29 @@ class NoMultipleDriversRule(BaseSymbolRule):
                 if len(seen_driver_ids) <= 1:
                     continue
 
-                ordered_events = list(seen_driver_ids.values())
-                _first_event, first_driver_loc = ordered_events[0]
-                second_event, _second_driver_loc = ordered_events[1]
+                # Two drivers only conflict if they can both apply at once. A driver
+                # pair confined to mutually exclusive `if`/`else` branches -- most
+                # commonly a `generate if (PARAM) ... else ...` module/style choice --
+                # is never simultaneously live, so it is not a real multi-driver
+                # conflict.
+                # Report the first pair, in encounter order, that genuinely is.
+                ordered = list(seen_driver_ids.values())
+                conflict: tuple[Location, UseEvent] | None = None
+                for i in range(len(ordered)):
+                    event_i, loc_i = ordered[i]
+                    for event_j, _loc_j in ordered[i + 1 :]:
+                        if not is_mutually_exclusive_branch_pair(
+                            event_i.get("branch_signature", ()), event_j.get("branch_signature", ())
+                        ):
+                            conflict = (loc_i, event_j)
+                            break
+                    if conflict is not None:
+                        break
+
+                if conflict is None:
+                    continue
+
+                first_driver_loc, second_event = conflict
                 loc = second_event["location"]
 
                 diagnostic = {

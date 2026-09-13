@@ -200,6 +200,92 @@ class TestNoMultipleDriversRule:
 
         assert rule.run(symbol_table) == []
 
+    def test_generate_if_else_mutually_exclusive_drivers_not_flagged(self, rule: NoMultipleDriversRule) -> None:
+        """A signal driven from two `always` blocks in mutually exclusive
+        `generate if`/`else` branches (a parameterized module/style choice) is
+        not a real multi-driver conflict, since only one branch is ever
+        elaborated."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top #(parameter TWO_CYCLE = 1) (input logic clk, input logic a, input logic b);
+              logic x;
+              generate if (TWO_CYCLE) begin
+                always @(posedge clk) begin
+                  x <= a;
+                end
+              end else begin
+                always @* begin
+                  x = b;
+                end
+              end endgenerate
+            endmodule
+            """
+        )
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
+    def test_generate_if_else_if_else_three_way_mutually_exclusive_not_flagged(
+        self, rule: NoMultipleDriversRule
+    ) -> None:
+        """A three-way module selection (option A, option B, or neither): an
+        `else if` chain, not just a plain `if`/`else`."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top #(parameter FAST = 0, parameter EN = 0) (input logic a, input logic b);
+              logic x;
+              generate if (FAST) begin
+                assign x = a;
+              end else if (EN) begin
+                assign x = b;
+              end else begin
+                assign x = 1'b0;
+              end endgenerate
+            endmodule
+            """
+        )
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
+    def test_generate_if_does_not_suppress_a_real_conflict(self, rule: NoMultipleDriversRule) -> None:
+        """Branch-exclusivity must not become a blanket exemption for anything
+        touched by a generate block: a driver inside a generate-if branch and an
+        unconditional driver outside it can both apply at once and must still
+        flag."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(
+            """
+            module top #(parameter EN = 1) (input logic a, input logic b);
+              logic x;
+              generate if (EN) begin
+                assign x = a;
+              end endgenerate
+              assign x = b;
+            endmodule
+            """
+        )
+        assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "NO_MULTIPLE_DRIVERS"
+
     def test_reads_carrying_a_driver_id_are_not_treated_as_drivers(self, rule: NoMultipleDriversRule) -> None:
         """`IdentifierNameHandler` now computes `driver_id` for read events too
         (needed by COMBINATIONAL_LOOP), not just writes. This rule must keep

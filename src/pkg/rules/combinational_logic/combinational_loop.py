@@ -1,6 +1,7 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...parser.syntax import is_mutually_exclusive_branch_pair
 from ...semantic.symbol_table import SymbolTable
 from ...vnodes.base_vnode import Location
 from ..symbol_rule_runner import symbol_rule_runner
@@ -18,7 +19,8 @@ class CombinationalLoopRule(BaseSymbolRule):
         diagnostics: list[dict[str, Any]] = []
 
         for scope in symbol_table.scopes:
-            buckets: dict[str, dict[str, list[tuple[str, Location]]]] = {}
+            BranchSignature = tuple[tuple[int, int], ...]
+            buckets: dict[str, dict[str, list[tuple[str, Location, BranchSignature]]]] = {}
             for symbol in scope.symbols.values():
                 for event in symbol.use_events:
                     driver_id = event.get("driver_id")
@@ -26,16 +28,23 @@ class CombinationalLoopRule(BaseSymbolRule):
                         continue
                     bucket = buckets.setdefault(driver_id, {"reads": [], "writes": []})
                     key = "writes" if event["write"] else "reads"
-                    bucket[key].append((symbol.name, event["location"]))
+                    bucket[key].append((symbol.name, event["location"], event.get("branch_signature", ())))
 
             graph: dict[str, list[tuple[str, Location]]] = {}
             for bucket in buckets.values():
-                for read_name, _read_loc in bucket["reads"]:
-                    for write_name, write_loc in bucket["writes"]:
+                for read_name, _read_loc, read_signature in bucket["reads"]:
+                    for write_name, write_loc, write_signature in bucket["writes"]:
                         if read_name == write_name:
                             # Self-feedback in one statement (`x = x;`) is
                             # NO_SELF_ASSIGNMENT's concern, not a cycle to report
                             # here.
+                            continue
+                        if is_mutually_exclusive_branch_pair(read_signature, write_signature):
+                            # The read and write live in mutually exclusive `if`/
+                            # `else` branches of this block (e.g. an unconditional
+                            # default computed one way, overridden another way in a
+                            # sibling branch) -- they can never both execute in the
+                            # same pass, so there is no real dependency edge here.
                             continue
                         graph.setdefault(read_name, []).append((write_name, write_loc))
 

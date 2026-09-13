@@ -6,6 +6,7 @@ from ..walk.dispatch import dispatch
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 from ..parser.syntax import (
+    branch_exclusivity_signature,
     enclosing_continuous_assign,
     enclosing_procedural_block,
     identifier_access_modes,
@@ -72,6 +73,12 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 symbol_table.mark_combinational_driver(driver_id)
             if is_write and is_continuous_assign(driver_block.raw) and is_tristate_continuous_assign(driver_block.raw):
                 symbol_table.mark_tristate_driver(driver_id)
+        # Computed for every event (read or write): lets a rule comparing two events
+        # for the same symbol -- NO_MULTIPLE_DRIVERS across driver_ids, COMBINATIONAL_LOOP
+        # across a read/write pair -- tell a genuine simultaneous conflict from two
+        # mutually exclusive `if`/`else` (procedural or generate) alternatives that can
+        # never both apply. See branch_exclusivity_signature's docstring.
+        branch_signature = branch_exclusivity_signature(vnode.raw)
 
         if symbol:
             symbol.add_use(
@@ -80,6 +87,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 write=is_write,
                 driver_id=driver_id,
                 driver_location=driver_location,
+                branch_signature=branch_signature,
             )
         else:
             if symbol_table.current_file_uses_default_nettype_none():
@@ -93,6 +101,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 write=is_write,
                 driver_id=driver_id,
                 driver_location=driver_location,
+                branch_signature=branch_signature,
             )
             ctx.scope().define(symbol)
 

@@ -4,6 +4,7 @@ from ..semantic.scope import Scope, enclosing_module_scope
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 from ..parser.syntax import (
+    branch_exclusivity_signature,
     hierarchical_instance_name,
     hierarchical_instance_list,
     instantiation_type_name,
@@ -147,6 +148,12 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                     "connections": connections,
                     "parameter_override_style": parameter_override_style,
                     "parameter_overrides": parameter_overrides,
+                    # Lets a driver-conflict rule recognize an instance instantiated
+                    # in a `generate if`/`else` branch mutually exclusive with
+                    # another driver of the same signal (see
+                    # branch_exclusivity_signature) as not a real simultaneous
+                    # conflict.
+                    "generate_branch_signature": branch_exclusivity_signature(vnode.raw),
                 }
             )
 

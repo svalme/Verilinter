@@ -111,6 +111,17 @@ def _lint_single_file(path: str, rule_selection: RuleSelection | None) -> Worker
                         "use_count": symbol.use_count,
                         "read_count": symbol.read_count,
                         "write_count": symbol.write_count,
+                        # Lets a cross-file module rule (INSTANCE_OUTPUT_DRIVER_CONFLICT)
+                        # tell a write confined to a `generate if`/`else` branch mutually
+                        # exclusive with an instantiation's own branch from a genuine
+                        # simultaneous conflict -- see branch_exclusivity_signature.
+                        # `is_written`/counts above already summarize whether *any*
+                        # write exists; this is the per-write detail that summary loses.
+                        "write_branch_signatures": [
+                            list(event.get("branch_signature", ()))
+                            for event in symbol.use_events
+                            if event["write"]
+                        ],
                     }
                 )
             modules.append(
@@ -159,6 +170,20 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
                 symbol.use_count = int(symbol_data.get("use_count", 0))
                 symbol.read_count = int(symbol_data.get("read_count", 0))
                 symbol.write_count = int(symbol_data.get("write_count", 0))
+                # Reconstruct just enough of use_events for branch-exclusivity checks
+                # (INSTANCE_OUTPUT_DRIVER_CONFLICT) to work on this cross-file table;
+                # the summary fields above already cover every other consumer. Each
+                # signature entry round-trips through the JSON-backed analysis store
+                # as a plain list, so re-tuple it for use as a dict key.
+                symbol.use_events = [
+                    {
+                        "location": {"line": 0, "col": 0},
+                        "read": False,
+                        "write": True,
+                        "branch_signature": tuple(tuple(pair) for pair in raw_signature),
+                    }
+                    for raw_signature in symbol_data.get("write_branch_signatures", []) or []
+                ]
                 scope.define(symbol)
             symbol_table.modules.setdefault(module["name"], []).append(scope)
 

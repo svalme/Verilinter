@@ -62,6 +62,20 @@ module top;
 endmodule
 """
 
+GENERATE_IF_ELSE_INSTANCE_PLUS_FALLBACK_ASSIGN_CODE = """
+module top #(parameter EN = 1) (input logic a);
+  wire x;
+  generate if (EN) begin
+    sub u_sub(.out(x));
+  end else begin
+    assign x = 1'b0;
+  end endgenerate
+endmodule
+
+module sub(output wire out);
+endmodule
+"""
+
 
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
@@ -108,3 +122,9 @@ class TestInstanceOutputDriverConflictRule:
         """UNDEFINED_MODULE's concern, not this rule's -- there's no real port
         list to resolve `out`'s direction against."""
         assert _run(UNDEFINED_MODULE_CODE) == []
+
+    def test_does_not_flag_generate_if_else_mutually_exclusive_driver(self) -> None:
+        """An instance's output port and a fallback `assign` in the opposite
+        `generate if`/`else` branch (the disabled-feature `assign result = 0;`
+        idiom) can never coexist, so this is not a real conflict."""
+        assert _run(GENERATE_IF_ELSE_INSTANCE_PLUS_FALLBACK_ASSIGN_CODE) == []

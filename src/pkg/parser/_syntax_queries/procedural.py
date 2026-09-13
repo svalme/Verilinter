@@ -396,3 +396,64 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
         seen_parents.append(parent)
 
     return triggers
+
+
+BranchSignature = tuple[tuple[int, int], ...]
+
+
+def branch_exclusivity_signature(raw: object) -> BranchSignature:
+    """Return `((id(construct), branch_taken), ...)` for every enclosing `if`/`else`
+    (procedural `ConditionalStatement` or generate `IfGenerate`, either kind mixed
+    freely in one chain) between `raw` and the module root, outermost last.
+
+    Generalizes `_enclosing_statement_parent`'s sibling-vs-branch distinction from
+    "one target written twice in one block" to "any two nodes anywhere, possibly in
+    different blocks or different generate branches entirely" -- exactly what
+    `is_mutually_exclusive_branch_pair` needs to tell a real simultaneous conflict
+    (multiple drivers, a dependency cycle) from two mutually-exclusive alternatives
+    that can never both apply, whether the choice is made at elaboration time
+    (`generate if (PARAM) ... else ...`, e.g. a module implementation
+    choice) or at runtime (`if (rst) ... else ...`).
+
+    An `else if` chain works out correctly without special-casing it: each
+    `ConditionalStatement`/`IfGenerate` in the chain is its own construct with its
+    own id, so a deeper `else if`'s branches only share a construct id (and only
+    conflict) with siblings under that same link of the chain. Case statements
+    (procedural or generate) are not covered here.
+    """
+    from ..syntax_queries import is_conditional_statement, is_else_clause_node
+    from .node_kind_checks import is_if_generate_node
+
+    signature: list[tuple[int, int]] = []
+    node = raw
+    parent = getattr(node, "parent", None)
+    while parent is not None:
+        if is_else_clause_node(parent):
+            construct = getattr(parent, "parent", None)
+            if construct is not None:
+                signature.append((id(construct), 1))
+        elif is_conditional_statement(parent) or is_if_generate_node(parent):
+            primary = getattr(parent, "statement", None)
+            if primary is None:
+                primary = getattr(parent, "block", None)
+            if node is primary:
+                signature.append((id(parent), 0))
+        node = parent
+        parent = getattr(parent, "parent", None)
+
+    return tuple(signature)
+
+
+def is_mutually_exclusive_branch_pair(sig_a: BranchSignature, sig_b: BranchSignature) -> bool:
+    """True if `sig_a`/`sig_b` (each from `branch_exclusivity_signature`) share an
+    enclosing `if`/`else` construct where they take different branches -- at most
+    one of the two nodes they came from can ever execute or be elaborated, so a
+    rule comparing them for a simultaneous conflict should treat the pair as safe
+    rather than flag it. No shared construct at all is *not* exclusive: with no
+    branching relationship between them, both can genuinely apply at once.
+    """
+    branch_by_construct = dict(sig_a)
+    return any(
+        construct_id in branch_by_construct and branch_by_construct[construct_id] != branch
+        for construct_id, branch in sig_b
+    )

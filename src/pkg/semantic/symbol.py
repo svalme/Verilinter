@@ -15,6 +15,7 @@ class UseEvent(TypedDict):
     write: bool
     driver_id: NotRequired[str]
     driver_location: NotRequired[Location]
+    branch_signature: NotRequired[tuple[tuple[int, int], ...]]
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -53,6 +54,7 @@ class Symbol:
         write: bool = False,
         driver_id: str | None = None,
         driver_location: Location | None = None,
+        branch_signature: tuple[tuple[int, int], ...] | None = None,
     ) -> None:
         self.uses.append(loc)
         event: UseEvent = {"location": loc, "read": read, "write": write}
@@ -60,6 +62,8 @@ class Symbol:
             event["driver_id"] = driver_id
         if driver_location is not None:
             event["driver_location"] = driver_location
+        if branch_signature is not None:
+            event["branch_signature"] = branch_signature
         self.use_events.append(event)
         self.is_read |= read
         self.is_written |= write
