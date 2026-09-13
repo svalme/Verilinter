@@ -93,8 +93,8 @@ Not read by any test file. Confirm before deleting -- a fixture can still be ref
 | `tests/data/one_module_per_file.v` | 1 | `tests/test_run_lint.py` |
 | `tests/data/package_declaration.sv` | 2 | `tests/test_rule_overlap_harness.py`<br>`tests/test_run_lint.py` |
 | `tests/data/plusargs_system_function.v` | 1 | `tests/test_run_lint.py` |
-| `tests/data/port_connection_advanced.sv` | 3 | `tests/rules/test_connection_rules.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
-| `tests/data/port_connection_issues.sv` | 4 | `tests/rules/test_connection_rules.py`<br>`tests/test_analysis_store.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
+| `tests/data/port_connection_advanced.sv` | 4 | `tests/rules/test_connection_rules.py`<br>`tests/test_cli_execution_modes.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
+| `tests/data/port_connection_issues.sv` | 5 | `tests/rules/test_connection_rules.py`<br>`tests/test_analysis_store.py`<br>`tests/test_cli_execution_modes.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
 | `tests/data/primitive_declaration.v` | 1 | `tests/test_run_lint.py` |
 | `tests/data/priority_if.v` | 1 | `tests/test_run_lint.py` |
 | `tests/data/program_declaration.sv` | 2 | `tests/test_rule_overlap_harness.py`<br>`tests/test_run_lint.py` |
@@ -105,7 +105,7 @@ Not read by any test file. Confirm before deleting -- a fixture can still be ref
 | `tests/data/read_before_write.v` | 1 | `tests/test_run_lint.py` |
 | `tests/data/real_type.v` | 1 | `tests/test_run_lint.py` |
 | `tests/data/repeat_loop.v` | 1 | `tests/test_run_lint.py` |
-| `tests/data/self_assignment.v` | 3 | `tests/test_analysis_store.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
+| `tests/data/self_assignment.v` | 4 | `tests/test_analysis_store.py`<br>`tests/test_cli_execution_modes.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
 | `tests/data/sequence_declaration.sv` | 1 | `tests/test_run_lint.py` |
 | `tests/data/simple.v` | 8 | `tests/handlers/test_identifier.py`<br>`tests/handlers/test_identifier_handler_integration.py`<br>`tests/rules/declarations_and_types/test_no_implicit_net.py`<br>`tests/rules/declarations_and_types/test_undeclared_variable.py`<br>`tests/rules/unused_and_dead_code/test_unused_variable_rule.py`<br>`tests/test_fixture_validity.py`<br>`tests/test_run_lint.py`<br>`tests/walk/print_tree_test.py` |
 | `tests/data/simulation_control_task.v` | 1 | `tests/test_run_lint.py` |
@@ -133,5 +133,5 @@ Not read by any test file. Confirm before deleting -- a fixture can still be ref
 | `tests/data/wait_statement.v` | 1 | `tests/test_run_lint.py` |
 | `tests/data/wand_wor.v` | 1 | `tests/test_run_lint.py` |
 | `tests/data/while_loop.v` | 1 | `tests/test_run_lint.py` |
-| `tests/data/wildcard_port_connection.sv` | 3 | `tests/rules/test_connection_rules.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
+| `tests/data/wildcard_port_connection.sv` | 4 | `tests/rules/test_connection_rules.py`<br>`tests/test_cli_execution_modes.py`<br>`tests/test_cli_features.py`<br>`tests/test_run_lint.py` |
 | `tests/data/write_only_variable.v` | 1 | `tests/test_run_lint.py` |

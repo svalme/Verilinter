@@ -31,6 +31,7 @@ tests/artifacts/
 tests/_tmp_harness/
 tests/_tmp_analysis_store/
 tests/_tmp_cli_features/
+tests/_tmp_cli_execution_modes/
 
 # Mypy
 .mypy_cache/
