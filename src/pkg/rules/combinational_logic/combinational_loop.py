@@ -18,7 +18,7 @@ class CombinationalLoopRule(BaseSymbolRule):
         diagnostics: list[dict[str, Any]] = []
 
         for scope in symbol_table.scopes:
-            Event = tuple[str, Location, str | None]
+            Event = tuple[str, Location, str | None, tuple[str, ...]]
             buckets: dict[str, dict[str, list[Event]]] = {}
             for symbol in scope.symbols.values():
                 for event in symbol.use_events:
@@ -27,12 +27,14 @@ class CombinationalLoopRule(BaseSymbolRule):
                         continue
                     bucket = buckets.setdefault(driver_id, {"reads": [], "writes": []})
                     key = "writes" if event["write"] else "reads"
-                    bucket[key].append((symbol.name, event["location"], event.get("statement_id")))
+                    bucket[key].append(
+                        (symbol.name, event["location"], event.get("statement_id"), event.get("loop_ids", ()))
+                    )
 
-            graph: dict[str, list[tuple[str, Location]]] = {}
+            graph: dict[str, list[tuple[str, Location, tuple[str, ...]]]] = {}
             for bucket in buckets.values():
-                for read_name, _read_loc, read_statement_id in bucket["reads"]:
-                    for write_name, write_loc, write_statement_id in bucket["writes"]:
+                for read_name, _read_loc, read_statement_id, _read_loop_ids in bucket["reads"]:
+                    for write_name, write_loc, write_statement_id, write_loop_ids in bucket["writes"]:
                         if read_name == write_name:
                             # Self-feedback in one statement (`x = x;`) is
                             # NO_SELF_ASSIGNMENT's concern, not a cycle to report
@@ -51,31 +53,49 @@ class CombinationalLoopRule(BaseSymbolRule):
                             # block. See enclosing_assignment_expression's
                             # docstring for the false positive this closes.
                             continue
-                        graph.setdefault(read_name, []).append((write_name, write_loc))
+                        graph.setdefault(read_name, []).append((write_name, write_loc, write_loop_ids))
 
             diagnostics.extend(self._find_cycles(graph))
 
         return diagnostics
 
-    def _find_cycles(self, graph: dict[str, list[tuple[str, Location]]]) -> list[dict[str, Any]]:
+    def _find_cycles(self, graph: dict[str, list[tuple[str, Location, tuple[str, ...]]]]) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
         color: dict[str, int] = {}
-        path: list[str] = []
+        path: list[tuple[str, frozenset[str]]] = []
         reported: set[frozenset[str]] = set()
 
-        def visit(node: str) -> None:
+        def visit(node: str, incoming_loop_ids: frozenset[str]) -> None:
             color[node] = _GRAY
-            path.append(node)
+            path.append((node, incoming_loop_ids))
 
-            for neighbor, loc in graph.get(node, []):
+            for neighbor, loc, loop_ids in graph.get(node, []):
                 state = color.get(neighbor, _WHITE)
+                edge_loop_ids = frozenset(loop_ids)
                 if state == _WHITE:
-                    visit(neighbor)
+                    visit(neighbor, edge_loop_ids)
                 elif state == _GRAY:
-                    cycle_start = path.index(neighbor)
-                    cycle_nodes = path[cycle_start:] + [neighbor]
+                    cycle_start = next(i for i, (n, _) in enumerate(path) if n == neighbor)
+                    cycle_entries = path[cycle_start:] + [(neighbor, edge_loop_ids)]
+                    cycle_nodes = [n for n, _ in cycle_entries]
                     signature = frozenset(cycle_nodes)
                     if signature in reported:
+                        continue
+
+                    edge_loop_id_sets = [entry_loop_ids for _, entry_loop_ids in cycle_entries[1:]]
+                    common_loops = (
+                        edge_loop_id_sets[0].intersection(*edge_loop_id_sets[1:]) if edge_loop_id_sets else frozenset()
+                    )
+                    if common_loops:
+                        # Every write forming this cycle happens inside a shared
+                        # `for` loop (not necessarily the *same* nesting depth --
+                        # e.g. one write directly in an outer loop, another in an
+                        # inner loop nested inside it) -- the standard
+                        # unrolled-accumulator idiom (`next_rdt = next_rd ^ ...;
+                        # next_rd = next_rdt;`, same names reused for
+                        # "previous"/"new" value across iterations), not real
+                        # simultaneous feedback. See enclosing_for_loop_ids's
+                        # docstring.
                         continue
                     reported.add(signature)
 
@@ -97,6 +117,6 @@ class CombinationalLoopRule(BaseSymbolRule):
 
         for node_name in graph:
             if color.get(node_name, _WHITE) == _WHITE:
-                visit(node_name)
+                visit(node_name, frozenset())
 
         return diagnostics

@@ -2,6 +2,7 @@ import re
 
 from ..syntax_kinds import (
     ALWAYS_COMB_BLOCK_KIND,
+    FOR_LOOP_STATEMENT_KIND,
     PRIMITIVE_INSTANTIATION_KIND,
 )
 from ..types import ProceduralBlockNode, SyntaxNode
@@ -124,6 +125,32 @@ def enclosing_port_connection(ctx: "Context") -> "BaseVNode | None":
         if is_port_connection_node(ancestor.raw):
             return ancestor
     return None
+
+
+def enclosing_for_loop_ids(ctx: "Context") -> tuple[str, ...]:
+    """Return a location-based id for *every* enclosing `for` loop
+    (`ForLoopStatementSyntax`), innermost first, or `()` if none.
+
+    `COMBINATIONAL_LOOP` uses this to recognize a cycle entirely contained
+    within one `for` loop's iteration structure -- the standard unrolled
+    accumulator idiom (`for (i=0;...) begin acc = acc ^ x[i]; end`, or a
+    nested carry-save accumulator where `next_rdt`/`next_rd` are
+    updated directly in the outer loop and `next_rdt`'s low bits in an
+    inner loop nested inside it) reuses one variable name for both
+    "previous" and "new" value across iterations, which a static,
+    non-unrolled read/write graph cannot distinguish from genuine
+    simultaneous feedback without this hint. Returning every enclosing loop
+    (not just the nearest) lets two edges at *different* nesting depths
+    still be recognized as part of the same overall unrolled computation
+    when they share an outer loop in common, via a shared-id check rather
+    than requiring the exact same nearest loop.
+    """
+    ids: list[str] = []
+    for ancestor in reversed(ctx.stack):
+        if getattr(ancestor.raw, "kind", None) == FOR_LOOP_STATEMENT_KIND:
+            loc = ancestor.location
+            ids.append(f"loop:{loc.get('file', '')}:{loc['line']}:{loc['col']}")
+    return tuple(ids)
 
 
 def enclosing_assignment_expression(ctx: "Context") -> "BaseVNode | None":

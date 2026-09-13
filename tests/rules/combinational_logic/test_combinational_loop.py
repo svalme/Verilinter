@@ -64,6 +64,39 @@ module top;
 endmodule
 """
 
+UNROLLED_ACCUMULATOR_LOOP_CODE = """
+module top;
+  logic [7:0] next_rd, next_rdx, next_rdt;
+  integer i, j;
+  always @* begin
+    next_rd = 0;
+    next_rdx = 0;
+    for (i = 0; i < 4; i = i + 1) begin
+      if (i == 0) begin
+        next_rdt = next_rd ^ next_rdx;
+        next_rdx = next_rdt << 1;
+        next_rd = next_rdt;
+      end else begin
+        next_rdt = 0;
+        for (j = 0; j < 8; j = j + 1)
+          next_rd[j] = next_rd[j] ^ next_rdx[j];
+        next_rdx = next_rdt << 1;
+      end
+    end
+  end
+endmodule
+"""
+
+SAME_BLOCK_PING_PONG_CODE = """
+module top;
+  logic p, q;
+  always @* begin
+    p = q;
+    q = p;
+  end
+endmodule
+"""
+
 
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
@@ -121,3 +154,22 @@ class TestCombinationalLoopRule:
         that write's own expression never reads `c`, fabricating a `c -> a`
         edge that combines with the real `a -> c` edge into a false 2-cycle."""
         assert _run(UNRELATED_STATEMENTS_SHARING_A_BLOCK_CODE) == []
+
+    def test_does_not_flag_unrolled_accumulator_across_nested_loops(self) -> None:
+        """A carry-save accumulator: `next_rdt`/`next_rdx`/
+        `next_rd` are read and written back and forth across statements at two
+        different `for`-loop nesting depths (one pair directly in the outer
+        `i` loop, another pair with a write nested inside an inner `j` loop).
+        This is the standard unrolled iterative-computation idiom -- each
+        iteration's "previous" and "new" value reuse the same name -- not
+        real simultaneous feedback, even though a static, non-unrolled
+        read/write graph sees an apparent cycle."""
+        assert _run(UNROLLED_ACCUMULATOR_LOOP_CODE) == []
+
+    def test_still_flags_same_block_ping_pong_outside_any_loop(self) -> None:
+        """Safety net for the loop-suppression exemption above: `p = q; q =
+        p;` with no `for` loop involved at all must still be flagged -- the
+        exemption is specifically for cycles confined to a shared `for` loop,
+        not same-block cycles in general."""
+        diagnostics = _run(SAME_BLOCK_PING_PONG_CODE)
+        assert len(diagnostics) == 1

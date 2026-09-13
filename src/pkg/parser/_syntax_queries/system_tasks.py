@@ -1,4 +1,7 @@
-from ..types import SystemNameNode
+from ..syntax_kinds import INVOCATION_EXPRESSION_KIND
+from ..types import SyntaxNode, SystemNameNode
+
+READMEM_SYSTEM_TASK_NAMES = {"$readmemh", "$readmemb"}
 
 DISPLAY_SYSTEM_TASK_NAMES = {
     "$display", "$displayb", "$displayh", "$displayo",
@@ -39,7 +42,8 @@ ASSERTION_CONTROL_TASK_NAMES = {
 ALL_SYSTEM_TASK_NAMES = {
     name.lstrip("$")
     for name in (
-        DISPLAY_SYSTEM_TASK_NAMES
+        READMEM_SYSTEM_TASK_NAMES
+        | DISPLAY_SYSTEM_TASK_NAMES
         | SIMULATION_CONTROL_TASK_NAMES
         | RANDOM_SYSTEM_FUNCTION_NAMES
         | TIME_SYSTEM_FUNCTION_NAMES
@@ -49,6 +53,20 @@ ALL_SYSTEM_TASK_NAMES = {
         | ASSERTION_CONTROL_TASK_NAMES
     )
     if name.lstrip("$")
+}
+
+# 0-based index of the by-reference "output" argument this project specially
+# recognizes for a handful of system tasks/functions that populate an
+# argument rather than reading it -- `identifier_access_modes` has no notion
+# of a system-task argument at all, so without this, that argument's
+# identifier falls through to the default plain-read classification and a
+# variable populated only this way looks permanently undriven. Deliberately
+# narrow: only single, unambiguous by-reference arguments are covered, not a
+# variadic one like `$fscanf`/`$sscanf`'s trailing argument list.
+SYSTEM_TASK_OUTPUT_ARGUMENT_INDEX = {
+    "$readmemh": 1,
+    "$readmemb": 1,
+    "$value$plusargs": 1,
 }
 
 
@@ -90,3 +108,43 @@ def is_plusargs_system_function(raw: object) -> bool:
 
 def is_assertion_control_task(raw: object) -> bool:
     return system_task_name(raw) in ASSERTION_CONTROL_TASK_NAMES
+
+
+def system_task_argument_list(raw: object) -> list[object]:
+    items = getattr(raw, "parameters", None)
+    if items is None:
+        return []
+    return [item for item in items if isinstance(item, SyntaxNode)]
+
+
+def is_system_task_output_argument(raw: object) -> bool:
+    """True if `raw` is (a descendant of) the by-reference output argument of
+    a system task/function this project specially recognizes (see
+    `SYSTEM_TASK_OUTPUT_ARGUMENT_INDEX`) -- e.g. `firmware_file` in
+    `$readmemh(firmware_file, memory)` or `x` in `$value$plusargs("...", x)`.
+    These populate that argument rather than reading it."""
+    node = raw
+    parent = getattr(node, "parent", None)
+    while parent is not None and type(parent).__name__ not in ("OrderedArgumentSyntax", "NamedArgumentSyntax"):
+        node = parent
+        parent = getattr(parent, "parent", None)
+    if parent is None:
+        return False
+    arg_node = parent
+
+    arg_list = getattr(arg_node, "parent", None)
+    if type(arg_list).__name__ != "ArgumentListSyntax":
+        return False
+    items = system_task_argument_list(arg_list)
+    try:
+        index = next(i for i, item in enumerate(items) if item is arg_node)
+    except StopIteration:
+        return False
+
+    invocation = getattr(arg_list, "parent", None)
+    if getattr(invocation, "kind", None) != INVOCATION_EXPRESSION_KIND:
+        return False
+    callee = getattr(invocation, "left", None)
+    if not isinstance(callee, SystemNameNode):
+        return False
+    return SYSTEM_TASK_OUTPUT_ARGUMENT_INDEX.get(system_task_name(callee)) == index

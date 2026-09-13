@@ -10,6 +10,7 @@ from ..parser.syntax import (
     branch_exclusivity_signature,
     enclosing_assignment_expression,
     enclosing_continuous_assign,
+    enclosing_for_loop_ids,
     enclosing_port_connection,
     enclosing_procedural_block,
     identifier_access_modes,
@@ -23,6 +24,7 @@ from ..parser.syntax import (
     is_invocation_callee,
     is_named_type_reference,
     is_subroutine_prototype_name,
+    is_system_task_output_argument,
     is_tristate_continuous_assign,
 )
 from ..parser.types import IDENTIFIER_NAME_NODE_TYPES
@@ -58,6 +60,12 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
             return ctx.push(vnode)
 
         is_read, is_write = identifier_access_modes(ctx, vnode.raw)
+        if is_system_task_output_argument(vnode.raw):
+            # `$readmemh(file, mem)`/`$value$plusargs(fmt, x)` populate this
+            # argument rather than reading it, but identifier_access_modes has
+            # no notion of a system-task argument at all and falls through to
+            # a plain read -- see is_system_task_output_argument's docstring.
+            is_read, is_write = False, True
         symbol = symbol_table.lookup_from_scope(name, ctx.scope())
         # Computed for reads too (not just writes) so COMBINATIONAL_LOOP can group
         # every read/write in one combinational statement/block by driver_id. The
@@ -106,6 +114,11 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         # uninitialized-read hazard. READ_BEFORE_WRITE uses this to tell that
         # apart from a genuine same-block blocking-assignment ordering bug.
         is_nonblocking_write = is_write and assignment_node is not None and assignment_node.raw.kind == NONBLOCKING_ASSIGNMENT_KIND
+        # Identifies every enclosing `for` loop, so COMBINATIONAL_LOOP can
+        # recognize a cycle entirely contained within one loop's iteration
+        # structure as the unrolled-accumulator idiom rather than genuine
+        # simultaneous feedback -- see enclosing_for_loop_ids's docstring.
+        loop_ids = enclosing_for_loop_ids(ctx)
 
         if symbol:
             symbol.add_use(
@@ -118,6 +131,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 statement_id=statement_id,
                 in_port_connection=in_port_connection,
                 is_nonblocking_write=is_nonblocking_write,
+                loop_ids=loop_ids,
             )
         else:
             if symbol_table.current_file_uses_default_nettype_none():
@@ -135,6 +149,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 statement_id=statement_id,
                 in_port_connection=in_port_connection,
                 is_nonblocking_write=is_nonblocking_write,
+                loop_ids=loop_ids,
             )
             ctx.scope().define(symbol)
 

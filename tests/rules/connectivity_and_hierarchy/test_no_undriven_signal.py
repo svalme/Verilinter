@@ -42,6 +42,15 @@ module top;
 endmodule
 """
 
+READMEMH_POPULATED_MEMORY_CODE = """
+module top;
+  reg [7:0] memory [0:15];
+  initial begin
+    $readmemh("firmware.hex", memory);
+  end
+endmodule
+"""
+
 
 class TestNoUndrivenSignalRule:
     @pytest.fixture
@@ -117,6 +126,22 @@ class TestNoUndrivenSignalRule:
         walker = Walker(dispatch)
 
         tree = sl.SyntaxTree.fromText(DRIVEN_SIGNAL_CODE)
+        assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
+    def test_does_not_flag_memory_populated_by_readmemh(self, rule: NoUndrivenSignalRule) -> None:
+        """`$readmemh(file, memory)` populates `memory` by reference rather than
+        reading it. `identifier_access_modes` has no notion of a system-task
+        argument, so without special-casing it, `memory` looked like a plain
+        read with no write anywhere -- a real "read but never driven" false
+        positive for a fully legitimate memory-initialization idiom."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(READMEMH_POPULATED_MEMORY_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 

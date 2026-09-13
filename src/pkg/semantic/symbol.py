@@ -19,6 +19,7 @@ class UseEvent(TypedDict):
     statement_id: NotRequired[str]
     in_port_connection: NotRequired[bool]
     is_nonblocking_write: NotRequired[bool]
+    loop_ids: NotRequired[tuple[str, ...]]
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -62,6 +63,7 @@ class Symbol:
         statement_id: str | None = None,
         in_port_connection: bool = False,
         is_nonblocking_write: bool = False,
+        loop_ids: tuple[str, ...] = (),
     ) -> None:
         self.uses.append(loc)
         event: UseEvent = {"location": loc, "read": read, "write": write}
@@ -77,6 +79,8 @@ class Symbol:
             event["in_port_connection"] = True
         if is_nonblocking_write:
             event["is_nonblocking_write"] = True
+        if loop_ids:
+            event["loop_ids"] = loop_ids
         self.use_events.append(event)
         self.is_read |= read
         self.is_written |= write
