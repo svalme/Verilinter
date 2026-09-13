@@ -1087,6 +1087,69 @@ class TestRunJobsValidation:
         assert not any(d["code"] == "MODULE_FILENAME_MISMATCH" for d in diagnostics)
 
 
+class TestCollectPathsFileDiscovery:
+    """Direct coverage of `collect_paths`'s three input shapes -- a whole
+    directory (recursive), a single explicitly named file, and a mix of both
+    -- including recursion into *nested* subdirectories, which the flat
+    fixture directory (`tests/data`) cannot exercise."""
+
+    def test_finds_files_at_multiple_nesting_depths(self, tmp_path: Path) -> None:
+        (tmp_path / "top.v").write_text("module top; endmodule\n")
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (sub / "mid.v").write_text("module mid; endmodule\n")
+        deep = sub / "deep"
+        deep.mkdir()
+        (deep / "bottom.sv").write_text("module bottom; endmodule\n")
+
+        paths = collect_paths([str(tmp_path)])
+
+        names = {p.name for p in paths}
+        assert names == {"top.v", "mid.v", "bottom.sv"}
+
+    def test_ignores_non_verilog_files_when_a_directory_is_passed(self, tmp_path: Path) -> None:
+        (tmp_path / "design.v").write_text("module design; endmodule\n")
+        (tmp_path / "notes.txt").write_text("not RTL\n")
+        (tmp_path / "README.md").write_text("# not RTL\n")
+
+        paths = collect_paths([str(tmp_path)])
+
+        assert [p.name for p in paths] == ["design.v"]
+
+    def test_finds_both_v_and_sv_extensions(self, tmp_path: Path) -> None:
+        (tmp_path / "legacy.v").write_text("module legacy; endmodule\n")
+        (tmp_path / "modern.sv").write_text("module modern; endmodule\n")
+
+        paths = collect_paths([str(tmp_path)])
+
+        assert {p.name for p in paths} == {"legacy.v", "modern.sv"}
+
+    def test_explicitly_named_file_is_included_regardless_of_extension(self, tmp_path: Path) -> None:
+        """Documents current behavior, not a guarantee this is the ideal
+        behavior: a *directory* argument is filtered to `.v`/`.sv`, but a
+        file named directly on the command line is trusted as-is with no
+        extension check at all -- `collect_paths` only special-cases
+        directories (`p.is_dir()`), so `verilinter some_file.txt` would
+        attempt to lint it."""
+        odd_file = tmp_path / "design.inc"
+        odd_file.write_text("module design; endmodule\n")
+
+        paths = collect_paths([str(odd_file)])
+
+        assert [p.name for p in paths] == ["design.inc"]
+
+    def test_combines_directory_and_explicit_file_arguments(self, tmp_path: Path) -> None:
+        dir_a = tmp_path / "a"
+        dir_a.mkdir()
+        (dir_a / "in_a.v").write_text("module in_a; endmodule\n")
+        standalone = tmp_path / "standalone.v"
+        standalone.write_text("module standalone; endmodule\n")
+
+        paths = collect_paths([str(dir_a), str(standalone)])
+
+        assert {p.name for p in paths} == {"in_a.v", "standalone.v"}
+
+
 class TestMain:
     def test_main_returns_zero_for_valid_file(self, capsys: pytest.CaptureFixture[str]) -> None:
         result = main([str(DATA)])
