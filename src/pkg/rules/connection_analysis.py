@@ -270,6 +270,14 @@ def unread_instance_output_details(
         symbol = parent_scope.lookup(expr_name)
         if symbol is None:
             continue
+        if symbol.is_port and symbol.port_direction in ("output", "inout"):
+            # The connected signal is itself the enclosing module's own output/
+            # inout port -- forwarding an instance's output straight to a port is
+            # the standard pass-through pattern (e.g. the last stage of a
+            # pipeline), and "used outside this module" is exactly what a port
+            # is for. There being no *further* local read is expected, not a
+            # sign the driven value is thrown away.
+            continue
         # Conservative first pass: only flag when the connected signal appears to
         # exist solely for this structural connection.
         if symbol.use_count <= 1:

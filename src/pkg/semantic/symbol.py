@@ -16,6 +16,8 @@ class UseEvent(TypedDict):
     driver_id: NotRequired[str]
     driver_location: NotRequired[Location]
     branch_signature: NotRequired[tuple[tuple[int, int], ...]]
+    statement_id: NotRequired[str]
+    in_port_connection: NotRequired[bool]
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -40,6 +42,7 @@ class Symbol:
         self.use_count: int = 0
         self.read_count: int = 0
         self.write_count: int = 0
+        self.is_used_in_port_connection: bool = False
 
     def set_scope(self, scope: Scope | None) -> None:
         self.scope = scope
@@ -55,6 +58,8 @@ class Symbol:
         driver_id: str | None = None,
         driver_location: Location | None = None,
         branch_signature: tuple[tuple[int, int], ...] | None = None,
+        statement_id: str | None = None,
+        in_port_connection: bool = False,
     ) -> None:
         self.uses.append(loc)
         event: UseEvent = {"location": loc, "read": read, "write": write}
@@ -64,12 +69,17 @@ class Symbol:
             event["driver_location"] = driver_location
         if branch_signature is not None:
             event["branch_signature"] = branch_signature
+        if statement_id is not None:
+            event["statement_id"] = statement_id
+        if in_port_connection:
+            event["in_port_connection"] = True
         self.use_events.append(event)
         self.is_read |= read
         self.is_written |= write
         self.use_count += 1
         self.read_count += 1 if read else 0
         self.write_count += 1 if write else 0
+        self.is_used_in_port_connection |= in_port_connection
 
     @property
     def is_declared(self) -> bool:

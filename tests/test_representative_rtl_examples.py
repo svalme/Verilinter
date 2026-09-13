@@ -205,32 +205,17 @@ class TestTwoStagePipelineMultiModuleExample:
     meaningful port connections, in the sense that
     removing either instance or connection changes the design's behavior.
 
-    This is expected to produce diagnostics, and they are recorded here
-    deliberately rather than hidden: `IdentifierNameHandler` never walks an
-    instance's `.connections` (see `RULE_IMPLEMENTATION.md`'s
-    `INSTANCE_OUTPUT_DRIVER_CONFLICT`/`UNDRIVEN_TRISTATE_SIGNAL` rows for the
-    same fact, and `NO_UNDRIVEN_SIGNAL`'s `docs/RULES.md` row: "does not yet
-    try to model external drivers ... or more advanced net semantics"), so a
-    signal driven *only* through an instance's output port connection gets no
-    write-event at all. Every write-tracking rule below is consequently blind
-    to `u_stage1`/`u_stage2` actually driving `stage1_q`/`data_out`:
-
-    - `NO_UNDRIVEN_SIGNAL` / `NO_UNDRIVEN_OUTPUT_PORT`: think the signal/port
-      is never written.
-    - `READ_BEFORE_WRITE`: thinks each is read (by the next instance's input
-      connection) before any write.
-    - `UNREAD_INSTANCE_OUTPUT`: doesn't see `data_out`'s own downstream use
-      (there is none here -- it's a module output -- but the rule can't tell
-      that from a connection it never walks either).
-
-    None of this reflects a defect in the RTL: this module is a completely
-    ordinary two-stage pipeline. It reflects a real, pre-existing gap in how
-    broadly this fact ("an instance's output port connection is a write") has
-    been threaded through the rule suite -- fixed narrowly for a couple of
-    connectivity rules via `connection_analysis.py`, not generally. Fixing it
-    generally would touch the single most heavily-depended-on handler in the
-    codebase and ripple across every rule listed above; that is real, separate
-    follow-up work, not something to fold into adding this example.
+    This is expected to produce zero diagnostics: this module is a completely
+    ordinary two-stage pipeline.
+    `IdentifierNameHandler` records an identifier used inside an instance
+    port-connection expression as a plain read regardless of which side of the
+    connection actually drives the net (the connected module's port direction
+    generally isn't resolvable from a single-file walk), so `NO_UNDRIVEN_SIGNAL`,
+    `NO_UNDRIVEN_OUTPUT_PORT`, `READ_BEFORE_WRITE`, and `UNREAD_INSTANCE_OUTPUT`
+    each skip a signal recorded as used inside a port connection
+    (`Symbol.is_used_in_port_connection`) and, for `UNREAD_INSTANCE_OUTPUT`, a
+    signal that is itself an output/inout port -- see
+    `enclosing_port_connection`'s docstring.
     """
 
     DATA_REGISTER = """
@@ -283,7 +268,7 @@ module two_stage_pipeline (
 endmodule
 """
 
-    def test_produces_only_the_documented_instance_connectivity_gap(self) -> None:
+    def test_produces_no_diagnostics(self) -> None:
         result = run_inline_lint_case(
             {
                 "data_register.sv": self.DATA_REGISTER,
@@ -292,11 +277,4 @@ endmodule
             selection=CORRECTNESS_SELECTION,
         )
 
-        result.expect_codes(
-            {
-                "NO_UNDRIVEN_SIGNAL",
-                "NO_UNDRIVEN_OUTPUT_PORT",
-                "READ_BEFORE_WRITE",
-                "UNREAD_INSTANCE_OUTPUT",
-            }
-        )
+        result.expect_codes(set())

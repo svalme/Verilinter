@@ -70,15 +70,66 @@ def declarator_is_parameter(ctx: "Context") -> bool:
     return False
 
 
+def _explicit_port_direction(raw: object) -> str | None:
+    header = getattr(raw, "header", None)
+    direction = getattr(header, "direction", None)
+    return PORT_DIRECTION_TOKEN_KINDS.get(getattr(direction, "kind", None))
+
+
+def _ansi_port_list_items(list_node: object) -> list[object]:
+    """Flatten an `AnsiPortListSyntax` down to its ordered `ImplicitAnsiPortSyntax`
+    items, looking through the intermediate separated-list wrapper pyslang puts
+    between the list and its items."""
+    items: list[object] = []
+
+    def _walk(node: object) -> None:
+        for child in node:
+            if not isinstance(child, SyntaxNode):
+                continue
+            if type(child).__name__.endswith("AnsiPortSyntax"):
+                items.append(child)
+            else:
+                _walk(child)
+
+    _walk(list_node)
+    return items
+
+
+def _inherited_port_direction(raw: object) -> str | None:
+    """A port that omits its own direction keyword (`input clk, wen,` -- `wen`
+    has no keyword of its own) inherits the *previous* port's direction in the
+    same ANSI port list. pyslang models this literally: `wen`'s own
+    `ImplicitAnsiPortSyntax.header.direction` is an empty token, not a copy of
+    `clk`'s. This scans
+    backward through the enclosing port list's ordered items for the nearest
+    preceding one that does carry an explicit direction."""
+    parent = getattr(raw, "parent", None)
+    if parent is None:
+        return None
+    siblings = _ansi_port_list_items(parent)
+    try:
+        index = next(i for i, sibling in enumerate(siblings) if sibling is raw)
+    except StopIteration:
+        return None
+    for sibling in reversed(siblings[:index]):
+        direction = _explicit_port_direction(sibling)
+        if direction is not None:
+            return direction
+    return None
+
+
 def declarator_port_direction(ctx: "Context") -> str | None:
-    """Return "input" / "output" / "inout" / "ref" for a port declarator, else None."""
+    """Return "input" / "output" / "inout" / "ref" for a port declarator, else
+    None. Falls back to `_inherited_port_direction` for an ANSI port that
+    shares a preceding port's direction keyword instead of repeating it."""
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
         type_name = type(raw).__name__
         if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
-            header = getattr(raw, "header", None)
-            direction = getattr(header, "direction", None)
-            return PORT_DIRECTION_TOKEN_KINDS.get(getattr(direction, "kind", None))
+            direction = _explicit_port_direction(raw)
+            if direction is not None:
+                return direction
+            return _inherited_port_direction(raw)
         if type_name.endswith("DataDeclarationSyntax"):
             return None
     return None
@@ -461,6 +512,18 @@ def port_connection_list(raw: object) -> list[SyntaxNode]:
     if items is None:
         return []
     return [item for item in items if isinstance(item, SyntaxNode)]
+
+
+def is_port_connection_node(raw: object) -> bool:
+    """True for a `NamedPortConnectionSyntax`/`OrderedPortConnectionSyntax`
+    node -- one entry of a `HierarchicalInstanceSyntax.connections` list (see
+    `port_connection_list`). Used by `enclosing_port_connection` to tell an
+    identifier used to wire a net into an instance port apart from an
+    ordinary read/write, since the connected port's direction (which side is
+    actually driving the net) generally isn't resolvable at the point a
+    single file is walked -- the instantiated module may be defined in
+    another file, or simply not yet visited."""
+    return type(raw).__name__ in ("NamedPortConnectionSyntax", "OrderedPortConnectionSyntax")
 
 
 def is_named_parameter_override(raw: object) -> bool:

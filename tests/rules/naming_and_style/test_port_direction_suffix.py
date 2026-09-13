@@ -69,3 +69,30 @@ class TestPortDirectionSuffixRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_second_port_in_a_grouped_ansi_declaration(self) -> None:
+        """`input clk, wen` -- `wen` shares `clk`'s direction keyword instead of
+        repeating it. pyslang leaves `wen`'s own header direction empty rather
+        than copying `clk`'s, so a naive per-port read of that field returns
+        `None` for `wen`, and this rule's `applies` treats an unresolved
+        direction as "not a port name check applies to" and would silently
+        never flag it -- a coverage gap for the common grouped port-list
+        style."""
+        diagnostics = _diagnostics(
+            """
+            module top(input clk_i, wen);
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_correctly_suffixed_grouped_ports(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input clk_i, wen_i, output logic y_o, z_o);
+            endmodule
+            """
+        )
+
+        assert diagnostics == []

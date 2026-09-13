@@ -107,6 +107,46 @@ def enclosing_continuous_assign(ctx: "Context") -> "BaseVNode | None":
     return None
 
 
+def enclosing_port_connection(ctx: "Context") -> "BaseVNode | None":
+    """Return the nearest ancestor that is an instance port-connection node
+    (see `is_port_connection_node`), or `None`. READ_BEFORE_WRITE and
+    NO_UNDRIVEN_SIGNAL use this to recognize an identifier wired into an
+    instance port and exclude it from their read/write bookkeeping: such an
+    identifier is always recorded as a plain read regardless of which side of
+    the connection actually drives the net (see `is_port_connection_node`'s
+    docstring for why direction can't be resolved here), so treating that read
+    as meaningful would misreport a net genuinely driven by the instance's
+    output port as never written.
+    """
+    from ..syntax_queries import is_port_connection_node
+
+    for ancestor in reversed(ctx.stack):
+        if is_port_connection_node(ancestor.raw):
+            return ancestor
+    return None
+
+
+def enclosing_assignment_expression(ctx: "Context") -> "BaseVNode | None":
+    """Return the nearest ancestor that is itself an assignment expression
+    (`a = b`, `a <= b`, or a compound form like `a += b`) -- the single
+    statement whose own left/right-hand sides an identifier occurrence
+    belongs to.
+
+    Unlike `enclosing_procedural_block` (one id per *entire* `always` block,
+    however many assignment statements it contains), this identifies one
+    specific statement -- used by `COMBINATIONAL_LOOP` so a read only links to
+    a write when that write's own expression actually reads it, not merely
+    because both sit somewhere in the same block (block-level granularity
+    fabricates false dependency cycles).
+    """
+    from ..syntax_queries import is_assignment_expression
+
+    for ancestor in reversed(ctx.stack):
+        if is_assignment_expression(ancestor.raw):
+            return ancestor
+    return None
+
+
 def is_combinational_driver_block(driver_block: "BaseVNode") -> bool:
     from ..syntax_queries import is_combinational_style_always_block, is_continuous_assign
 

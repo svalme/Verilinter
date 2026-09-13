@@ -7,7 +7,9 @@ from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 from ..parser.syntax import (
     branch_exclusivity_signature,
+    enclosing_assignment_expression,
     enclosing_continuous_assign,
+    enclosing_port_connection,
     enclosing_procedural_block,
     identifier_access_modes,
     is_bind_directive_target,
@@ -79,6 +81,24 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         # mutually exclusive `if`/`else` (procedural or generate) alternatives that can
         # never both apply. See branch_exclusivity_signature's docstring.
         branch_signature = branch_exclusivity_signature(vnode.raw)
+        # Identifies the single assignment statement (`a = b;`, not the whole
+        # enclosing block) an event belongs to, so COMBINATIONAL_LOOP can link a
+        # read to a write only when that write's own expression actually reads
+        # it -- see enclosing_assignment_expression's docstring.
+        assignment_node = enclosing_assignment_expression(ctx)
+        statement_id = None
+        if assignment_node is not None:
+            stmt_loc = assignment_node.location
+            statement_id = (
+                f"stmt:{stmt_loc.get('file', '')}:{stmt_loc['line']}:{stmt_loc['col']}"
+            )
+        # An identifier wired into an instance port connection (`.port(name)`) is
+        # always recorded above as a plain read regardless of which side actually
+        # drives the net -- the connected port's direction generally isn't
+        # resolvable from this single-file walk. READ_BEFORE_WRITE/NO_UNDRIVEN_SIGNAL
+        # use this flag to exclude such symbols rather than trust that read. See
+        # enclosing_port_connection's docstring.
+        in_port_connection = enclosing_port_connection(ctx) is not None
 
         if symbol:
             symbol.add_use(
@@ -88,6 +108,8 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 driver_id=driver_id,
                 driver_location=driver_location,
                 branch_signature=branch_signature,
+                statement_id=statement_id,
+                in_port_connection=in_port_connection,
             )
         else:
             if symbol_table.current_file_uses_default_nettype_none():
@@ -102,6 +124,8 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 driver_id=driver_id,
                 driver_location=driver_location,
                 branch_signature=branch_signature,
+                statement_id=statement_id,
+                in_port_connection=in_port_connection,
             )
             ctx.scope().define(symbol)
 

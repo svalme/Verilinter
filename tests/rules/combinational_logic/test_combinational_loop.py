@@ -53,6 +53,17 @@ module top;
 endmodule
 """
 
+UNRELATED_STATEMENTS_SHARING_A_BLOCK_CODE = """
+module top;
+  logic a, b, c;
+  always @* begin
+    a = 1'b0;
+    b = c;
+    c = a ? 1'b1 : 1'b0;
+  end
+endmodule
+"""
+
 
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
@@ -100,3 +111,13 @@ class TestCombinationalLoopRule:
     def test_does_not_flag_self_assignment(self) -> None:
         """`a = a;` is NO_SELF_ASSIGNMENT's concern, not a one-node cycle here."""
         assert _run(SELF_ASSIGNMENT_CODE) == []
+
+    def test_does_not_flag_unrelated_statements_sharing_a_block(self) -> None:
+        """Three unrelated statements in one `always @*` block: `a`'s write has
+        no reads at all, `b = c` genuinely depends on `c`, and `c = a ? .. :
+        ..` genuinely depends on `a`. Grouping every read/write in the whole
+        block together (rather than per statement) would pair `c`'s
+        read (from `b = c`) with `a`'s write (from `a = 1'b0`) even though
+        that write's own expression never reads `c`, fabricating a `c -> a`
+        edge that combines with the real `a -> c` edge into a false 2-cycle."""
+        assert _run(UNRELATED_STATEMENTS_SHARING_A_BLOCK_CODE) == []

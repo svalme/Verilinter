@@ -290,19 +290,10 @@ class TestTwoStagePipelineDisconnectedPortVariant:
 
     `data_register` is unchanged; only `two_stage_pipeline`'s second instance
     loses its `rst_n` connection line. The clean example
-    (`TestTwoStagePipelineMultiModuleExample`) already documents a real,
-    separate connectivity gap -- an instance's output-port connection
-    generates no write-event -- that this variant does not fix or otherwise
-    touch: its expected result is the same 5 baseline diagnostics `expect_codes`
-    a subset of, plus exactly one new `NO_UNCONNECTED_INSTANCE_PORTS`.
+    (`TestTwoStagePipelineMultiModuleExample`) produces zero diagnostics, so
+    this variant's expected result is exactly one new
+    `NO_UNCONNECTED_INSTANCE_PORTS` and nothing else.
     """
-
-    BASELINE_CODES = {
-        "NO_UNDRIVEN_SIGNAL",
-        "NO_UNDRIVEN_OUTPUT_PORT",
-        "READ_BEFORE_WRITE",
-        "UNREAD_INSTANCE_OUTPUT",
-    }
 
     DEFECTIVE_PIPELINE = """
 `timescale 1ns/1ps
@@ -332,7 +323,7 @@ module two_stage_pipeline (
 endmodule
 """
 
-    def test_disconnected_reset_port_is_detected_alongside_the_documented_gap(self) -> None:
+    def test_disconnected_reset_port_is_detected(self) -> None:
         result = run_inline_lint_case(
             {
                 "data_register.sv": TestTwoStagePipelineMultiModuleExample.DATA_REGISTER,
@@ -341,14 +332,14 @@ endmodule
             selection=CORRECTNESS_SELECTION,
         )
 
-        result.expect_codes(self.BASELINE_CODES | {"NO_UNCONNECTED_INSTANCE_PORTS"})
+        result.expect_codes({"NO_UNCONNECTED_INSTANCE_PORTS"})
         diagnostic = result.expect_code_once("NO_UNCONNECTED_INSTANCE_PORTS")
         assert diagnostic["line"] == 19
         assert diagnostic["col"] == 3
         assert diagnostic["file"] == "source"
         result.expect_message_contains("NO_UNCONNECTED_INSTANCE_PORTS", "rst_n")
 
-    def test_reconnecting_the_reset_port_restores_the_documented_baseline(self) -> None:
+    def test_reconnecting_the_reset_port_restores_the_clean_result(self) -> None:
         result = run_inline_lint_case(
             {
                 "data_register.sv": TestTwoStagePipelineMultiModuleExample.DATA_REGISTER,
@@ -357,4 +348,4 @@ endmodule
             selection=CORRECTNESS_SELECTION,
         )
 
-        result.expect_codes(self.BASELINE_CODES)
+        result.expect_codes(set())

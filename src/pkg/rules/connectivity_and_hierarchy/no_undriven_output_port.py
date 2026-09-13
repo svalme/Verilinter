@@ -23,6 +23,14 @@ class NoUndrivenOutputPortRule(BaseSymbolRule):
                     continue
                 if not sym.is_read or sym.is_written:
                     continue
+                # A port wired into any instance port connection may be driven by
+                # that instance's output/inout port -- always recorded as a plain
+                # read here since the connected port's direction generally isn't
+                # resolvable from a single-file walk (see
+                # enclosing_port_connection's docstring). Flagging it as never
+                # driven would misreport genuine instance-driven wiring.
+                if sym.is_used_in_port_connection:
+                    continue
 
                 loc = sym.declarations[0]
                 diagnostic = {

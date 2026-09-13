@@ -25,6 +25,15 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                 # before any local write there is the real "undriven output" bug shape.
                 if sym.is_port and sym.port_direction in ("input", "inout", "ref"):
                     continue
+                # A signal wired into any instance port connection may be driven by
+                # that instance's output/inout port -- IdentifierNameHandler always
+                # records that occurrence as a plain read since the connected port's
+                # direction generally isn't resolvable here (see
+                # enclosing_port_connection's docstring), so trusting it would
+                # misreport a signal that's actually driven, just not through a
+                # locally-visible assignment, as read before write.
+                if sym.is_used_in_port_connection:
+                    continue
 
                 seen_write = False
                 for event in sym.use_events:
