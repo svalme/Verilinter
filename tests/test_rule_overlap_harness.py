@@ -194,6 +194,33 @@ def test_xz_equality_comparison_also_flagged_as_explicit_xz_literal(
     result.expect_code_once("EXPLICIT_XZ_LITERAL")
 
 
+def test_named_empty_port_connection_also_flagged_as_width_unknown(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    # `.a()` is a named connection with no expression, so `expr_text` is `None`:
+    # `unconnected_port_names` counts it as unconnected, and separately
+    # `width_unknown_details` doesn't exclude it the way it excludes an
+    # ordered/positional gap's "empty" connection kind (see
+    # `test_port_connection_width_mismatch.py`'s
+    # `test_does_not_flag_an_unconnected_ordered_port`), so both rules fire on
+    # the same connection.
+    result = lint_inline_case(
+        {
+            "top.sv": """
+            module child(input [3:0] a, input [3:0] b);
+            endmodule
+            module top;
+              wire [3:0] y;
+              child u1(.a(), .b(y));
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("NO_UNCONNECTED_INSTANCE_PORTS")
+    result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
+
+
 def test_assignment_truncation_also_flagged_as_assignment_width_mismatch(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:
