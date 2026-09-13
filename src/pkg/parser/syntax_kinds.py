@@ -65,9 +65,11 @@ CASE_TOKEN_KINDS = {
     sl.TokenKind.CaseZKeyword,
 }
 
+NONBLOCKING_ASSIGNMENT_KIND = sl.SyntaxKind.NonblockingAssignmentExpression
+
 SIMPLE_ASSIGNMENT_KINDS = {
     sl.SyntaxKind.AssignmentExpression,
-    sl.SyntaxKind.NonblockingAssignmentExpression,
+    NONBLOCKING_ASSIGNMENT_KIND,
 }
 
 READ_WRITE_ASSIGNMENT_KINDS = {
@@ -428,6 +430,7 @@ __all__ = [
     "MOD_EXPRESSION_KIND",
     "MULTIPLY_EXPRESSION_KIND",
     "NAMED_TYPE_KIND",
+    "NONBLOCKING_ASSIGNMENT_KIND",
     "PACKAGE_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
     "PORT_DIRECTION_TOKEN_KINDS",

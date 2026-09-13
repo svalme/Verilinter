@@ -103,6 +103,34 @@ module top(output logic y);
 endmodule
 """
 
+CROSS_CONSTRUCT_READ_CODE = """
+module top;
+  logic a, b, c;
+  assign c = a;
+  assign a = b;
+endmodule
+"""
+
+REGISTER_FEEDBACK_CODE = """
+module top(input logic clk);
+  logic [3:0] timer;
+  always @(posedge clk) begin
+    if (timer > 0)
+      timer <= timer - 1;
+  end
+endmodule
+"""
+
+SAME_BLOCK_BLOCKING_ORDER_CODE = """
+module top;
+  logic a, b, c;
+  always @* begin
+    c = a;
+    a = b;
+  end
+endmodule
+"""
+
 
 class TestReadBeforeWriteRule:
     @pytest.fixture
@@ -298,3 +326,52 @@ class TestReadBeforeWriteRule:
         diagnostics = rule.run(symbol_table)
 
         assert any("y" in d["message"] for d in diagnostics)
+
+    def test_does_not_flag_read_in_a_different_concurrent_construct(self, rule: ReadBeforeWriteRule) -> None:
+        """`a` is read in one `assign` and written in a separate, later `assign`.
+        Continuous assigns are concurrent, order-independent constructs -- which
+        one appears first in the file proves nothing about execution order, so
+        this is not a real hazard even though the read textually precedes the
+        write."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(CROSS_CONSTRUCT_READ_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+        assert not any("'a'" in d["message"] for d in diagnostics)
+
+    def test_does_not_flag_register_reading_its_own_value_before_nonblocking_update(
+        self, rule: ReadBeforeWriteRule
+    ) -> None:
+        """`timer` is read (in the `if` condition) before its own later
+        non-blocking update in the same clocked block -- normal sequential
+        feedback (the register already holds a value from the previous clock
+        edge), not an uninitialized read."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(REGISTER_FEEDBACK_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
+    def test_still_flags_same_block_blocking_assignment_order(self, rule: ReadBeforeWriteRule) -> None:
+        """`a` is read (`c = a;`) before its own later blocking write (`a = b;`)
+        in the very same `always @*` block -- a genuine same-pass evaluation-order
+        hazard, the case this rule exists to catch."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(SAME_BLOCK_BLOCKING_ORDER_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+        assert any("'a'" in d["message"] for d in diagnostics)

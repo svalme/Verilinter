@@ -18,6 +18,7 @@ class UseEvent(TypedDict):
     branch_signature: NotRequired[tuple[tuple[int, int], ...]]
     statement_id: NotRequired[str]
     in_port_connection: NotRequired[bool]
+    is_nonblocking_write: NotRequired[bool]
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -60,6 +61,7 @@ class Symbol:
         branch_signature: tuple[tuple[int, int], ...] | None = None,
         statement_id: str | None = None,
         in_port_connection: bool = False,
+        is_nonblocking_write: bool = False,
     ) -> None:
         self.uses.append(loc)
         event: UseEvent = {"location": loc, "read": read, "write": write}
@@ -73,6 +75,8 @@ class Symbol:
             event["statement_id"] = statement_id
         if in_port_connection:
             event["in_port_connection"] = True
+        if is_nonblocking_write:
+            event["is_nonblocking_write"] = True
         self.use_events.append(event)
         self.is_read |= read
         self.is_written |= write

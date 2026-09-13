@@ -292,12 +292,13 @@ def instance_output_driver_conflicts(
     """Return (port_name, signal_name) pairs where an instance's output/inout
     port is connected to a parent-scope signal that already has an independent
     write elsewhere in the parent module (an `assign` or a procedural write) --
-    a real multi-driver conflict the walker can't see on its own: a
-    port-connection expression is never visited by IdentifierNameHandler at all
-    (HierarchyInstantiationHandler doesn't override `children()`, so the walker
-    never descends into `.connections`), so the connected signal's `Symbol`
-    carries zero UseEvents from the connection itself -- not "misclassified as a
-    read", simply never walked."""
+    a real multi-driver conflict the walker can't see on its own: an identifier
+    used inside a port-connection expression is always recorded as a plain
+    read regardless of which side of the connection actually drives the net
+    (see `enclosing_port_connection`'s docstring), so this connection's own
+    contribution never sets the connected signal's `Symbol.is_written` -- only
+    an independent write elsewhere does, which is exactly the case this
+    function is checking for."""
     conflicts: list[tuple[str, str]] = []
     parent_scope = module_scope_for(symbol_table, instantiation.get("parent_module"))
     if parent_scope is None:
@@ -339,9 +340,10 @@ def multiple_instance_driver_conflicts(
     with an `assign` or procedural write on the same signal, because it relies on
     `Symbol.is_written`. Two instances that both drive a net purely through their
     own output ports (`sub1 u1(.out(x)); sub2 u2(.out(x));`) never touch
-    `Symbol.is_written` at all -- port-connection expressions are never walked by
-    `IdentifierNameHandler` (see `instance_output_driver_conflicts`'s docstring),
-    so neither connection leaves any trace on `x`'s `Symbol`. This groups
+    `Symbol.is_written` at all -- each connection's own identifier is recorded as
+    a plain read, never a write (see `instance_output_driver_conflicts`'s
+    docstring), so neither connection leaves a write trace on `x`'s `Symbol`,
+    even though both do leave a (read) trace. This groups
     instantiations by parent module instead of relying on `Symbol` write state.
 
     Deliberately scoped to conflicts between *distinct* instances: one instance

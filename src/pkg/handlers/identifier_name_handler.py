@@ -6,6 +6,7 @@ from ..walk.dispatch import dispatch
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 from ..parser.syntax import (
+    NONBLOCKING_ASSIGNMENT_KIND,
     branch_exclusivity_signature,
     enclosing_assignment_expression,
     enclosing_continuous_assign,
@@ -99,6 +100,12 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         # use this flag to exclude such symbols rather than trust that read. See
         # enclosing_port_connection's docstring.
         in_port_connection = enclosing_port_connection(ctx) is not None
+        # A non-blocking (`<=`) write updates a register that already holds a
+        # value from the previous clock edge -- reading it beforehand, in the
+        # same block or a different one, is normal sequential feedback, not an
+        # uninitialized-read hazard. READ_BEFORE_WRITE uses this to tell that
+        # apart from a genuine same-block blocking-assignment ordering bug.
+        is_nonblocking_write = is_write and assignment_node is not None and assignment_node.raw.kind == NONBLOCKING_ASSIGNMENT_KIND
 
         if symbol:
             symbol.add_use(
@@ -110,6 +117,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 branch_signature=branch_signature,
                 statement_id=statement_id,
                 in_port_connection=in_port_connection,
+                is_nonblocking_write=is_nonblocking_write,
             )
         else:
             if symbol_table.current_file_uses_default_nettype_none():
@@ -126,6 +134,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
                 branch_signature=branch_signature,
                 statement_id=statement_id,
                 in_port_connection=in_port_connection,
+                is_nonblocking_write=is_nonblocking_write,
             )
             ctx.scope().define(symbol)
 
