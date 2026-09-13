@@ -79,7 +79,7 @@ def test_analyze_can_disable_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
     real_parse = run_lint_module.parse_file
 
-    def track_parse(path: str):
+    def track_parse(path: str, include_dirs=None):
         calls.append(path)
         return real_parse(path)
 
@@ -104,7 +104,7 @@ def test_analyze_refreshes_when_file_contents_change(monkeypatch: pytest.MonkeyP
     calls: list[str] = []
     real_parse = run_lint_module.parse_file
 
-    def track_parse(path: str):
+    def track_parse(path: str, include_dirs=None):
         calls.append(path)
         return real_parse(path)
 
@@ -126,7 +126,7 @@ def test_analyze_refreshes_when_rule_selection_changes(monkeypatch: pytest.Monke
     calls: list[str] = []
     real_parse = run_lint_module.parse_file
 
-    def track_parse(path: str):
+    def track_parse(path: str, include_dirs=None):
         calls.append(path)
         return real_parse(path)
 
@@ -152,7 +152,7 @@ def test_analyze_refreshes_when_analyzer_cache_version_changes(monkeypatch: pyte
     calls: list[str] = []
     real_parse = run_lint_module.parse_file
 
-    def track_parse(path: str):
+    def track_parse(path: str, include_dirs=None):
         calls.append(path)
         return real_parse(path)
 

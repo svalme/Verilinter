@@ -24,7 +24,7 @@ def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def selection_key(selection: RuleSelection | None) -> str:
+def selection_key(selection: RuleSelection | None, include_dirs: list[str] | None = None) -> str:
     payload = {
         "analyzer_cache_version": ANALYZER_CACHE_VERSION,
         "enabled_codes": sorted(selection.enabled_codes) if selection and selection.enabled_codes else None,
@@ -32,6 +32,11 @@ def selection_key(selection: RuleSelection | None) -> str:
         if selection and selection.enabled_categories
         else None,
         "enabled_profiles": sorted(selection.enabled_profiles) if selection and selection.enabled_profiles else None,
+        # A cached per-file result was parsed with a specific set of `--include-dir`
+        # search paths; changing them can change how `` `include ``/macro
+        # resolution -- and therefore the parsed AST -- comes out for the same
+        # file content, so this must be part of the cache key too.
+        "include_dirs": sorted(include_dirs) if include_dirs else None,
     }
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
@@ -308,8 +313,9 @@ class AnalysisStore:
         file_path: str,
         file_hash: str,
         rule_selection: RuleSelection | None,
+        include_dirs: list[str] | None = None,
     ) -> dict[str, Any] | None:
-        key = selection_key(rule_selection)
+        key = selection_key(rule_selection, include_dirs)
         with self._transaction() as conn:
             row = conn.execute(
                 """
@@ -330,8 +336,9 @@ class AnalysisStore:
         file_hash: str,
         rule_selection: RuleSelection | None,
         worker_result: dict[str, Any],
+        include_dirs: list[str] | None = None,
     ) -> None:
-        key = selection_key(rule_selection)
+        key = selection_key(rule_selection, include_dirs)
         with self._transaction() as conn:
             conn.execute(
                 """

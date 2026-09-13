@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 import src.run_lint as run_lint_module
+from src.pkg.parser.parse import parse_file
 from src.pkg.rules.rule_selection import RuleSelection
 from src.run_lint import collect_paths, main, run
 
@@ -899,7 +900,7 @@ class TestRunJobsValidation:
                 self.path = path
                 self.root = object()
 
-        def fake_parse_file(path: str) -> FakeTree:
+        def fake_parse_file(path: str, include_dirs=None) -> FakeTree:
             parse_calls.append(path)
             return FakeTree(path)
 
@@ -955,7 +956,7 @@ class TestRunJobsValidation:
                 self.path = path
                 self.root = object()
 
-        def fake_parse_file(path: str) -> FakeTree:
+        def fake_parse_file(path: str, include_dirs=None) -> FakeTree:
             parse_calls.append(path)
             return FakeTree(path)
 
@@ -1149,6 +1150,114 @@ class TestCollectPathsFileDiscovery:
 
         assert {p.name for p in paths} == {"in_a.v", "standalone.v"}
 
+    def test_exclude_filters_by_filename_pattern_regardless_of_directory(self, tmp_path: Path) -> None:
+        """A single-component pattern like `*_tb.v` matches from the right, so
+        it excludes a testbench no matter which directory it's nested under, so
+        testbenches can be skipped across a whole tree without enumerating
+        every directory."""
+        (tmp_path / "design.v").write_text("module design; endmodule\n")
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (sub / "design_tb.v").write_text("module design_tb; endmodule\n")
+
+        paths = collect_paths([str(tmp_path)], exclude=["*_tb.v"])
+
+        assert [p.name for p in paths] == ["design.v"]
+
+    def test_exclude_filters_by_directory_pattern(self, tmp_path: Path) -> None:
+        (tmp_path / "design.v").write_text("module design; endmodule\n")
+        vendor = tmp_path / "vendor"
+        vendor.mkdir()
+        (vendor / "cell.v").write_text("module cell; endmodule\n")
+
+        paths = collect_paths([str(tmp_path)], exclude=["vendor/*"])
+
+        assert [p.name for p in paths] == ["design.v"]
+
+    def test_exclude_applies_to_explicitly_named_files_too(self, tmp_path: Path) -> None:
+        excluded = tmp_path / "skip_tb.v"
+        excluded.write_text("module skip_tb; endmodule\n")
+        kept = tmp_path / "keep.v"
+        kept.write_text("module keep; endmodule\n")
+
+        paths = collect_paths([str(excluded), str(kept)], exclude=["*_tb.v"])
+
+        assert [p.name for p in paths] == ["keep.v"]
+
+    def test_no_exclude_patterns_behaves_exactly_as_before(self, tmp_path: Path) -> None:
+        (tmp_path / "design.v").write_text("module design; endmodule\n")
+
+        assert collect_paths([str(tmp_path)]) == collect_paths([str(tmp_path)], exclude=None)
+        assert collect_paths([str(tmp_path)]) == collect_paths([str(tmp_path)], exclude=[])
+
+
+class TestIncludeDirs:
+    """`--include-dir`/`include_dirs` lets `` `include "..." `` resolve a
+    header outside the source file's own directory -- pyslang's default
+    `SourceManager` only looks there, so a vendored shared macro/assertion
+    header (e.g. a shared assertion-macro header included by files elsewhere
+    in the tree) fails with
+    "unknown macro or compiler directive" for every subsequent use of a
+    macro it defines, corrupting the rest of the file's parse."""
+
+    HEADER_NAME = "shared_macros.svh"
+    HEADER_CONTENT = "`define MY_WIDTH 8\n"
+    SOURCE_TEMPLATE = (
+        '`include "shared_macros.svh"\n'
+        "module dut;\n"
+        "  wire [`MY_WIDTH-1:0] data;\n"
+        "endmodule\n"
+    )
+
+    def _write_fixture(self, tmp_path: Path) -> tuple[Path, Path]:
+        headers_dir = tmp_path / "headers"
+        headers_dir.mkdir()
+        (headers_dir / self.HEADER_NAME).write_text(self.HEADER_CONTENT)
+        source = tmp_path / "design.sv"
+        source.write_text(self.SOURCE_TEMPLATE)
+        return source, headers_dir
+
+    def test_parse_file_resolves_include_from_extra_directory(self, tmp_path: Path) -> None:
+        source, headers_dir = self._write_fixture(tmp_path)
+
+        tree = parse_file(str(source), include_dirs=[str(headers_dir)])
+
+        assert [d for d in tree.diagnostics if d.isError()] == []
+
+    def test_parse_file_without_include_dirs_leaves_real_errors(self, tmp_path: Path) -> None:
+        """Confirms the failure mode this feature closes: without the search
+        directory, the macro is genuinely unresolved -- not a hypothetical."""
+        source, _headers_dir = self._write_fixture(tmp_path)
+
+        tree = parse_file(str(source))
+
+        assert [d for d in tree.diagnostics if d.isError()] != []
+
+    def test_run_threads_include_dirs_to_parse_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        received: list[list[str] | None] = []
+
+        class FakeTree:
+            def __init__(self) -> None:
+                self.root = object()
+
+        def fake_parse_file(path: str, include_dirs=None) -> FakeTree:
+            received.append(include_dirs)
+            return FakeTree()
+
+        class FakeWalker:
+            def __init__(self, dispatch: object) -> None:
+                pass
+
+            def walk(self, root, tree, ctx, symbol_table, on_node=None) -> None:
+                pass
+
+        monkeypatch.setattr(run_lint_module, "parse_file", fake_parse_file)
+        monkeypatch.setattr(run_lint_module, "Walker", FakeWalker)
+
+        run([DATA], include_dirs=["/some/vendored/headers"])
+
+        assert received == [["/some/vendored/headers"]]
+
 
 class TestMain:
     def test_main_returns_zero_for_valid_file(self, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1270,7 +1379,7 @@ class TestRunRuleSelection:
                 self.path = path
                 self.root = object()
 
-        def fake_parse_file(path: str) -> FakeTree:
+        def fake_parse_file(path: str, include_dirs=None) -> FakeTree:
             return FakeTree(path)
 
         class FakeWalker:
@@ -1326,7 +1435,7 @@ class TestRunRuleSelection:
                 self.path = path
                 self.root = object()
 
-        def fake_parse_file(path: str) -> FakeTree:
+        def fake_parse_file(path: str, include_dirs=None) -> FakeTree:
             return FakeTree(path)
 
         class FakeWalker:

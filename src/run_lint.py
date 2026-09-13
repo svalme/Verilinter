@@ -44,7 +44,20 @@ class AnalysisResult:
     cache_stats: dict[str, int] | None = None
 
 
-def collect_paths(raw: list[str]) -> list[Path]:
+def collect_paths(raw: list[str], exclude: list[str] | None = None) -> list[Path]:
+    """Discover `.v`/`.sv` files from a mix of directory and file arguments,
+    dropping duplicates and, when `exclude` is given, any candidate matching
+    one of those glob patterns.
+
+    Patterns match via `PurePath.match`, which matches from the right end of
+    the path -- a single-component pattern (`*_tb.v`) matches any file with
+    that name regardless of directory, and a multi-component one
+    (`dhrystone/*`) matches anything under a directory with that name,
+    without needing a wildcard on both sides. Applied uniformly to both
+    directory-discovered files and explicitly named file arguments, so
+    behavior doesn't depend on which form a given path arrived in.
+    """
+    exclude_patterns = exclude or []
     paths: list[Path] = []
     seen: set[Path] = set()
     for r in raw:
@@ -55,6 +68,8 @@ def collect_paths(raw: list[str]) -> list[Path]:
             candidates = [p]
 
         for candidate in candidates:
+            if any(candidate.match(pattern) for pattern in exclude_patterns):
+                continue
             resolved = candidate.resolve()
             if resolved in seen:
                 continue
@@ -79,7 +94,9 @@ def _build_rule_selection(
     return RuleSelection(enabled_profiles=frozenset({rule_profile}))
 
 
-def _lint_single_file(path: str, rule_selection: RuleSelection | None) -> WorkerResult:
+def _lint_single_file(
+    path: str, rule_selection: RuleSelection | None, include_dirs: list[str] | None = None
+) -> WorkerResult:
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
@@ -90,7 +107,7 @@ def _lint_single_file(path: str, rule_selection: RuleSelection | None) -> Worker
 
     symbol_table.set_current_file(path)
     symbol_table.set_current_file_default_nettype_none(file_uses_default_nettype_none(path))
-    tree = parse_file(path)
+    tree = parse_file(path, include_dirs=include_dirs)
     walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 
     modules: list[dict[str, Any]] = []
@@ -199,17 +216,25 @@ def _run_workers(
     paths: list[Path],
     jobs: int,
     rule_selection: RuleSelection | None,
+    include_dirs: list[str] | None = None,
 ) -> list[WorkerResult]:
     ordered_paths = [str(path) for path in paths]
 
     if jobs == 1:
-        return [_lint_single_file(path, rule_selection) for path in ordered_paths]
+        return [_lint_single_file(path, rule_selection, include_dirs) for path in ordered_paths]
 
     try:
         with ProcessPoolExecutor(max_workers=jobs) as pool:
-            return list(pool.map(_lint_single_file, ordered_paths, [rule_selection] * len(ordered_paths)))
+            return list(
+                pool.map(
+                    _lint_single_file,
+                    ordered_paths,
+                    [rule_selection] * len(ordered_paths),
+                    [include_dirs] * len(ordered_paths),
+                )
+            )
     except (OSError, PermissionError):
-        return [_lint_single_file(path, rule_selection) for path in ordered_paths]
+        return [_lint_single_file(path, rule_selection, include_dirs) for path in ordered_paths]
 
 
 def _worker_result_from_payload(payload: dict[str, Any]) -> WorkerResult:
@@ -230,6 +255,7 @@ def run(
     rule_profile: str | None = None,
     severity_overrides: dict[str, str] | None = None,
     baseline_path: Path | None = None,
+    include_dirs: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     return analyze(
         paths,
@@ -238,6 +264,7 @@ def run(
         rule_profile=rule_profile,
         severity_overrides=severity_overrides,
         baseline_path=baseline_path,
+        include_dirs=include_dirs,
     ).diagnostics
 
 
@@ -252,6 +279,7 @@ def analyze(
     use_cache: bool = True,
     fmt: str = "text",
     report_kind: str | None = None,
+    include_dirs: list[str] | None = None,
 ) -> AnalysisResult:
     if jobs < 1:
         raise ValueError(f"jobs must be >= 1, got {jobs}")
@@ -276,6 +304,7 @@ def analyze(
                     file_path=str(path),
                     file_hash=file_hash,
                     rule_selection=resolved_selection,
+                    include_dirs=include_dirs,
                 )
                 if use_cache
                 else None
@@ -294,7 +323,7 @@ def analyze(
     else:
         missed_paths = list(paths)
 
-    fresh_results = _run_workers(missed_paths, jobs, resolved_selection) if missed_paths else []
+    fresh_results = _run_workers(missed_paths, jobs, resolved_selection, include_dirs) if missed_paths else []
     for path, result in zip(missed_paths, fresh_results):
         results_by_path[str(path)] = result
         if store is not None:
@@ -303,6 +332,7 @@ def analyze(
                 file_hash=file_sha256(path),
                 rule_selection=resolved_selection,
                 worker_result=asdict(result),
+                include_dirs=include_dirs,
             )
 
     results = [results_by_path[str(path)] for path in paths]
@@ -340,6 +370,22 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "paths",
         nargs="*",
         help="Verilog/SystemVerilog source files or directories (not required for --store maintenance flags)",
+    )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        metavar="PATTERN",
+        help="skip files matching this glob pattern (matched from the right, "
+        "e.g. '*_tb.v' or 'dhrystone/*'); repeat to exclude multiple",
+    )
+    parser.add_argument(
+        "--include-dir",
+        "-I",
+        action="append",
+        metavar="DIR",
+        help="search this directory to resolve an `include compiler directive "
+        "that references a header outside the source file's own directory "
+        "(e.g. a vendored shared macro/assertion header); repeat for multiple",
     )
     parser.add_argument(
         "--jobs",
@@ -483,7 +529,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    paths = collect_paths(args.paths)
+    paths = collect_paths(args.paths, exclude=args.exclude)
     if not paths:
         print("Error: no .v or .sv files found", file=sys.stderr)
         return 1
@@ -501,6 +547,8 @@ def main(argv: list[str] | None = None) -> int:
             run_kwargs["use_cache"] = config.use_cache
         run_kwargs["fmt"] = config.fmt
         run_kwargs["report_kind"] = args.report
+        if args.include_dir:
+            run_kwargs["include_dirs"] = args.include_dir
 
         analysis = analyze(
             paths,
