@@ -98,3 +98,50 @@ class TestExplicitXZLiteralRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_hex_literal_with_x_digit(self) -> None:
+        # Different radix than the already-covered binary `4'bx01z` case --
+        # each hex digit stands for 4 bits, so a single `x` digit still
+        # counts as an explicit X value.
+        diagnostics = _diagnostics(
+            """
+            module top(output [3:0] y);
+              assign y = 4'hx;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_literal_with_question_mark_wildcard_bit(self) -> None:
+        # `?` is a legal literal-digit synonym for `z`, and is checked
+        # alongside `x`/`z` by `is_explicit_xz_literal`.
+        diagnostics = _diagnostics(
+            """
+            module top(output [3:0] y);
+              assign y = 4'b10?1;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_literal_used_as_case_item_not_only_assigned_values(self) -> None:
+        # Unlike NO_UNSIZED_LITERAL (which only fires on a literal in direct
+        # assignment-RHS position), this rule has no context restriction: any
+        # explicit X/Z literal anywhere -- including a case item, not an
+        # assigned value -- is flagged.
+        diagnostics = _diagnostics(
+            """
+            module top(input [1:0] a, output reg y);
+              always @(*) begin
+                case (a)
+                  2'bx1: y = 1'b1;
+                  default: y = 1'b0;
+                endcase
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1

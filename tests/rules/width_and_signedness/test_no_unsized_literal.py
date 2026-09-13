@@ -150,3 +150,55 @@ class TestNoUnsizedLiteralRule:
         )
 
         assert len(diagnostics) == 1
+
+    def test_does_not_flag_unsized_literal_as_concatenation_member(self) -> None:
+        # Documents a known limitation: the check requires the literal to be
+        # the assignment's direct `.right` node, so an unsized literal nested
+        # inside a concatenation (`{a, 5}`) is silently skipped here, unlike
+        # ASSIGNMENT_WIDTH_MISMATCH's dedicated concatenation-member handling.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [7:0] x;
+              assign x = {a, 5};
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_does_not_flag_unsized_literal_under_unary_minus(self) -> None:
+        # Documents a known limitation: `-5`'s top-level node is a unary-minus
+        # expression, not the literal itself, so the direct-RHS check never
+        # sees an INTEGER_LITERAL_EXPRESSION_KIND node here at all.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              reg signed [7:0] x;
+              always @(*) begin
+                x = -5;
+              end
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_unsized_literal_in_both_if_and_else_branches(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              reg [7:0] x;
+              reg sel;
+              always @(*) begin
+                if (sel)
+                  x = 5;
+                else
+                  x = 6;
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 2

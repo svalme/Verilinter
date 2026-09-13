@@ -162,6 +162,101 @@ class TestNoAssignmentWidthMismatchRule:
 
         assert diagnostics == []
 
+    def test_flags_bit_select_rhs_narrower_than_target(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [3:0] x;
+              assign x = a[2];
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_bit_select_rhs_matching_single_bit_target(self) -> None:
+        # Boundary: a bit-select is always exactly 1 bit wide.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire x;
+              assign x = a[2];
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert diagnostics == []
+
+    def test_flags_part_select_rhs_narrower_than_target(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [7:0] x;
+              assign x = a[3:0];
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_part_select_rhs_matching_width(self) -> None:
+        # Boundary: the part-select's width exactly equals the target's.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [3:0] x;
+              assign x = a[3:0];
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert diagnostics == []
+
+    def test_flags_mismatch_in_nonblocking_assignment(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input clk);
+              reg [7:0] x;
+              reg [3:0] y;
+              always @(posedge clk) begin
+                x <= y;
+              end
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_mismatch_hidden_behind_arithmetic_expression(self) -> None:
+        # Documents a known limitation, not a claim of coverage:
+        # `simple_expression_width_and_signed` only resolves an identifier,
+        # a literal, a select, or a concatenation/replication of those -- an
+        # arithmetic RHS like `a + b` isn't recognized at all, so its width
+        # is unrecoverable and the real mismatch below (8-bit sum into a
+        # 4-bit target) goes silently undetected.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [7:0] b;
+              wire [3:0] x;
+              assign x = a + b;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert diagnostics == []
+
 
 class TestNoAssignmentSignednessMismatchRule:
     @pytest.fixture
@@ -177,6 +272,21 @@ class TestNoAssignmentSignednessMismatchRule:
             module top;
               wire signed [7:0] x;
               wire [7:0] y;
+              assign x = y;
+            endmodule
+            """,
+            "ASSIGNMENT_SIGNEDNESS_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_unsigned_target_assigned_signed_identifier(self) -> None:
+        # Reverse direction of test_flags_signed_target_assigned_unsigned_identifier.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire signed [7:0] y;
               assign x = y;
             endmodule
             """,

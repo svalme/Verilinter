@@ -177,6 +177,23 @@ def test_async_reset_xz_value_also_flagged_as_explicit_xz_literal(
     )
 
 
+def test_xz_equality_comparison_also_flagged_as_explicit_xz_literal(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "top.sv": """
+            module top(input [3:0] a, output y);
+              assign y = (a == 4'bx01z);
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("XZ_EQUALITY_COMPARISON")
+    result.expect_code_once("EXPLICIT_XZ_LITERAL")
+
+
 def test_assignment_truncation_also_flagged_as_assignment_width_mismatch(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:

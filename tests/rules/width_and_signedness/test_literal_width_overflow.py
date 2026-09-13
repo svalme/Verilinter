@@ -104,3 +104,71 @@ class TestLiteralWidthOverflowRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_binary_literal_that_overflows_declared_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [2:0] x;
+              assign x = 3'b1111;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_octal_literal_that_overflows_declared_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [2:0] x;
+              assign x = 3'o10;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_value_that_exactly_fits_declared_width(self) -> None:
+        # Boundary: 3'b111's value (7) needs exactly 3 bits, matching the
+        # declared width -- one bit below `test_flags_decimal_literal_that_
+        # overflows_declared_width`'s "just above" case.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [2:0] x;
+              assign x = 3'b111;
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_overflow_in_nonblocking_procedural_assignment(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input clk);
+              reg [2:0] x;
+              always @(posedge clk) begin
+                x <= 3'd9;
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_overflow_with_underscores_in_value(self) -> None:
+        # Confirms the leading `_`-stripping (`value_text.replace("_", "")`)
+        # runs before the radix parse: 4'b1111_1's value is 5 bits (31), one
+        # over its declared 4.
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] x;
+              assign x = 4'b1111_1;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
