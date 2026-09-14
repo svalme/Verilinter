@@ -16,6 +16,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "autoflake",
+    "pyflakes",
 ]
 
 [project.scripts]

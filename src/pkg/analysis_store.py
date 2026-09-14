@@ -4,7 +4,6 @@ import hashlib
 import json
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator

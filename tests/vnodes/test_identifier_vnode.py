@@ -1,7 +1,7 @@
 """Test suite for IdentifierNameVNode."""
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
 import pyslang as sl
 
 from src.pkg.vnodes.identifier_vnode import IdentifierNameVNode

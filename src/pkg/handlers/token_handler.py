@@ -1,7 +1,6 @@
 from ..walk.context import Context
 from ..semantic.symbol_table import SymbolTable
 from .base_handler import BaseHandler
-from ..vnodes.base_vnode import BaseVNode
 from ..vnodes.token_vnode import TokenVNode
 
 from ..walk.dispatch import dispatch

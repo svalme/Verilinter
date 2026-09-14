@@ -5,7 +5,6 @@ from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
-from src.pkg.handlers.package_import_handler import PackageImportHandler
 
 
 class TestPackageDeclarationRegistration:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
 
 from ..parser.syntax import is_mutually_exclusive_branch_pair
 from ..semantic.symbol import Symbol
