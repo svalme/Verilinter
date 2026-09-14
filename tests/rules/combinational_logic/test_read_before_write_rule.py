@@ -131,6 +131,17 @@ module top;
 endmodule
 """
 
+FOR_LOOP_OWN_INDUCTION_VARIABLE_CODE = """
+module top;
+  logic [31:0] data;
+  always_comb begin
+    for (int i = 0; i < 32; i++) begin
+      data[i] = 1'b0;
+    end
+  end
+endmodule
+"""
+
 
 class TestReadBeforeWriteRule:
     @pytest.fixture
@@ -375,3 +386,23 @@ class TestReadBeforeWriteRule:
 
         diagnostics = rule.run(symbol_table)
         assert any("'a'" in d["message"] for d in diagnostics)
+
+    def test_does_not_flag_for_loop_condition_reading_its_own_induction_variable(
+        self, rule: ReadBeforeWriteRule
+    ) -> None:
+        """`i`'s declarator initializer (`int i = 0`) is its first write, so the
+        loop condition's read (`i < 32`) and the step's write (`i++`) come after
+        a genuine prior write in the same block -- not a read-before-write bug.
+        Regression test: the declarator's initializer write records a
+        `driver_id`, so it counts as the block's first write and the condition
+        read is not flagged."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(FOR_LOOP_OWN_INDUCTION_VARIABLE_CODE)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+        assert not any("'i'" in d["message"] for d in diagnostics)
