@@ -14,7 +14,11 @@ from pkg.analysis_store import AnalysisStore, file_sha256
 from pkg.config import LintConfig, config_from_cli, find_default_config, load_config, merge_config
 from pkg.diagnostics import enrich_diagnostics, filter_by_baseline, sort_diagnostics, write_baseline
 from pkg.output import render_connection_report, render_diagnostics
-from pkg.parser.parse import file_uses_default_nettype_none, parse_file
+from pkg.parser.parse import (
+    extract_parse_diagnostics,
+    file_uses_default_nettype_none,
+    parse_file,
+)
 from pkg.rules.profiles import available_rule_profiles
 from pkg.rules.register_rules import *
 from pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
@@ -134,6 +138,8 @@ def _scan_packages(
         symbol_table.set_current_file(str(path))
         symbol_table.set_current_file_default_nettype_none(file_uses_default_nettype_none(path))
         tree = parse_file(str(path), include_dirs=include_dirs)
+        if extract_parse_diagnostics(tree, str(path)):
+            continue
         walker.walk(tree.root, tree, ctx, symbol_table)
         for name, scopes in symbol_table.packages.items():
             for scope in scopes:
@@ -213,6 +219,16 @@ def _lint_single_file(
     symbol_table.set_current_file_default_nettype_none(file_uses_default_nettype_none(path))
     _seed_cross_file_packages(symbol_table, package_registry, path)
     tree = parse_file(path, include_dirs=include_dirs)
+    parse_errors = extract_parse_diagnostics(tree, path)
+    if parse_errors:
+        return WorkerResult(
+            diagnostics=parse_errors,
+            modules=[],
+            primitives=[],
+            module_references=[],
+            instantiation_edges=[],
+            instantiations=[],
+        )
     walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 
     modules: list[dict[str, Any]] = []
@@ -691,16 +707,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
+    has_parser_errors = any(d.get("code") == "PARSER_ERROR" for d in analysis.diagnostics)
     if args.write_baseline:
+        if has_parser_errors:
+            print("Error: cannot write baseline when files have parse errors", file=sys.stderr)
+            return 1
         write_baseline(Path(args.write_baseline).resolve(), analysis.diagnostics)
         return 0
 
     if args.report == "connections":
         sys.stdout.write(render_connection_report(analysis.symbol_table))
-        return 0
+        return 1 if has_parser_errors else 0
 
     sys.stdout.write(render_diagnostics(analysis.diagnostics, config.fmt))
-    return 0
+    return 1 if has_parser_errors else 0
 
 
 if __name__ == "__main__":

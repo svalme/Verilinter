@@ -124,17 +124,14 @@ class TestOutputFormatConsistency:
 
 
 class TestMalformedInputHandling:
-    def test_actual_syntax_error_is_silently_recovered_not_surfaced_or_failed(
+    def test_actual_syntax_error_surfaces_parser_error_and_fails_cli(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Pins current behavior: `_lint_single_file` in `run_lint.py` calls
-        `parse_file`/`Walker.walk` directly and does not inspect the parsed tree's
-        own `.diagnostics` for parser errors. A genuine syntax error is absorbed by
-        pyslang's parser recovery: the CLI exits 0 and reports only whatever
-        ordinary lint findings the recovered AST produces. A future change that
-        surfaces parser errors (as a diagnostic or a non-zero exit status) should
-        update this test deliberately.
-        """
+        """Verifies that a file containing real syntax errors surfaces
+        PARSER_ERROR diagnostics with severity 'error' and category
+        'syntax_and_structure', suppresses walking corrupt ASTs (preventing
+        spurious downstream lint findings), and causes the CLI to exit with
+        a non-zero failure code (1)."""
         tmp = _prepare_scratch("malformed")
         source = tmp / "broken.sv"
         source.write_text(
@@ -151,9 +148,64 @@ endmodule
         result = main(["--format", "json", str(source)])
         diagnostics = json.loads(capsys.readouterr().out)
 
-        assert result == 0
+        assert result == 1
         assert diagnostics != []
-        assert {d["code"] for d in diagnostics} == {"PORT_DIRECTION_SUFFIX"}
-        assert not any(
-            "parse" in str(d["message"]).lower() or "syntax" in str(d["message"]).lower() for d in diagnostics
+        assert all(d["code"] == "PARSER_ERROR" for d in diagnostics)
+        assert any(
+            "parse" in str(d["message"]).lower() or "syntax" in str(d["message"]).lower()
+            for d in diagnostics
         )
+        assert all(d["severity"] == "error" for d in diagnostics)
+        assert all(d["category"] == "syntax_and_structure" for d in diagnostics)
+        # Downstream rules on incomplete AST are suppressed
+        assert not any(d["code"] == "PORT_DIRECTION_SUFFIX" for d in diagnostics)
+
+    def test_syntax_error_text_format_and_parallel_execution(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Verifies that text format and parallel execution (-j 2) also surface
+        the syntax error and return exit status 1."""
+        tmp = _prepare_scratch("malformed_text")
+        source = tmp / "broken.sv"
+        source.write_text(
+            """
+`timescale 1ns/1ps
+module broken(input a, output y);
+  assign y = a +;
+endmodule
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = main(["--format", "text", "--jobs", "2", str(source)])
+        out = capsys.readouterr().out
+
+        assert result == 1
+        assert "[PARSER_ERROR] [ERROR] syntax error:" in out
+
+    def test_cannot_write_baseline_when_parse_errors_exist(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Verifies that attempting to write a baseline when parse errors exist
+        fails with status 1 and leaves the baseline file uncreated."""
+        tmp = _prepare_scratch("malformed_baseline")
+        source = tmp / "broken.sv"
+        source.write_text(
+            """
+`timescale 1ns/1ps
+module broken(input a, output y);
+  assign y = a +;
+endmodule
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        baseline_file = tmp / "baseline.json"
+
+        result = main(["--write-baseline", str(baseline_file), str(source)])
+        stderr = capsys.readouterr().err
+
+        assert result == 1
+        assert "cannot write baseline when files have parse errors" in stderr
+        assert not baseline_file.exists()

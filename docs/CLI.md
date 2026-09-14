@@ -140,6 +140,8 @@ Write the current diagnostics to a JSON baseline file and exit.
 verilinter --write-baseline .verilinter-baseline.json tests/data
 ```
 
+Note: If any input file contains syntax or parser errors, Verilinter will refuse to write a baseline file, write an error message to `stderr`, and exit with code `1`. This ensures incomplete or corrupted AST findings are never recorded into a baseline.
+
 ### `--report connections`
 
 Print a structural connection report instead of diagnostics.
@@ -239,6 +241,14 @@ Useful for CI systems, code scanning, or editor integrations:
 verilinter --format sarif tests/data
 ```
 
+### Parser and Syntax Errors
+
+When an input file contains syntax errors or invalid Verilog/SystemVerilog constructs that prevent pyslang from forming a valid AST:
+- Verilinter emits `PARSER_ERROR` diagnostics with severity `error` and category `syntax_and_structure`.
+- AST walking is immediately suppressed for the affected file, preventing spurious downstream lint warnings caused by partial recovery.
+- `PARSER_ERROR` diagnostics include the exact file path, line number, column, and the parser's descriptive error message.
+- The CLI exits with non-zero failure status (`1`).
+
 ## Configuration File
 
 Verilinter supports TOML configuration.
@@ -326,12 +336,14 @@ verilinter --category module_style tests/data
 
 ## Exit Behavior
 
-- returns `0` on successful execution, even when diagnostics are found
+- returns `0` on successful execution, even when ordinary lint diagnostics (warnings or errors) are found
+- returns `1` when syntax or parser errors are detected in input files (`PARSER_ERROR` diagnostics are emitted, corrupt AST traversal is suppressed)
 - returns `1` on CLI/config/input errors such as:
-  - missing files
+  - missing files or invalid paths
   - invalid config values
   - invalid `--severity` values
   - no `.v` or `.sv` files found
+  - attempting to `--write-baseline` when any input file has syntax errors
 
 ## Related Docs
 

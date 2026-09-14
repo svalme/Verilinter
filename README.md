@@ -6,6 +6,7 @@ A static analysis framework for SystemVerilog, using pyslang. Pyslang parses sou
 - Tracks lexical scopes (modules, blocks, always blocks, etc.)
 - Tracks symbols (variables, signals, ports)
 - Supports rule-based analysis (lint-style checks)
+- Surfaces syntax and parser errors directly as `PARSER_ERROR` diagnostics and exits non-zero, suppressing corrupt AST walks
 - Lints multiple files or a whole directory in one run, with a shared symbol table across them -- enables cross-file checks (e.g. duplicate module names)
 - Supports built-in rule profiles plus explicit rule / category filtering
 - Supports plain-text, JSON, and SARIF output

@@ -21,7 +21,14 @@ class RuleMetadata:
 
 
 def metadata_by_code() -> dict[str, RuleMetadata]:
-    metadata: dict[str, RuleMetadata] = {}
+    metadata: dict[str, RuleMetadata] = {
+        "PARSER_ERROR": RuleMetadata(
+            code="PARSER_ERROR",
+            category="syntax_and_structure",
+            default_severity="error",
+            message="Syntax error or parser failure reported by the parser.",
+        )
+    }
 
     for runner in (rule_runner, symbol_rule_runner, module_rule_runner):
         for rule in runner._rules:
