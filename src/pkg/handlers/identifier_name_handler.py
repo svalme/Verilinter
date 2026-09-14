@@ -24,6 +24,7 @@ from ..parser.syntax import (
     is_invocation_callee,
     is_named_type_reference,
     is_scoped_name_qualifier,
+    is_member_selector,
     is_subroutine_prototype_name,
     is_system_task_output_argument,
     is_tristate_continuous_assign,
@@ -48,6 +49,7 @@ _STRUCTURAL_NAME_PREDICATES = (
     is_cover_cross_item,
     is_extends_clause_base_name,
     is_scoped_name_qualifier,
+    is_member_selector,
 )
 
 

@@ -2,6 +2,16 @@ from ..syntax_kinds import DOUBLE_COLON_TOKEN_KIND, PACKAGE_IMPORT_DECLARATION_K
 from .shapes import identifier_name
 
 
+def is_member_selector(raw: object) -> bool:
+    """The right side of a dot selects a member, not a lexical-scope symbol."""
+    parent = getattr(raw, "parent", None)
+    if type(parent).__name__ == "AssignmentPatternItemSyntax":
+        return getattr(parent, "key", None) is raw
+    return (getattr(parent, "kind", None) == SCOPED_NAME_KIND
+            and str(getattr(parent, "separator", "")).strip() == "."
+            and getattr(parent, "right", None) is raw)
+
+
 def _is_double_colon_scoped_name(node: object) -> bool:
     """True if `node` is a `ScopedNameSyntax` joined by `::`, not `.`.
 

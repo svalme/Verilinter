@@ -16,15 +16,13 @@ def parse_file(path: str, include_dirs: list[str] | None = None) -> SyntaxTree:
     shared macro/assertion header --
     without this, every subsequent use of a macro that header defines fails
     to parse as `unknown macro or compiler directive`, corrupting the AST for
-    the rest of the file. `include_dirs` is `None` by default so the common
-    single-file/no-includes case keeps pyslang's simplest, single-argument
-    entry point.
+    the rest of the file. Each call owns a fresh source manager so repeated
+    analyses in the same process observe file changes.
     """
-    if not include_dirs:
-        return SyntaxTree.fromFile(path)
-
+    # The default pyslang source manager can retain file buffers across calls.
+    # A fresh manager is required when files change within the same process.
     source_manager = sl.SourceManager()
-    for directory in include_dirs:
+    for directory in include_dirs or []:
         source_manager.addUserDirectories(directory)
     return SyntaxTree.fromFile(path, source_manager)
 

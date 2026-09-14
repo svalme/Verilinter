@@ -37,6 +37,7 @@ from ._syntax_queries.fsm import (
 )
 from ._syntax_queries.package_scoping import (
     is_scoped_name_qualifier,
+    is_member_selector,
     package_import_items,
     scoped_name_package_qualifier,
 )
@@ -386,6 +387,7 @@ __all__ = [
     "is_real_type_node",
     "is_repeat_token",
     "is_scoped_name_qualifier",
+    "is_member_selector",
     "is_sequence_declaration_node",
     "is_shift_expression",
     "is_state_register_case",

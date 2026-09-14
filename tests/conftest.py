@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 import shutil
+import os
 import uuid
 
 import pytest
@@ -14,6 +15,27 @@ from .support.lint_harness import (
     run_inline_lint_case,
     run_inline_lint_case_spec,
 )
+
+collect_ignore_glob = ["_tmp_*"]
+
+
+if os.name == "nt":
+    @pytest.fixture(name="tmp_path")
+    def workspace_tmp_path() -> Path:
+        """Use inherited workspace permissions on Windows.
+
+        Python 3.14/pytest's mode-0700 temporary directories can be inaccessible
+        to the sandbox account, even with --basetemp inside the workspace.
+        Keep each test isolated without requesting that restricted ACL.
+        """
+        root = (Path(__file__).parent / "_tmp_harness").resolve()
+        path = root / f"pytest_{uuid.uuid4().hex}"
+        path.mkdir(parents=True)
+        try:
+            yield path
+        finally:
+            path.resolve().relative_to(root)
+            shutil.rmtree(path, ignore_errors=True)
 
 
 @pytest.fixture

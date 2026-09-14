@@ -419,6 +419,10 @@ def analyze(
     if store is not None:
         for path in paths:
             file_hash = file_sha256(path)
+            # Until the store tracks transitive preprocessor dependencies, a
+            # source containing directives must be reparsed: included headers
+            # and macro-expanded includes can change without changing this file.
+            cacheable = "`" not in path.read_text(errors="ignore")
             payload = (
                 store.load_cached_worker_result(
                     file_path=str(path),
@@ -427,7 +431,7 @@ def analyze(
                     include_dirs=include_dirs,
                     package_registry_fingerprint=package_registry_fingerprint,
                 )
-                if use_cache
+                if use_cache and cacheable
                 else None
             )
             if payload is not None:
@@ -491,7 +495,10 @@ def analyze(
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="SystemVerilog static analyzer")
+    parser = argparse.ArgumentParser(
+        description="SystemVerilog static analyzer",
+        fromfile_prefix_chars="@",
+    )
     parser.add_argument(
         "paths",
         nargs="*",

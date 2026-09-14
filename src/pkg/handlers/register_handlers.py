@@ -7,12 +7,15 @@ from .default_handler import DefaultHandler
 from .token_handler import TokenHandler
 from .syntax_node_handler import SyntaxNodeHandler
 from .module_declaration_handler import ModuleDeclarationHandler
+from .function_declaration_handler import FunctionDeclarationHandler
 from .package_import_handler import PackageImportHandler
 from .primitive_declaration_handler import PrimitiveDeclarationHandler
 
 # blocks
 from .procedural_block_handler import ProceduralBlockHandler
 from .case_generate_handler import CaseGenerateHandler
+from .for_loop_statement_handler import ForLoopStatementHandler
+from .type_and_generate_scope_handler import StructUnionTypeHandler, LoopGenerateHandler
 
 #  variables
 from .signal_event_expression_handler import SignalEventExpressionHandler

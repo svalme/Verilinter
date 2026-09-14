@@ -20,6 +20,8 @@ class PortDirectionSuffixRule(Rule):
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
+        if ctx.scope().kind in ("function", "task"):
+            return False
         if not isinstance(vnode.raw, DeclaratorNode):
             return False
         if not declarator_is_port(ctx):

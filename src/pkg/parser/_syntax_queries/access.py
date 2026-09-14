@@ -350,9 +350,12 @@ def _concatenation_member_width(scope: object, member_text: str) -> int | None:
 def _infer_text_width_and_signed_direct(scope: object, expr_text: str) -> tuple[int | None, bool | None]:
     simple_identifier = simple_identifier_text(expr_text)
     if simple_identifier is not None and scope is not None:
-        symbol = getattr(scope, "lookup", lambda _name: None)(simple_identifier)
-        if symbol is not None:
-            return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
+        current = scope
+        while current is not None:
+            symbol = getattr(current, "lookup", lambda _name: None)(simple_identifier)
+            if symbol is not None:
+                return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
+            current = getattr(current, "parent", None)
 
     sized_literal = re.match(r"(?i)\s*(\d+)\s*'\s*[sS]?[bodhBODH][0-9a-f_xz?]+\s*$", expr_text)
     if sized_literal is not None:

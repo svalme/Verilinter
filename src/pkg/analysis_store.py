@@ -13,7 +13,7 @@ from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
 
 SCHEMA_VERSION = "2"
-ANALYZER_CACHE_VERSION = "2026-08-28"
+ANALYZER_CACHE_VERSION = "2026-09-14-scopes"
 
 
 def utc_now_iso() -> str:
@@ -40,7 +40,7 @@ def selection_key(
         # search paths; changing them can change how `` `include ``/macro
         # resolution -- and therefore the parsed AST -- comes out for the same
         # file content, so this must be part of the cache key too.
-        "include_dirs": sorted(include_dirs) if include_dirs else None,
+        "include_dirs": include_dirs or None,
         # A cached per-file result was also resolved against a specific
         # corpus-wide set of package declarations (run_lint.py's `_scan_packages`
         # pre-pass) -- a package changing in a DIFFERENT file can change what a

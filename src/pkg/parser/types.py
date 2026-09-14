@@ -17,6 +17,13 @@ RawNode: TypeAlias = SyntaxNode | Token
 ModuleDeclarationNode: TypeAlias = sl.ModuleDeclarationSyntax
 DeclaratorNode: TypeAlias = sl.DeclaratorSyntax
 PackageImportDeclarationNode: TypeAlias = sl.PackageImportDeclarationSyntax
+# pyslang represents both `function` and `task` declarations with this same
+# wrapper class, distinguishable only by `.kind` -- same shape as
+# ModuleDeclarationNode covering module/package/interface/program.
+FunctionDeclarationNode: TypeAlias = sl.FunctionDeclarationSyntax
+ForLoopStatementNode: TypeAlias = sl.ForLoopStatementSyntax
+StructUnionTypeNode: TypeAlias = sl.StructUnionTypeSyntax
+LoopGenerateNode: TypeAlias = sl.LoopGenerateSyntax
 
 IdentifierNameNode: TypeAlias = sl.IdentifierNameSyntax
 IdentifierSelectNameNode: TypeAlias = sl.IdentifierSelectNameSyntax
@@ -49,6 +56,10 @@ __all__ = [
     "CaseStatementNode",
     "DeclaratorNode",
     "DefaultCaseItemNode",
+    "ForLoopStatementNode",
+    "FunctionDeclarationNode",
+    "StructUnionTypeNode",
+    "LoopGenerateNode",
     "HierarchicalInstanceNode",
     "HierarchyInstantiationNode",
     "IDENTIFIER_NAME_NODE_TYPES",

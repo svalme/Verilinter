@@ -314,6 +314,19 @@ That gives us:
 - one local SQLite file instead of separate cache and history databases
 - independent handling for input-file edits versus analyzer-version edits
 
+Cache correctness details:
+
+- Package-export fingerprints invalidate consumers when the visible package
+  names change, even if the consumer source did not change.
+- Include search order is significant and is preserved in the cache key.
+- Sources containing backticks currently bypass cache reads. The store does
+  not yet track transitive preprocessor dependencies, so reusing those results
+  could hide a changed header. This includes ordinary directive-only files
+  such as files with a `timescale directive; the policy is conservative.
+- Files are parsed with fresh source managers so repeated analyses observe
+  edits within the same Python process.
+- Analyzer changes invalidate old entries through `ANALYZER_CACHE_VERSION`.
+
 It does not yet provide:
 - automatic cache eviction
-- incremental cross-file invalidation beyond per-file content hashing
+- precise dependency-based reuse for files using preprocessing

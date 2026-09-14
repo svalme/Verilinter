@@ -16,7 +16,7 @@ class UnusedVariableRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if sym.kind == "variable" and not sym.uses:
+                if sym.kind == "variable" and not sym.uses and not sym.is_function_return:
                     loc = sym.declarations[0]
                     diagnostic = {
                         "code": self.code,

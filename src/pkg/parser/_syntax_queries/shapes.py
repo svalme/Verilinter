@@ -47,7 +47,7 @@ def declarator_is_port(ctx: "Context") -> bool:
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
         type_name = type(raw).__name__
-        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+        if type_name.endswith("AnsiPortSyntax") or type_name in ("PortDeclarationSyntax", "FunctionPortSyntax"):
             return True
         if type_name.endswith("DataDeclarationSyntax"):
             return False
@@ -125,6 +125,17 @@ def declarator_port_direction(ctx: "Context") -> str | None:
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
         type_name = type(raw).__name__
+        if type_name == "FunctionPortSyntax":
+            # Function/task ANSI arguments default to input and inherit omitted
+            # directions from earlier arguments in the same prototype.
+            direction = "input"
+            for port in raw.parent.ports:
+                if type(port).__name__ != "FunctionPortSyntax":
+                    continue
+                direction = PORT_DIRECTION_TOKEN_KINDS.get(port.direction.kind, direction)
+                if port is raw:
+                    return direction
+            return direction
         if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
             direction = _explicit_port_direction(raw)
             if direction is not None:

@@ -92,3 +92,32 @@ class TestRedeclaredVariableRule:
 
         assert len(diagnostics) == 1
         assert "Redeclared symbol 'x'" in diagnostics[0]["message"]
+
+    def test_does_not_flag_parameter_name_reused_across_independent_functions(
+        self, rule: RedeclaredVariableRule
+    ) -> None:
+        """A function/task-local parameter or `for`-loop variable is scoped to
+        its own declaration, not the enclosing module -- reusing a
+        conventional name (`x`, `i`, ...) across independent functions/loops
+        is ordinary RTL, not a collision."""
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(
+            """
+            module m;
+              function automatic int f1(input int x); f1 = x + 1; endfunction
+              function automatic int f2(input int x); f2 = x + 2; endfunction
+
+              initial begin
+                for (int i = 0; i < 4; i = i + 1) begin end
+                for (int i = 0; i < 8; i = i + 1) begin end
+              end
+            endmodule
+            """
+        )
+        assert_no_parse_errors("tests/rules/declarations_and_types/test_redeclared_variable.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
