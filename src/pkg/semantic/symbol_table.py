@@ -14,6 +14,7 @@ class SymbolTable:
         self.scopes: list[Scope] = [self.global_scope]  # registry - all scopes ever created
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name -> all scopes defining it, across files
+        self.packages: dict[str, list[Scope]] = {}  # package name -> all scopes defining it, across files
         self.primitives: set[str] = set()  # user-defined primitive (UDP) names, across files
         self.module_references: list[tuple[str, Location]] = []
         self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
@@ -68,6 +69,16 @@ class SymbolTable:
         """Record a module definition. Appends if the name was already registered."""
         self.modules.setdefault(name, []).append(scope)
 
+    def register_package(self, name: str, scope: Scope) -> None:
+        """Record a package definition. Appends if the name was already registered.
+
+        Kept separate from `modules` -- pyslang represents `package`/`module`
+        declarations with the same wrapper class, distinguishable only by
+        `.kind`, so a package must not be registered as a module or it would
+        pollute UNDEFINED_MODULE/DUPLICATE_MODULE's module registry.
+        """
+        self.packages.setdefault(name, []).append(scope)
+
     def register_primitive(self, name: str) -> None:
         """Record a user-defined primitive (UDP) declaration by name."""
         self.primitives.add(name)
@@ -103,19 +114,47 @@ class SymbolTable:
         scopes = self.modules.get(name)
         return scopes[0] if scopes else None
 
+    def lookup_package(self, name: str) -> Scope | None:
+        """Return the first scope for a named package declared in this file, or
+        None if it isn't (either genuinely undeclared, or declared in a
+        different file -- cross-file package resolution isn't supported)."""
+        scopes = self.packages.get(name)
+        return scopes[0] if scopes else None
+
     def is_duplicate_module(self, name: str) -> bool:
         """Return True if more than one file defines a module with this name."""
         return len(self.modules.get(name, [])) > 1
 
     def lookup_from_scope(self, name: str, scope: Scope | None = None) -> Symbol | None:
-        """Lookup a symbol starting from the given scope upwards."""
+        """Lookup a symbol starting from the given scope upwards.
+
+        A local declaration always wins over an import (ordinary shadowing), so
+        the ancestor-chain walk runs to completion first. Only if that fails is
+        the same chain re-walked checking each scope's `imports` -- a name
+        brought in via `import pkg::*;`/`import pkg::name;` resolves into that
+        package's own scope (see `Scope.imports`/`register_package`). A package
+        declared in another file has no entry in `self.packages` yet, so it
+        simply isn't found here.
+        """
         if scope is None:
             return None
-        while scope:
-            exists = scope.lookup(name)
+        node = scope
+        while node:
+            exists = node.lookup(name)
             if exists:
                 return exists
-            scope = scope.parent
+            node = node.parent
+
+        node = scope
+        while node:
+            for package_name, imported_name in node.imports:
+                if imported_name is not None and imported_name != name:
+                    continue
+                for package_scope in self.packages.get(package_name, ()):
+                    found = package_scope.lookup(name)
+                    if found:
+                        return found
+            node = node.parent
         return None
 
     def lookup_qualified(self, path: list[str]) -> Symbol | None:

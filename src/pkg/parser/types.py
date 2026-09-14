@@ -16,6 +16,7 @@ RawNode: TypeAlias = SyntaxNode | Token
 
 ModuleDeclarationNode: TypeAlias = sl.ModuleDeclarationSyntax
 DeclaratorNode: TypeAlias = sl.DeclaratorSyntax
+PackageImportDeclarationNode: TypeAlias = sl.PackageImportDeclarationSyntax
 
 IdentifierNameNode: TypeAlias = sl.IdentifierNameSyntax
 IdentifierSelectNameNode: TypeAlias = sl.IdentifierSelectNameSyntax
@@ -57,6 +58,7 @@ __all__ = [
     "ImplicitEventControlNode",
     "LoopGenerateNode",
     "ModuleDeclarationNode",
+    "PackageImportDeclarationNode",
     "ParenthesizedEventExpressionNode",
     "PortDeclarationNode",
     "PrimitiveDeclarationNode",

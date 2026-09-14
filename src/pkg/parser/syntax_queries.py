@@ -35,6 +35,11 @@ from ._syntax_queries.fsm import (
     is_state_register_case,
     resolve_case_item_value,
 )
+from ._syntax_queries.package_scoping import (
+    is_scoped_name_qualifier,
+    package_import_items,
+    scoped_name_package_qualifier,
+)
 from ._syntax_queries.procedural import (
     async_reset_signal_edges,
     async_reset_signal_names,
@@ -380,6 +385,7 @@ __all__ = [
     "is_read_write_unary_expression",
     "is_real_type_node",
     "is_repeat_token",
+    "is_scoped_name_qualifier",
     "is_sequence_declaration_node",
     "is_shift_expression",
     "is_state_register_case",
@@ -425,12 +431,14 @@ __all__ = [
     "module_declaration_file_stem",
     "is_module_filename_mismatch",
     "named_parameter_override_name",
+    "package_import_items",
     "parameter_override_list",
     "primitive_declaration_name",
     "procedural_block_sensitivity_names",
     "procedural_block_statement",
     "procedural_nesting_depth",
     "resolve_case_item_value",
+    "scoped_name_package_qualifier",
     "sized_literal_overflow",
     "source_text_for_node",
     "sync_clock_signal_name",

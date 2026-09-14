@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import sys
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
@@ -94,8 +96,110 @@ def _build_rule_selection(
     return RuleSelection(enabled_profiles=frozenset({rule_profile}))
 
 
+_PACKAGE_KEYWORD_RE = re.compile(r"\bpackage\b")
+
+
+def _file_may_declare_package(path: Path) -> bool:
+    """Cheap text prefilter so `_scan_packages` doesn't have to fully parse
+    every input file just to learn that most of them declare no package."""
+    try:
+        text = path.read_text(errors="ignore")
+    except OSError:
+        return False
+    return _PACKAGE_KEYWORD_RE.search(text) is not None
+
+
+def _scan_packages(
+    paths: list[Path], include_dirs: list[str] | None = None
+) -> dict[str, list[dict[str, Any]]]:
+    """First pass over the corpus: find every `package ... endpackage`
+    declaration and what it exports, before any per-file lint worker runs.
+
+    NO_IMPLICIT_NET and friends resolve a package-qualified/wildcard-imported
+    name during each file's OWN single-file walk (see identifier_name_handler.py),
+    so package visibility has to be known before that walk starts -- unlike
+    UNDEFINED_MODULE/DUPLICATE_MODULE, which reconcile module definitions
+    across files only after every worker finishes (see
+    `_build_cross_file_symbol_table`). Filtered through
+    `_file_may_declare_package` so a codebase with few or no packages doesn't
+    pay for a second full-corpus parse+walk.
+    """
+    registry: dict[str, list[dict[str, Any]]] = {}
+    for path in paths:
+        if not _file_may_declare_package(path):
+            continue
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+        symbol_table.set_current_file(str(path))
+        symbol_table.set_current_file_default_nettype_none(file_uses_default_nettype_none(path))
+        tree = parse_file(str(path), include_dirs=include_dirs)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+        for name, scopes in symbol_table.packages.items():
+            for scope in scopes:
+                symbols = [
+                    {"name": symbol.name, "kind": symbol.kind}
+                    for symbol in scope.symbols.values()
+                    if symbol.is_declared and not symbol.is_implicit
+                ]
+                registry.setdefault(name, []).append({"file": str(path), "symbols": symbols})
+    return registry
+
+
+def _fingerprint_package_registry(registry: dict[str, list[dict[str, Any]]]) -> str | None:
+    """Stable fingerprint of `_scan_packages`' output for the analysis-store cache
+    key: a cached per-file result was resolved against a specific corpus-wide set
+    of package declarations, and any of those changing (even in a different file)
+    can change what a package-qualified/wildcard-imported name resolves to for
+    the cached file -- see `_seed_cross_file_packages`."""
+    if not registry:
+        return None
+    payload = {
+        name: sorted(
+            (entry["file"], tuple(sorted((s["name"], s["kind"]) for s in entry["symbols"])))
+            for entry in entries
+        )
+        for name, entries in registry.items()
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _seed_cross_file_packages(
+    symbol_table: SymbolTable,
+    package_registry: dict[str, list[dict[str, Any]]] | None,
+    current_file: str,
+) -> None:
+    """Seed `symbol_table.packages` with packages declared in OTHER input files
+    (from `_scan_packages`), so this file's own single-file walk can resolve
+    `import pkg::*;`/`pkg::name` against a package it doesn't declare itself.
+
+    Skips any entry declared in `current_file`: that package is about to be
+    (re)built with full fidelity by this file's own real walk, which must win
+    over the leaner prepass-only stand-in. These stand-in scopes are
+    deliberately never added to `symbol_table.scopes`, so they stay invisible
+    to rules that iterate every scope actually declared in this file
+    (NO_IMPLICIT_NET, NO_UNUSED_PARAMETER, ...).
+    """
+    if not package_registry:
+        return
+    for name, entries in package_registry.items():
+        for entry in entries:
+            if entry["file"] == current_file:
+                continue
+            scope = Scope(kind="package", name=name)
+            scope.file = entry["file"]
+            for symbol_data in entry["symbols"]:
+                symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
+                symbol.add_declaration({"line": 0, "col": 0, "file": entry["file"]})
+                scope.define(symbol)
+            symbol_table.packages.setdefault(name, []).append(scope)
+
+
 def _lint_single_file(
-    path: str, rule_selection: RuleSelection | None, include_dirs: list[str] | None = None
+    path: str,
+    rule_selection: RuleSelection | None,
+    include_dirs: list[str] | None = None,
+    package_registry: dict[str, list[dict[str, Any]]] | None = None,
 ) -> WorkerResult:
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
@@ -107,6 +211,7 @@ def _lint_single_file(
 
     symbol_table.set_current_file(path)
     symbol_table.set_current_file_default_nettype_none(file_uses_default_nettype_none(path))
+    _seed_cross_file_packages(symbol_table, package_registry, path)
     tree = parse_file(path, include_dirs=include_dirs)
     walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 
@@ -217,11 +322,15 @@ def _run_workers(
     jobs: int,
     rule_selection: RuleSelection | None,
     include_dirs: list[str] | None = None,
+    package_registry: dict[str, list[dict[str, Any]]] | None = None,
 ) -> list[WorkerResult]:
     ordered_paths = [str(path) for path in paths]
 
     if jobs == 1:
-        return [_lint_single_file(path, rule_selection, include_dirs) for path in ordered_paths]
+        return [
+            _lint_single_file(path, rule_selection, include_dirs, package_registry)
+            for path in ordered_paths
+        ]
 
     try:
         with ProcessPoolExecutor(max_workers=jobs) as pool:
@@ -231,10 +340,14 @@ def _run_workers(
                     ordered_paths,
                     [rule_selection] * len(ordered_paths),
                     [include_dirs] * len(ordered_paths),
+                    [package_registry] * len(ordered_paths),
                 )
             )
     except (OSError, PermissionError):
-        return [_lint_single_file(path, rule_selection, include_dirs) for path in ordered_paths]
+        return [
+            _lint_single_file(path, rule_selection, include_dirs, package_registry)
+            for path in ordered_paths
+        ]
 
 
 def _worker_result_from_payload(payload: dict[str, Any]) -> WorkerResult:
@@ -290,6 +403,13 @@ def analyze(
         if not path.exists():
             raise FileNotFoundError(f"file not found: {path}")
 
+    # Must run before any cache lookup: a cached per-file result was resolved
+    # against a specific corpus-wide set of package declarations (see
+    # `_scan_packages`'s docstring), so the fingerprint below has to be part of
+    # the cache key even on a full cache hit.
+    package_registry = _scan_packages(paths, include_dirs)
+    package_registry_fingerprint = _fingerprint_package_registry(package_registry)
+
     store = AnalysisStore(store_path) if store_path is not None else None
     file_records: list[dict[str, Any]] = []
     results_by_path: dict[str, WorkerResult] = {}
@@ -305,6 +425,7 @@ def analyze(
                     file_hash=file_hash,
                     rule_selection=resolved_selection,
                     include_dirs=include_dirs,
+                    package_registry_fingerprint=package_registry_fingerprint,
                 )
                 if use_cache
                 else None
@@ -323,7 +444,11 @@ def analyze(
     else:
         missed_paths = list(paths)
 
-    fresh_results = _run_workers(missed_paths, jobs, resolved_selection, include_dirs) if missed_paths else []
+    fresh_results = (
+        _run_workers(missed_paths, jobs, resolved_selection, include_dirs, package_registry)
+        if missed_paths
+        else []
+    )
     for path, result in zip(missed_paths, fresh_results):
         results_by_path[str(path)] = result
         if store is not None:
@@ -333,6 +458,7 @@ def analyze(
                 rule_selection=resolved_selection,
                 worker_result=asdict(result),
                 include_dirs=include_dirs,
+                package_registry_fingerprint=package_registry_fingerprint,
             )
 
     results = [results_by_path[str(path)] for path in paths]

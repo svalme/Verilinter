@@ -3,6 +3,8 @@ import pytest
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.rules.syntax_and_structure.duplicate_module_definition import DuplicateModuleDefinitionRule
 
+from tests.support.lint_harness import run_inline_lint_case
+
 
 class TestDuplicateModuleDefinitionRule:
     """Test cases for the DuplicateModuleDefinitionRule."""
@@ -70,3 +72,22 @@ class TestDuplicateModuleDefinitionRule:
     def test_no_modules_returns_no_diagnostics(self, rule: DuplicateModuleDefinitionRule) -> None:
         st = SymbolTable()
         assert rule.run(st) == []
+
+    def test_package_sharing_a_module_name_does_not_flag(self) -> None:
+        """pyslang represents `package`/`module` declarations with the same
+        wrapper class -- a package must be registered separately from the
+        module registry, or a same-named package would look like a second
+        definition of the module."""
+        result = run_inline_lint_case(
+            {
+                "top.sv": """
+                package foo;
+                  parameter int X = 1;
+                endpackage
+                module foo;
+                  logic clk;
+                endmodule
+                """
+            }
+        )
+        result.expect_no_code("DUPLICATE_MODULE")

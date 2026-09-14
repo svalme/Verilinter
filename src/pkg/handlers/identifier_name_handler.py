@@ -23,9 +23,11 @@ from ..parser.syntax import (
     is_extends_clause_base_name,
     is_invocation_callee,
     is_named_type_reference,
+    is_scoped_name_qualifier,
     is_subroutine_prototype_name,
     is_system_task_output_argument,
     is_tristate_continuous_assign,
+    scoped_name_package_qualifier,
 )
 from ..parser.types import IDENTIFIER_NAME_NODE_TYPES
 from ..walk.context import Context
@@ -45,6 +47,7 @@ _STRUCTURAL_NAME_PREDICATES = (
     is_invocation_callee,
     is_cover_cross_item,
     is_extends_clause_base_name,
+    is_scoped_name_qualifier,
 )
 
 
@@ -66,7 +69,20 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
             # no notion of a system-task argument at all and falls through to
             # a plain read -- see is_system_task_output_argument's docstring.
             is_read, is_write = False, True
-        symbol = symbol_table.lookup_from_scope(name, ctx.scope())
+
+        package_qualifier = scoped_name_package_qualifier(vnode.raw)
+        if package_qualifier is not None:
+            package_scope = symbol_table.lookup_package(package_qualifier)
+            symbol = package_scope.lookup(name) if package_scope is not None else None
+            if symbol is None:
+                # Either the package isn't declared in this file (cross-file
+                # package resolution isn't supported) or this narrow same-file
+                # lookup didn't find the name in it. Skip rather than manufacture a false
+                # implicit net, same precedent as the port-connection-direction
+                # fix: better a missed check than a false positive.
+                return ctx.push(vnode)
+        else:
+            symbol = symbol_table.lookup_from_scope(name, ctx.scope())
         # Computed for reads too (not just writes) so COMBINATIONAL_LOOP can group
         # every read/write in one combinational statement/block by driver_id. The
         # only existing consumer, NO_MULTIPLE_DRIVERS, already filters to

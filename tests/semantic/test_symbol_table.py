@@ -150,9 +150,23 @@ class TestScope:
     def test_scope_initializes_without_name(self) -> None:
         """Test that Scope can be initialized without a name."""
         scope = Scope(kind="always")
-        
+
         assert scope.kind == "always"
         assert scope.name is None
+
+    def test_scope_initializes_with_empty_imports(self) -> None:
+        scope = Scope(kind="module", name="top")
+        assert scope.imports == []
+
+    def test_add_import_records_wildcard_import(self) -> None:
+        scope = Scope(kind="module", name="top")
+        scope.add_import("my_pkg", None)
+        assert scope.imports == [("my_pkg", None)]
+
+    def test_add_import_records_explicit_import(self) -> None:
+        scope = Scope(kind="module", name="top")
+        scope.add_import("my_pkg", "FOO")
+        assert scope.imports == [("my_pkg", "FOO")]
 
     def test_scope_initializes_with_parent(self) -> None:
         """Test that Scope can be initialized with a parent."""
@@ -438,6 +452,124 @@ class TestModuleRegistry:
     def test_is_duplicate_module_false_for_missing(self) -> None:
         st = SymbolTable()
         assert st.is_duplicate_module("nope") is False
+
+
+# ---------------------------------------------------------------------------
+# Package registration (kept separate from the module registry -- see
+# module_declaration_handler.py's package/module branch)
+# ---------------------------------------------------------------------------
+
+class TestPackageRegistry:
+    """Tests for register_package, lookup_package."""
+
+    def test_register_package_stores_scope(self) -> None:
+        st = SymbolTable()
+        scope = st.new_scope(kind="package", name="my_pkg")
+        st.register_package("my_pkg", scope)
+        assert st.lookup_package("my_pkg") is scope
+
+    def test_lookup_package_returns_none_for_unknown(self) -> None:
+        st = SymbolTable()
+        assert st.lookup_package("missing") is None
+
+    def test_registering_a_package_does_not_populate_modules(self) -> None:
+        """A package must never pollute the module registry (UNDEFINED_MODULE/
+        DUPLICATE_MODULE consume `modules` directly)."""
+        st = SymbolTable()
+        scope = st.new_scope(kind="package", name="foo")
+        st.register_package("foo", scope)
+        assert st.lookup_module("foo") is None
+        assert "foo" not in st.modules
+
+    def test_package_and_module_sharing_a_name_do_not_collide(self) -> None:
+        st = SymbolTable()
+        package_scope = st.new_scope(kind="package", name="foo")
+        st.pop_scope()
+        module_scope = st.new_scope(kind="module", name="foo")
+        st.register_package("foo", package_scope)
+        st.register_module("foo", module_scope)
+        assert st.is_duplicate_module("foo") is False
+        assert st.lookup_module("foo") is module_scope
+        assert st.lookup_package("foo") is package_scope
+
+
+# ---------------------------------------------------------------------------
+# lookup_from_scope with package imports
+# ---------------------------------------------------------------------------
+
+class TestImportResolution:
+    """Tests for Scope.imports / SymbolTable.lookup_from_scope's package fallback."""
+
+    def test_wildcard_import_resolves_package_symbol(self) -> None:
+        st = SymbolTable()
+        package_scope = st.new_scope(kind="package", name="my_pkg")
+        foo = Symbol(name="FOO", kind="parameter")
+        foo.add_declaration({"line": 1, "col": 1})
+        package_scope.define(foo)
+        st.register_package("my_pkg", package_scope)
+        st.pop_scope()
+
+        module_scope = st.new_scope(kind="module", name="top")
+        module_scope.add_import("my_pkg", None)
+
+        assert st.lookup_from_scope("FOO", module_scope) is foo
+
+    def test_explicit_import_resolves_named_symbol_only(self) -> None:
+        st = SymbolTable()
+        package_scope = st.new_scope(kind="package", name="my_pkg")
+        foo = Symbol(name="FOO", kind="parameter")
+        foo.add_declaration({"line": 1, "col": 1})
+        bar = Symbol(name="BAR", kind="parameter")
+        bar.add_declaration({"line": 2, "col": 1})
+        package_scope.define(foo)
+        package_scope.define(bar)
+        st.register_package("my_pkg", package_scope)
+        st.pop_scope()
+
+        module_scope = st.new_scope(kind="module", name="top")
+        module_scope.add_import("my_pkg", "FOO")
+
+        assert st.lookup_from_scope("FOO", module_scope) is foo
+        assert st.lookup_from_scope("BAR", module_scope) is None
+
+    def test_local_declaration_shadows_import(self) -> None:
+        st = SymbolTable()
+        package_scope = st.new_scope(kind="package", name="my_pkg")
+        pkg_foo = Symbol(name="FOO", kind="parameter")
+        pkg_foo.add_declaration({"line": 1, "col": 1})
+        package_scope.define(pkg_foo)
+        st.register_package("my_pkg", package_scope)
+        st.pop_scope()
+
+        module_scope = st.new_scope(kind="module", name="top")
+        module_scope.add_import("my_pkg", None)
+        local_foo = Symbol(name="FOO", kind="variable")
+        local_foo.add_declaration({"line": 5, "col": 1})
+        module_scope.define(local_foo)
+
+        assert st.lookup_from_scope("FOO", module_scope) is local_foo
+
+    def test_import_of_unknown_package_resolves_to_none(self) -> None:
+        st = SymbolTable()
+        module_scope = st.new_scope(kind="module", name="top")
+        module_scope.add_import("not_declared_here", None)
+
+        assert st.lookup_from_scope("FOO", module_scope) is None
+
+    def test_import_is_visible_from_nested_child_scope(self) -> None:
+        st = SymbolTable()
+        package_scope = st.new_scope(kind="package", name="my_pkg")
+        foo = Symbol(name="FOO", kind="parameter")
+        foo.add_declaration({"line": 1, "col": 1})
+        package_scope.define(foo)
+        st.register_package("my_pkg", package_scope)
+        st.pop_scope()
+
+        module_scope = st.new_scope(kind="module", name="top")
+        module_scope.add_import("my_pkg", None)
+        always_scope = st.new_scope(kind="always")
+
+        assert st.lookup_from_scope("FOO", always_scope) is foo
 
 
 # ---------------------------------------------------------------------------

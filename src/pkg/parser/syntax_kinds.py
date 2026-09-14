@@ -32,6 +32,7 @@ INTERFACE_DECLARATION_KIND = _syntax_kind("InterfaceDeclaration")
 LOOP_GENERATE_KIND = _syntax_kind("LoopGenerate")
 MODPORT_DECLARATION_KIND = _syntax_kind("ModportDeclaration")
 PACKAGE_DECLARATION_KIND = _syntax_kind("PackageDeclaration")
+PACKAGE_IMPORT_DECLARATION_KIND = _syntax_kind("PackageImportDeclaration")
 PROGRAM_DECLARATION_KIND = _syntax_kind("ProgramDeclaration")
 TASK_DECLARATION_KIND = _syntax_kind("TaskDeclaration")
 TIMING_CONTROL_STATEMENT_KIND = _syntax_kind("TimingControlStatement")
@@ -126,6 +127,16 @@ UNIQUE_PRIORITY_TOKEN_KINDS = {
 UNIQUE0_TOKEN_KIND = getattr(sl.TokenKind, "Unique0Keyword", None)
 
 DEFPARAM_TOKEN_KIND = _syntax_kind("DefParamKeyword") or sl.TokenKind.DefParamKeyword
+
+STAR_TOKEN_KIND = getattr(sl.TokenKind, "Star", None)
+
+# pyslang uses `ScopedNameSyntax` for BOTH `pkg::name` package scope resolution
+# AND `struct_var.field` member access -- syntactically identical shape at parse
+# time (before elaboration can tell a namespace path from a struct/interface
+# member path), distinguishable only by `.separator.kind` (DoubleColon vs Dot).
+# Any predicate that treats a `ScopedNameSyntax` segment as a package/namespace
+# reference MUST check this, or it will misfire on ordinary `var.field` access.
+DOUBLE_COLON_TOKEN_KIND = getattr(sl.TokenKind, "DoubleColon", None)
 
 FORCE_RELEASE_TOKEN_KINDS = {
     kind
@@ -392,6 +403,7 @@ __all__ = [
     "DISABLE_STATEMENT_KIND",
     "DISABLE_TOKEN_KIND",
     "DIVIDE_EXPRESSION_KIND",
+    "DOUBLE_COLON_TOKEN_KIND",
     "DO_TOKEN_KIND",
     "DO_WHILE_STATEMENT_KIND",
     "DEFPARAM_ASSIGNMENT_KIND",
@@ -432,6 +444,7 @@ __all__ = [
     "NAMED_TYPE_KIND",
     "NONBLOCKING_ASSIGNMENT_KIND",
     "PACKAGE_DECLARATION_KIND",
+    "PACKAGE_IMPORT_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
     "PORT_DIRECTION_TOKEN_KINDS",
     "PRIMITIVE_DECLARATION_KIND",
@@ -452,6 +465,7 @@ __all__ = [
     "SHIFT_EXPRESSION_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
     "SPECIFY_BLOCK_KIND",
+    "STAR_TOKEN_KIND",
     "STRING_TYPE_KIND",
     "TASK_DECLARATION_KIND",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",

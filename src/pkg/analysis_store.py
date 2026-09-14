@@ -24,7 +24,11 @@ def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def selection_key(selection: RuleSelection | None, include_dirs: list[str] | None = None) -> str:
+def selection_key(
+    selection: RuleSelection | None,
+    include_dirs: list[str] | None = None,
+    package_registry_fingerprint: str | None = None,
+) -> str:
     payload = {
         "analyzer_cache_version": ANALYZER_CACHE_VERSION,
         "enabled_codes": sorted(selection.enabled_codes) if selection and selection.enabled_codes else None,
@@ -37,6 +41,13 @@ def selection_key(selection: RuleSelection | None, include_dirs: list[str] | Non
         # resolution -- and therefore the parsed AST -- comes out for the same
         # file content, so this must be part of the cache key too.
         "include_dirs": sorted(include_dirs) if include_dirs else None,
+        # A cached per-file result was also resolved against a specific
+        # corpus-wide set of package declarations (run_lint.py's `_scan_packages`
+        # pre-pass) -- a package changing in a DIFFERENT file can change what a
+        # package-qualified/wildcard-imported name resolves to for this file, so
+        # this must be part of the key too even though the file's own content
+        # didn't change. See `_seed_cross_file_packages`.
+        "package_registry_fingerprint": package_registry_fingerprint,
     }
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
@@ -314,8 +325,9 @@ class AnalysisStore:
         file_hash: str,
         rule_selection: RuleSelection | None,
         include_dirs: list[str] | None = None,
+        package_registry_fingerprint: str | None = None,
     ) -> dict[str, Any] | None:
-        key = selection_key(rule_selection, include_dirs)
+        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint)
         with self._transaction() as conn:
             row = conn.execute(
                 """
@@ -337,8 +349,9 @@ class AnalysisStore:
         rule_selection: RuleSelection | None,
         worker_result: dict[str, Any],
         include_dirs: list[str] | None = None,
+        package_registry_fingerprint: str | None = None,
     ) -> None:
-        key = selection_key(rule_selection, include_dirs)
+        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint)
         with self._transaction() as conn:
             conn.execute(
                 """

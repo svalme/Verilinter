@@ -15,6 +15,10 @@ class Scope:
         self.symbols: dict[str, Symbol] = {}
         self.parent: Scope | None = None
         self.children: list[Scope] = []
+        # (package_name, imported_name) pairs from `import pkg::*;`/`import pkg::name;`
+        # statements appearing directly in this scope; `imported_name` is None for
+        # the wildcard form. Consulted by SymbolTable.lookup_from_scope.
+        self.imports: list[tuple[str, str | None]] = []
 
     def set_parent(self, parent: Scope | None = None) -> None:
         self.parent = parent
@@ -51,6 +55,9 @@ class Scope:
         if name in self.symbols:
             return self.symbols[name]
         return None
+
+    def add_import(self, package_name: str, imported_name: str | None) -> None:
+        self.imports.append((package_name, imported_name))
 
     def __repr__(self) -> str:
         return f"Scope: kind={self.kind}, name={self.name}, file={self.file} \nsymbols={list(self.symbols.keys())}"
