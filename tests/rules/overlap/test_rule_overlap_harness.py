@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .support.lint_harness import LintCaseFile, LintCaseResult
+from tests.support.lint_harness import LintCaseFile, LintCaseResult
 
 
 def test_default_nettype_none_routes_unresolved_names_to_undeclared_not_implicit(

@@ -30,3 +30,13 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "unit: Low-level unit tests for AST nodes, context, walker, adapter, handlers",
+    "handlers: Syntax node handlers and scope resolution",
+    "rules: Linter rule logic and applies checks",
+    "overlap: Rule collision, precedence boundary, and suppression checks",
+    "cli: Command-line interface, formatting, and options",
+    "storage: Caching, analysis store, and SQLite persistence",
+    "integration: Multi-file, representative RTL, and end-to-end linting",
+    "meta: Fixture validity, registration manifest checks, and doc sync",
+]

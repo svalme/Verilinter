@@ -11,52 +11,55 @@ what a specific rule's tests should cover, see the Rule Checklist in
 
 ## Test taxonomy
 
-**Rule-level tests** (`tests/rules/<category>/test_*.py`) are the bulk of the
-suite, one file per rule category. Each rule typically gets: a `rule.code` /
-`rule.message` identity check, `applies()` unit tests against synthetic
-`Mock(spec=BaseVNode)` nodes or hand-built `Context` stacks (see
-`tests/support/syntax_context_builders.py` for reusable ancestor-context
-builders), and at least one "against a real parsed file" test pointed at a
-`tests/data/` fixture.
+**Rule-level tests** (`tests/rules/`) are the bulk of the suite:
+- `tests/rules/<category>/test_*.py`: modular per-rule test files across 18 categories.
+- `tests/rules/overlap/`: rule collision, precedence boundaries, and suppression interaction tests (`test_rule_overlap_harness.py`, `test_rule_overlap_metadata.py`).
+- `tests/rules/`: rule runners (`test_rule_runner.py`, `test_symbol_rule_runner.py`, `test_module_rule_runner.py`, `test_profiles.py`).
 
-**Infrastructure unit tests**, one per architectural layer:
+**Handler tests** (`tests/handlers/`):
+Organized by subsystem domain, with nested `unit/`, `integration/`, and `regressions/` subdirectories:
+- `identifier/`: token dispatch (`unit/`), symbol table interactions (`integration/`), and scoping edge cases (`regressions/`).
+- `hierarchy/`: instantiation handler (`unit/`) and ANSI port inheritance across commas (`regressions/`).
+- `procedural/`: case generate and for loop handlers (`unit/`) and task body execution ordering (`regressions/`).
+- `declarations/`: function, package import, and primitive handlers (`unit/`).
+- `core/`: base handler abstractions (`unit/`).
 
-- `tests/walk/` -- the `Walker`/`Context` mechanics, plus `print_tree_test.py`'s
-  AST snapshot tests (see Golden files below).
-- `tests/vnodes/` -- `vnode_factory` registration and vnode-specific logic.
-- `tests/handlers/` -- dispatch/handler registration, and integration tests
-  that run a handler against a real parsed file.
-- `tests/semantic/` -- the `SymbolTable` in isolation.
+**Infrastructure unit tests**:
+- `tests/walk/`: the `Walker`/`Context` mechanics, plus `print_tree_test.py`'s AST snapshot tests (see Golden files below).
+- `tests/vnodes/`: `vnode_factory` registration and vnode-specific logic.
+- `tests/semantic/`: the `SymbolTable` in isolation.
+- `tests/unit/`: `test_sv_adapter.py` for SystemVerilog AST adapter extraction.
 
-**Integration tests via the shared harness** (`tests/test_rule_case_harness.py`
-and others) -- see Parsing patterns below.
+**Integration tests** (`tests/integration/`):
+- `test_multi_file_lint.py`: multi-file / cross-file linting.
+- `test_representative_rtl_examples.py` & `test_representative_rtl_defective_variants.py`: realistic clean RTL designs and defective variants.
+- `test_rule_case_harness.py`: integration tests for the shared harness.
 
-**End-to-end CLI tests** (`tests/test_run_lint.py`, the largest file) -- drive
-the actual `run()`/`main()` entry point per fixture: diagnostics content, exit
-codes, stdout/stderr formatting, parallel vs. sequential jobs, rule-profile /
-rule-selection plumbing.
+**CLI & execution mode tests** (`tests/cli/`):
+- `test_run_lint.py`: end-to-end `run()`/`main()` entry point, diagnostics content, exit codes, stdout/stderr formatting.
+- `test_cli_features.py`: CLI flags, file discovery, excludes, summary tables.
+- `test_cli_execution_modes.py`: sequential vs. multiprocessing equivalence.
 
-**Cross-cutting suites**:
+**Storage & caching tests** (`tests/storage/`):
+- `test_analysis_store.py`: SQLite cache persistence, hash keys, warm/cold cache reads.
+- `test_scope_execution_modes.py`: transitive header invalidation, include directory shadowing.
 
-- `test_rule_overlap_harness.py` / `test_rule_overlap_metadata.py` --
-  intentional overlap between rules and false-positive boundaries.
-- `test_rule_registration.py` / `test_registration_files.py` -- metadata
-  consistency (every rule file registered, codes/categories well-formed)
-  across the whole rule set.
-- `test_cli_features.py`, `test_multi_file_lint.py`, `test_analysis_store.py`
-  -- CLI flags/output formats, multi-file/cross-file rules, and caching
-  correctness respectively.
-- `test_sv_adapter.py` -- the SystemVerilog adapter layer.
+**Meta & fixture-integrity tests** (`tests/meta/`):
+- `test_fixture_validity.py`: every file in `tests/data/` must parse with pyslang without error-level diagnostics. A fixture that intentionally exercises parser recovery belongs in that file's `INTENTIONAL_PARSE_ERROR_FIXTURES` allowlist with an explanatory comment.
+- `test_fixture_usage_doc.py`: keeps `FIXTURE_USAGE.md` in sync with actual fixture references.
+- `test_rule_registration.py` & `test_registration_files.py`: rule and handler manifest registration consistency.
 
-**Fixture-integrity tests**:
+## Pytest markers
 
-- `test_fixture_validity.py` -- every file in `tests/data/` must parse with
-  pyslang without error-level diagnostics. A fixture that intentionally
-  exercises parser recovery belongs in that file's
-  `INTENTIONAL_PARSE_ERROR_FIXTURES` allowlist with a comment explaining why,
-  not silently passing (or silently failing) this check.
-- `test_fixture_usage_doc.py` -- keeps `FIXTURE_USAGE.md` in sync with actual
-  fixture references (see Golden files below).
+Markers registered in `pyproject.toml`:
+- `unit`: low-level unit tests for AST nodes, context, walker, adapter, handlers.
+- `handlers`: syntax node handlers and scope resolution.
+- `rules`: linter rule logic and applies checks.
+- `overlap`: rule collision and precedence boundary checks.
+- `cli`: command-line interface, formatting, and options.
+- `storage`: caching, analysis store, and SQLite persistence.
+- `integration`: multi-file, representative RTL, and end-to-end linting.
+- `meta`: fixture validity, registration manifest checks, and doc sync.
 
 ## Parsing patterns
 

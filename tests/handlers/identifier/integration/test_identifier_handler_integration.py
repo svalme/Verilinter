@@ -18,7 +18,7 @@ from src.pkg.vnodes.identifier_vnode import IdentifierNameVNode
 from src.pkg.vnodes.register_vnodes import *
 from src.pkg.vnodes.vnode_factory import vnode_factory
 
-DATA = Path(__file__).parent.parent / "data"
+DATA = Path(__file__).resolve().parents[3] / "data"
 
 
 IDENTIFIER_NODE_TYPES = (sl.IdentifierNameSyntax, sl.IdentifierSelectNameSyntax)
