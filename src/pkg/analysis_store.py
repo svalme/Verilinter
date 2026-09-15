@@ -531,3 +531,15 @@ class AnalysisStore:
             conn.execute("VACUUM")
         finally:
             conn.close()
+
+    def status(self) -> dict[str, Any]:
+        with self._transaction() as conn:
+            cached_files = int(conn.execute("SELECT count(*) FROM cached_file_analysis").fetchone()[0])
+            runs = int(conn.execute("SELECT count(*) FROM analysis_runs").fetchone()[0])
+        size_bytes = self.path.stat().st_size if self.path.exists() else 0
+        return {
+            "path": str(self.path),
+            "size_bytes": size_bytes,
+            "cached_files": cached_files,
+            "recorded_runs": runs,
+        }

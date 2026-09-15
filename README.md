@@ -9,11 +9,12 @@ A static analysis framework for SystemVerilog, using pyslang. Pyslang parses sou
 - Surfaces syntax and parser errors directly as `PARSER_ERROR` diagnostics and exits non-zero, suppressing corrupt AST walks
 - Lints multiple files or a whole directory in one run, with a shared symbol table across them -- enables cross-file checks (e.g. duplicate module names)
 - Supports built-in rule profiles plus explicit rule / category filtering
-- Supports plain-text, JSON, and SARIF output
+- Supports plain-text, JSON, and SARIF output, with direct file writing via `-o` / `--output`
+- Supports configurable CI exit code policies (`--fail-on-error`, `--fail-on-warning`, `--exit-zero`)
 - Supports repo-local `.verilinter.toml` configuration and JSON baselines
 - Supports multi-process linting with `-j`
 - Supports connection reporting for module-to-module wiring and port status
-- Supports an optional local SQLite analysis store for caching and persisted run summaries
+- Supports an optional local SQLite analysis store with caching and dedicated management subcommands (`verilinter store status/prune/vacuum`)
 
 ## Rules Implemented
 A basic set of rules are implemented. Right now, it checks for: 

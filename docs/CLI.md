@@ -92,6 +92,42 @@ verilinter --format sarif tests/data
 
 `text` is the default.
 
+### `-o`, `--output PATH`
+
+Write output directly to a file in UTF-8 encoding instead of printing to standard output.
+Parent directories are created automatically if they do not exist.
+
+```bash
+verilinter -o reports/lint.sarif --format sarif tests/data
+verilinter -o reports/summary.txt --report connections tests/data
+```
+
+### `--fail-on-error`
+
+Exit with failure code (`1`) if any unsuppressed diagnostics have `error` severity (or if syntax `PARSER_ERROR`s are present).
+Ideal for CI/CD check suites to fail pipelines on severe lint infractions.
+
+```bash
+verilinter --fail-on-error tests/data
+```
+
+### `--fail-on-warning`
+
+Exit with failure code (`1`) if any unsuppressed diagnostics have `warning` or `error` severity.
+
+```bash
+verilinter --fail-on-warning tests/data
+```
+
+### `--exit-zero`
+
+Always exit with status code `0`, even when rule errors, rule warnings, or parser errors are detected.
+Useful in reporting pipelines that archive findings without halting pipeline steps.
+
+```bash
+verilinter --exit-zero tests/data
+```
+
 ### `--config PATH`
 
 Load configuration from a specific TOML file.
@@ -186,34 +222,48 @@ Disable cache reuse while still writing the current run to the local SQLite stor
 verilinter --store .verilinter.sqlite --no-cache tests/data
 ```
 
-### Store Maintenance
+### Store Maintenance Subcommands
 
-The following flags require `--store PATH`, do not require source paths, and exit after maintenance completes.
-They can be combined; cache pruning runs first, then run-history pruning, then vacuuming.
+Verilinter provides dedicated subcommands under `verilinter store` to inspect and maintain SQLite caches:
 
-#### `--prune-cache-days N`
+#### `verilinter store status`
 
-Delete cached per-file results older than `N` days.
-
-```bash
-verilinter --store .verilinter.sqlite --prune-cache-days 30
-```
-
-#### `--prune-runs-keep N`
-
-Keep the `N` most recently recorded runs and delete older run history.
+Display cache metrics, recorded run counts, and database file size in JSON format.
 
 ```bash
-verilinter --store .verilinter.sqlite --prune-runs-keep 100
+verilinter store status --store .verilinter.sqlite
 ```
 
-#### `--vacuum-store`
+#### `verilinter store prune --days N`
 
-Reclaim unused SQLite disk space after pruning without removing remaining data.
+Delete cached per-file analysis results older than `N` days.
 
 ```bash
-verilinter --store .verilinter.sqlite --vacuum-store
+verilinter store prune --days 30 --store .verilinter.sqlite
 ```
+
+#### `verilinter store prune-runs --keep N`
+
+Keep only the `N` most recently recorded analysis runs and delete older historical runs.
+
+```bash
+verilinter store prune-runs --keep 100 --store .verilinter.sqlite
+```
+
+#### `verilinter store vacuum`
+
+Reclaim unused SQLite disk space after pruning without removing remaining records.
+
+```bash
+verilinter store vacuum --store .verilinter.sqlite
+```
+
+#### Legacy Maintenance Flags
+
+For backward compatibility, the following top-level flags remain supported on `verilinter`:
+- `--prune-cache-days N`
+- `--prune-runs-keep N`
+- `--vacuum-store`
 
 ## Output Modes
 
@@ -272,6 +322,7 @@ NO_DUPLICATE_CASE_ITEM = "warning"
 Supported config fields:
 - `profile`
 - `format`
+- `output`
 - `jobs`
 - `rules`
 - `categories`
@@ -279,6 +330,9 @@ Supported config fields:
 - `severity`
 - `store`
 - `cache`
+- `fail_on_error`
+- `fail_on_warning`
+- `exit_zero`
 
 CLI options override config-file values.
 
@@ -336,8 +390,10 @@ verilinter --category module_style tests/data
 
 ## Exit Behavior
 
-- returns `0` on successful execution, even when ordinary lint diagnostics (warnings or errors) are found
-- returns `1` when syntax or parser errors are detected in input files (`PARSER_ERROR` diagnostics are emitted, corrupt AST traversal is suppressed)
+- **Default:** returns `0` on successful execution when only lint warnings or errors are found; returns `1` when syntax or parser errors are detected in input files (`PARSER_ERROR` diagnostics are emitted, corrupt AST traversal is suppressed)
+- **`--fail-on-error`:** returns `1` if any unsuppressed diagnostics have `error` severity or if parser errors occur
+- **`--fail-on-warning`:** returns `1` if any unsuppressed diagnostics have `warning` or `error` severity or if parser errors occur
+- **`--exit-zero`:** forces return code `0` even if rule violations or parser errors exist
 - returns `1` on CLI/config/input errors such as:
   - missing files or invalid paths
   - invalid config values

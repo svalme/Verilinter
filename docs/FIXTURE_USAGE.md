@@ -93,7 +93,7 @@ Not read by any test file. Confirm before deleting -- a fixture can still be ref
 | `tests/data/one_module_per_file.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/package_declaration.sv` | 2 | `tests/cli/test_run_lint.py`<br>`tests/rules/overlap/test_rule_overlap_harness.py` |
 | `tests/data/plusargs_system_function.v` | 1 | `tests/cli/test_run_lint.py` |
-| `tests/data/port_connection_advanced.sv` | 4 | `tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/rules/test_connection_rules.py` |
+| `tests/data/port_connection_advanced.sv` | 5 | `tests/cli/test_cli_architecture.py`<br>`tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/rules/test_connection_rules.py` |
 | `tests/data/port_connection_issues.sv` | 5 | `tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/rules/test_connection_rules.py`<br>`tests/storage/test_analysis_store.py` |
 | `tests/data/primitive_declaration.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/priority_if.v` | 1 | `tests/cli/test_run_lint.py` |
@@ -105,9 +105,9 @@ Not read by any test file. Confirm before deleting -- a fixture can still be ref
 | `tests/data/read_before_write.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/real_type.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/repeat_loop.v` | 1 | `tests/cli/test_run_lint.py` |
-| `tests/data/self_assignment.v` | 4 | `tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/storage/test_analysis_store.py` |
+| `tests/data/self_assignment.v` | 5 | `tests/cli/test_cli_architecture.py`<br>`tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/storage/test_analysis_store.py` |
 | `tests/data/sequence_declaration.sv` | 1 | `tests/cli/test_run_lint.py` |
-| `tests/data/simple.v` | 8 | `tests/cli/test_run_lint.py`<br>`tests/handlers/identifier/integration/test_identifier_handler_integration.py`<br>`tests/handlers/identifier/unit/test_identifier.py`<br>`tests/meta/test_fixture_validity.py`<br>`tests/rules/declarations_and_types/test_no_implicit_net.py`<br>`tests/rules/declarations_and_types/test_undeclared_variable.py`<br>`tests/rules/unused_and_dead_code/test_unused_variable_rule.py`<br>`tests/walk/print_tree_test.py` |
+| `tests/data/simple.v` | 9 | `tests/cli/test_cli_architecture.py`<br>`tests/cli/test_run_lint.py`<br>`tests/handlers/identifier/integration/test_identifier_handler_integration.py`<br>`tests/handlers/identifier/unit/test_identifier.py`<br>`tests/meta/test_fixture_validity.py`<br>`tests/rules/declarations_and_types/test_no_implicit_net.py`<br>`tests/rules/declarations_and_types/test_undeclared_variable.py`<br>`tests/rules/unused_and_dead_code/test_unused_variable_rule.py`<br>`tests/walk/print_tree_test.py` |
 | `tests/data/simulation_control_task.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/specify_block.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/string_type.sv` | 1 | `tests/cli/test_run_lint.py` |
