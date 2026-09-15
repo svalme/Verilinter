@@ -19,6 +19,7 @@ class LintConfig:
     profile: str | None = None
     rules: tuple[str, ...] = ()
     categories: tuple[str, ...] = ()
+    defines: tuple[str, ...] = ()
     fmt: str = "text"
     jobs: int = 1
     severity_overrides: dict[str, str] = field(default_factory=dict)
@@ -29,6 +30,7 @@ class LintConfig:
     fail_on_error: bool = False
     fail_on_warning: bool = False
     exit_zero: bool = False
+    defines_explicit: bool = False
     fmt_explicit: bool = False
     jobs_explicit: bool = False
     use_cache_explicit: bool = False
@@ -143,6 +145,7 @@ def load_config(path: Path) -> LintConfig:
         profile=profile,
         rules=_parse_string_list(data.get("rules"), "rules"),
         categories=_parse_string_list(data.get("categories"), "categories"),
+        defines=_parse_string_list(data.get("defines"), "defines"),
         fmt=fmt,
         jobs=jobs,
         severity_overrides=_parse_severity_map(data.get("severity")),
@@ -153,6 +156,7 @@ def load_config(path: Path) -> LintConfig:
         fail_on_error=fail_on_error,
         fail_on_warning=fail_on_warning,
         exit_zero=exit_zero,
+        defines_explicit="defines" in data,
         fmt_explicit="format" in data,
         jobs_explicit="jobs" in data,
         use_cache_explicit=("store" in data) or ("cache" in data),
@@ -168,6 +172,7 @@ def merge_config(base: LintConfig, override: LintConfig) -> LintConfig:
         profile=override.profile if override.profile is not None else base.profile,
         rules=override.rules or base.rules,
         categories=override.categories or base.categories,
+        defines=override.defines if override.defines_explicit else base.defines,
         fmt=override.fmt if override.fmt_explicit else base.fmt,
         jobs=override.jobs if override.jobs_explicit else base.jobs,
         severity_overrides={**base.severity_overrides, **override.severity_overrides},
@@ -178,6 +183,7 @@ def merge_config(base: LintConfig, override: LintConfig) -> LintConfig:
         fail_on_error=override.fail_on_error if override.fail_on_error_explicit else base.fail_on_error,
         fail_on_warning=override.fail_on_warning if override.fail_on_warning_explicit else base.fail_on_warning,
         exit_zero=override.exit_zero if override.exit_zero_explicit else base.exit_zero,
+        defines_explicit=base.defines_explicit or override.defines_explicit,
         fmt_explicit=base.fmt_explicit or override.fmt_explicit,
         jobs_explicit=base.jobs_explicit or override.jobs_explicit,
         use_cache_explicit=base.use_cache_explicit or override.use_cache_explicit,
@@ -193,6 +199,7 @@ def config_from_cli(
     profile: str | None,
     rules: list[str] | None,
     categories: list[str] | None,
+    defines: list[str] | None = None,
     fmt: str | None,
     jobs: int | None,
     severity: list[str] | None,
@@ -219,6 +226,7 @@ def config_from_cli(
         profile=profile,
         rules=tuple(rules or ()),
         categories=tuple(categories or ()),
+        defines=tuple(defines or ()),
         fmt=fmt or "text",
         jobs=jobs or 1,
         severity_overrides=overrides,
@@ -229,6 +237,7 @@ def config_from_cli(
         fail_on_error=fail_on_error,
         fail_on_warning=fail_on_warning,
         exit_zero=exit_zero,
+        defines_explicit=bool(defines),
         fmt_explicit=fmt is not None,
         jobs_explicit=jobs is not None,
         use_cache_explicit=(store is not None) or no_cache,

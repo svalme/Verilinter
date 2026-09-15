@@ -92,6 +92,14 @@ def _build_lint_parser() -> argparse.ArgumentParser:
         help="enable only the given rule category; repeat to allow multiple",
     )
     parser.add_argument(
+        "-D",
+        "--define",
+        action="append",
+        dest="defines",
+        metavar="NAME[=VALUE]",
+        help="define a preprocessor macro; repeat to allow multiple",
+    )
+    parser.add_argument(
         "--format",
         choices=("text", "json", "sarif"),
         dest="fmt",
@@ -233,6 +241,7 @@ def _resolve_config(args: argparse.Namespace) -> LintConfig:
         profile=getattr(args, "profile", None),
         rules=getattr(args, "rules", None),
         categories=getattr(args, "categories", None),
+        defines=getattr(args, "defines", None),
         fmt=getattr(args, "fmt", None),
         jobs=getattr(args, "jobs", None),
         severity=getattr(args, "severity", None),
@@ -343,6 +352,8 @@ def main(argv: list[str] | None = None) -> int:
         run_kwargs["report_kind"] = args.report
         if args.include_dir:
             run_kwargs["include_dirs"] = args.include_dir
+        if config.defines:
+            run_kwargs["defines"] = config.defines
 
         analysis = analyze(
             paths,

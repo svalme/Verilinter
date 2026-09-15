@@ -11,7 +11,7 @@ from typing import Any, Callable, Iterator
 from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 ANALYZER_CACHE_VERSION = "2026-09-14-scopes"
 
 
@@ -27,6 +27,7 @@ def selection_key(
     selection: RuleSelection | None,
     include_dirs: list[str] | None = None,
     package_registry_fingerprint: str | None = None,
+    defines: list[str] | None = None,
 ) -> str:
     payload = {
         "analyzer_cache_version": ANALYZER_CACHE_VERSION,
@@ -47,6 +48,9 @@ def selection_key(
         # this must be part of the key too even though the file's own content
         # didn't change. See `_seed_cross_file_packages`.
         "package_registry_fingerprint": package_registry_fingerprint,
+        # Preprocessor defines (-D) change macro expansion and conditional
+        # compilation branches (`ifdef / `ifndef), so they must be part of the cache key.
+        "defines": sorted(defines) if defines else None,
     }
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
@@ -89,6 +93,7 @@ class AnalysisStore:
                     selection_key TEXT NOT NULL,
                     cached_at TEXT NOT NULL,
                     worker_result_json TEXT NOT NULL,
+                    header_dependencies_json TEXT,
                     PRIMARY KEY (file_path, file_hash, selection_key)
                 );
 
@@ -202,6 +207,7 @@ class AnalysisStore:
         migrations: dict[str, Callable[[sqlite3.Connection], str]] = {
             "0": self._migrate_schema_0_to_1,
             "1": self._migrate_schema_1_to_2,
+            "2": self._migrate_schema_2_to_3,
         }
 
         version = existing_version
@@ -317,6 +323,33 @@ class AnalysisStore:
         )
         return "2"
 
+    def _migrate_schema_2_to_3(self, conn: sqlite3.Connection) -> str:
+        """Add header_dependencies_json to cached_file_analysis to track
+        transitive preprocessor dependencies."""
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(cached_file_analysis)").fetchall()]
+        if "header_dependencies_json" not in cols:
+            conn.execute(
+                """
+                ALTER TABLE cached_file_analysis
+                ADD COLUMN header_dependencies_json TEXT DEFAULT '[]'
+                """
+            )
+        conn.execute(
+            """
+            UPDATE cached_file_analysis
+            SET header_dependencies_json = '[]'
+            WHERE header_dependencies_json IS NULL
+            """
+        )
+        conn.execute(
+            """
+            UPDATE schema_meta
+            SET value = '3'
+            WHERE key = 'schema_version'
+            """
+        )
+        return "3"
+
     def load_cached_worker_result(
         self,
         *,
@@ -325,12 +358,13 @@ class AnalysisStore:
         rule_selection: RuleSelection | None,
         include_dirs: list[str] | None = None,
         package_registry_fingerprint: str | None = None,
+        defines: list[str] | None = None,
     ) -> dict[str, Any] | None:
-        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint)
+        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint, defines=defines)
         with self._transaction() as conn:
             row = conn.execute(
                 """
-                SELECT worker_result_json
+                SELECT worker_result_json, header_dependencies_json
                 FROM cached_file_analysis
                 WHERE file_path = ? AND file_hash = ? AND selection_key = ?
                 """,
@@ -338,6 +372,19 @@ class AnalysisStore:
             ).fetchone()
         if row is None:
             return None
+
+        # Verify transitive header dependencies
+        header_deps_raw = row["header_dependencies_json"]
+        if header_deps_raw:
+            try:
+                deps = json.loads(str(header_deps_raw))
+                for dep in deps:
+                    dep_path = Path(dep["path"])
+                    if not dep_path.is_file() or file_sha256(dep_path) != dep.get("hash"):
+                        return None
+            except (ValueError, OSError):
+                return None
+
         return json.loads(str(row["worker_result_json"]))
 
     def store_cached_worker_result(
@@ -349,16 +396,24 @@ class AnalysisStore:
         worker_result: dict[str, Any],
         include_dirs: list[str] | None = None,
         package_registry_fingerprint: str | None = None,
+        defines: list[str] | None = None,
+        header_dependencies: list[dict[str, str]] | None = None,
     ) -> None:
-        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint)
+        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint, defines=defines)
+        header_deps_json = json.dumps(
+            header_dependencies
+            if header_dependencies is not None
+            else worker_result.get("header_dependencies", [])
+        )
         with self._transaction() as conn:
             conn.execute(
                 """
-                INSERT INTO cached_file_analysis(file_path, file_hash, selection_key, cached_at, worker_result_json)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO cached_file_analysis(file_path, file_hash, selection_key, cached_at, worker_result_json, header_dependencies_json)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(file_path, file_hash, selection_key) DO UPDATE SET
                     cached_at = excluded.cached_at,
-                    worker_result_json = excluded.worker_result_json
+                    worker_result_json = excluded.worker_result_json,
+                    header_dependencies_json = excluded.header_dependencies_json
                 """,
                 (
                     file_path,
@@ -366,6 +421,7 @@ class AnalysisStore:
                     key,
                     utc_now_iso(),
                     json.dumps(worker_result, sort_keys=True),
+                    header_deps_json,
                 ),
             )
 

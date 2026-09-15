@@ -247,7 +247,7 @@ def test_migrate_schema_1_to_2_preserves_rows_and_adds_cascade() -> None:
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         version = conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()[0]
-        assert version == "2"
+        assert version == analysis_store_module.SCHEMA_VERSION
 
         for table, expected_count in before.items():
             actual = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]

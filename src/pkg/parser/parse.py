@@ -1,3 +1,4 @@
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -9,27 +10,73 @@ from .types import SyntaxTree
 DEFAULT_NETTYPE_NONE_RE = re.compile(r"^\s*`default_nettype\s+none\b", re.MULTILINE)
 
 
-def parse_file(path: str, include_dirs: list[str] | None = None) -> SyntaxTree:
+def parse_file(
+    path: str,
+    include_dirs: list[str] | None = None,
+    defines: list[str] | None = None,
+) -> SyntaxTree:
     """Parse `path`, optionally searching `include_dirs` to resolve
     `` `include "..." `` directives that reference a header outside the
     source file's own directory (pyslang's default `SourceManager` only
-    looks there). Common in multi-directory repos that vendor a
-    shared macro/assertion header --
-    without this, every subsequent use of a macro that header defines fails
-    to parse as `unknown macro or compiler directive`, corrupting the AST for
-    the rest of the file. Each call owns a fresh source manager so repeated
-    analyses in the same process observe file changes.
+    looks there), and configuring preprocessor macro defines (from `-D`).
+    Each call owns a fresh source manager so repeated analyses in the same
+    process observe file changes.
     """
-    # The default pyslang source manager can retain file buffers across calls.
-    # A fresh manager is required when files change within the same process.
     source_manager = sl.SourceManager()
     for directory in include_dirs or []:
         source_manager.addUserDirectories(directory)
-    return SyntaxTree.fromFile(path, source_manager)
+
+    bag = sl.Bag()
+    if defines:
+        pp = sl.PreprocessorOptions()
+        pp.predefines = list(defines)
+        bag.preprocessorOptions = pp
+
+    return SyntaxTree.fromFile(path, source_manager, options=bag)
 
 
-def parse_text(text: str) -> SyntaxTree:
+def parse_text(text: str, defines: list[str] | None = None) -> SyntaxTree:
+    if defines:
+        bag = sl.Bag()
+        pp = sl.PreprocessorOptions()
+        pp.predefines = list(defines)
+        bag.preprocessorOptions = pp
+        source_manager = sl.SourceManager()
+        return SyntaxTree.fromText(text, source_manager, options=bag)
     return SyntaxTree.fromText(text)
+
+
+def extract_header_dependencies(tree: SyntaxTree) -> list[dict[str, str]]:
+    """Extract all directly and transitively included header files from a parsed
+    SyntaxTree, returning their canonical file paths and SHA-256 hashes."""
+    dependencies: list[dict[str, str]] = []
+    seen: set[str] = set()
+    source_manager = getattr(tree, "sourceManager", None)
+    if source_manager is None:
+        return []
+    include_directives = getattr(tree, "getIncludeDirectives", None)
+    if include_directives is None:
+        return []
+    for inc in include_directives():
+        buf = getattr(inc, "buffer", None)
+        buf_id = getattr(buf, "id", None)
+        if buf_id is None:
+            continue
+        raw_path = source_manager.getFullPath(buf_id)
+        if not raw_path:
+            continue
+        p = Path(raw_path).resolve()
+        norm_key = str(p)
+        if norm_key in seen:
+            continue
+        seen.add(norm_key)
+        try:
+            if p.is_file():
+                h = hashlib.sha256(p.read_bytes()).hexdigest()
+                dependencies.append({"path": norm_key, "hash": h})
+        except OSError:
+            pass
+    return dependencies
 
 
 def text_uses_default_nettype_none(text: str) -> bool:

@@ -119,6 +119,24 @@ Exit with failure code (`1`) if any unsuppressed diagnostics have `warning` or `
 verilinter --fail-on-warning tests/data
 ```
 
+### `-D`, `--define NAME[=VALUE]`
+
+Define a preprocessor macro for conditional compilation (` `ifdef `, ` `ifndef `, ` `elsif `).
+Repeat the flag to supply multiple defines.
+
+```bash
+verilinter -D SYNTHESIS -D WIDTH=32 tests/data
+```
+
+### `-I`, `--include-dir DIR`
+
+Add an include directory to search when resolving ` `include ` directives outside the source files' immediate directory.
+Repeat the flag to add multiple directories.
+
+```bash
+verilinter -I include/ -I common/headers/ tests/data
+```
+
 ### `--exit-zero`
 
 Always exit with status code `0`, even when rule errors, rule warnings, or parser errors are detected.
@@ -326,6 +344,7 @@ Supported config fields:
 - `jobs`
 - `rules`
 - `categories`
+- `defines`
 - `baseline`
 - `severity`
 - `store`

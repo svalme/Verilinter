@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 import re
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from .analysis_store import AnalysisStore, file_sha256
 from .diagnostics import enrich_diagnostics, filter_by_baseline, sort_diagnostics
 from .parser.parse import (
+    extract_header_dependencies,
     extract_parse_diagnostics,
     file_uses_default_nettype_none,
     parse_file,
@@ -26,6 +27,7 @@ from .walk.walker import Walker
 from .handlers.register_handlers import *
 from .vnodes.register_vnodes import *
 
+import inspect
 import sys
 
 
@@ -36,6 +38,32 @@ def _get_override(attr: str, default: Any) -> Any:
     return default
 
 
+def _call_parse_file(
+    parse_fn: Any,
+    path: str,
+    include_dirs: list[str] | None = None,
+    defines: Sequence[str] | None = None,
+) -> Any:
+    try:
+        sig = inspect.signature(parse_fn)
+        params = sig.parameters
+        accepts_defines = "defines" in params or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+        accepts_include_dirs = "include_dirs" in params or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+    except (ValueError, TypeError):
+        accepts_defines = True
+        accepts_include_dirs = True
+
+    kwargs: dict[str, Any] = {}
+    if accepts_include_dirs:
+        kwargs["include_dirs"] = include_dirs
+    if accepts_defines and defines is not None:
+        kwargs["defines"] = defines
+    elif accepts_defines:
+        kwargs["defines"] = defines
+
+    return parse_fn(path, **kwargs)
+
+
 @dataclass(frozen=True)
 class WorkerResult:
     diagnostics: list[dict[str, Any]]
@@ -44,6 +72,7 @@ class WorkerResult:
     module_references: list[tuple[str, dict[str, Any]]]
     instantiation_edges: list[tuple[str, str, dict[str, Any]]]
     instantiations: list[dict[str, object]]
+    header_dependencies: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -117,7 +146,9 @@ def _file_may_declare_package(path: Path) -> bool:
 
 
 def _scan_packages(
-    paths: list[Path], include_dirs: list[str] | None = None
+    paths: list[Path],
+    include_dirs: list[str] | None = None,
+    defines: Sequence[str] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """First pass over the corpus: find every `package ... endpackage`
     declaration and what it exports, before any per-file lint worker runs.
@@ -143,7 +174,7 @@ def _scan_packages(
         walker = _Walker(dispatch)
         symbol_table.set_current_file(str(path))
         symbol_table.set_current_file_default_nettype_none(_file_uses_default_nettype_none(path))
-        tree = _parse_file(str(path), include_dirs=include_dirs)
+        tree = _call_parse_file(_parse_file, str(path), include_dirs=include_dirs, defines=defines)
         if extract_parse_diagnostics(tree, str(path)):
             continue
         walker.walk(tree.root, tree, ctx, symbol_table)
@@ -250,6 +281,7 @@ def _lint_single_file(
     rule_selection: RuleSelection | None,
     include_dirs: list[str] | None = None,
     package_registry: dict[str, list[dict[str, Any]]] | None = None,
+    defines: Sequence[str] | None = None,
 ) -> WorkerResult:
     _Walker = _get_override("Walker", Walker)
     _parse_file = _get_override("parse_file", parse_file)
@@ -268,7 +300,8 @@ def _lint_single_file(
     symbol_table.set_current_file(path)
     symbol_table.set_current_file_default_nettype_none(_file_uses_default_nettype_none(path))
     _seed_cross_file_packages(symbol_table, package_registry, path)
-    tree = _parse_file(path, include_dirs=include_dirs)
+    tree = _call_parse_file(_parse_file, path, include_dirs=include_dirs, defines=defines)
+    header_dependencies = extract_header_dependencies(tree)
     parse_errors = extract_parse_diagnostics(tree, path)
     if parse_errors:
         return WorkerResult(
@@ -278,6 +311,7 @@ def _lint_single_file(
             module_references=[],
             instantiation_edges=[],
             instantiations=[],
+            header_dependencies=header_dependencies,
         )
     walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 
@@ -329,6 +363,7 @@ def _lint_single_file(
         module_references=list(symbol_table.module_references),
         instantiation_edges=list(symbol_table.instantiation_edges),
         instantiations=list(symbol_table.instantiations),
+        header_dependencies=header_dependencies,
     )
 
 
@@ -389,12 +424,13 @@ def _run_workers(
     rule_selection: RuleSelection | None,
     include_dirs: list[str] | None = None,
     package_registry: dict[str, list[dict[str, Any]]] | None = None,
+    defines: Sequence[str] | None = None,
 ) -> list[WorkerResult]:
     ordered_paths = [str(path) for path in paths]
 
     if jobs == 1:
         return [
-            _lint_single_file(path, rule_selection, include_dirs, package_registry)
+            _lint_single_file(path, rule_selection, include_dirs, package_registry, defines)
             for path in ordered_paths
         ]
 
@@ -407,11 +443,12 @@ def _run_workers(
                     [rule_selection] * len(ordered_paths),
                     [include_dirs] * len(ordered_paths),
                     [package_registry] * len(ordered_paths),
+                    [defines] * len(ordered_paths),
                 )
             )
     except (OSError, PermissionError):
         return [
-            _lint_single_file(path, rule_selection, include_dirs, package_registry)
+            _lint_single_file(path, rule_selection, include_dirs, package_registry, defines)
             for path in ordered_paths
         ]
 
@@ -424,6 +461,7 @@ def _worker_result_from_payload(payload: dict[str, Any]) -> WorkerResult:
         module_references=list(payload.get("module_references", [])),
         instantiation_edges=list(payload.get("instantiation_edges", [])),
         instantiations=list(payload.get("instantiations", [])),
+        header_dependencies=list(payload.get("header_dependencies", [])),
     )
 
 
@@ -435,6 +473,7 @@ def run(
     severity_overrides: dict[str, str] | None = None,
     baseline_path: Path | None = None,
     include_dirs: list[str] | None = None,
+    defines: Sequence[str] | None = None,
 ) -> list[dict[str, Any]]:
     return analyze(
         paths,
@@ -444,6 +483,7 @@ def run(
         severity_overrides=severity_overrides,
         baseline_path=baseline_path,
         include_dirs=include_dirs,
+        defines=defines,
     ).diagnostics
 
 
@@ -459,11 +499,13 @@ def analyze(
     fmt: str = "text",
     report_kind: str | None = None,
     include_dirs: list[str] | None = None,
+    defines: Sequence[str] | None = None,
 ) -> AnalysisResult:
     if jobs < 1:
         raise ValueError(f"jobs must be >= 1, got {jobs}")
 
     resolved_selection = _build_rule_selection(rule_selection, rule_profile)
+    normalized_defines = [str(d) for d in defines] if defines is not None else None
 
     for path in paths:
         if not path.exists():
@@ -473,7 +515,7 @@ def analyze(
     # against a specific corpus-wide set of package declarations (see
     # `_scan_packages`'s docstring), so the fingerprint below has to be part of
     # the cache key even on a full cache hit.
-    package_registry = _scan_packages(paths, include_dirs)
+    package_registry = _scan_packages(paths, include_dirs, defines=normalized_defines)
     package_registry_fingerprint = _fingerprint_package_registry(package_registry)
 
     store = AnalysisStore(store_path) if store_path is not None else None
@@ -485,10 +527,6 @@ def analyze(
     if store is not None:
         for path in paths:
             file_hash = file_sha256(path)
-            # Until the store tracks transitive preprocessor dependencies, a
-            # source containing directives must be reparsed: included headers
-            # and macro-expanded includes can change without changing this file.
-            cacheable = "`" not in path.read_text(errors="ignore")
             payload = (
                 store.load_cached_worker_result(
                     file_path=str(path),
@@ -496,8 +534,9 @@ def analyze(
                     rule_selection=resolved_selection,
                     include_dirs=include_dirs,
                     package_registry_fingerprint=package_registry_fingerprint,
+                    defines=normalized_defines,
                 )
-                if use_cache and cacheable
+                if use_cache
                 else None
             )
             if payload is not None:
@@ -515,7 +554,7 @@ def analyze(
         missed_paths = list(paths)
 
     fresh_results = (
-        _run_workers(missed_paths, jobs, resolved_selection, include_dirs, package_registry)
+        _run_workers(missed_paths, jobs, resolved_selection, include_dirs, package_registry, defines=normalized_defines)
         if missed_paths
         else []
     )
@@ -529,6 +568,8 @@ def analyze(
                 worker_result=asdict(result),
                 include_dirs=include_dirs,
                 package_registry_fingerprint=package_registry_fingerprint,
+                defines=normalized_defines,
+                header_dependencies=result.header_dependencies,
             )
 
     results = [results_by_path[str(path)] for path in paths]

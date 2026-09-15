@@ -25,12 +25,19 @@ The cache is keyed by:
 - file content SHA-256
 - rule-selection signature
 - analyzer cache version token
+- include directory search order (`-I`)
+- preprocessor macro defines (`-D`)
+- package registry fingerprint (corpus package declarations and signatures)
+- direct and transitive header dependencies (paths and SHA-256 hashes of all ` `include ` files)
 
 That means a cached entry is reused only when:
 1. the file path is the same
 2. the file contents are unchanged
 3. the effective rule selection is unchanged
 4. the analyzer cache version is unchanged
+5. the include directory configuration and macro defines match
+6. corpus package declarations have not shifted
+7. all directly and transitively included header files exist on disk with unchanged SHA-256 hashes
 
 The analyzer cache version is a small internal compatibility token for Verilinter's own analysis pipeline.
 When parser behavior, symbol-building behavior, cached payload shape, or rule logic changes in a way that
@@ -41,7 +48,7 @@ Severity overrides are applied after cached worker results are loaded, so they d
 
 ## Schema
 
-The current schema version is `1`.
+The current schema version is `3`.
 
 Verilinter treats schema compatibility separately from cache compatibility:
 - `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse
@@ -71,7 +78,9 @@ Current migration policy:
 - unsupported schema versions should fail clearly rather than being guessed at
 
 Current supported schema migrations:
-- `0 -> 1`
+- `0 -> 1`: Initial store layout migration
+- `1 -> 2`: Cascade deletion (`ON DELETE CASCADE`) across run child tables
+- `2 -> 3`: Transitive header dependency tracking (`header_dependencies_json`)
 
 Rebuild guidance:
 - use `--no-cache` when you want a fresh analysis pass without deleting the store
