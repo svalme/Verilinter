@@ -17,6 +17,7 @@ class SignalNameCasingRule(Rule):
     message = "Signal name is not lower_snake_case"
     category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (DeclaratorNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not isinstance(vnode.raw, DeclaratorNode):

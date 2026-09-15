@@ -16,6 +16,7 @@ class SystemTaskNameShadowingRule(Rule):
     message = "Identifier shadows a built-in system task/function name"
     category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (DeclaratorNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
         if not isinstance(vnode.raw, DeclaratorNode):

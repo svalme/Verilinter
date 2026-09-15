@@ -6,12 +6,23 @@ from .rule_selection import RuleSelection
 
 
 class SymbolRuleRunner:
-    def __init__(self) -> None:
+    def __init__(self, rules: list[BaseSymbolRule] | None = None) -> None:
         self._rules: list[BaseSymbolRule] = []
+        if rules is not None:
+            for rule in rules:
+                self.add_rule(rule)
+
+    def add_rule(self, rule: BaseSymbolRule) -> None:
+        self._rules.append(rule)
 
     def register(self, rule_cls: type[BaseSymbolRule]) -> type[BaseSymbolRule]:
-        self._rules.append(rule_cls())
+        self.add_rule(rule_cls())
         return rule_cls
+
+    def for_selection(self, selection: RuleSelection | None) -> SymbolRuleRunner:
+        if selection is None:
+            return self
+        return SymbolRuleRunner([rule for rule in self._rules if selection.allows(rule)])
 
     def _selected_rules(self, selection: RuleSelection | None) -> list[BaseSymbolRule]:
         if selection is None:

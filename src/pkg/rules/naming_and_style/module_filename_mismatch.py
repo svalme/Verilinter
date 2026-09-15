@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_module_filename_mismatch
+from ...parser.types import ModuleDeclarationNode
 from ...semantic.scope import enclosing_module_scope
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -16,6 +17,7 @@ class ModuleFilenameMismatchRule(Rule):
     message = "No module in this file matches its filename; rename the file or the module for consistency"
     category = "module_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ModuleDeclarationNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         scope = enclosing_module_scope(ctx.scope())

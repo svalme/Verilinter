@@ -16,6 +16,7 @@ class InstanceNamePrefixRule(Rule):
     message = "Instance name missing expected prefix (u_/i_)"
     category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (HierarchicalInstanceNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
         if not isinstance(vnode.raw, HierarchicalInstanceNode):

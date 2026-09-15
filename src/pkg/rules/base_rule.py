@@ -9,5 +9,8 @@ if TYPE_CHECKING:
 
 
 class Rule(BaseDiagnostic):
+    target_node_types: tuple[type, ...] | None = None
+
     @abstractmethod
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool: ...
+

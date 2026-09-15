@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_extra_module_declaration_in_file
+from ...parser.types import ModuleDeclarationNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class OneModulePerFileRule(Rule):
     message = "File declares more than one module; keep one module per file"
     category = "module_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ModuleDeclarationNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_extra_module_declaration_in_file(vnode.raw, vnode.tree)

@@ -268,3 +268,54 @@ class TestRuleRunnerSelection:
         )
 
         assert [d["code"] for d in diagnostics] == ["UNTAGGED", "TAGGED"]
+
+
+class TestSymbolAndModuleRuleRunnerInjection:
+    def test_symbol_rule_runner_injectable(self) -> None:
+        from src.pkg.rules.symbol_rule_runner import SymbolRuleRunner
+        from src.pkg.rules.base_symbol_rule import BaseSymbolRule
+        from src.pkg.semantic.symbol_table import SymbolTable
+
+        class DummySymbolRule(BaseSymbolRule):
+            code = "DUMMY_SYM"
+            message = "dummy sym"
+
+            def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
+                return [{"code": self.code, "message": self.message}]
+
+        rule_instance = DummySymbolRule()
+        runner = SymbolRuleRunner(rules=[rule_instance])
+        assert len(runner._rules) == 1
+
+        diagnostics = runner.run(SymbolTable())
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "DUMMY_SYM"
+
+        # Test for_selection
+        sub_runner = runner.for_selection(RuleSelection(enabled_codes=frozenset({"OTHER"})))
+        assert len(sub_runner._rules) == 0
+
+    def test_module_rule_runner_injectable(self) -> None:
+        from src.pkg.rules.module_rule_runner import ModuleRuleRunner
+        from src.pkg.rules.base_symbol_rule import BaseSymbolRule
+        from src.pkg.semantic.symbol_table import SymbolTable
+
+        class DummyModuleRule(BaseSymbolRule):
+            code = "DUMMY_MOD"
+            message = "dummy mod"
+
+            def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
+                return [{"code": self.code, "message": self.message}]
+
+        rule_instance = DummyModuleRule()
+        runner = ModuleRuleRunner(rules=[rule_instance])
+        assert len(runner._rules) == 1
+
+        diagnostics = runner.run(SymbolTable())
+        assert len(diagnostics) == 1
+        assert diagnostics[0]["code"] == "DUMMY_MOD"
+
+        # Test for_selection
+        sub_runner = runner.for_selection(RuleSelection(enabled_codes=frozenset({"DUMMY_MOD"})))
+        assert len(sub_runner._rules) == 1
+
