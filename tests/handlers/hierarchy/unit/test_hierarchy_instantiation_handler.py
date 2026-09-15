@@ -70,3 +70,23 @@ class TestHierarchyInstantiationHandler:
         assert third["instance_name"] == "u_baz"
         assert third["connection_style"] == "wildcard"
         assert third["connections"][0]["kind"] == "wildcard"
+
+    def test_records_typed_domain_models(self, walked: tuple[Walker, SymbolTable]) -> None:
+        from src.pkg.semantic.models import InstanceRecord, ParameterOverride, PortConnection
+
+        _, symbol_table = walked
+        assert len(symbol_table.instantiations) == 3
+
+        second = symbol_table.instantiations[1]
+        assert isinstance(second, InstanceRecord)
+        assert second.instance_name == "u_bar"
+        assert second.child_module == "bar_mod"
+        assert second.connection_style == "named"
+        assert len(second.connections) == 1
+        assert isinstance(second.connections[0], PortConnection)
+        assert second.connections[0].port_name == "clk"
+        assert second.connections[0].expr_text == "clk"
+        assert len(second.parameter_overrides) == 1
+        assert isinstance(second.parameter_overrides[0], ParameterOverride)
+        assert second.parameter_overrides[0].param_name == "WIDTH"
+

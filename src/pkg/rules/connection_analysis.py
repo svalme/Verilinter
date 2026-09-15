@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping
 
 from ..parser.syntax import is_mutually_exclusive_branch_pair
+from ..semantic.models import InstanceRecord, ParameterOverride, PortConnection
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 
@@ -22,32 +24,32 @@ def module_scope_for(symbol_table: SymbolTable, module_name: str | None):
     return symbol_table.lookup_module(module_name)
 
 
-def ordered_connections(instantiation: dict[str, object]) -> list[dict[str, object]]:
+def ordered_connections(instantiation: InstanceRecord | dict[str, object]) -> list[PortConnection | dict[str, object]]:
     return [
         conn
         for conn in instantiation.get("connections", [])
-        if isinstance(conn, dict) and conn.get("kind") in {"ordered", "empty"}
+        if isinstance(conn, (PortConnection, Mapping, dict)) and conn.get("kind") in {"ordered", "empty"}
     ]
 
 
-def named_connections(instantiation: dict[str, object]) -> list[dict[str, object]]:
+def named_connections(instantiation: InstanceRecord | dict[str, object]) -> list[PortConnection | dict[str, object]]:
     return [
         conn
         for conn in instantiation.get("connections", [])
-        if isinstance(conn, dict) and conn.get("kind") == "named"
+        if isinstance(conn, (PortConnection, Mapping, dict)) and conn.get("kind") == "named"
     ]
 
 
-def has_wildcard_port_connections(instantiation: dict[str, object]) -> bool:
+def has_wildcard_port_connections(instantiation: InstanceRecord | dict[str, object]) -> bool:
     return any(
-        isinstance(conn, dict) and conn.get("kind") == "wildcard"
+        isinstance(conn, (PortConnection, Mapping, dict)) and conn.get("kind") == "wildcard"
         for conn in instantiation.get("connections", [])
     )
 
 
-def has_ordered_port_connections(instantiation: dict[str, object]) -> bool:
+def has_ordered_port_connections(instantiation: InstanceRecord | dict[str, object]) -> bool:
     return any(
-        isinstance(conn, dict) and conn.get("kind") == "ordered"
+        isinstance(conn, (PortConnection, Mapping, dict)) and conn.get("kind") == "ordered"
         for conn in instantiation.get("connections", [])
     )
 
@@ -117,17 +119,17 @@ def module_parameters_for(symbol_table: SymbolTable, module_name: str | None) ->
     return [symbol for symbol in scope.symbols.values() if symbol.kind == "parameter"]
 
 
-def named_parameter_overrides(instantiation: dict[str, object]) -> list[dict[str, object]]:
+def named_parameter_overrides(instantiation: InstanceRecord | dict[str, object]) -> list[ParameterOverride | dict[str, object]]:
     return [
         p
         for p in instantiation.get("parameter_overrides", [])
-        if isinstance(p, dict) and p.get("kind") == "named"
+        if isinstance(p, (ParameterOverride, Mapping, dict)) and p.get("kind") == "named"
     ]
 
 
-def has_ordered_parameter_overrides(instantiation: dict[str, object]) -> bool:
+def has_ordered_parameter_overrides(instantiation: InstanceRecord | dict[str, object]) -> bool:
     return any(
-        isinstance(override, dict) and override.get("kind") == "ordered"
+        isinstance(override, (ParameterOverride, Mapping, dict)) and override.get("kind") == "ordered"
         for override in instantiation.get("parameter_overrides", [])
     )
 
@@ -404,7 +406,7 @@ def signal_names_connected_to_instances(symbol_table: SymbolTable, parent_module
         if inst.get("parent_module") != parent_module:
             continue
         for conn in inst.get("connections", []):
-            if isinstance(conn, dict):
+            if isinstance(conn, (PortConnection, Mapping, dict)):
                 expr_name = conn.get("expr_name")
                 if isinstance(expr_name, str):
                     names.add(expr_name)

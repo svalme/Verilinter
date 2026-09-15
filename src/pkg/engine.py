@@ -18,6 +18,7 @@ from .parser.parse import (
 from .rules.register_rules import *
 from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
 from .rules.rule_selection import RuleSelection
+from .semantic.models import InstanceRecord
 from .semantic.scope import Scope
 from .semantic.symbol import Symbol
 from .semantic.symbol_table import SymbolTable
@@ -71,7 +72,7 @@ class WorkerResult:
     primitives: list[str]
     module_references: list[tuple[str, dict[str, Any]]]
     instantiation_edges: list[tuple[str, str, dict[str, Any]]]
-    instantiations: list[dict[str, object]]
+    instantiations: list[InstanceRecord]
     header_dependencies: list[dict[str, str]] = field(default_factory=list)
 
 
@@ -460,7 +461,10 @@ def _worker_result_from_payload(payload: dict[str, Any]) -> WorkerResult:
         primitives=list(payload.get("primitives", [])),
         module_references=list(payload.get("module_references", [])),
         instantiation_edges=list(payload.get("instantiation_edges", [])),
-        instantiations=list(payload.get("instantiations", [])),
+        instantiations=[
+            InstanceRecord.from_dict(inst) if isinstance(inst, dict) else inst
+            for inst in payload.get("instantiations", [])
+        ],
         header_dependencies=list(payload.get("header_dependencies", [])),
     )
 

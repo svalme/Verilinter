@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from ..vnodes.base_vnode import Location
+from .models.instance_record import InstanceRecord
 from .symbol import Symbol
 from .scope import Scope
 
@@ -18,7 +19,7 @@ class SymbolTable:
         self.primitives: set[str] = set()  # user-defined primitive (UDP) names, across files
         self.module_references: list[tuple[str, Location]] = []
         self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
-        self.instantiations: list[dict[str, object]] = []
+        self.instantiations: list[InstanceRecord] = []
         self.reset_style_events: list[tuple[str, str, Location]] = []  # (module_name, "sync"|"async", location)
         self.combinational_driver_ids: set[str] = set()
         self.tristate_driver_ids: set[str] = set()
@@ -91,8 +92,9 @@ class SymbolTable:
         """Record that `from_module` instantiates `to_module` at `location`, for hierarchy-cycle detection."""
         self.instantiation_edges.append((from_module, to_module, location))
 
-    def register_instantiation(self, record: dict[str, object]) -> None:
-        self.instantiations.append(record)
+    def register_instantiation(self, record: InstanceRecord | dict[str, object]) -> None:
+        inst = record if isinstance(record, InstanceRecord) else InstanceRecord.from_dict(record)
+        self.instantiations.append(inst)
 
     def register_reset_style_event(self, module_name: str, style: str, location: Location) -> None:
         """Record that a procedural block in `module_name` is edge-sensitive with

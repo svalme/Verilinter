@@ -1,5 +1,6 @@
 from ..walk.dispatch import dispatch
 from ..walk.context import Context
+from ..semantic.models import InstanceRecord, ParameterOverride, PortConnection
 from ..semantic.scope import Scope, enclosing_module_scope
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
@@ -36,24 +37,24 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
             if enclosing_module is not None and enclosing_module.name:
                 symbol_table.register_instantiation_edge(enclosing_module.name, type_name, vnode.location)
 
-        parameter_overrides: list[dict[str, object]] = []
+        parameter_overrides: list[ParameterOverride] = []
         parameter_override_kinds: set[str] = set()
         for param in parameter_override_list(vnode.raw):
             if is_named_parameter_override(param):
                 parameter_overrides.append(
-                    {
-                        "kind": "named",
-                        "param_name": named_parameter_override_name(param),
-                        "location": node_location(param, vnode.tree),
-                    }
+                    ParameterOverride(
+                        kind="named",
+                        param_name=named_parameter_override_name(param),
+                        location=node_location(param, vnode.tree),
+                    )
                 )
                 parameter_override_kinds.add("named")
             elif is_ordered_parameter_override(param):
                 parameter_overrides.append(
-                    {
-                        "kind": "ordered",
-                        "location": node_location(param, vnode.tree),
-                    }
+                    ParameterOverride(
+                        kind="ordered",
+                        location=node_location(param, vnode.tree),
+                    )
                 )
                 parameter_override_kinds.add("ordered")
         parameter_override_style = (
@@ -70,7 +71,7 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                 sym.add_declaration(vnode.location)
                 ctx.scope().define(sym)
 
-            connections: list[dict[str, object]] = []
+            connections: list[PortConnection] = []
             connection_kinds: set[str] = set()
             for conn in port_connection_list(item):
                 kind_name = type(conn).__name__
@@ -83,15 +84,15 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                         else (None, None)
                     )
                     connections.append(
-                        {
-                            "kind": "named",
-                            "port_name": named_port_connection_name(conn),
-                            "expr_text": expr_text,
-                            "expr_name": simple_identifier_text(expr_text),
-                            "expr_width": expr_width,
-                            "expr_signed": expr_signed,
-                            "location": node_location(conn, vnode.tree),
-                        }
+                        PortConnection(
+                            kind="named",
+                            port_name=named_port_connection_name(conn),
+                            expr_text=expr_text,
+                            expr_name=simple_identifier_text(expr_text),
+                            expr_width=expr_width,
+                            expr_signed=expr_signed,
+                            location=node_location(conn, vnode.tree),
+                        )
                     )
                     connection_kinds.add("named")
                 elif kind_name == "OrderedPortConnectionSyntax":
@@ -103,30 +104,30 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                         else (None, None)
                     )
                     connections.append(
-                        {
-                            "kind": "ordered",
-                            "expr_text": expr_text,
-                            "expr_name": simple_identifier_text(expr_text),
-                            "expr_width": expr_width,
-                            "expr_signed": expr_signed,
-                            "location": node_location(conn, vnode.tree),
-                        }
+                        PortConnection(
+                            kind="ordered",
+                            expr_text=expr_text,
+                            expr_name=simple_identifier_text(expr_text),
+                            expr_width=expr_width,
+                            expr_signed=expr_signed,
+                            location=node_location(conn, vnode.tree),
+                        )
                     )
                     connection_kinds.add("ordered")
                 elif kind_name == "WildcardPortConnectionSyntax":
                     connections.append(
-                        {
-                            "kind": "wildcard",
-                            "location": node_location(conn, vnode.tree),
-                        }
+                        PortConnection(
+                            kind="wildcard",
+                            location=node_location(conn, vnode.tree),
+                        )
                     )
                     connection_kinds.add("wildcard")
                 elif kind_name == "EmptyPortConnectionSyntax":
                     connections.append(
-                        {
-                            "kind": "empty",
-                            "location": node_location(conn, vnode.tree),
-                        }
+                        PortConnection(
+                            kind="empty",
+                            location=node_location(conn, vnode.tree),
+                        )
                     )
 
             explicit_kinds = connection_kinds - {"wildcard"}
@@ -139,22 +140,22 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
             else:
                 style = "empty"
             symbol_table.register_instantiation(
-                {
-                    "parent_module": enclosing_module.name if enclosing_module is not None else None,
-                    "child_module": type_name,
-                    "instance_name": inst_name,
-                    "location": vnode.location,
-                    "connection_style": style,
-                    "connections": connections,
-                    "parameter_override_style": parameter_override_style,
-                    "parameter_overrides": parameter_overrides,
+                InstanceRecord(
+                    parent_module=enclosing_module.name if enclosing_module is not None else None,
+                    child_module=type_name,
+                    instance_name=inst_name,
+                    location=vnode.location,
+                    connection_style=style,
+                    connections=connections,
+                    parameter_override_style=parameter_override_style,
+                    parameter_overrides=parameter_overrides,
                     # Lets a driver-conflict rule recognize an instance instantiated
                     # in a `generate if`/`else` branch mutually exclusive with
                     # another driver of the same signal (see
                     # branch_exclusivity_signature) as not a real simultaneous
                     # conflict.
-                    "generate_branch_signature": branch_exclusivity_signature(vnode.raw, vnode.tree),
-                }
+                    generate_branch_signature=branch_exclusivity_signature(vnode.raw, vnode.tree),
+                )
             )
 
         return ctx.push(vnode)
