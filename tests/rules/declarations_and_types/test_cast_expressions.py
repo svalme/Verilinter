@@ -49,9 +49,6 @@ def test_undeclared_cast_prefix_flags_implicit_net():
     result.expect_message_contains("NO_IMPLICIT_NET", "undeclared_width")
 
 
-@pytest.mark.xfail(
-    reason="Type-namespace support for typedef cast prefixes (e.g. pmp_cfg_t'(1'b0)) is tracked in ACTION_ITEMS.md #2.3"
-)
 def test_typedef_cast_prefix_does_not_flag_implicit_net():
     result = run_inline_lint_case({
         "top.sv": """
@@ -62,3 +59,65 @@ def test_typedef_cast_prefix_does_not_flag_implicit_net():
         """
     })
     result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_imported_package_typedef_cast_prefix_does_not_flag_implicit_net():
+    """A cast to a typedef imported from a package (`pmp_cfg_t'(1'b0)` from `ibex_pkg`)."""
+    result = run_inline_lint_case({
+        "top.sv": """
+        package ibex_pkg;
+          typedef struct packed { logic a; logic b; } pmp_cfg_t;
+        endpackage
+
+        module top(output logic [1:0] y_o);
+          import ibex_pkg::*;
+          assign y_o = pmp_cfg_t'(1'b0);
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_package_qualified_typedef_cast_prefix_does_not_flag_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        package my_pkg;
+          typedef logic [7:0] byte_t;
+        endpackage
+
+        module top(output logic [7:0] y_o);
+          assign y_o = my_pkg::byte_t'(1'b0);
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_cross_file_package_typedef_cast_prefix_does_not_flag_implicit_net():
+    result = run_inline_lint_case({
+        "pkg.sv": """
+        package my_pkg;
+          typedef logic [7:0] byte_t;
+        endpackage
+        """,
+        "top.sv": """
+        module top(output logic [7:0] y_o);
+          import my_pkg::*;
+          assign y_o = byte_t'(1'b0);
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_enum_typedef_cast_prefix_does_not_flag_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(output logic [1:0] y_o);
+          typedef enum logic [1:0] { STATE_IDLE = 2'b00, STATE_BUSY = 2'b01 } state_e;
+          assign y_o = state_e'(2'b00);
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+

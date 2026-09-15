@@ -15,7 +15,7 @@ class UseEvent(TypedDict):
     write: bool
     driver_id: NotRequired[str]
     driver_location: NotRequired[Location]
-    branch_signature: NotRequired[tuple[tuple[int, int], ...]]
+    branch_signature: NotRequired[tuple[tuple[str, int], ...]]
     statement_id: NotRequired[str]
     in_port_connection: NotRequired[bool]
     is_nonblocking_write: NotRequired[bool]
@@ -60,7 +60,7 @@ class Symbol:
         write: bool = False,
         driver_id: str | None = None,
         driver_location: Location | None = None,
-        branch_signature: tuple[tuple[int, int], ...] | None = None,
+        branch_signature: tuple[tuple[str, int], ...] | None = None,
         statement_id: str | None = None,
         in_port_connection: bool = False,
         is_nonblocking_write: bool = False,

@@ -29,6 +29,7 @@ from ..parser.syntax import (
     is_system_task_output_argument,
     is_tristate_continuous_assign,
     scoped_name_package_qualifier,
+    subroutine_formal_direction,
 )
 from ..parser.types import IDENTIFIER_NAME_NODE_TYPES
 from ..walk.context import Context
@@ -71,6 +72,14 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
             # no notion of a system-task argument at all and falls through to
             # a plain read -- see is_system_task_output_argument's docstring.
             is_read, is_write = False, True
+        else:
+            subroutine_direction = subroutine_formal_direction(vnode.raw, symbol_table, ctx)
+            if subroutine_direction == "output":
+                is_read, is_write = False, True
+            elif subroutine_direction in ("inout", "ref"):
+                is_read, is_write = True, True
+            elif subroutine_direction == "input":
+                is_read, is_write = True, False
 
         package_qualifier = scoped_name_package_qualifier(vnode.raw)
         if package_qualifier is not None:
@@ -107,7 +116,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         # across a read/write pair -- tell a genuine simultaneous conflict from two
         # mutually exclusive `if`/`else` (procedural or generate) alternatives that can
         # never both apply. See branch_exclusivity_signature's docstring.
-        branch_signature = branch_exclusivity_signature(vnode.raw)
+        branch_signature = branch_exclusivity_signature(vnode.raw, vnode.tree)
         # Identifies the single assignment statement (`a = b;`, not the whole
         # enclosing block) an event belongs to, so COMBINATIONAL_LOOP can link a
         # read to a write only when that write's own expression actually reads

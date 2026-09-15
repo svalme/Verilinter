@@ -153,7 +153,7 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                     # another driver of the same signal (see
                     # branch_exclusivity_signature) as not a real simultaneous
                     # conflict.
-                    "generate_branch_signature": branch_exclusivity_signature(vnode.raw),
+                    "generate_branch_signature": branch_exclusivity_signature(vnode.raw, vnode.tree),
                 }
             )
 

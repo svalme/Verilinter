@@ -148,7 +148,22 @@ def _scan_packages(
                     for symbol in scope.symbols.values()
                     if symbol.is_declared and not symbol.is_implicit
                 ]
-                registry.setdefault(name, []).append({"file": str(path), "symbols": symbols})
+                subroutines = [
+                    {
+                        "name": child.name,
+                        "kind": child.kind,
+                        "formals": [
+                            {"name": s.name, "direction": s.port_direction}
+                            for s in child.symbols.values()
+                            if s.is_port
+                        ],
+                    }
+                    for child in scope.children
+                    if child.kind in ("task", "function")
+                ]
+                registry.setdefault(name, []).append(
+                    {"file": str(path), "symbols": symbols, "subroutines": subroutines}
+                )
     return registry
 
 
@@ -162,7 +177,20 @@ def _fingerprint_package_registry(registry: dict[str, list[dict[str, Any]]]) -> 
         return None
     payload = {
         name: sorted(
-            (entry["file"], tuple(sorted((s["name"], s["kind"]) for s in entry["symbols"])))
+            (
+                entry["file"],
+                tuple(sorted((s["name"], s["kind"]) for s in entry["symbols"])),
+                tuple(
+                    sorted(
+                        (
+                            sub["name"],
+                            sub["kind"],
+                            tuple(sorted((f["name"], f.get("direction")) for f in sub.get("formals", []))),
+                        )
+                        for sub in entry.get("subroutines", [])
+                    )
+                ),
+            )
             for entry in entries
         )
         for name, entries in registry.items()
@@ -198,6 +226,16 @@ def _seed_cross_file_packages(
                 symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
                 symbol.add_declaration({"line": 0, "col": 0, "file": entry["file"]})
                 scope.define(symbol)
+            for sub_data in entry.get("subroutines", []):
+                sub_scope = Scope(kind=str(sub_data.get("kind", "task")), name=str(sub_data.get("name", "")))
+                sub_scope.file = entry["file"]
+                for f in sub_data.get("formals", []):
+                    formal_sym = Symbol(name=str(f["name"]), kind="variable")
+                    formal_sym.is_port = True
+                    formal_sym.port_direction = f.get("direction")
+                    formal_sym.add_declaration({"line": 0, "col": 0, "file": entry["file"]})
+                    sub_scope.define(formal_sym)
+                sub_scope.set_parent(scope)
             symbol_table.packages.setdefault(name, []).append(scope)
 
 

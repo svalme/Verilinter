@@ -13,6 +13,7 @@ from ..types import (
     ProceduralBlockNode,
     SignalEventExpressionNode,
     SyntaxNode,
+    SyntaxTree,
 )
 
 
@@ -398,13 +399,36 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
     return triggers
 
 
-BranchSignature = tuple[tuple[int, int], ...]
+BranchSignature = tuple[tuple[str, int], ...]
 
 
-def branch_exclusivity_signature(raw: object) -> BranchSignature:
-    """Return `((id(construct), branch_taken), ...)` for every enclosing `if`/`else`
-    (procedural `ConditionalStatement` or generate `IfGenerate`, either kind mixed
-    freely in one chain) between `raw` and the module root, outermost last.
+def _construct_identity(construct: object, tree: SyntaxTree | None = None) -> str:
+    """Return a deterministic string identity for an enclosing branching construct.
+
+    Uses `file:line:col` via the syntax tree's sourceManager when available,
+    falling back to buffer offset or object id if location cannot be resolved.
+    """
+    source_range = getattr(construct, "sourceRange", None)
+    start = getattr(source_range, "start", None)
+    if start is not None and tree is not None and getattr(tree, "sourceManager", None) is not None:
+        sm = tree.sourceManager
+        try:
+            file_name = sm.getFileName(start)
+            line = sm.getLineNumber(start)
+            col = sm.getColumnNumber(start)
+            return f"{file_name}:{line}:{col}"
+        except Exception:
+            pass
+    if start is not None and hasattr(start, "offset"):
+        return f"offset:{start.offset}"
+    return f"id:{id(construct)}"
+
+
+def branch_exclusivity_signature(raw: object, tree: SyntaxTree | None = None) -> BranchSignature:
+    """Return `((construct_identity, branch_taken), ...)` for every enclosing
+    conditional construct (procedural `if`/`else`, generate `if`/`else`,
+    procedural `case`, or generate `case`, mixed freely in any nesting order)
+    between `raw` and the module root, outermost last.
 
     Generalizes `_enclosing_statement_parent`'s sibling-vs-branch distinction from
     "one target written twice in one block" to "any two nodes anywhere, possibly in
@@ -412,32 +436,47 @@ def branch_exclusivity_signature(raw: object) -> BranchSignature:
     `is_mutually_exclusive_branch_pair` needs to tell a real simultaneous conflict
     (multiple drivers, a dependency cycle) from two mutually-exclusive alternatives
     that can never both apply, whether the choice is made at elaboration time
-    (`generate if (PARAM) ... else ...`, e.g. a module implementation
-    choice) or at runtime (`if (rst) ... else ...`).
+    (`generate if (PARAM) ... else ...`, `case generate`, e.g. choosing a multiplier implementation)
+    or at runtime (`if (rst) ... else ...`, procedural `case (state) ... endcase`).
 
     An `else if` chain works out correctly without special-casing it: each
     `ConditionalStatement`/`IfGenerate` in the chain is its own construct with its
-    own id, so a deeper `else if`'s branches only share a construct id (and only
-    conflict) with siblings under that same link of the chain. Case statements
-    (procedural or generate) are not covered here.
+    own identity, so a deeper `else if`'s branches only share a construct identity
+    (and only conflict) with siblings under that same link of the chain.
+
+    Construct identities are location-based (`file:line:col` via `_construct_identity`),
+    making signatures deterministic across independent syntax trees, multi-process
+    workers, and persistent cache storage.
     """
     from ..syntax_queries import is_conditional_statement, is_else_clause_node
-    from .node_kind_checks import is_if_generate_node
+    from .node_kind_checks import is_if_generate_node, is_case_generate_node
+    import pyslang as sl
 
-    signature: list[tuple[int, int]] = []
+    signature: list[tuple[str, int]] = []
     node = raw
     parent = getattr(node, "parent", None)
     while parent is not None:
         if is_else_clause_node(parent):
             construct = getattr(parent, "parent", None)
             if construct is not None:
-                signature.append((id(construct), 1))
+                signature.append((_construct_identity(construct, tree), 1))
         elif is_conditional_statement(parent) or is_if_generate_node(parent):
             primary = getattr(parent, "statement", None)
             if primary is None:
                 primary = getattr(parent, "block", None)
             if node is primary:
-                signature.append((id(parent), 0))
+                signature.append((_construct_identity(parent, tree), 0))
+        elif isinstance(parent, sl.CaseItemSyntax):
+            clause = getattr(parent, "clause", None)
+            if node is clause:
+                construct = getattr(parent, "parent", None)
+                if construct is not None and (
+                    isinstance(construct, sl.CaseStatementSyntax) or is_case_generate_node(construct)
+                ):
+                    items = getattr(construct, "items", ())
+                    branch_idx = next((i for i, it in enumerate(items) if it is parent), -1)
+                    if branch_idx >= 0:
+                        signature.append((_construct_identity(construct, tree), branch_idx))
         node = parent
         parent = getattr(parent, "parent", None)
 

@@ -242,6 +242,9 @@ from ._syntax_queries.system_tasks import (
     is_vcd_dump_task,
     system_task_name,
 )
+from ._syntax_queries.subroutines import (
+    subroutine_formal_direction,
+)
 
 __all__ = [
     "ALL_SYSTEM_TASK_NAMES",
@@ -443,6 +446,7 @@ __all__ = [
     "scoped_name_package_qualifier",
     "sized_literal_overflow",
     "source_text_for_node",
+    "subroutine_formal_direction",
     "sync_clock_signal_name",
     "system_task_name",
     "unary_write_operand",

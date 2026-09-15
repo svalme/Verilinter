@@ -145,9 +145,6 @@ class TestTaskBodyDriverRegressions:
         assert data_sym.is_written
         assert data_sym.read_count >= 1
 
-    @pytest.mark.xfail(
-        reason="Item 2.6: Inter-procedural task formal output direction propagation to caller arguments"
-    )
     def test_task_formal_output_direction_marks_caller_variable_as_written(self):
         """When a caller passes a variable to a task output formal, inter-procedural analysis
         should record a write on the caller variable to prevent false positive READ_BEFORE_WRITE."""
@@ -167,10 +164,160 @@ class TestTaskBodyDriverRegressions:
         tree, symbol_table = _analyze_source(source)
         module_scope = symbol_table.lookup_module("m")
         data_sym = module_scope.lookup("data")
-        # Currently data is recorded as read-only at the call site produce(data)
-        # When Item 2.6 is implemented, data.is_written will be True
         assert data_sym.is_written, "Task output argument should be recorded as a write on actual parameter"
 
         rbw = ReadBeforeWriteRule()
         diags = rbw.run(symbol_table)
         assert not any(d["code"] == "READ_BEFORE_WRITE" and "data" in d["message"] for d in diags)
+
+    def test_task_formal_named_argument_output_direction(self):
+        """When a caller passes a variable via a named port connection (.out_data(data)),
+        the actual argument variable is correctly identified as written."""
+        source = """
+        module m;
+          reg [7:0] data;
+          reg [7:0] result;
+          task automatic produce(input [7:0] dummy, output reg [7:0] out_data);
+            out_data = dummy;
+          endtask
+          initial begin
+            produce(.out_data(data), .dummy(8'h12));
+            result = data;
+          end
+        endmodule
+        """
+        tree, symbol_table = _analyze_source(source)
+        module_scope = symbol_table.lookup_module("m")
+        data_sym = module_scope.lookup("data")
+        assert data_sym.is_written
+        assert data_sym.write_count == 1
+
+        rbw = ReadBeforeWriteRule()
+        diags = rbw.run(symbol_table)
+        assert not any(d["code"] == "READ_BEFORE_WRITE" and "data" in d["message"] for d in diags)
+
+    def test_task_formal_inout_direction_marks_read_and_write(self):
+        """Passing an identifier to an inout formal marks both read and write use events."""
+        source = """
+        module m;
+          reg [7:0] data;
+          task automatic modify(inout reg [7:0] io_data);
+            io_data = io_data + 8'd1;
+          endtask
+          initial begin
+            modify(data);
+          end
+        endmodule
+        """
+        tree, symbol_table = _analyze_source(source)
+        module_scope = symbol_table.lookup_module("m")
+        data_sym = module_scope.lookup("data")
+        assert data_sym.is_written
+        assert data_sym.write_count == 1
+        assert data_sym.read_count == 1
+
+    def test_task_formal_output_with_bit_select_preserves_selector_read(self):
+        """Passing arr[idx] to an output formal marks arr as written, while idx is marked as read."""
+        source = """
+        module m;
+          reg [7:0] arr [10];
+          reg [3:0] idx;
+          task automatic produce(output reg [7:0] out_data);
+            out_data = 8'hAA;
+          endtask
+          initial begin
+            produce(arr[idx]);
+          end
+        endmodule
+        """
+        tree, symbol_table = _analyze_source(source)
+        module_scope = symbol_table.lookup_module("m")
+        arr_sym = module_scope.lookup("arr")
+        idx_sym = module_scope.lookup("idx")
+        assert arr_sym.is_written
+        assert arr_sym.write_count == 1
+        assert arr_sym.read_count == 0
+        assert not idx_sym.is_written
+        assert idx_sym.read_count == 1
+
+    def test_forward_called_task_output_direction(self):
+        """When a task is defined after the procedural call site in source order,
+        the output direction is still resolved via AST container lookup."""
+        source = """
+        module m;
+          reg [7:0] data;
+          reg [7:0] result;
+          initial begin
+            produce(data);
+            result = data;
+          end
+          task automatic produce(output reg [7:0] out_data);
+            out_data = 8'h42;
+          endtask
+        endmodule
+        """
+        tree, symbol_table = _analyze_source(source)
+        module_scope = symbol_table.lookup_module("m")
+        data_sym = module_scope.lookup("data")
+        assert data_sym.is_written
+        assert data_sym.write_count == 1
+
+        rbw = ReadBeforeWriteRule()
+        diags = rbw.run(symbol_table)
+        assert not any(d["code"] == "READ_BEFORE_WRITE" and "data" in d["message"] for d in diags)
+
+    def test_package_task_output_direction_same_file_and_cross_file(self):
+        """Subroutines defined in packages propagate output directions both in same-file and cross-file runs."""
+        from tests.support.lint_harness import run_inline_lint_case
+
+        # 1. Same-file package task call
+        source = """
+        package my_pkg;
+          task automatic produce(output reg [7:0] out_data);
+            out_data = 8'h33;
+          endtask
+        endpackage
+
+        module m;
+          import my_pkg::*;
+          reg [7:0] data;
+          reg [7:0] result;
+          initial begin
+            produce(data);
+            result = data;
+          end
+        endmodule
+        """
+        tree, symbol_table = _analyze_source(source)
+        module_scope = symbol_table.lookup_module("m")
+        data_sym = module_scope.lookup("data")
+        assert data_sym.is_written
+        assert data_sym.write_count == 1
+
+        rbw = ReadBeforeWriteRule()
+        diags = rbw.run(symbol_table)
+        assert not any(d["code"] == "READ_BEFORE_WRITE" and "data" in d["message"] for d in diags)
+
+        # 2. Cross-file package task call via multi-worker lint harness
+        res = run_inline_lint_case({
+            "pkg.sv": """
+            package p;
+              task automatic produce(output reg [7:0] out_data);
+                out_data = 8'h42;
+              endtask
+            endpackage
+            """,
+            "top.sv": """
+            module top;
+              import p::*;
+              reg [7:0] data;
+              reg [7:0] res;
+              initial begin
+                produce(data);
+                res = data;
+              end
+            endmodule
+            """
+        })
+        res.expect_no_code("READ_BEFORE_WRITE")
+        res.expect_no_code("NO_UNDRIVEN_SIGNAL")

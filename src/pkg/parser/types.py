@@ -24,6 +24,8 @@ FunctionDeclarationNode: TypeAlias = sl.FunctionDeclarationSyntax
 ForLoopStatementNode: TypeAlias = sl.ForLoopStatementSyntax
 StructUnionTypeNode: TypeAlias = sl.StructUnionTypeSyntax
 LoopGenerateNode: TypeAlias = sl.LoopGenerateSyntax
+TypedefDeclarationNode: TypeAlias = sl.TypedefDeclarationSyntax
+ForwardTypedefDeclarationNode: TypeAlias = sl.ForwardTypedefDeclarationSyntax
 
 IdentifierNameNode: TypeAlias = sl.IdentifierNameSyntax
 IdentifierSelectNameNode: TypeAlias = sl.IdentifierSelectNameSyntax
@@ -57,6 +59,7 @@ __all__ = [
     "DeclaratorNode",
     "DefaultCaseItemNode",
     "ForLoopStatementNode",
+    "ForwardTypedefDeclarationNode",
     "FunctionDeclarationNode",
     "StructUnionTypeNode",
     "LoopGenerateNode",
@@ -80,4 +83,5 @@ __all__ = [
     "SyntaxTree",
     "SystemNameNode",
     "Token",
+    "TypedefDeclarationNode",
 ]
