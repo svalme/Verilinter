@@ -80,6 +80,9 @@ class LintCaseResult:
         )
 
 
+from src.pkg.engine import LintPipeline
+
+
 def _run_walked_files(
     file_inputs: list[tuple[str, sl.SyntaxTree]],
     *,
@@ -88,7 +91,7 @@ def _run_walked_files(
     allow_parse_errors: bool = False,
     selection: RuleSelection | None = None,
 ) -> LintCaseResult:
-    """Run already-parsed files through the real walker and rule runners.
+    """Run already-parsed files through the unified multi-phase LintPipeline.
 
     By default, a file with real parser errors fails loudly here rather than
     silently handing a parser-recovery AST to the walker: pyslang's recovery
@@ -100,30 +103,15 @@ def _run_walked_files(
     `selection` scopes diagnostics to a specific profile/category configuration
     (see `src/pkg/rules/rule_selection.py`); omitted, every registered rule runs.
     """
-    if jobs != 1:
-        raise NotImplementedError("lint case harness only supports sequential runs")
-
-    if not allow_parse_errors:
-        for file_name, tree in file_inputs:
-            assert_no_parse_errors(file_name, tree)
-
-    symbol_table = SymbolTable()
-    ctx = Context(scope=symbol_table.global_scope)
-    walker = Walker(dispatch)
-
-    for file_name, tree in file_inputs:
-        symbol_table.set_current_file(file_name)
-        symbol_table.set_current_file_default_nettype_none(
-            (default_nettype_none_by_file or {}).get(file_name, False)
-        )
-        walker.walk(tree.root, tree, ctx, symbol_table)
-
-    diagnostics = (
-        rule_runner.run(walker.results, selection)
-        + symbol_rule_runner.run(symbol_table, selection)
-        + module_rule_runner.run(symbol_table, selection)
+    pipeline = LintPipeline()
+    result = pipeline.analyze_trees(
+        file_inputs,
+        default_nettype_none_by_file=default_nettype_none_by_file,
+        allow_parse_errors=allow_parse_errors,
+        selection=selection,
+        jobs=jobs,
     )
-    return LintCaseResult(diagnostics=diagnostics)
+    return LintCaseResult(diagnostics=result.diagnostics)
 
 
 def run_inline_lint_case(
@@ -139,7 +127,13 @@ def run_inline_lint_case(
     even on environments where temporary-file creation is restricted.
     """
     file_inputs = [
-        (str(relative_path), sl.SyntaxTree.fromText(contents.strip() + "\n"))
+        (
+            str(relative_path),
+            sl.SyntaxTree.fromText(
+                contents.strip() + "\n",
+                name=str(relative_path),
+            ),
+        )
         for relative_path, contents in files.items()
     ]
     return _run_walked_files(
@@ -156,7 +150,13 @@ def run_inline_lint_case_spec(
 ) -> LintCaseResult:
     """Run inline HDL snippets with per-file metadata such as default_nettype state."""
     file_inputs = [
-        (str(relative_path), sl.SyntaxTree.fromText(file.contents.strip() + "\n"))
+        (
+            str(relative_path),
+            sl.SyntaxTree.fromText(
+                file.contents.strip() + "\n",
+                name=str(relative_path),
+            ),
+        )
         for relative_path, file in files.items()
     ]
     default_nettype_none_by_file = {

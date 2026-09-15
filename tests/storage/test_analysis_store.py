@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-import pkg.analysis_store as analysis_store_module
+try:
+    import src.pkg.analysis_store as analysis_store_module
+except ImportError:
+    import pkg.analysis_store as analysis_store_module
 from src.pkg.rules.rule_selection import RuleSelection
 import src.run_lint as run_lint_module
 from src.run_lint import analyze

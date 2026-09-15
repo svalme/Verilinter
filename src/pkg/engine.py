@@ -179,29 +179,56 @@ def _scan_packages(
         if extract_parse_diagnostics(tree, str(path)):
             continue
         walker.walk(tree.root, tree, ctx, symbol_table)
-        for name, scopes in symbol_table.packages.items():
-            for scope in scopes:
-                symbols = [
-                    {"name": symbol.name, "kind": symbol.kind}
-                    for symbol in scope.symbols.values()
-                    if symbol.is_declared and not symbol.is_implicit
-                ]
-                subroutines = [
-                    {
-                        "name": child.name,
-                        "kind": child.kind,
-                        "formals": [
-                            {"name": s.name, "direction": s.port_direction}
-                            for s in child.symbols.values()
-                            if s.is_port
-                        ],
-                    }
-                    for child in scope.children
-                    if child.kind in ("task", "function")
-                ]
-                registry.setdefault(name, []).append(
-                    {"file": str(path), "symbols": symbols, "subroutines": subroutines}
-                )
+        _record_packages_from_symbol_table(str(path), symbol_table, registry)
+    return registry
+
+
+def _record_packages_from_symbol_table(
+    file_path: str,
+    symbol_table: SymbolTable,
+    registry: dict[str, list[dict[str, Any]]],
+) -> None:
+    for name, scopes in symbol_table.packages.items():
+        for scope in scopes:
+            symbols = [
+                {"name": symbol.name, "kind": symbol.kind}
+                for symbol in scope.symbols.values()
+                if symbol.is_declared and not symbol.is_implicit
+            ]
+            subroutines = [
+                {
+                    "name": child.name,
+                    "kind": child.kind,
+                    "formals": [
+                        {"name": s.name, "direction": s.port_direction}
+                        for s in child.symbols.values()
+                        if s.is_port
+                    ],
+                }
+                for child in scope.children
+                if child.kind in ("task", "function")
+            ]
+            registry.setdefault(name, []).append(
+                {"file": file_path, "symbols": symbols, "subroutines": subroutines}
+            )
+
+
+def _scan_packages_from_trees(
+    file_inputs: Sequence[tuple[str, Any]],
+    default_nettype_none_by_file: dict[str, bool] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    registry: dict[str, list[dict[str, Any]]] = {}
+    _Walker = _get_override("Walker", Walker)
+    for file_name, tree in file_inputs:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = _Walker(dispatch)
+        symbol_table.set_current_file(file_name)
+        symbol_table.set_current_file_default_nettype_none(
+            (default_nettype_none_by_file or {}).get(file_name, False)
+        )
+        walker.walk(tree.root, tree, ctx, symbol_table)
+        _record_packages_from_symbol_table(file_name, symbol_table, registry)
     return registry
 
 
@@ -277,18 +304,21 @@ def _seed_cross_file_packages(
             symbol_table.packages.setdefault(name, []).append(scope)
 
 
-def _lint_single_file(
-    path: str,
-    rule_selection: RuleSelection | None,
-    include_dirs: list[str] | None = None,
+def _lint_single_tree(
+    file_name: str,
+    tree: Any,
+    rule_selection: RuleSelection | None = None,
     package_registry: dict[str, list[dict[str, Any]]] | None = None,
-    defines: Sequence[str] | None = None,
+    default_nettype_none: bool = False,
+    header_dependencies: list[dict[str, str]] | None = None,
+    rule_runner_inst: Any = None,
+    symbol_rule_runner_inst: Any = None,
 ) -> WorkerResult:
     _Walker = _get_override("Walker", Walker)
-    _parse_file = _get_override("parse_file", parse_file)
-    _file_uses_default_nettype_none = _get_override("file_uses_default_nettype_none", file_uses_default_nettype_none)
-    _rule_runner = _get_override("rule_runner", rule_runner)
-    _symbol_rule_runner = _get_override("symbol_rule_runner", symbol_rule_runner)
+    _rule_runner = rule_runner_inst or _get_override("rule_runner", rule_runner)
+    _symbol_rule_runner = symbol_rule_runner_inst or _get_override(
+        "symbol_rule_runner", symbol_rule_runner
+    )
 
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
@@ -298,22 +328,10 @@ def _lint_single_file(
     def on_node(vnode: object, node_ctx: object) -> None:
         ast_diagnostics.extend(_rule_runner.check(vnode, node_ctx, rule_selection))
 
-    symbol_table.set_current_file(path)
-    symbol_table.set_current_file_default_nettype_none(_file_uses_default_nettype_none(path))
-    _seed_cross_file_packages(symbol_table, package_registry, path)
-    tree = _call_parse_file(_parse_file, path, include_dirs=include_dirs, defines=defines)
-    header_dependencies = extract_header_dependencies(tree)
-    parse_errors = extract_parse_diagnostics(tree, path)
-    if parse_errors:
-        return WorkerResult(
-            diagnostics=parse_errors,
-            modules=[],
-            primitives=[],
-            module_references=[],
-            instantiation_edges=[],
-            instantiations=[],
-            header_dependencies=header_dependencies,
-        )
+    symbol_table.set_current_file(file_name)
+    symbol_table.set_current_file_default_nettype_none(default_nettype_none)
+    _seed_cross_file_packages(symbol_table, package_registry, file_name)
+
     walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
 
     modules: list[dict[str, Any]] = []
@@ -364,6 +382,42 @@ def _lint_single_file(
         module_references=list(symbol_table.module_references),
         instantiation_edges=list(symbol_table.instantiation_edges),
         instantiations=list(symbol_table.instantiations),
+        header_dependencies=header_dependencies or [],
+    )
+
+
+def _lint_single_file(
+    path: str,
+    rule_selection: RuleSelection | None,
+    include_dirs: list[str] | None = None,
+    package_registry: dict[str, list[dict[str, Any]]] | None = None,
+    defines: Sequence[str] | None = None,
+) -> WorkerResult:
+    _parse_file = _get_override("parse_file", parse_file)
+    _file_uses_default_nettype_none = _get_override(
+        "file_uses_default_nettype_none", file_uses_default_nettype_none
+    )
+
+    tree = _call_parse_file(_parse_file, path, include_dirs=include_dirs, defines=defines)
+    header_dependencies = extract_header_dependencies(tree)
+    parse_errors = extract_parse_diagnostics(tree, path)
+    if parse_errors:
+        return WorkerResult(
+            diagnostics=parse_errors,
+            modules=[],
+            primitives=[],
+            module_references=[],
+            instantiation_edges=[],
+            instantiations=[],
+            header_dependencies=header_dependencies,
+        )
+
+    return _lint_single_tree(
+        file_name=path,
+        tree=tree,
+        rule_selection=rule_selection,
+        package_registry=package_registry,
+        default_nettype_none=_file_uses_default_nettype_none(path),
         header_dependencies=header_dependencies,
     )
 
@@ -374,7 +428,7 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
     for result in results:
         for module in result.modules:
             location = dict(module["location"])
-            if module.get("file") and "file" not in location:
+            if module.get("file"):
                 location["file"] = module["file"]
             scope = Scope(kind="module", name=module["name"], location=location)
             scope.file = module.get("file")
@@ -491,6 +545,234 @@ def run(
     ).diagnostics
 
 
+class LintPipeline:
+    """Unified multi-phase analysis pipeline shared between production and test harnesses.
+
+    Executes identical analysis phases:
+    1. Scan package declarations across all inputs to build package_registry.
+    2. Execute isolated per-file workers (each with its own SymbolTable).
+    3. Validate serialization / deserialization boundary of WorkerResult payloads.
+    4. Aggregate cross-file SymbolTable from WorkerResult records.
+    5. Execute cross-file module rules (ModuleRuleRunner) on the aggregated SymbolTable.
+    6. Aggregate, enrich, and sort diagnostics.
+    """
+
+    def __init__(
+        self,
+        rule_runner: Any = None,
+        symbol_rule_runner: Any = None,
+        module_rule_runner: Any = None,
+    ) -> None:
+        self._rule_runner = rule_runner
+        self._symbol_rule_runner = symbol_rule_runner
+        self._module_rule_runner = module_rule_runner
+
+    def analyze_trees(
+        self,
+        file_inputs: Sequence[tuple[str, Any]],
+        *,
+        default_nettype_none_by_file: dict[str, bool] | None = None,
+        allow_parse_errors: bool = False,
+        selection: RuleSelection | None = None,
+        jobs: int = 1,
+    ) -> AnalysisResult:
+        if jobs != 1:
+            raise NotImplementedError("In-memory tree linting only supports sequential execution")
+
+        if not allow_parse_errors:
+            for file_name, tree in file_inputs:
+                errs = extract_parse_diagnostics(tree, file_name)
+                if errs:
+                    formatted = [f"{e['line']}:{e['col']}: {e['message']}" for e in errs]
+                    raise AssertionError(
+                        f"Unexpected parser errors in {file_name}:\n  " + "\n  ".join(formatted)
+                    )
+
+        # Phase 1: Scan packages across all input trees
+        package_registry = _scan_packages_from_trees(
+            file_inputs, default_nettype_none_by_file=default_nettype_none_by_file
+        )
+
+        # Phase 2: Isolated per-file worker linting
+        worker_results: list[WorkerResult] = []
+        for file_name, tree in file_inputs:
+            parse_errors = extract_parse_diagnostics(tree, file_name)
+            if parse_errors and not allow_parse_errors:
+                res = WorkerResult(
+                    diagnostics=parse_errors,
+                    modules=[],
+                    primitives=[],
+                    module_references=[],
+                    instantiation_edges=[],
+                    instantiations=[],
+                    header_dependencies=[],
+                )
+            else:
+                res = _lint_single_tree(
+                    file_name=file_name,
+                    tree=tree,
+                    rule_selection=selection,
+                    package_registry=package_registry,
+                    default_nettype_none=(default_nettype_none_by_file or {}).get(file_name, False),
+                    rule_runner_inst=self._rule_runner,
+                    symbol_rule_runner_inst=self._symbol_rule_runner,
+                )
+                if parse_errors and allow_parse_errors:
+                    res = WorkerResult(
+                        diagnostics=parse_errors + res.diagnostics,
+                        modules=res.modules,
+                        primitives=res.primitives,
+                        module_references=res.module_references,
+                        instantiation_edges=res.instantiation_edges,
+                        instantiations=res.instantiations,
+                        header_dependencies=res.header_dependencies,
+                    )
+
+            # Phase 3: Serialization / Deserialization boundary round-trip
+            payload = asdict(res)
+            res = _worker_result_from_payload(payload)
+            worker_results.append(res)
+
+        # Phase 4: Cross-file symbol table aggregation
+        cross_file_symbol_table = _build_cross_file_symbol_table(worker_results)
+
+        # Phase 5: Cross-file module rules
+        _mod_runner = self._module_rule_runner or _get_override("module_rule_runner", module_rule_runner)
+        module_diagnostics = _mod_runner.run(cross_file_symbol_table, selection)
+
+        # Phase 6: Diagnostics aggregation
+        diagnostics: list[dict[str, Any]] = []
+        for w_res in worker_results:
+            diagnostics.extend(w_res.diagnostics)
+        diagnostics.extend(module_diagnostics)
+        diagnostics = sort_diagnostics(diagnostics)
+
+        return AnalysisResult(
+            diagnostics=diagnostics,
+            symbol_table=cross_file_symbol_table,
+        )
+
+    def analyze_paths(
+        self,
+        paths: list[Path],
+        jobs: int = 1,
+        rule_selection: RuleSelection | None = None,
+        rule_profile: str | None = None,
+        severity_overrides: dict[str, str] | None = None,
+        baseline_path: Path | None = None,
+        store_path: Path | None = None,
+        use_cache: bool = True,
+        fmt: str = "text",
+        report_kind: str | None = None,
+        include_dirs: list[str] | None = None,
+        defines: Sequence[str] | None = None,
+    ) -> AnalysisResult:
+        if jobs < 1:
+            raise ValueError(f"jobs must be >= 1, got {jobs}")
+
+        resolved_selection = _build_rule_selection(rule_selection, rule_profile)
+        normalized_defines = [str(d) for d in defines] if defines is not None else None
+
+        for path in paths:
+            if not path.exists():
+                raise FileNotFoundError(f"file not found: {path}")
+
+        package_registry = _scan_packages(paths, include_dirs, defines=normalized_defines)
+        package_registry_fingerprint = _fingerprint_package_registry(package_registry)
+
+        store = AnalysisStore(store_path) if store_path is not None else None
+        file_records: list[dict[str, Any]] = []
+        results_by_path: dict[str, WorkerResult] = {}
+        missed_paths: list[Path] = []
+        cache_hits = 0
+
+        if store is not None:
+            for path in paths:
+                file_hash = file_sha256(path)
+                payload = (
+                    store.load_cached_worker_result(
+                        file_path=str(path),
+                        file_hash=file_hash,
+                        rule_selection=resolved_selection,
+                        include_dirs=include_dirs,
+                        package_registry_fingerprint=package_registry_fingerprint,
+                        defines=normalized_defines,
+                    )
+                    if use_cache
+                    else None
+                )
+                if payload is not None:
+                    results_by_path[str(path)] = _worker_result_from_payload(payload)
+                    cache_hits += 1
+                    file_records.append(
+                        {"file_path": str(path), "file_hash": file_hash, "cache_hit": True}
+                    )
+                else:
+                    missed_paths.append(path)
+                    file_records.append(
+                        {"file_path": str(path), "file_hash": file_hash, "cache_hit": False}
+                    )
+        else:
+            missed_paths = list(paths)
+
+        fresh_results = (
+            _run_workers(
+                missed_paths,
+                jobs,
+                resolved_selection,
+                include_dirs,
+                package_registry,
+                defines=normalized_defines,
+            )
+            if missed_paths
+            else []
+        )
+        for path, result in zip(missed_paths, fresh_results):
+            results_by_path[str(path)] = result
+            if store is not None:
+                store.store_cached_worker_result(
+                    file_path=str(path),
+                    file_hash=file_sha256(path),
+                    rule_selection=resolved_selection,
+                    worker_result=asdict(result),
+                    include_dirs=include_dirs,
+                    package_registry_fingerprint=package_registry_fingerprint,
+                    defines=normalized_defines,
+                    header_dependencies=result.header_dependencies,
+                )
+
+        results = [results_by_path[str(path)] for path in paths]
+        diagnostics: list[dict[str, Any]] = []
+        for result in results:
+            diagnostics.extend(result.diagnostics)
+
+        cross_file_symbol_table = _build_cross_file_symbol_table(results)
+        _mod_runner = self._module_rule_runner or _get_override("module_rule_runner", module_rule_runner)
+        diagnostics.extend(_mod_runner.run(cross_file_symbol_table, resolved_selection))
+        diagnostics = enrich_diagnostics(diagnostics, severity_overrides)
+        diagnostics = sort_diagnostics(diagnostics)
+        diagnostics = filter_by_baseline(diagnostics, baseline_path)
+        if store is not None:
+            store.record_run(
+                cwd=str(Path.cwd()),
+                fmt=fmt,
+                report_kind=report_kind,
+                jobs=jobs,
+                rule_selection=resolved_selection,
+                baseline_path=str(baseline_path) if baseline_path is not None else None,
+                file_records=file_records,
+                diagnostics=diagnostics,
+                symbol_table=cross_file_symbol_table,
+            )
+        return AnalysisResult(
+            diagnostics=diagnostics,
+            symbol_table=cross_file_symbol_table,
+            cache_stats={"hits": cache_hits, "misses": len(paths) - cache_hits}
+            if store is not None
+            else None,
+        )
+
+
 def analyze(
     paths: list[Path],
     jobs: int = 1,
@@ -505,102 +787,17 @@ def analyze(
     include_dirs: list[str] | None = None,
     defines: Sequence[str] | None = None,
 ) -> AnalysisResult:
-    if jobs < 1:
-        raise ValueError(f"jobs must be >= 1, got {jobs}")
-
-    resolved_selection = _build_rule_selection(rule_selection, rule_profile)
-    normalized_defines = [str(d) for d in defines] if defines is not None else None
-
-    for path in paths:
-        if not path.exists():
-            raise FileNotFoundError(f"file not found: {path}")
-
-    # Must run before any cache lookup: a cached per-file result was resolved
-    # against a specific corpus-wide set of package declarations (see
-    # `_scan_packages`'s docstring), so the fingerprint below has to be part of
-    # the cache key even on a full cache hit.
-    package_registry = _scan_packages(paths, include_dirs, defines=normalized_defines)
-    package_registry_fingerprint = _fingerprint_package_registry(package_registry)
-
-    store = AnalysisStore(store_path) if store_path is not None else None
-    file_records: list[dict[str, Any]] = []
-    results_by_path: dict[str, WorkerResult] = {}
-    missed_paths: list[Path] = []
-    cache_hits = 0
-
-    if store is not None:
-        for path in paths:
-            file_hash = file_sha256(path)
-            payload = (
-                store.load_cached_worker_result(
-                    file_path=str(path),
-                    file_hash=file_hash,
-                    rule_selection=resolved_selection,
-                    include_dirs=include_dirs,
-                    package_registry_fingerprint=package_registry_fingerprint,
-                    defines=normalized_defines,
-                )
-                if use_cache
-                else None
-            )
-            if payload is not None:
-                results_by_path[str(path)] = _worker_result_from_payload(payload)
-                cache_hits += 1
-                file_records.append(
-                    {"file_path": str(path), "file_hash": file_hash, "cache_hit": True}
-                )
-            else:
-                missed_paths.append(path)
-                file_records.append(
-                    {"file_path": str(path), "file_hash": file_hash, "cache_hit": False}
-                )
-    else:
-        missed_paths = list(paths)
-
-    fresh_results = (
-        _run_workers(missed_paths, jobs, resolved_selection, include_dirs, package_registry, defines=normalized_defines)
-        if missed_paths
-        else []
-    )
-    for path, result in zip(missed_paths, fresh_results):
-        results_by_path[str(path)] = result
-        if store is not None:
-            store.store_cached_worker_result(
-                file_path=str(path),
-                file_hash=file_sha256(path),
-                rule_selection=resolved_selection,
-                worker_result=asdict(result),
-                include_dirs=include_dirs,
-                package_registry_fingerprint=package_registry_fingerprint,
-                defines=normalized_defines,
-                header_dependencies=result.header_dependencies,
-            )
-
-    results = [results_by_path[str(path)] for path in paths]
-    diagnostics: list[dict[str, Any]] = []
-    for result in results:
-        diagnostics.extend(result.diagnostics)
-
-    cross_file_symbol_table = _build_cross_file_symbol_table(results)
-    _module_rule_runner = _get_override("module_rule_runner", module_rule_runner)
-    diagnostics.extend(_module_rule_runner.run(cross_file_symbol_table, resolved_selection))
-    diagnostics = enrich_diagnostics(diagnostics, severity_overrides)
-    diagnostics = sort_diagnostics(diagnostics)
-    diagnostics = filter_by_baseline(diagnostics, baseline_path)
-    if store is not None:
-        store.record_run(
-            cwd=str(Path.cwd()),
-            fmt=fmt,
-            report_kind=report_kind,
-            jobs=jobs,
-            rule_selection=resolved_selection,
-            baseline_path=str(baseline_path) if baseline_path is not None else None,
-            file_records=file_records,
-            diagnostics=diagnostics,
-            symbol_table=cross_file_symbol_table,
-        )
-    return AnalysisResult(
-        diagnostics=diagnostics,
-        symbol_table=cross_file_symbol_table,
-        cache_stats={"hits": cache_hits, "misses": len(paths) - cache_hits} if store is not None else None,
+    return LintPipeline().analyze_paths(
+        paths=paths,
+        jobs=jobs,
+        rule_selection=rule_selection,
+        rule_profile=rule_profile,
+        severity_overrides=severity_overrides,
+        baseline_path=baseline_path,
+        store_path=store_path,
+        use_cache=use_cache,
+        fmt=fmt,
+        report_kind=report_kind,
+        include_dirs=include_dirs,
+        defines=defines,
     )

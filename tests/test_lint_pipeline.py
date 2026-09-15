@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any
+import pytest
+import pyslang as sl
+
+from src.pkg.engine import (
+    LintPipeline,
+    WorkerResult,
+    _worker_result_from_payload,
+)
+from src.pkg.rules.rule_runner import RuleRunner
+from src.pkg.rules.rule_selection import RuleSelection
+from src.pkg.rules.symbol_rule_runner import SymbolRuleRunner
+from src.pkg.rules.module_rule_runner import ModuleRuleRunner
+from src.pkg.rules.base_rule import Rule
+from src.pkg.rules.base_symbol_rule import BaseSymbolRule
+from src.pkg.semantic.models import InstanceRecord, PortConnection, ParameterOverride
+from src.pkg.semantic.symbol_table import SymbolTable
+
+
+class TestLintPipeline:
+    def test_pipeline_isolates_worker_scopes(self) -> None:
+        """Verify that per-file workers run in completely isolated SymbolTables."""
+        file_inputs = [
+            ("file_a.sv", sl.SyntaxTree.fromText("module mod_a;\n  logic [7:0] sig_a;\nendmodule\n")),
+            ("file_b.sv", sl.SyntaxTree.fromText("module mod_b;\n  logic [7:0] sig_b;\nendmodule\n")),
+        ]
+        pipeline = LintPipeline()
+        result = pipeline.analyze_trees(file_inputs)
+
+        # Cross file symbol table has both modules
+        assert "mod_a" in result.symbol_table.modules
+        assert "mod_b" in result.symbol_table.modules
+
+        scope_a = result.symbol_table.modules["mod_a"][0]
+        scope_b = result.symbol_table.modules["mod_b"][0]
+
+        # Scope A only knows about sig_a, Scope B only knows about sig_b
+        assert "sig_a" in scope_a.symbols
+        assert "sig_b" not in scope_a.symbols
+        assert "sig_b" in scope_b.symbols
+        assert "sig_a" not in scope_b.symbols
+
+    def test_pipeline_cross_file_package_scanning_and_seeding(self) -> None:
+        """Phase 1 package scanning discovers pkg in pkg.sv and seeds it for top.sv."""
+        file_inputs = [
+            (
+                "pkg.sv",
+                sl.SyntaxTree.fromText(
+                    "package common_pkg;\n  parameter int DATA_WIDTH = 16;\nendpackage\n"
+                ),
+            ),
+            (
+                "top.sv",
+                sl.SyntaxTree.fromText(
+                    "module top;\n  import common_pkg::*;\n  logic [DATA_WIDTH-1:0] bus;\nendmodule\n"
+                ),
+            ),
+        ]
+        pipeline = LintPipeline()
+        result = pipeline.analyze_trees(file_inputs)
+
+        # No implicit net should be reported because DATA_WIDTH was seeded from common_pkg
+        assert not any(d.get("code") == "NO_IMPLICIT_NET" for d in result.diagnostics)
+
+    def test_pipeline_cross_file_module_rules_execution(self) -> None:
+        """Phase 4 & 5 executes module rules (such as DUPLICATE_MODULE) across files."""
+        file_inputs = [
+            ("a.sv", sl.SyntaxTree.fromText("module duplicate_mod;\nendmodule\n")),
+            ("b.sv", sl.SyntaxTree.fromText("module duplicate_mod;\nendmodule\n")),
+        ]
+        pipeline = LintPipeline()
+        result = pipeline.analyze_trees(file_inputs)
+
+        duplicate_diags = [d for d in result.diagnostics if d.get("code") == "DUPLICATE_MODULE"]
+        assert len(duplicate_diags) == 1
+        assert "duplicate_mod" in duplicate_diags[0]["message"]
+        assert duplicate_diags[0]["file"] == "b.sv"
+
+    def test_pipeline_worker_result_serialization_roundtrip(self) -> None:
+        """Validate that all WorkerResult structures survive serialization and deserialization."""
+        inst = InstanceRecord(
+            parent_module="parent",
+            child_module="child",
+            instance_name="u_child",
+            location={"file": "top.sv", "line": 10, "col": 5},
+            connection_style="named",
+            connections=[
+                PortConnection(
+                    kind="named",
+                    location={"file": "top.sv", "line": 11, "col": 7},
+                    port_name="clk",
+                    expr_text="sys_clk",
+                    expr_name="sys_clk",
+                    expr_width=1,
+                    expr_signed=False,
+                )
+            ],
+            parameter_override_style="named",
+            parameter_overrides=[
+                ParameterOverride(
+                    kind="named",
+                    location={"file": "top.sv", "line": 10, "col": 15},
+                    param_name="WIDTH",
+                )
+            ],
+            generate_branch_signature=(("gen_if", 0),),
+        )
+
+        original = WorkerResult(
+            diagnostics=[{"code": "TEST", "line": 1, "col": 1, "message": "msg", "file": "top.sv"}],
+            modules=[
+                {
+                    "name": "parent",
+                    "file": "top.sv",
+                    "location": {"line": 1, "col": 1, "file": "top.sv"},
+                    "symbols": [{"name": "sys_clk", "kind": "wire", "is_port": True}],
+                }
+            ],
+            primitives=["udp_gate"],
+            module_references=[("child", {"file": "top.sv", "line": 10, "col": 5})],
+            instantiation_edges=[("parent", "child", {"file": "top.sv", "line": 10, "col": 5})],
+            instantiations=[inst],
+            header_dependencies=[{"include_name": "defs.svh", "resolved_path": "inc/defs.svh"}],
+        )
+
+        payload = asdict(original)
+        deserialized = _worker_result_from_payload(payload)
+
+        assert deserialized.diagnostics == original.diagnostics
+        assert deserialized.modules == original.modules
+        assert deserialized.primitives == original.primitives
+        assert deserialized.module_references == original.module_references
+        assert deserialized.instantiation_edges == original.instantiation_edges
+        assert deserialized.header_dependencies == original.header_dependencies
+        assert len(deserialized.instantiations) == 1
+
+        deserialized_inst = deserialized.instantiations[0]
+        assert isinstance(deserialized_inst, InstanceRecord)
+        assert deserialized_inst.instance_name == "u_child"
+        assert deserialized_inst.connections[0].port_name == "clk"
+        assert deserialized_inst.parameter_overrides[0].param_name == "WIDTH"
+        assert deserialized_inst.generate_branch_signature == (("gen_if", 0),)
+
+    def test_pipeline_custom_runners_injection(self) -> None:
+        """Verify that custom rule runners can be injected into LintPipeline."""
+        class CustomRule(Rule):
+            code = "CUSTOM_AST"
+            message = "custom ast violation"
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return getattr(vnode, "identifier_name", None) == "flag_me"
+
+        class CustomModuleRule(BaseSymbolRule):
+            code = "CUSTOM_MOD"
+            message = "custom module violation"
+
+            def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
+                return [{"code": self.code, "message": self.message, "line": 1, "col": 1, "file": "test.sv"}]
+
+        custom_rule_runner = RuleRunner(rules=[CustomRule()])
+        custom_module_runner = ModuleRuleRunner(rules=[CustomModuleRule()])
+
+        pipeline = LintPipeline(
+            rule_runner=custom_rule_runner,
+            module_rule_runner=custom_module_runner,
+        )
+
+        file_inputs = [
+            ("test.sv", sl.SyntaxTree.fromText("module test;\n  logic flag_me;\n  assign flag_me = 1'b0;\nendmodule\n")),
+        ]
+        result = pipeline.analyze_trees(file_inputs)
+
+        codes = {d["code"] for d in result.diagnostics}
+        assert "CUSTOM_AST" in codes
+        assert "CUSTOM_MOD" in codes

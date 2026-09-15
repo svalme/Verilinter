@@ -6,21 +6,38 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from pkg.analysis_store import AnalysisStore
-from pkg.config import LintConfig, config_from_cli, find_default_config, load_config, merge_config
-from pkg.diagnostics import write_baseline
-from pkg.engine import (
-    AnalysisResult,
-    WorkerResult,
-    analyze,
-    collect_paths,
-    run,
-)
-from pkg.output import render_connection_report, render_diagnostics
-from pkg.parser.parse import extract_parse_diagnostics, file_uses_default_nettype_none, parse_file
-from pkg.rules.profiles import available_rule_profiles
-from pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
-from pkg.walk.walker import Walker
+try:
+    from src.pkg.analysis_store import AnalysisStore
+    from src.pkg.config import LintConfig, config_from_cli, find_default_config, load_config, merge_config
+    from src.pkg.diagnostics import write_baseline
+    from src.pkg.engine import (
+        AnalysisResult,
+        WorkerResult,
+        analyze,
+        collect_paths,
+        run,
+    )
+    from src.pkg.output import render_connection_report, render_diagnostics
+    from src.pkg.parser.parse import extract_parse_diagnostics, file_uses_default_nettype_none, parse_file
+    from src.pkg.rules.profiles import available_rule_profiles
+    from src.pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
+    from src.pkg.walk.walker import Walker
+except ImportError:
+    from pkg.analysis_store import AnalysisStore
+    from pkg.config import LintConfig, config_from_cli, find_default_config, load_config, merge_config
+    from pkg.diagnostics import write_baseline
+    from pkg.engine import (
+        AnalysisResult,
+        WorkerResult,
+        analyze,
+        collect_paths,
+        run,
+    )
+    from pkg.output import render_connection_report, render_diagnostics
+    from pkg.parser.parse import extract_parse_diagnostics, file_uses_default_nettype_none, parse_file
+    from pkg.rules.profiles import available_rule_profiles
+    from pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
+    from pkg.walk.walker import Walker
 
 __all__ = [
     "AnalysisResult",
