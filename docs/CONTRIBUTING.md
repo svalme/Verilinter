@@ -4,7 +4,7 @@ This file is the coding-style reference for Verilinter.
 
 Read alongside:
 
-- [README.md](README.md) — what the project is, how to run it
+- [README.md](../README.md) — what the project is, how to run it
 - [RULES.md](RULES.md) — the rule catalog
 - [RULE_IMPLEMENTATION.md](RULE_IMPLEMENTATION.md) — how rules are wired (handlers, parser helpers, shared facts)
 

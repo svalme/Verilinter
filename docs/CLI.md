@@ -137,6 +137,23 @@ Repeat the flag to add multiple directories.
 verilinter -I include/ -I common/headers/ tests/data
 ```
 
+### `--exclude PATTERN`
+
+Skip files matching the given glob pattern (matched against the file path from the right, e.g. `*_tb.v` or `vendor/*`).
+Repeat the flag to exclude multiple patterns.
+
+```bash
+verilinter --exclude "*_tb.v" --exclude "testbench/*" tests/data
+```
+
+### Response Files (`@file`)
+
+Pass a file containing arguments prefixed with `@`. Arguments in the file are expanded as if typed directly on the command line:
+
+```bash
+verilinter @run_args.rsp
+```
+
 ### `--exit-zero`
 
 Always exit with status code `0`, even when rule errors, rule warnings, or parser errors are detected.

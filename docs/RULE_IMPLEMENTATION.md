@@ -31,10 +31,8 @@ category (`combinational_logic`, `sequential_logic`, `clock_and_reset`, `latches
 `arrays_and_indexing`, `parameters_and_generate_logic`, `simulation_vs_synthesis`,
 `unused_and_dead_code`, `naming_and_style`, `maintainability_and_complexity`,
 `assertions_and_verification`, `declarations_and_types`, `width_and_signedness`,
-`syntax_and_structure`, `operators_and_expressions` — plus `fsms`,
-`race_conditions`, and `security_and_safety`, currently unused since no rule fits
-them yet). Tests mirror this under
-`tests/rules/<category>/`.
+`syntax_and_structure`, `operators_and_expressions`, `fsms` — plus
+`race_conditions` and `security_and_safety` (currently deferred beyond MVP). Tests mirror this under `tests/rules/<category>/`.
 
 This is a docs/discoverability grouping, not the implementation-shape split
 described below (`Rule` vs `BaseSymbolRule`) and not the policy-metadata
