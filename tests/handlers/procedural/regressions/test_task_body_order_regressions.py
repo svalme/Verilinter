@@ -321,3 +321,25 @@ class TestTaskBodyDriverRegressions:
         })
         res.expect_no_code("READ_BEFORE_WRITE")
         res.expect_no_code("NO_UNDRIVEN_SIGNAL")
+
+    def test_function_return_symbol_excluded_from_formal_directions(self):
+        """A function's internal return symbol (same name as function) must not be treated as formal argument 0,
+        ensuring actual arguments passed to the function are recognized with their declared formal direction (e.g. input)
+        and not falsely flagged as writes."""
+        source = """
+        package p;
+          function automatic logic [7:0] compute(logic [7:0] in_val);
+            return in_val + 8'd1;
+          endfunction
+        endpackage
+        module top(input logic [7:0] in_sig, output logic [7:0] out_sig);
+          import p::*;
+          assign out_sig = compute(in_sig);
+        endmodule
+        """
+        tree, symbol_table = _analyze_source(source)
+        top_scope = symbol_table.lookup_module("top")
+        in_sig = top_scope.lookup("in_sig")
+        assert not in_sig.is_written, "Function input parameter must not be recorded as a write"
+        assert in_sig.read_count == 1
+

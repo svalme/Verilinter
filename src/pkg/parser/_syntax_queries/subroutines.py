@@ -115,7 +115,11 @@ def subroutine_formal_direction(
         if pkg_scope is not None:
             for child in pkg_scope.children:
                 if child.kind in ("task", "function") and child.name == callee_name:
-                    formals = [(s.name, s.port_direction or "input") for s in child.symbols.values() if s.is_port]
+                    formals = [
+                        (s.name, s.port_direction or "input")
+                        for s in child.symbols.values()
+                        if s.is_port and s.name != child.name
+                    ]
                     break
     else:
         # Search from current scope upwards (module, block, etc.)
@@ -123,7 +127,11 @@ def subroutine_formal_direction(
         while scope is not None and formals is None:
             for child in scope.children:
                 if child.kind in ("task", "function") and child.name == callee_name:
-                    formals = [(s.name, s.port_direction or "input") for s in child.symbols.values() if s.is_port]
+                    formals = [
+                        (s.name, s.port_direction or "input")
+                        for s in child.symbols.values()
+                        if s.is_port and s.name != child.name
+                    ]
                     break
             # Also check imported packages for this scope
             for pkg_name, imported_name in scope.imports:
@@ -132,7 +140,11 @@ def subroutine_formal_direction(
                 for pkg_scope in symbol_table.packages.get(pkg_name, ()):
                     for child in pkg_scope.children:
                         if child.kind in ("task", "function") and child.name == callee_name:
-                            formals = [(s.name, s.port_direction or "input") for s in child.symbols.values() if s.is_port]
+                            formals = [
+                                (s.name, s.port_direction or "input")
+                                for s in child.symbols.values()
+                                if s.is_port and s.name != child.name
+                            ]
                             break
                     if formals is not None:
                         break
