@@ -10,13 +10,6 @@ A fixture referenced from several test files is exercised by all of them at once
 
 This is a textual scan for literal filename references, so it misses tests that discover fixtures dynamically instead of naming them. Known gaps not reflected below: `tests/test_fixture_validity.py` parses every file in `tests/data/` regardless of name, and `tests/test_run_lint.py`'s `test_collect_paths_deduplicates_overlapping_inputs` / `test_run_does_not_duplicate_diagnostics_for_overlapping_inputs` pass the whole `tests/data` directory to the linter, exercising every fixture in it.
 
-## Unreferenced fixtures (2)
-
-Not read by any test file. Confirm before deleting -- a fixture can still be referenced indirectly (for example, listed by name in documentation) without appearing here.
-
-- `tests/data/new_syntax_rules.v`
-- `tests/data/undefined_module_ref.v`
-
 ## All fixtures
 
 | Fixture | Used by | Referencing tests |
@@ -88,7 +81,6 @@ Not read by any test file. Confirm before deleting -- a fixture can still be ref
 | `tests/data/multiple_drivers.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/multiple_nonblocking_writes.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/named_type_reference.sv` | 2 | `tests/cli/test_run_lint.py`<br>`tests/handlers/identifier/integration/test_identifier_handler_integration.py` |
-| `tests/data/new_syntax_rules.v` | 0 | - |
 | `tests/data/nonblocking_combinational.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/one_module_per_file.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/package_declaration.sv` | 2 | `tests/cli/test_run_lint.py`<br>`tests/rules/overlap/test_rule_overlap_harness.py` |
@@ -119,7 +111,6 @@ Not read by any test file. Confirm before deleting -- a fixture can still be ref
 | `tests/data/tranif_rtranif.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/trireg.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/undefined_module_param_override.sv` | 2 | `tests/cli/test_run_lint.py`<br>`tests/rules/test_connection_rules.py` |
-| `tests/data/undefined_module_ref.v` | 0 | - |
 | `tests/data/undriven_signal.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/unique0_case.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/unique0_if.v` | 1 | `tests/cli/test_run_lint.py` |
