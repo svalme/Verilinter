@@ -78,7 +78,7 @@ def test_transitive_include_edit_does_not_reuse_stale_findings():
 
 
 def test_include_search_order_is_part_of_cache_key():
-    from pkg.analysis_store import selection_key
+    from src.pkg.analysis_store import selection_key
     assert selection_key(None, ["a", "b"]) != selection_key(None, ["b", "a"])
 
 

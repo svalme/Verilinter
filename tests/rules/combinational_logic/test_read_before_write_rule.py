@@ -406,3 +406,64 @@ class TestReadBeforeWriteRule:
 
         diagnostics = rule.run(symbol_table)
         assert not any("'i'" in d["message"] for d in diagnostics)
+
+    def test_adversarial_read_in_if_branch_before_write_in_else_branch(
+        self, rule: ReadBeforeWriteRule
+    ) -> None:
+        """`tmp` is read in the `if` branch before any write has occurred in that block;
+        the write only happens later in the `else` branch. This is an uninitialized read
+        hazard on the `if` path."""
+        code = """
+        module top(input logic c, in, output logic out);
+          logic tmp;
+          always @* begin
+            if (c) begin
+              out = tmp;
+            end else begin
+              tmp = in;
+              out = tmp;
+            end
+          end
+        endmodule
+        """
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(code)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+        assert any("'tmp'" in d["message"] for d in diagnostics)
+
+    def test_unconditional_preassignment_before_branch_prevents_read_before_write(
+        self, rule: ReadBeforeWriteRule
+    ) -> None:
+        """`tmp` is unconditionally assigned before the conditional branches, so subsequent
+        reads in either branch are safe from read-before-write hazards."""
+        code = """
+        module top(input logic c, in, output logic out);
+          logic tmp;
+          always @* begin
+            tmp = 1'b0;
+            if (c) begin
+              out = tmp;
+            end else begin
+              tmp = in;
+              out = tmp;
+            end
+          end
+        endmodule
+        """
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = sl.SyntaxTree.fromText(code)
+        assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+        assert not any("'tmp'" in d["message"] for d in diagnostics)
+
