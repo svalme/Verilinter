@@ -257,6 +257,32 @@ class TestNoAssignmentWidthMismatchRule:
 
         assert diagnostics == []
 
+    def test_flags_declarator_initializer_width_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [7:0] b = a;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_parameter_declarator_initializer_not_flagged(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              localparam [7:0] A = 4'h5;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+
+        assert diagnostics == []
+
+
 
 class TestNoAssignmentSignednessMismatchRule:
     @pytest.fixture
@@ -308,6 +334,20 @@ class TestNoAssignmentSignednessMismatchRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_declarator_initializer_signedness_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire signed [7:0] b = a;
+            endmodule
+            """,
+            "ASSIGNMENT_SIGNEDNESS_MISMATCH",
+        )
+
+        assert len(diagnostics) == 1
+
 
 
 class TestNoAssignmentTruncationRule:
@@ -361,3 +401,30 @@ class TestNoAssignmentTruncationRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_declarator_initializer_truncation(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [3:0] b = a;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_matching_declarator_initializer(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [7:0] b = a;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+
+        assert diagnostics == []
+

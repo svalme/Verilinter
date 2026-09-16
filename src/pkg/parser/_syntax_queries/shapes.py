@@ -43,6 +43,13 @@ def declarator_initializer_value(raw: object) -> int | None:
     return constant_integer_value(expr)
 
 
+def declarator_initializer_expression(raw: object) -> SyntaxNode | None:
+    initializer = getattr(raw, "initializer", None)
+    expr = getattr(initializer, "expr", None)
+    return expr if isinstance(expr, SyntaxNode) else None
+
+
+
 def declarator_is_port(ctx: "Context") -> bool:
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
@@ -203,6 +210,14 @@ def is_else_clause_node(raw: object) -> bool:
 def else_clause_body(raw: object) -> SyntaxNode | None:
     clause = getattr(raw, "clause", None)
     return clause if isinstance(clause, SyntaxNode) else None
+
+
+def conditional_statement_else_body(raw: object) -> SyntaxNode | None:
+    else_clause = getattr(raw, "elseClause", None)
+    if else_clause is None:
+        return None
+    return else_clause_body(else_clause)
+
 
 
 def is_unwrapped_if_body(raw: object) -> bool:
