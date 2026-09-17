@@ -12,7 +12,7 @@ from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
 
 SCHEMA_VERSION = "3"
-ANALYZER_CACHE_VERSION = "2026-09-17-expr-ranges"
+ANALYZER_CACHE_VERSION = "2026-09-17-param-ranges"
 
 
 def utc_now_iso() -> str:

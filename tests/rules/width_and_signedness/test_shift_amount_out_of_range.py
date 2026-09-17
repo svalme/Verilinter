@@ -170,3 +170,27 @@ class TestShiftAmountOutOfRangeRule:
 
         assert len(diagnostics) == 1
 
+    def test_flags_parameterized_shift_amount_out_of_range(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 8, parameter SHIFT = 8);
+              wire [WIDTH-1:0] x;
+              wire [WIDTH-1:0] y;
+              assign y = x << SHIFT;
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_valid_parameterized_shift(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 8, parameter SHIFT = 4);
+              wire [WIDTH-1:0] x;
+              wire [WIDTH-1:0] y;
+              assign y = x << SHIFT;
+            endmodule
+            """
+        )
+        assert diagnostics == []
+

@@ -5,19 +5,35 @@ import re
 from typing import TYPE_CHECKING
 
 from ..syntax_kinds import (
+    ADD_EXPRESSION_KIND,
     ADD_SUBTRACT_EXPRESSION_KINDS,
+    ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND,
+    ARITHMETIC_SHIFT_RIGHT_EXPRESSION_KIND,
+    BINARY_AND_EXPRESSION_KIND,
+    BINARY_OR_EXPRESSION_KIND,
+    BINARY_XOR_EXPRESSION_KIND,
     BIT_SELECT_KIND,
     CONCATENATION_EXPRESSION_KIND,
+    DIVIDE_EXPRESSION_KIND,
     ELEMENT_SELECT_EXPRESSION_KIND,
     IDENTIFIER_NAME_KIND,
     IDENTIFIER_SELECT_NAME_KIND,
     INTEGER_LITERAL_EXPRESSION_KIND,
     INTEGER_VECTOR_EXPRESSION_KIND,
+    INVOCATION_EXPRESSION_KIND,
+    LOGICAL_SHIFT_LEFT_EXPRESSION_KIND,
+    LOGICAL_SHIFT_RIGHT_EXPRESSION_KIND,
+    MOD_EXPRESSION_KIND,
     MULTIPLE_CONCATENATION_EXPRESSION_KIND,
     MULTIPLY_EXPRESSION_KIND,
     PARENTHESIZED_EXPRESSION_KIND,
+    POWER_EXPRESSION_KIND,
     RANGE_SELECT_KINDS,
     SHIFT_EXPRESSION_KINDS,
+    SUBTRACT_EXPRESSION_KIND,
+    UNARY_BITWISE_NOT_EXPRESSION_KIND,
+    UNARY_MINUS_EXPRESSION_KIND,
+    UNARY_PLUS_EXPRESSION_KIND,
     UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
 )
 from ..types import SyntaxNode, SyntaxTree
@@ -27,13 +43,21 @@ from .shared import _split_top_level, simple_identifier_text, source_text_for_no
 
 
 def unwrap_parentheses(expr: object) -> object:
-    """Recursively strip `ParenthesizedExpressionSyntax` wrappers down to the
-    underlying expression."""
-    while getattr(expr, "kind", None) == PARENTHESIZED_EXPRESSION_KIND:
-        inner = getattr(expr, "expression", None)
-        if inner is None:
+    """Recursively strip `ParenthesizedExpressionSyntax`, `SimplePropertyExprSyntax`,
+    and `SimpleSequenceExprSyntax` wrappers down to the underlying expression."""
+    while expr is not None:
+        if getattr(expr, "kind", None) == PARENTHESIZED_EXPRESSION_KIND:
+            inner = getattr(expr, "expression", None)
+            if inner is None:
+                break
+            expr = inner
+        elif type(expr).__name__ in ("SimplePropertyExprSyntax", "SimpleSequenceExprSyntax"):
+            inner = getattr(expr, "expr", None)
+            if inner is None:
+                break
+            expr = inner
+        else:
             break
-        expr = inner
     return expr
 
 
@@ -52,7 +76,137 @@ def _resolve_symbol_in_scope(scope: object, name: str) -> object:
     return None
 
 
-def _selector_width(selector: object) -> int | None:
+def evaluate_constant_expression(
+    expr: object,
+    scope: object = None,
+    _visited: set[str] | None = None,
+) -> int | None:
+    """Recursively constant-fold a compile-time constant expression to an integer,
+    resolving parameter/localparam identifiers against `scope`.
+
+    Supports:
+    - Sized and unsized numeric literals (decimal, hex, octal, binary)
+    - Parameter and localparam symbol lookups
+    - Unary operators: +, -, ~, !
+    - Binary arithmetic: +, -, *, /, %
+    - Exponentiation: ** (guarded up to exponent 64)
+    - Shifts: <<, >>, <<<, >>> (guarded up to 128 bits)
+    - Bitwise logic: &, |, ^
+    - System function: $clog2(...)
+    - Parentheses unwrapping
+    - Cycle detection on identifier lookups to prevent infinite recursion
+    """
+    if expr is None:
+        return None
+
+    expr = unwrap_parentheses(expr)
+    kind = getattr(expr, "kind", None)
+
+    # 1. Simple numeric literal fast-path (also folds unary minus on literals)
+    lit_val = constant_integer_value(expr)
+    if lit_val is not None:
+        return lit_val
+
+    # 2. Identifier lookup in scope
+    if kind == IDENTIFIER_NAME_KIND:
+        name = identifier_name(expr)
+        if name is not None and scope is not None:
+            if _visited is None:
+                _visited = set()
+            if name in _visited:
+                return None
+            _visited.add(name)
+            symbol = _resolve_symbol_in_scope(scope, name)
+            if symbol is not None:
+                val = getattr(symbol, "value", None)
+                if isinstance(val, int):
+                    return val
+        return None
+
+    # 3. Unary expressions
+    if kind == UNARY_PLUS_EXPRESSION_KIND:
+        op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
+        return evaluate_constant_expression(op, scope=scope, _visited=_visited)
+
+    if kind == UNARY_MINUS_EXPRESSION_KIND:
+        op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+        return -val if val is not None else None
+
+    if kind == UNARY_BITWISE_NOT_EXPRESSION_KIND:
+        op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+        return ~val if val is not None else None
+
+    kind_name = type(expr).__name__
+    if kind_name == "UnaryLogicalNotExpression" or getattr(kind, "name", None) == "UnaryLogicalNotExpression":
+        op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+        return (1 if val == 0 else 0) if val is not None else None
+
+    # 4. Invocations ($clog2)
+    if kind == INVOCATION_EXPRESSION_KIND:
+        left = getattr(expr, "left", None)
+        tok = getattr(left, "systemIdentifier", None)
+        fn_name = getattr(tok, "valueText", None) or str(left).strip()
+        if fn_name == "$clog2":
+            arguments = getattr(expr, "arguments", None)
+            params = getattr(arguments, "parameters", None)
+            if params and len(params) == 1:
+                arg = params[0]
+                arg_expr = getattr(arg, "expr", getattr(arg, "expression", None))
+                arg_val = evaluate_constant_expression(arg_expr, scope=scope, _visited=_visited)
+                if arg_val is not None:
+                    return (arg_val - 1).bit_length() if arg_val > 0 else 0
+        return None
+
+    # 5. Binary expressions
+    left = getattr(expr, "left", None)
+    right = getattr(expr, "right", None)
+    if left is not None and right is not None:
+        l_val = evaluate_constant_expression(left, scope=scope, _visited=_visited)
+        r_val = evaluate_constant_expression(right, scope=scope, _visited=_visited)
+        if l_val is not None and r_val is not None:
+            if kind == ADD_EXPRESSION_KIND:
+                return l_val + r_val
+            elif kind == SUBTRACT_EXPRESSION_KIND:
+                return l_val - r_val
+            elif kind == MULTIPLY_EXPRESSION_KIND:
+                return l_val * r_val
+            elif kind == DIVIDE_EXPRESSION_KIND:
+                if r_val == 0:
+                    return None
+                return l_val // r_val
+            elif kind == MOD_EXPRESSION_KIND:
+                if r_val == 0:
+                    return None
+                return l_val % r_val
+            elif kind == POWER_EXPRESSION_KIND:
+                if 0 <= r_val <= 64:
+                    try:
+                        return l_val ** r_val
+                    except (OverflowError, ValueError):
+                        return None
+                return None
+            elif kind in (LOGICAL_SHIFT_LEFT_EXPRESSION_KIND, ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND):
+                if 0 <= r_val <= 128:
+                    return l_val << r_val
+                return None
+            elif kind in (LOGICAL_SHIFT_RIGHT_EXPRESSION_KIND, ARITHMETIC_SHIFT_RIGHT_EXPRESSION_KIND):
+                if r_val >= 0:
+                    return l_val >> r_val
+                return None
+            elif kind == BINARY_AND_EXPRESSION_KIND:
+                return l_val & r_val
+            elif kind == BINARY_OR_EXPRESSION_KIND:
+                return l_val | r_val
+            elif kind == BINARY_XOR_EXPRESSION_KIND:
+                return l_val ^ r_val
+
+    return None
+
+
+def _selector_width(selector: object, scope: object = None) -> int | None:
     """Return the bit-width selected by an `ElementSelectSyntax` node."""
     unwrapped = element_select_index_or_range(selector)
     if unwrapped is None:
@@ -62,14 +216,14 @@ def _selector_width(selector: object) -> int | None:
         return 1
     if shape == "simple_range":
         left, right = payload
-        l_val = constant_integer_value(left)
-        r_val = constant_integer_value(right)
+        l_val = evaluate_constant_expression(left, scope=scope)
+        r_val = evaluate_constant_expression(right, scope=scope)
         if l_val is not None and r_val is not None:
             return abs(l_val - r_val) + 1
         return None
     if shape in ("ascending", "descending"):
         _base, width_expr = payload
-        return constant_integer_value(width_expr)
+        return evaluate_constant_expression(width_expr, scope=scope)
     return None
 
 
@@ -124,14 +278,14 @@ def simple_expression_width_and_signed(
         if selectors:
             valid_selectors = [s for s in selectors if isinstance(s, SyntaxNode)]
             if valid_selectors:
-                width = _selector_width(valid_selectors[-1])
+                width = _selector_width(valid_selectors[-1], scope=scope)
                 return width, None
         return None, None
 
     if kind == ELEMENT_SELECT_EXPRESSION_KIND:
         select = getattr(expr, "select", None)
         if select is not None:
-            width = _selector_width(select)
+            width = _selector_width(select, scope=scope)
             return width, None
         return None, None
 
@@ -157,7 +311,7 @@ def simple_expression_width_and_signed(
     if kind == MULTIPLE_CONCATENATION_EXPRESSION_KIND:
         count_node = unwrap_parentheses(getattr(expr, "expression", None))
         concat_node = unwrap_parentheses(getattr(expr, "concatenation", None))
-        count = constant_integer_value(count_node)
+        count = evaluate_constant_expression(count_node, scope=scope)
         if count is not None and concat_node is not None:
             inner_width, _ = simple_expression_width_and_signed(scope, concat_node, tree)
             if inner_width is not None:

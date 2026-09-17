@@ -301,15 +301,33 @@ class TestPortConnectionWidthUnknownRule:
 
         result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
 
-    def test_flags_parameterized_port_width(
+    def test_flags_parameterized_port_width_without_default(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
     ) -> None:
-        # Same parameter-elaboration blindness documented for
-        # `ARITHMETIC_RESULT_TRUNCATION`/`ASSIGNMENT_WIDTH_MISMATCH`: nothing
-        # in this codebase elaborates parameter values, so a parameterized
-        # port's `bit_width` is always `None`. Unlike those rules' silent
-        # zero-diagnostic result on a parameterized target, this rule surfaces
-        # the gap explicitly instead of staying quiet.
+        # A parameterized port whose parameter has no default value (and no instance
+        # override) has an unresolvable bit width (bit_width is None), so this
+        # rule surfaces the gap explicitly as PORT_CONNECTION_WIDTH_UNKNOWN.
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH) (input [WIDTH-1:0] a);
+                endmodule
+                module top;
+                  wire [3:0] x;
+                  child u1(.a(x));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
+
+    def test_resolves_parameterized_port_width_with_default(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        # When a parameter has a default value, constant folding resolves the
+        # port width (WIDTH = 4 -> [3:0] -> 4 bits), matching wire [3:0] x without
+        # raising PORT_CONNECTION_WIDTH_UNKNOWN.
         result = lint_inline_case(
             {
                 "top.sv": """
@@ -323,7 +341,7 @@ class TestPortConnectionWidthUnknownRule:
             }
         )
 
-        result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
+        assert "PORT_CONNECTION_WIDTH_UNKNOWN" not in [d["code"] for d in result.diagnostics]
 
     def test_does_not_flag_an_unconnected_ordered_port(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]

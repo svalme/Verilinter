@@ -191,7 +191,13 @@ def _record_packages_from_symbol_table(
     for name, scopes in symbol_table.packages.items():
         for scope in scopes:
             symbols = [
-                {"name": symbol.name, "kind": symbol.kind}
+                {
+                    "name": symbol.name,
+                    "kind": symbol.kind,
+                    "value": symbol.value,
+                    "bit_width": symbol.bit_width,
+                    "is_signed": symbol.is_signed,
+                }
                 for symbol in scope.symbols.values()
                 if symbol.is_declared and not symbol.is_implicit
             ]
@@ -244,7 +250,12 @@ def _fingerprint_package_registry(registry: dict[str, list[dict[str, Any]]]) -> 
         name: sorted(
             (
                 entry["file"],
-                tuple(sorted((s["name"], s["kind"]) for s in entry["symbols"])),
+                tuple(
+                    sorted(
+                        (s["name"], s["kind"], s.get("value"), s.get("bit_width"), s.get("is_signed"))
+                        for s in entry["symbols"]
+                    )
+                ),
                 tuple(
                     sorted(
                         (
@@ -289,6 +300,18 @@ def _seed_cross_file_packages(
             scope.file = entry["file"]
             for symbol_data in entry["symbols"]:
                 symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
+                if symbol_data.get("value") is not None:
+                    try:
+                        symbol.value = int(symbol_data["value"])
+                    except (ValueError, TypeError):
+                        pass
+                if symbol_data.get("bit_width") is not None:
+                    try:
+                        symbol.bit_width = int(symbol_data["bit_width"])
+                    except (ValueError, TypeError):
+                        pass
+                if symbol_data.get("is_signed") is not None:
+                    symbol.is_signed = bool(symbol_data["is_signed"])
                 symbol.add_declaration({"line": 0, "col": 0, "file": entry["file"]})
                 scope.define(symbol)
             for sub_data in entry.get("subroutines", []):

@@ -230,3 +230,39 @@ class TestConstantIndexOutOfRangeRule:
         )
         assert len(diagnostics_high) == 1
 
+    def test_flags_parameterized_index_out_of_range(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 8);
+              wire [WIDTH-1:0] a;
+              wire b;
+              assign b = a[WIDTH];
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_valid_parameterized_index(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 8);
+              wire [WIDTH-1:0] a;
+              wire b;
+              assign b = a[WIDTH-1];
+            endmodule
+            """
+        )
+        assert diagnostics == []
+
+    def test_flags_parameterized_range_out_of_range(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 8);
+              wire [WIDTH-1:0] a;
+              wire [1:0] b;
+              assign b = a[WIDTH+1:0];
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 1
+

@@ -29,18 +29,18 @@ def declarator_has_initializer(raw: object) -> bool:
     return getattr(raw, "initializer", None) is not None
 
 
-def declarator_initializer_value(raw: object) -> int | None:
+def declarator_initializer_value(raw: object, scope: object = None) -> int | None:
     """Return a declarator's initializer expression constant-folded to an
-    `int` (via `constant_integer_value`), else `None` -- used to populate
+    `int` (via `evaluate_constant_expression`), else `None` -- used to populate
     `Symbol.value` for `parameter`/`localparam` declarators whose RHS is a
-    simple resolvable constant."""
-    from ..syntax_queries import constant_integer_value
+    resolvable constant expression."""
+    from ..syntax_queries import evaluate_constant_expression
 
     initializer = getattr(raw, "initializer", None)
     expr = getattr(initializer, "expr", None)
     if expr is None:
         return None
-    return constant_integer_value(expr)
+    return evaluate_constant_expression(expr, scope=scope)
 
 
 def declarator_initializer_expression(raw: object) -> SyntaxNode | None:
@@ -360,7 +360,57 @@ def _declarator_owner_type_text(ctx: "Context") -> str | None:
     return None
 
 
+def _declarator_owner_packed_dimensions(ctx: "Context") -> list[SyntaxNode]:
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        type_name = type(raw).__name__
+        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+            header = getattr(raw, "header", None)
+            if header is not None:
+                dt = getattr(header, "dataType", None)
+                if dt is not None and hasattr(dt, "dimensions"):
+                    dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
+                    if dims:
+                        return dims
+        elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+            dt = getattr(raw, "type", None)
+            if dt is not None and hasattr(dt, "dimensions"):
+                dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
+                if dims:
+                    return dims
+        elif type_name.endswith("ParameterDeclarationSyntax"):
+            dt = getattr(raw, "type", None)
+            if dt is not None and hasattr(dt, "dimensions"):
+                dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
+                if dims:
+                    return dims
+    return []
+
+
 def declarator_bit_width(ctx: "Context") -> int | None:
+    dims = _declarator_owner_packed_dimensions(ctx)
+    if dims:
+        from ..syntax_queries import evaluate_constant_expression
+
+        scope = getattr(ctx, "scope", lambda: None)()
+        total_width = 1
+        all_folded = True
+        for dim in dims:
+            spec = getattr(dim, "specifier", None)
+            selector = getattr(spec, "selector", None)
+            if selector is not None:
+                left = getattr(selector, "left", None)
+                right = getattr(selector, "right", None)
+                if left is not None and right is not None:
+                    msb = evaluate_constant_expression(left, scope=scope)
+                    lsb = evaluate_constant_expression(right, scope=scope)
+                    if msb is not None and lsb is not None:
+                        total_width *= (abs(msb - lsb) + 1)
+                        continue
+            all_folded = False
+            break
+        if all_folded:
+            return total_width
     type_text = _declarator_owner_type_text(ctx)
     width, _signed = type_text_width_and_signed(type_text)
     return width
@@ -373,6 +423,22 @@ def declarator_is_signed(ctx: "Context") -> bool | None:
 
 
 def declarator_packed_range(ctx: "Context") -> tuple[int | None, int | None]:
+    dims = _declarator_owner_packed_dimensions(ctx)
+    if dims:
+        from ..syntax_queries import evaluate_constant_expression
+
+        dim = dims[0]
+        spec = getattr(dim, "specifier", None)
+        selector = getattr(spec, "selector", None)
+        if selector is not None:
+            left = getattr(selector, "left", None)
+            right = getattr(selector, "right", None)
+            if left is not None and right is not None:
+                scope = getattr(ctx, "scope", lambda: None)()
+                msb = evaluate_constant_expression(left, scope=scope)
+                lsb = evaluate_constant_expression(right, scope=scope)
+                if msb is not None and lsb is not None:
+                    return msb, lsb
     type_text = _declarator_owner_type_text(ctx)
     return simple_packed_range(type_text)
 

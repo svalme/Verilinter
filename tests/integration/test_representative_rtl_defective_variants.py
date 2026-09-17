@@ -80,12 +80,8 @@ class TestArithmeticDatapathParameterWidthBlindnessVariant:
     multiply's true `2*WIDTH`-bit result is silently truncated -- the classic
     "introduce a width mismatch" defect.
 
-    `ARITHMETIC_RESULT_TRUNCATION` (and every other width/signedness rule built on
-    `simple_expression_width_and_signed`/`Symbol.bit_width`) does not resolve a
-    bit width that depends on a module parameter, because nothing elaborates
-    parameter values into concrete widths, so this truncation produces zero
-    diagnostics. `TestArithmeticDatapathLiteralWidthTruncationVariant` uses
-    literal widths to show the rule works once a width is resolvable.
+    `ARITHMETIC_RESULT_TRUNCATION` detects it because parameterized ranges and
+    widths are constant-folded.
     """
 
     DEFECTIVE_SOURCE = """
@@ -109,12 +105,16 @@ module arithmetic_datapath #(
 endmodule
 """
 
-    def test_narrowed_product_currently_produces_no_diagnostics(self) -> None:
+    def test_narrowed_product_is_detected(self) -> None:
         result = run_inline_lint_case(
             {"arithmetic_datapath.sv": self.DEFECTIVE_SOURCE}, selection=CORRECTNESS_SELECTION
         )
 
-        result.expect_codes(set())
+        result.expect_codes({"ARITHMETIC_RESULT_TRUNCATION"})
+        diagnostic = result.expect_code_once("ARITHMETIC_RESULT_TRUNCATION")
+        assert diagnostic["line"] == 16
+        assert diagnostic["col"] == 10
+        assert diagnostic["file"] in ("arithmetic_datapath.sv", "source")
 
     def test_restoring_the_original_width_also_produces_no_diagnostics(self) -> None:
         from .test_representative_rtl_examples import TestArithmeticDatapathExample

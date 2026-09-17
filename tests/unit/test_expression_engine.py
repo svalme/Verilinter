@@ -3,6 +3,7 @@ import pyslang as sl
 import pytest
 
 from src.pkg.parser.syntax import (
+    evaluate_constant_expression,
     natural_expression_width_and_signed,
     simple_expression_width_and_signed,
     unwrap_parentheses,
@@ -15,6 +16,14 @@ from src.pkg.semantic.symbol_table import SymbolTable
 def test_scope():
     symtab = SymbolTable()
     scope = symtab.global_scope
+
+    sym_w = Symbol("WIDTH", "parameter")
+    sym_w.value = 8
+    scope.define(sym_w)
+
+    sym_d = Symbol("DEPTH", "parameter")
+    sym_d.value = 256
+    scope.define(sym_d)
 
     sym_a = Symbol("a", "wire")
     sym_a.bit_width = 8
@@ -137,3 +146,121 @@ class TestExpressionEngine:
         nat_mul_w, nat_mul_s = natural_expression_width_and_signed(test_scope, rhs_mul, tree_mul)
         assert nat_mul_w == 12
         assert nat_mul_s is False
+
+    def test_evaluate_constant_expression_arithmetic(self, test_scope):
+        rhs, _ = _get_rhs("assign w = 10 + 5;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 15
+
+        rhs, _ = _get_rhs("assign w = 10 - 3;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 7
+
+        rhs, _ = _get_rhs("assign w = 4 * 6;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 24
+
+        rhs, _ = _get_rhs("assign w = 20 / 4;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 5
+
+        rhs, _ = _get_rhs("assign w = 23 % 5;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 3
+
+        rhs, _ = _get_rhs("assign w = 2 ** 4;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 16
+
+    def test_evaluate_constant_expression_unary(self, test_scope):
+        rhs, _ = _get_rhs("assign w = +42;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 42
+
+        rhs, _ = _get_rhs("assign w = -42;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == -42
+
+        rhs, _ = _get_rhs("assign w = ~0;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == -1
+
+        rhs, _ = _get_rhs("assign w = !0;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 1
+
+        rhs, _ = _get_rhs("assign w = !5;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 0
+
+    def test_evaluate_constant_expression_shifts_and_bitwise(self, test_scope):
+        rhs, _ = _get_rhs("assign w = 1 << 4;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 16
+
+        rhs, _ = _get_rhs("assign w = 32 >> 2;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 8
+
+        rhs, _ = _get_rhs("assign w = 8 <<< 1;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 16
+
+        rhs, _ = _get_rhs("assign w = 16 >>> 2;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 4
+
+        rhs, _ = _get_rhs("assign w = 12 & 10;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 8
+
+        rhs, _ = _get_rhs("assign w = 12 | 10;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 14
+
+        rhs, _ = _get_rhs("assign w = 12 ^ 10;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 6
+
+    def test_evaluate_constant_expression_clog2(self, test_scope):
+        rhs, _ = _get_rhs("assign w = $clog2(16);")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 4
+
+        rhs, _ = _get_rhs("assign w = $clog2(17);")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 5
+
+        rhs, _ = _get_rhs("assign w = $clog2(1);")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 0
+
+        rhs, _ = _get_rhs("assign w = $clog2(0);")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 0
+
+        rhs, _ = _get_rhs("assign w = $clog2(DEPTH);")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 8
+
+    def test_evaluate_constant_expression_parameters(self, test_scope):
+        rhs, _ = _get_rhs("assign w = WIDTH - 1;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 7
+
+        rhs, _ = _get_rhs("assign w = (WIDTH * 2) - 1;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 15
+
+        rhs, _ = _get_rhs("assign w = (1 << WIDTH) - 1;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == 255
+
+    def test_evaluate_constant_expression_safety_guards(self, test_scope):
+        rhs, _ = _get_rhs("assign w = 10 / 0;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) is None
+
+        rhs, _ = _get_rhs("assign w = 10 % 0;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) is None
+
+        rhs, _ = _get_rhs("assign w = 2 ** 100;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) is None
+
+        rhs, _ = _get_rhs("assign w = 1 << 200;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) is None
+
+        rhs, _ = _get_rhs("assign w = 1 >> -1;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) is None
+
+        rhs, _ = _get_rhs("assign w = NON_EXISTENT + 1;")
+        assert evaluate_constant_expression(rhs, scope=test_scope) is None
+
+    def test_parameterized_range_select(self, test_scope):
+        rhs, tree = _get_rhs("assign w = a[WIDTH-1:0];")
+        width, is_signed = simple_expression_width_and_signed(test_scope, rhs, tree)
+        assert width == 8
+
+    def test_parameterized_indexed_part_select(self, test_scope):
+        rhs, tree = _get_rhs("assign w = a[0+:WIDTH];")
+        width, _ = simple_expression_width_and_signed(test_scope, rhs, tree)
+        assert width == 8
+
+    def test_parameterized_multiple_concatenation(self, test_scope):
+        rhs, tree = _get_rhs("assign w = {WIDTH{1'b0}};")
+        width, is_signed = simple_expression_width_and_signed(test_scope, rhs, tree)
+        assert width == 8
+        assert is_signed is False

@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
     binary_operands,
-    constant_integer_value,
+    evaluate_constant_expression,
     is_shift_expression,
     simple_expression_width_and_signed,
 )
@@ -27,7 +27,7 @@ def _shift_amount_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
         return False
     left, right = operands
 
-    amount = constant_integer_value(right)
+    amount = evaluate_constant_expression(right, scope=ctx.scope())
     if amount is None:
         return False
 

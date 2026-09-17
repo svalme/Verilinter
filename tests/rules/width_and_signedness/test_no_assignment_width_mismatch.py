@@ -428,3 +428,42 @@ class TestNoAssignmentTruncationRule:
 
         assert diagnostics == []
 
+    def test_flags_parameterized_width_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 8);
+              wire [WIDTH-1:0] x;
+              wire [3:0] y;
+              assign x = y;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(diagnostics) == 1
+
+    def test_flags_parameterized_assignment_truncation(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 4);
+              wire [WIDTH-1:0] x;
+              wire [7:0] y;
+              assign x = y;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_matching_parameterized_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top #(parameter WIDTH = 8);
+              wire [WIDTH-1:0] x;
+              wire [7:0] y;
+              assign x = y;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert diagnostics == []
+

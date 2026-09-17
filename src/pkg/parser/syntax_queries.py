@@ -30,6 +30,7 @@ from ._syntax_queries.access import (
     unary_write_operand,
 )
 from ._syntax_queries.expressions import (
+    evaluate_constant_expression,
     natural_expression_width_and_signed,
     simple_expression_width_and_signed,
     unwrap_parentheses,
@@ -280,8 +281,9 @@ __all__ = [
     "declarator_name",
     "declarator_port_direction",
     "duplicate_generate_branch_label",
-    "else_clause_body",
     "element_select_index_or_range",
+    "else_clause_body",
+    "evaluate_constant_expression",
     "enclosing_assignment_expression",
     "enclosing_case_statement",
     "enclosing_combinational_style_always_block",

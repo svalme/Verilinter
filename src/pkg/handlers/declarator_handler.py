@@ -59,7 +59,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
                 driver_location=driver_location,
             )
             if kind == "parameter":
-                symbol.value = declarator_initializer_value(vnode.raw)
+                symbol.value = declarator_initializer_value(vnode.raw, scope=ctx.scope())
         ctx.scope().define(symbol)
         return ctx.push(vnode)
 

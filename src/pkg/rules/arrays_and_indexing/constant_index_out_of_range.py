@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
-    constant_integer_value,
     element_select_index_or_range,
+    evaluate_constant_expression,
     identifier_select_base_and_selectors,
 )
 from ...vnodes.base_vnode import BaseVNode
@@ -40,6 +40,7 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
     min_bound = min(msb, lsb) if has_range else 0
     max_bound = max(msb, lsb) if has_range else bit_width - 1
 
+    scope = ctx.scope()
     for selector in selectors:
         unwrapped = element_select_index_or_range(selector)
         if unwrapped is None:
@@ -47,17 +48,17 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
         shape, payload = unwrapped
 
         if shape == "bit":
-            index = constant_integer_value(payload)
+            index = evaluate_constant_expression(payload, scope=scope)
             if index is not None and (index < min_bound or index > max_bound):
                 return True
         elif shape == "simple_range":
             left, right = payload
-            for bound in (constant_integer_value(left), constant_integer_value(right)):
+            for bound in (evaluate_constant_expression(left, scope=scope), evaluate_constant_expression(right, scope=scope)):
                 if bound is not None and (bound < min_bound or bound > max_bound):
                     return True
         elif shape in ("ascending", "descending"):
             _base, width_expr = payload
-            width = constant_integer_value(width_expr)
+            width = evaluate_constant_expression(width_expr, scope=scope)
             if width is not None and width > bit_width:
                 return True
 
