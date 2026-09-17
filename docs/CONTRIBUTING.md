@@ -64,6 +64,12 @@ before inventing a bespoke registration mechanism.
 file's "Handler vs Parser Helper vs Rule" section and "Layer Responsibilities" section are the authority on
 where a given piece of logic belongs — this file doesn't repeat that split, just points at it.
 
+**Do not use regular expressions as the default analysis method.** Regex string parsing over raw source text
+is brittle against inline comments, whitespace variations, line wraps, and nested expressions (e.g. nested slices
+or parenthesized sub-expressions). Always prefer native `pyslang` AST node matching, token kinds, dedicated syntax
+queries, and semantic models. Regexes should only be used as a targeted last resort for simple lexical token patterns
+(such as identifier naming style conventions).
+
 **`BaseDiagnostic` is the shared base for both rule kinds (`Rule` and `BaseSymbolRule`).** It provides
 `report(vnode) -> dict` using `self.code`/`self.message`. If a rule needs a dynamic, per-instance message
 (the diagnostic needs to name a specific signal, line, etc. — most symbol/module rules do this by building the

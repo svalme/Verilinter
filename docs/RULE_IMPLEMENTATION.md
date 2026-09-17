@@ -148,6 +148,10 @@ Use `Context.data` only for cheap traversal-scoped memoization when a syntax fac
 is still local to the current block/ancestor chain but would be too expensive to
 recompute from scratch at every matching descendant node.
 
+### Analysis standard: AST Dispatch over Regular Expressions
+
+Do not use regular expressions over raw source text as the default mechanism for static analysis, expression evaluation, or shape matching. `pyslang` already parses Verilog and SystemVerilog into structured CST/AST nodes with precise `SyntaxKind` tags, tokens, and spans. String-based regexes break on comments, whitespace variations, line breaks, and nested syntax (such as parenthesized operations or slices within concatenations). Always inspect `vnode.raw` / `vnode.kind` or use query helpers in `src/pkg/parser/_syntax_queries/`. Regular expressions are reserved exclusively for simple lexical token checks (e.g. identifier naming conventions).
+
 ### Matching standard
 
 Each rule should have a deliberate match shape:
