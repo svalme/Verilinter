@@ -125,3 +125,223 @@ def test_include_directory_shadowing_e2e():
     assert normalized(run1.diagnostics) != normalized(run2.diagnostics)
 
 
+def test_partial_refresh_callee_port_rename_reconciles_against_cached_caller():
+    """Verify that renaming a submodule port causes cross-file rules to fire on an untouched caller in SQLite."""
+    root = scratch()
+    child, parent = root / "child.sv", root / "parent.sv"
+    store = root / "store.sqlite"
+
+    child.write_text("""`timescale 1ns/1ps
+module child(
+  input logic sys_clk,
+  input logic [7:0] din_i,
+  output logic [7:0] dout_o
+);
+  always @(posedge sys_clk) begin
+    dout_o <= din_i;
+  end
+endmodule
+""", encoding="utf-8")
+
+    parent.write_text("""`timescale 1ns/1ps
+module parent(
+  input logic sys_clk,
+  input logic [7:0] in_val_i,
+  output logic [7:0] out_val_o
+);
+  child u_child (
+    .sys_clk(sys_clk),
+    .din_i(in_val_i),
+    .dout_o(out_val_o)
+  );
+endmodule
+""", encoding="utf-8")
+
+    paths = [child, parent]
+    cold = analyze(paths, store_path=store)
+    assert cold.cache_stats == {"hits": 0, "misses": 2}
+
+    warm = analyze(paths, store_path=store)
+    assert warm.cache_stats == {"hits": 2, "misses": 0}
+
+    # Rename port din_i -> din_val_i in child module; parent is untouched on disk
+    child.write_text("""`timescale 1ns/1ps
+module child(
+  input logic sys_clk,
+  input logic [7:0] din_val_i,
+  output logic [7:0] dout_o
+);
+  always @(posedge sys_clk) begin
+    dout_o <= din_val_i;
+  end
+endmodule
+""", encoding="utf-8")
+
+    partial = analyze(paths, store_path=store)
+    fresh = analyze(paths, use_cache=False)
+
+    assert partial.cache_stats == {"hits": 1, "misses": 1}
+    assert normalized(partial.diagnostics) == normalized(fresh.diagnostics)
+
+    parent_codes = {d["code"] for d in partial.diagnostics if "parent.sv" in d.get("file", "")}
+    assert "UNKNOWN_NAMED_PORT_CONNECTION" in parent_codes
+    assert "NO_UNCONNECTED_INSTANCE_PORTS" in parent_codes
+
+
+def test_partial_refresh_caller_variable_rename_preserves_accuracy():
+    """Verify that renaming a connecting wire inside a caller module preserves full lint accuracy and parity."""
+    root = scratch()
+    child, parent = root / "child.sv", root / "parent.sv"
+    store = root / "store.sqlite"
+
+    child.write_text("""`timescale 1ns/1ps
+module child(
+  input logic sys_clk,
+  input logic [7:0] din_i,
+  output logic [7:0] dout_o
+);
+  always @(posedge sys_clk) begin
+    dout_o <= din_i;
+  end
+endmodule
+""", encoding="utf-8")
+
+    parent.write_text("""`timescale 1ns/1ps
+module parent(
+  input logic sys_clk,
+  input logic [7:0] in_val_i,
+  output logic [7:0] out_val_o
+);
+  wire [7:0] connect_wire;
+  assign connect_wire = in_val_i;
+  child u_child (
+    .sys_clk(sys_clk),
+    .din_i(connect_wire),
+    .dout_o(out_val_o)
+  );
+endmodule
+""", encoding="utf-8")
+
+    paths = [child, parent]
+    cold = analyze(paths, store_path=store)
+    assert cold.cache_stats == {"hits": 0, "misses": 2}
+
+    # Rename declaration connect_wire -> renamed_wire in parent, leaving .din_i(connect_wire)
+    parent.write_text("""`timescale 1ns/1ps
+module parent(
+  input logic sys_clk,
+  input logic [7:0] in_val_i,
+  output logic [7:0] out_val_o
+);
+  wire [7:0] renamed_wire;
+  assign renamed_wire = in_val_i;
+  child u_child (
+    .sys_clk(sys_clk),
+    .din_i(connect_wire),
+    .dout_o(out_val_o)
+  );
+endmodule
+""", encoding="utf-8")
+
+    partial = analyze(paths, store_path=store)
+    fresh = analyze(paths, use_cache=False)
+
+    assert partial.cache_stats == {"hits": 1, "misses": 1}
+    assert normalized(partial.diagnostics) == normalized(fresh.diagnostics)
+
+    parent_codes = {d["code"] for d in partial.diagnostics if "parent.sv" in d.get("file", "")}
+    assert "NO_IMPLICIT_NET" in parent_codes
+    assert "NO_WRITE_ONLY_VARIABLE" in parent_codes
+
+
+def test_partial_refresh_caller_edit_preserves_width_and_style_accuracy():
+    """Verify that editing a caller with width mismatch and self-assignment preserves exact parity with cold run."""
+    root = scratch()
+    child, parent = root / "child.sv", root / "parent.sv"
+    store = root / "store.sqlite"
+
+    child.write_text("""`timescale 1ns/1ps
+module child(
+  input logic sys_clk,
+  input logic [7:0] din_i,
+  output logic [7:0] dout_o
+);
+  always @(posedge sys_clk) begin
+    dout_o <= din_i;
+  end
+endmodule
+""", encoding="utf-8")
+
+    parent.write_text("""`timescale 1ns/1ps
+module parent(
+  input logic sys_clk,
+  input logic [7:0] in_val_i,
+  output logic [7:0] out_val_o
+);
+  child u_child (
+    .sys_clk(sys_clk),
+    .din_i(in_val_i),
+    .dout_o(out_val_o)
+  );
+endmodule
+""", encoding="utf-8")
+
+    paths = [child, parent]
+    cold = analyze(paths, store_path=store)
+    assert cold.cache_stats == {"hits": 0, "misses": 2}
+
+    # Modify parent to introduce 16-bit to 8-bit width mismatch and self-assignment
+    parent.write_text("""`timescale 1ns/1ps
+module parent(
+  input logic sys_clk,
+  input logic [15:0] in_val_i,
+  output logic [7:0] out_val_o
+);
+  logic [7:0] loop_sig;
+  assign loop_sig = loop_sig;
+  child u_child (
+    .sys_clk(sys_clk),
+    .din_i(in_val_i),
+    .dout_o(out_val_o)
+  );
+endmodule
+""", encoding="utf-8")
+
+    partial = analyze(paths, store_path=store)
+    fresh = analyze(paths, use_cache=False)
+
+    assert partial.cache_stats == {"hits": 1, "misses": 1}
+    assert normalized(partial.diagnostics) == normalized(fresh.diagnostics)
+
+    parent_codes = {d["code"] for d in partial.diagnostics if "parent.sv" in d.get("file", "")}
+    assert "PORT_CONNECTION_WIDTH_MISMATCH" in parent_codes
+    assert "NO_SELF_ASSIGNMENT" in parent_codes
+
+
+def test_partial_refresh_duplicate_module_cross_file_accuracy():
+    """Verify that renaming a module to collide with an untouched module cached in SQLite raises DUPLICATE_MODULE."""
+    root = scratch()
+    mod_a, mod_b = root / "mod_a.sv", root / "mod_b.sv"
+    store = root / "store.sqlite"
+
+    mod_a.write_text("`timescale 1ns/1ps\nmodule worker_a(input clk); endmodule\n", encoding="utf-8")
+    mod_b.write_text("`timescale 1ns/1ps\nmodule worker_b(input clk); endmodule\n", encoding="utf-8")
+
+    paths = [mod_a, mod_b]
+    cold = analyze(paths, store_path=store)
+    assert cold.cache_stats == {"hits": 0, "misses": 2}
+
+    # Rename worker_b -> worker_a in mod_b.sv; mod_a.sv is untouched on disk
+    mod_b.write_text("`timescale 1ns/1ps\nmodule worker_a(input clk); endmodule\n", encoding="utf-8")
+
+    partial = analyze(paths, store_path=store)
+    fresh = analyze(paths, use_cache=False)
+
+    assert partial.cache_stats == {"hits": 1, "misses": 1}
+    assert normalized(partial.diagnostics) == normalized(fresh.diagnostics)
+
+    codes = {d["code"] for d in partial.diagnostics}
+    assert "DUPLICATE_MODULE" in codes
+
+
+

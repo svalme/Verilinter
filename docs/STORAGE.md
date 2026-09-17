@@ -91,9 +91,15 @@ Rebuild guidance:
 
 Current refresh behavior is:
 - every requested file path is still discovered and hashed on each run
-- unchanged files can reuse cached per-file worker results
-- changed files are re-parsed and re-analyzed
+- unchanged files can reuse cached per-file worker results (`cache_hit: true`)
+- changed files are re-parsed and re-analyzed (`cache_hit: false`)
 - cross-file module rules are rerun over the reconstructed batch view each time
+
+### Partial Refresh Semantics & Cross-File Parity
+When a subset of files in a multi-file project is modified, Verilinter executes a **partial refresh** (`hits: M, misses: K`). Diagnostics produced under partial refreshes maintain 100% equivalence with fresh (`--no-cache`) runs because:
+1. **Hybrid Symbol Table Reconstruction**: The cross-file `SymbolTable` seamlessly merges module scopes, symbols, and instantiation edges loaded from SQLite with those produced by fresh worker AST walks.
+2. **Dynamic Interface Re-Evaluation**: If a submodule renames or adds a port variable (e.g., `din_i` $\rightarrow$ `din_val_i`), an unchanged caller module retrieved from SQLite is re-evaluated against the new submodule interface. The cross-file engine accurately surfaces `UNKNOWN_NAMED_PORT_CONNECTION` and `NO_UNCONNECTED_INSTANCE_PORTS` on the caller even though the caller file was not re-parsed.
+3. **Collision & Cross-File Invariant Checking**: Cross-file rules such as `DUPLICATE_MODULE`, `PORT_CONNECTION_WIDTH_MISMATCH`, and `NO_UNDRIVEN_SIGNAL` execute across both cached and fresh module records identically to cold runs.
 
 Verilinter avoids repeated parsing and walking for unchanged files without a VCS-aware index or a separate "changed files only" database. It does not do Git-index-aware candidate selection, file watching, or whole-repo incremental scheduling.
 
