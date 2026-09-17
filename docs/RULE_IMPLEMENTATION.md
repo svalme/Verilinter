@@ -94,7 +94,8 @@ re-exports them from `src/pkg/parser/_syntax_queries/`, split by theme:
 - `shared.py`: low-level token/location/source-text plumbing
 - `access.py`: read/write access classification, `enclosing_*` ancestor walks
 - `procedural.py`: procedural-block sensitivity-list and reset-style facts
-- `shapes.py`: node-shape extraction (declarators, conditionals, ports, ...)
+- `shapes.py`: node-shape extraction (declarators, conditionals, ports, assignment target/RHS resolution, ...)
+- `expressions.py`: AST-dispatch expression evaluation (`simple_expression_width_and_signed`, `natural_expression_width_and_signed`, unwrap parentheses)
 - `literals.py`: literal/value/expression-kind checks (unsized literals, X/Z
   literals, width overflow, tri-state ternary detection)
 - `node_kind_checks.py`: one-line "is this raw.kind == X" checks for banned
@@ -131,6 +132,9 @@ Put logic in the narrowest layer that can own it cleanly:
 
 Do not put parser-shape knowledge directly into multiple rules if a shared parser
 helper can express it once.
+
+For complete system diagrams, AST query interactions, and dedicated expression/assignment
+subsystem design, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 If multiple rules or wrappers need the same raw node family, keep the family
 definition in `src/pkg/parser/types.py` and expose any "is this one of those
