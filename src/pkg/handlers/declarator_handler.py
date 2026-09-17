@@ -8,6 +8,7 @@ from ..parser.syntax import (
     declarator_is_port,
     declarator_is_signed,
     declarator_name,
+    declarator_packed_range,
     declarator_port_direction,
     enclosing_continuous_assign,
     enclosing_procedural_block,
@@ -33,6 +34,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
         if symbol.is_port:
             symbol.port_direction = declarator_port_direction(ctx)
         symbol.bit_width = declarator_bit_width(ctx)
+        symbol.msb, symbol.lsb = declarator_packed_range(ctx)
         symbol.is_signed = declarator_is_signed(ctx)
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):

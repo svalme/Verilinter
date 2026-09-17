@@ -184,3 +184,17 @@ class TestArithmeticResultTruncationRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_declarator_initializer_truncation(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [7:0] b;
+              wire [7:0] p = a * b;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+

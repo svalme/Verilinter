@@ -16,7 +16,7 @@ from ..syntax_kinds import (
     RANGE_SELECT_KINDS,
 )
 from ..types import IdentifierSelectNameNode, SyntaxNode, SyntaxTree
-from .shared import type_text_width_and_signed
+from .shared import simple_packed_range, type_text_width_and_signed
 
 
 def declarator_name(raw: object) -> str | None:
@@ -372,6 +372,11 @@ def declarator_is_signed(ctx: "Context") -> bool | None:
     return signed
 
 
+def declarator_packed_range(ctx: "Context") -> tuple[int | None, int | None]:
+    type_text = _declarator_owner_type_text(ctx)
+    return simple_packed_range(type_text)
+
+
 def is_generate_block_node(raw: object) -> bool:
     return getattr(raw, "kind", None) == GENERATE_BLOCK_KIND
 
@@ -564,3 +569,46 @@ def named_parameter_override_name(raw: object) -> str | None:
     name = getattr(raw, "name", None)
     value = getattr(name, "value", None)
     return value if isinstance(value, str) and value else None
+
+
+def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
+    """Unpack an assignment-like construct -- continuous assignment, procedural
+    assignment, or variable declarator initializer -- returning
+    `(lhs_symbol, right_expr)` resolved against `ctx.scope()`.
+    Returns `(None, None)` when the construct is not an assignment or the
+    target cannot be resolved.
+    """
+    from ..syntax_queries import (
+        assignment_left,
+        assignment_right,
+        is_assignment_expression,
+    )
+
+    raw = getattr(vnode, "raw", vnode)
+    scope = getattr(ctx, "scope", lambda: None)()
+
+    if is_assignment_expression(raw):
+        left = assignment_left(raw)
+        right = assignment_right(raw)
+        if left is None or right is None:
+            return None, None
+        name = identifier_name(left)
+        if name is None or scope is None:
+            return None, None
+        lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
+        symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+        return symbol, right
+
+    if declarator_has_initializer(raw):
+        if declarator_is_parameter(ctx):
+            return None, None
+        name = declarator_name(raw)
+        if name is None or scope is None:
+            return None, None
+        lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
+        symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+        right = declarator_initializer_expression(raw)
+        return symbol, right
+
+    return None, None
+

@@ -30,10 +30,15 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
         return False
     base_name, selectors = result
 
-    symbol = ctx.scope().lookup(base_name)
+    symbol = ctx.scope().lookup_hierarchical(base_name)
     if symbol is None or not isinstance(symbol.bit_width, int):
         return False
     bit_width = symbol.bit_width
+    msb = getattr(symbol, "msb", None)
+    lsb = getattr(symbol, "lsb", None)
+    has_range = isinstance(msb, int) and isinstance(lsb, int)
+    min_bound = min(msb, lsb) if has_range else 0
+    max_bound = max(msb, lsb) if has_range else bit_width - 1
 
     for selector in selectors:
         unwrapped = element_select_index_or_range(selector)
@@ -43,12 +48,12 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
 
         if shape == "bit":
             index = constant_integer_value(payload)
-            if index is not None and (index < 0 or index >= bit_width):
+            if index is not None and (index < min_bound or index > max_bound):
                 return True
         elif shape == "simple_range":
             left, right = payload
             for bound in (constant_integer_value(left), constant_integer_value(right)):
-                if bound is not None and (bound < 0 or bound >= bit_width):
+                if bound is not None and (bound < min_bound or bound > max_bound):
                     return True
         elif shape in ("ascending", "descending"):
             _base, width_expr = payload

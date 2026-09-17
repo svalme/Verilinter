@@ -1,14 +1,10 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
-    assignment_left,
-    assignment_right,
-    binary_operands,
-    identifier_name,
     is_add_subtract_expression,
-    is_assignment_expression,
     is_multiply_expression,
-    simple_expression_width_and_signed,
+    natural_expression_width_and_signed,
+    resolve_assignment_target_and_rhs,
 )
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -29,37 +25,16 @@ def _natural_result_width(vnode: BaseVNode, ctx: "Context", rhs: object) -> int 
     skipped rather than guessed at, the same recoverability posture as
     `ASSIGNMENT_WIDTH_MISMATCH`.
     """
-    is_add_sub = is_add_subtract_expression(rhs)
-    is_mul = is_multiply_expression(rhs)
-    if not is_add_sub and not is_mul:
+    if not is_add_subtract_expression(rhs) and not is_multiply_expression(rhs):
         return None
 
-    operands = binary_operands(rhs)
-    if operands is None:
-        return None
-    left, right = operands
-
-    left_width, _left_signed = simple_expression_width_and_signed(ctx.scope(), left, vnode.tree)
-    right_width, _right_signed = simple_expression_width_and_signed(ctx.scope(), right, vnode.tree)
-    if not isinstance(left_width, int) or not isinstance(right_width, int):
-        return None
-
-    return left_width + right_width if is_mul else max(left_width, right_width)
+    width, _signed = natural_expression_width_and_signed(ctx.scope(), rhs, vnode.tree)
+    return width
 
 
 def _arithmetic_result_truncation(vnode: BaseVNode, ctx: "Context") -> bool:
-    if not is_assignment_expression(vnode.raw):
-        return False
-    left = assignment_left(vnode.raw)
-    right = assignment_right(vnode.raw)
-    if left is None or right is None:
-        return False
-
-    name = identifier_name(left)
-    if name is None:
-        return False
-    symbol = ctx.scope().lookup(name)
-    if symbol is None or not isinstance(symbol.bit_width, int):
+    symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)
+    if symbol is None or right is None or not isinstance(symbol.bit_width, int):
         return False
 
     result_width = _natural_result_width(vnode, ctx, right)

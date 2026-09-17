@@ -1,12 +1,10 @@
-import re
-
 from ..syntax_kinds import (
     ALWAYS_COMB_BLOCK_KIND,
     FOR_LOOP_STATEMENT_KIND,
     PRIMITIVE_INSTANTIATION_KIND,
 )
 from ..types import ProceduralBlockNode, SyntaxNode
-from .shared import _split_top_level, simple_identifier_text, source_text_for_node
+from .expressions import simple_expression_width_and_signed
 
 
 def contains_descendant(root: SyntaxNode, target: SyntaxNode) -> bool:
@@ -331,83 +329,6 @@ def assignment_right(raw: object) -> SyntaxNode | None:
     return right if isinstance(right, SyntaxNode) else None
 
 
-def _concatenation_member_width(scope: object, member_text: str) -> int | None:
-    """Width of one concatenation or replication member. IEEE 1800 fixes an
-    unsized decimal literal used as a concatenation member at exactly 32
-    bits -- unlike a bare top-level unsized literal, whose width is instead
-    context-determined from the assignment target and therefore treated as
-    unrecoverable everywhere else in this module (see the top-level
-    `unsized_decimal` branch below). Without this override, a concatenation
-    member's unsized literal made the *entire* concatenation's width
-    unrecoverable (`{a, 5}` silently skipped instead of correctly resolving
-    to a width `ASSIGNMENT_WIDTH_MISMATCH` can compare)."""
-    width, _signed = _infer_text_width_and_signed_direct(scope, member_text)
-    if width is None and re.match(r"\s*\d+\s*$", member_text):
-        return 32
-    return width
+# Re-exported from .expressions for backward compatibility
+__all_expressions = [simple_expression_width_and_signed]
 
-
-def _infer_text_width_and_signed_direct(scope: object, expr_text: str) -> tuple[int | None, bool | None]:
-    simple_identifier = simple_identifier_text(expr_text)
-    if simple_identifier is not None and scope is not None:
-        current = scope
-        while current is not None:
-            symbol = getattr(current, "lookup", lambda _name: None)(simple_identifier)
-            if symbol is not None:
-                return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
-            current = getattr(current, "parent", None)
-
-    sized_literal = re.match(r"(?i)\s*(\d+)\s*'\s*[sS]?[bodhBODH][0-9a-f_xz?]+\s*$", expr_text)
-    if sized_literal is not None:
-        return int(sized_literal.group(1)), "'s" in expr_text.lower()
-
-    unsized_decimal = re.match(r"\s*\d+\s*$", expr_text)
-    if unsized_decimal is not None:
-        return None, False
-
-    bit_select = re.match(r"^(?P<base>[a-zA-Z_][a-zA-Z0-9_$]*)\s*\[\s*[^:\[\]]+\s*\]$", expr_text)
-    if bit_select is not None:
-        return 1, None
-
-    part_select = re.match(
-        r"^(?P<base>[a-zA-Z_][a-zA-Z0-9_$]*)\s*\[\s*(?P<left>-?\d+)\s*:\s*(?P<right>-?\d+)\s*\]$",
-        expr_text,
-    )
-    if part_select is not None:
-        return abs(int(part_select.group("left")) - int(part_select.group("right"))) + 1, None
-
-    indexed_part_select = re.match(
-        r"^(?P<base>[a-zA-Z_][a-zA-Z0-9_$]*)\s*\[\s*.+?\s*[+-]:\s*(?P<width>\d+)\s*\]$",
-        expr_text,
-    )
-    if indexed_part_select is not None:
-        return int(indexed_part_select.group("width")), None
-
-    if expr_text.startswith("{") and expr_text.endswith("}"):
-        inner = expr_text[1:-1].strip()
-        replication = re.match(r"^(?P<count>\d+)\s*\{(?P<body>.*)\}$", inner)
-        if replication is not None:
-            inner_width = _concatenation_member_width(scope, replication.group("body"))
-            if inner_width is None:
-                return None, None
-            return int(replication.group("count")) * inner_width, None
-
-        parts = _split_top_level(inner, ",")
-        if not parts:
-            return None, None
-        total = 0
-        for part in parts:
-            width = _concatenation_member_width(scope, part)
-            if width is None:
-                return None, None
-            total += width
-        return total, None
-
-    return None, None
-
-
-def simple_expression_width_and_signed(scope: object, expr: SyntaxNode, tree: "SyntaxTree") -> tuple[int | None, bool | None]:
-    expr_text = source_text_for_node(expr, tree)
-    if expr_text is None:
-        return None, None
-    return _infer_text_width_and_signed_direct(scope, expr_text)

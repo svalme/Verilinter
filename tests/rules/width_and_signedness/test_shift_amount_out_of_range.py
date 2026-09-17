@@ -156,3 +156,17 @@ class TestShiftAmountOutOfRangeRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_shift_amount_out_of_range_on_part_select(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [7:0] x;
+              wire [3:0] y;
+              assign y = x[3:0] << 4;
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+

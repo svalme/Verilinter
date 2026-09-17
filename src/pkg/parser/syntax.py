@@ -63,6 +63,7 @@ from .syntax_queries import (
     declarator_is_port,
     declarator_is_signed,
     declarator_name,
+    declarator_packed_range,
     declarator_port_direction,
     duplicate_generate_branch_label,
     else_clause_body,
@@ -234,6 +235,7 @@ from .syntax_queries import (
     is_member_selector,
     named_parameter_override_name,
     named_port_connection_name,
+    natural_expression_width_and_signed,
     node_location,
     package_import_items,
     parameter_override_list,
@@ -244,6 +246,7 @@ from .syntax_queries import (
     procedural_block_sensitivity_names,
     procedural_block_statement,
     procedural_nesting_depth,
+    resolve_assignment_target_and_rhs,
     resolve_case_item_value,
     scoped_name_package_qualifier,
     simple_identifier_text,
@@ -258,6 +261,7 @@ from .syntax_queries import (
     token_raw_text,
     type_text_width_and_signed,
     unary_write_operand,
+    unwrap_parentheses,
 )
 
 __all__ = [
@@ -323,6 +327,7 @@ __all__ = [
     "declarator_is_port",
     "declarator_is_signed",
     "declarator_name",
+    "declarator_packed_range",
     "declarator_port_direction",
     "duplicate_generate_branch_label",
     "else_clause_body",
@@ -494,6 +499,7 @@ __all__ = [
     "is_module_filename_mismatch",
     "named_parameter_override_name",
     "named_port_connection_name",
+    "natural_expression_width_and_signed",
     "node_location",
     "package_import_items",
     "parameter_override_list",
@@ -504,6 +510,7 @@ __all__ = [
     "procedural_block_sensitivity_names",
     "procedural_block_statement",
     "procedural_nesting_depth",
+    "resolve_assignment_target_and_rhs",
     "resolve_case_item_value",
     "scoped_name_package_qualifier",
     "simple_identifier_text",
@@ -518,4 +525,5 @@ __all__ = [
     "token_raw_text",
     "type_text_width_and_signed",
     "unary_write_operand",
+    "unwrap_parentheses",
 ]

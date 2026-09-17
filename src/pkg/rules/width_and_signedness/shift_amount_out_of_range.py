@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 from ...parser.syntax import (
     binary_operands,
     constant_integer_value,
-    identifier_name,
     is_shift_expression,
+    simple_expression_width_and_signed,
 )
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -16,12 +16,9 @@ if TYPE_CHECKING:
 
 def _shift_amount_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
     """True when `vnode` is a shift expression whose constant shift amount is
-    negative or `>=` the shifted operand's declared width. Only fires when the
-    shifted operand is a simple identifier with a known `Symbol.bit_width`
-    (same "known vs. known" recoverability posture as `ASSIGNMENT_WIDTH_MISMATCH`)
-    and the shift amount is itself a recoverable compile-time constant --
-    a variable shift amount, or a non-identifier shifted operand, is silently
-    skipped rather than guessed at.
+    negative or `>=` the shifted operand's declared width. Fires when the
+    shifted operand has a recoverable width (via `simple_expression_width_and_signed`)
+    and the shift amount is itself a recoverable compile-time constant.
     """
     if not is_shift_expression(vnode.raw):
         return False
@@ -34,14 +31,11 @@ def _shift_amount_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
     if amount is None:
         return False
 
-    name = identifier_name(left)
-    if name is None:
-        return False
-    symbol = ctx.scope().lookup(name)
-    if symbol is None or not isinstance(symbol.bit_width, int):
+    left_width, _ = simple_expression_width_and_signed(ctx.scope(), left, vnode.tree)
+    if not isinstance(left_width, int):
         return False
 
-    return amount < 0 or amount >= symbol.bit_width
+    return amount < 0 or amount >= left_width
 
 
 @rule_runner.register

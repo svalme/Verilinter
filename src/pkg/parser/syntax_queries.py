@@ -27,8 +27,12 @@ from ._syntax_queries.access import (
     is_combinational_driver_block,
     is_state_register_reset_covered,
     is_within_async_reset_conditional,
-    simple_expression_width_and_signed,
     unary_write_operand,
+)
+from ._syntax_queries.expressions import (
+    natural_expression_width_and_signed,
+    simple_expression_width_and_signed,
+    unwrap_parentheses,
 )
 from ._syntax_queries.fsm import (
     case_statement_selector_name,
@@ -70,6 +74,7 @@ from ._syntax_queries.shapes import (
     declarator_is_port,
     declarator_is_signed,
     declarator_name,
+    declarator_packed_range,
     declarator_port_direction,
     duplicate_generate_branch_label,
     else_clause_body,
@@ -104,6 +109,7 @@ from ._syntax_queries.shapes import (
     port_connection_expression,
     port_connection_list,
     procedural_block_statement,
+    resolve_assignment_target_and_rhs,
 )
 from ._syntax_queries.literals import (
     constant_integer_value,

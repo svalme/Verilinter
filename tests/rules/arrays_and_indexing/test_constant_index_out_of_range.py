@@ -195,3 +195,38 @@ class TestConstantIndexOutOfRangeRule:
         )
 
         assert diagnostics == []
+
+    def test_handles_non_zero_based_range(self) -> None:
+        diagnostics_valid = _diagnostics(
+            """
+            module top;
+              wire [10:5] x;
+              wire b;
+              assign b = x[6];
+            endmodule
+            """
+        )
+        assert diagnostics_valid == []
+
+        diagnostics_low = _diagnostics(
+            """
+            module top;
+              wire [10:5] x;
+              wire b;
+              assign b = x[4];
+            endmodule
+            """
+        )
+        assert len(diagnostics_low) == 1
+
+        diagnostics_high = _diagnostics(
+            """
+            module top;
+              wire [10:5] x;
+              wire b;
+              assign b = x[11];
+            endmodule
+            """
+        )
+        assert len(diagnostics_high) == 1
+

@@ -77,6 +77,17 @@ def simple_packed_width(type_text: str | None) -> int | None:
     return abs(left - right) + 1
 
 
+def simple_packed_range(type_text: str | None) -> tuple[int | None, int | None]:
+    if not type_text:
+        return None, None
+    match = re.search(r"\[\s*(-?\d+)\s*:\s*(-?\d+)\s*\]", type_text)
+    if match is None:
+        if "[" in type_text and "]" in type_text:
+            return None, None
+        return (0, 0) if type_text.strip() else (None, None)
+    return int(match.group(1)), int(match.group(2))
+
+
 def type_text_width_and_signed(type_text: str | None) -> tuple[int | None, bool | None]:
     if type_text is None:
         return None, None

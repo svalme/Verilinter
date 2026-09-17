@@ -45,7 +45,7 @@ def _is_one_hot_encoding_violation(vnode: BaseVNode, ctx: "Context") -> bool:
     name = case_statement_selector_name(vnode.raw)
     if name is None:
         return False
-    symbol = ctx.scope().lookup(name)
+    symbol = ctx.scope().lookup_hierarchical(name)
     if symbol is None or not isinstance(symbol.bit_width, int) or symbol.bit_width <= 1:
         return False
 

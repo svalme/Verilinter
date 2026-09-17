@@ -66,7 +66,8 @@ def resolve_case_item_value(expr: object, scope: object) -> int | None:
 
     name = identifier_name(expr)
     if name is not None:
-        symbol = getattr(scope, "lookup", lambda _name: None)(name)
+        lookup_fn = getattr(scope, "lookup_hierarchical", getattr(scope, "lookup", lambda _name: None))
+        symbol = lookup_fn(name)
         value = getattr(symbol, "value", None)
         if isinstance(value, int):
             return value

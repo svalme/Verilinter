@@ -346,6 +346,8 @@ def _lint_single_tree(
                         "is_port": symbol.is_port,
                         "direction": symbol.port_direction,
                         "bit_width": symbol.bit_width,
+                        "msb": symbol.msb,
+                        "lsb": symbol.lsb,
                         "is_signed": symbol.is_signed,
                         "is_read": symbol.is_read,
                         "is_written": symbol.is_written,
@@ -441,6 +443,8 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
                 symbol.bit_width = (
                     int(symbol_data["bit_width"]) if symbol_data.get("bit_width") is not None else None
                 )
+                symbol.msb = int(symbol_data["msb"]) if symbol_data.get("msb") is not None else None
+                symbol.lsb = int(symbol_data["lsb"]) if symbol_data.get("lsb") is not None else None
                 signed = symbol_data.get("is_signed")
                 symbol.is_signed = bool(signed) if signed is not None else None
                 symbol.is_read = bool(symbol_data.get("is_read", False))

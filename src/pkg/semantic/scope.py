@@ -36,6 +36,10 @@ class Scope:
             existing.is_port |= symbol.is_port
             if symbol.bit_width is not None:
                 existing.bit_width = symbol.bit_width
+            if symbol.msb is not None:
+                existing.msb = symbol.msb
+            if symbol.lsb is not None:
+                existing.lsb = symbol.lsb
             if symbol.is_signed is not None:
                 existing.is_signed = symbol.is_signed
             if symbol.value is not None:
@@ -54,6 +58,16 @@ class Scope:
     def lookup(self, name: str) -> Symbol | None:
         if name in self.symbols:
             return self.symbols[name]
+        return None
+
+    def lookup_hierarchical(self, name: str) -> Symbol | None:
+        """Lookup a symbol starting from this scope and walking up enclosing parent scopes."""
+        current: Scope | None = self
+        while current is not None:
+            symbol = current.lookup(name)
+            if symbol is not None:
+                return symbol
+            current = current.parent
         return None
 
     def add_import(self, package_name: str, imported_name: str | None) -> None:

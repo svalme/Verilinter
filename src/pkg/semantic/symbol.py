@@ -38,6 +38,8 @@ class Symbol:
         self.is_function_return: bool = False
         self.port_direction: str | None = None  # "input" / "output" / "inout" / "ref" when is_port
         self.bit_width: int | None = None
+        self.msb: int | None = None
+        self.lsb: int | None = None
         self.is_signed: bool | None = None
         self.value: int | None = None
         self.is_read: bool = False
