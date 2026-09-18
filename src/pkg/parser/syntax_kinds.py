@@ -65,6 +65,8 @@ CASE_TOKEN_KINDS = {
     sl.TokenKind.CaseXKeyword,
     sl.TokenKind.CaseZKeyword,
 }
+LOCALPARAM_TOKEN_KIND = sl.TokenKind.LocalParamKeyword
+PARAMETER_TOKEN_KIND = sl.TokenKind.ParameterKeyword
 
 NONBLOCKING_ASSIGNMENT_KIND = sl.SyntaxKind.NonblockingAssignmentExpression
 

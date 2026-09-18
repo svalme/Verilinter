@@ -3,15 +3,19 @@ from ..walk.context import Context
 from ..parser.syntax import (
     declarator_bit_width,
     declarator_has_initializer,
+    declarator_initializer_expression,
     declarator_initializer_value,
+    declarator_is_localparam,
     declarator_is_parameter,
     declarator_is_port,
     declarator_is_signed,
     declarator_name,
+    declarator_packed_dimension_texts,
     declarator_packed_range,
     declarator_port_direction,
     enclosing_continuous_assign,
     enclosing_procedural_block,
+    source_text_for_node,
 )
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
@@ -30,11 +34,14 @@ class DeclaratorHandler(SyntaxNodeHandler):
         if ctx.scope().kind == "aggregate":
             kind = "field"
         symbol = Symbol(name=name, kind=kind)
+        if kind == "parameter":
+            symbol.is_localparam = declarator_is_localparam(ctx)
         symbol.is_port = declarator_is_port(ctx)
         if symbol.is_port:
             symbol.port_direction = declarator_port_direction(ctx)
         symbol.bit_width = declarator_bit_width(ctx)
         symbol.msb, symbol.lsb = declarator_packed_range(ctx)
+        symbol.packed_dimensions = declarator_packed_dimension_texts(ctx, vnode.tree)
         symbol.is_signed = declarator_is_signed(ctx)
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):
@@ -60,6 +67,9 @@ class DeclaratorHandler(SyntaxNodeHandler):
             )
             if kind == "parameter":
                 symbol.value = declarator_initializer_value(vnode.raw, scope=ctx.scope())
+                init_expr = declarator_initializer_expression(vnode.raw)
+                if init_expr is not None:
+                    symbol.initializer_text = source_text_for_node(init_expr, vnode.tree)
         ctx.scope().define(symbol)
         return ctx.push(vnode)
 

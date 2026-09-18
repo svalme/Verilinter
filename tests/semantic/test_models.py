@@ -86,16 +86,28 @@ class TestParameterOverride:
             kind="named",
             location={"line": 8, "col": 3},
             param_name="WIDTH",
+            expr_text="8",
+            expr_value=8,
         )
         assert override.kind == "named"
         assert override.param_name == "WIDTH"
+        assert override.expr_text == "8"
+        assert override.expr_value == 8
         assert override["param_name"] == "WIDTH"
+        assert override["expr_text"] == "8"
+        assert override["expr_value"] == 8
         assert override.get("param_name") == "WIDTH"
         assert "param_name" in override
-        assert len(override) == 3
+        assert len(override) == 5
 
         d = override.to_dict()
-        assert d == {"kind": "named", "location": {"line": 8, "col": 3}, "param_name": "WIDTH"}
+        assert d == {
+            "kind": "named",
+            "location": {"line": 8, "col": 3},
+            "param_name": "WIDTH",
+            "expr_text": "8",
+            "expr_value": 8,
+        }
 
         reconstructed = ParameterOverride.from_dict(d)
         assert reconstructed == override

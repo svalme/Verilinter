@@ -372,6 +372,10 @@ def _lint_single_tree(
                         "msb": symbol.msb,
                         "lsb": symbol.lsb,
                         "is_signed": symbol.is_signed,
+                        "value": symbol.value,
+                        "is_localparam": symbol.is_localparam,
+                        "initializer_text": symbol.initializer_text,
+                        "packed_dimensions": [list(dim) for dim in symbol.packed_dimensions],
                         "is_read": symbol.is_read,
                         "is_written": symbol.is_written,
                         "use_count": symbol.use_count,
@@ -470,6 +474,17 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
                 symbol.lsb = int(symbol_data["lsb"]) if symbol_data.get("lsb") is not None else None
                 signed = symbol_data.get("is_signed")
                 symbol.is_signed = bool(signed) if signed is not None else None
+                val = symbol_data.get("value")
+                symbol.value = int(val) if val is not None else None
+                symbol.is_localparam = bool(symbol_data.get("is_localparam", False))
+                init_text = symbol_data.get("initializer_text")
+                symbol.initializer_text = str(init_text) if init_text is not None else None
+                dims = symbol_data.get("packed_dimensions", [])
+                symbol.packed_dimensions = [
+                    (str(d[0]), str(d[1]))
+                    for d in dims
+                    if isinstance(d, (list, tuple)) and len(d) == 2
+                ]
                 symbol.is_read = bool(symbol_data.get("is_read", False))
                 symbol.is_written = bool(symbol_data.get("is_written", False))
                 symbol.use_count = int(symbol_data.get("use_count", 0))

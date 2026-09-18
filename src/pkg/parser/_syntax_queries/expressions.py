@@ -1,6 +1,7 @@
 """Expression width, signedness, and value inspection queries."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 import re
 from typing import TYPE_CHECKING
 
@@ -63,6 +64,14 @@ def unwrap_parentheses(expr: object) -> object:
 
 def _resolve_symbol_in_scope(scope: object, name: str) -> object:
     if scope is None or not name:
+        return None
+    if isinstance(scope, Mapping):
+        if name in scope:
+            val = scope[name]
+            if isinstance(val, int):
+                from types import SimpleNamespace
+                return SimpleNamespace(value=val)
+            return val
         return None
     lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
     if callable(lookup_hierarchical):
@@ -439,3 +448,44 @@ def _infer_text_width_and_signed_direct(scope: object, expr_text: str) -> tuple[
         return _infer_text_width_and_signed_direct(scope, left_text)
 
     return None, None
+
+
+def evaluate_constant_text_expression(expr_text: str | None, scope: object = None) -> int | None:
+    """Parse an expression text string into a native pyslang CST/AST node and
+    constant-fold it against `scope`. Encapsulates pyslang syntax tree construction."""
+    if not expr_text or not expr_text.strip():
+        return None
+    try:
+        import pyslang as sl
+        tree = sl.SyntaxTree.fromText(expr_text.strip())
+        if tree is None or tree.root is None:
+            return None
+        return evaluate_constant_expression(tree.root, scope=scope)
+    except Exception:
+        return None
+
+
+def evaluate_packed_dimension_bounds(
+    dimension_texts: list[tuple[str, str]],
+    scope: object = None,
+) -> tuple[int | None, int | None, int | None]:
+    """Evaluate packed dimension text pairs [(msb_text, lsb_text), ...] against `scope`.
+    Returns (total_bit_width, first_msb, first_lsb) where total_bit_width is the
+    product of all folded dimension widths. If any dimension fails to fold, returns (None, None, None)."""
+    if not dimension_texts:
+        return None, None, None
+    total_width = 1
+    first_msb: int | None = None
+    first_lsb: int | None = None
+    for index, (msb_text, lsb_text) in enumerate(dimension_texts):
+        msb_val = evaluate_constant_text_expression(msb_text, scope=scope)
+        lsb_val = evaluate_constant_text_expression(lsb_text, scope=scope)
+        if msb_val is None or lsb_val is None:
+            return None, None, None
+        if index == 0:
+            first_msb = msb_val
+            first_lsb = lsb_val
+        dim_width = abs(msb_val - lsb_val) + 1
+        total_width *= dim_width
+    return total_width, first_msb, first_lsb
+

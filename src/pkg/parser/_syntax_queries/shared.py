@@ -3,11 +3,14 @@ import re
 from ..types import RawNode, SyntaxNode, SyntaxTree, Token
 
 
-def source_text_for_node(raw: object, tree: SyntaxTree) -> str | None:
+def source_text_for_node(raw: object, tree: SyntaxTree | None) -> str | None:
     source_range = getattr(raw, "sourceRange", None)
     start = getattr(source_range, "start", None)
     end = getattr(source_range, "end", None)
-    if start is None or end is None:
+    if start is None or end is None or tree is None:
+        if raw is not None:
+            text = str(raw).strip()
+            return " ".join(text.split()) or None
         return None
 
     source = tree.sourceManager.getSourceText(start.buffer)

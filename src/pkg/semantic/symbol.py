@@ -42,6 +42,9 @@ class Symbol:
         self.lsb: int | None = None
         self.is_signed: bool | None = None
         self.value: int | None = None
+        self.is_localparam: bool = False
+        self.initializer_text: str | None = None
+        self.packed_dimensions: list[tuple[str, str]] = []
         self.is_read: bool = False
         self.is_written: bool = False
         self.use_count: int = 0

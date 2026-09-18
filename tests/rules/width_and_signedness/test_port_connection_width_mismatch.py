@@ -238,6 +238,133 @@ class TestPortConnectionWidthMismatchRule:
 
         result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
 
+    def test_named_parameter_override_matches_instance_width(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH = 64) (input [WIDTH-1:0] in);
+                endmodule
+                module top;
+                  wire [3:0] sig4;
+                  child #(.WIDTH(4)) u1(.in(sig4));
+                endmodule
+                """
+            }
+        )
+        result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_named_parameter_override_flags_width_mismatch(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH = 64) (input [WIDTH-1:0] in);
+                endmodule
+                module top;
+                  wire [7:0] sig8;
+                  child #(.WIDTH(4)) u1(.in(sig8));
+                endmodule
+                """
+            }
+        )
+        result.expect_code_once("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_ordered_parameter_override_matches_instance_width(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH = 64) (input [WIDTH-1:0] in);
+                endmodule
+                module top;
+                  wire [3:0] sig4;
+                  child #(4) u1(.in(sig4));
+                endmodule
+                """
+            }
+        )
+        result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_ordered_parameter_override_flags_width_mismatch(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH = 64) (input [WIDTH-1:0] in);
+                endmodule
+                module top;
+                  wire [7:0] sig8;
+                  child #(4) u1(.in(sig8));
+                endmodule
+                """
+            }
+        )
+        result.expect_code_once("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_dependent_parameter_recalculation(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH = 8) (input [TOTAL-1:0] in);
+                  localparam TOTAL = WIDTH + 4;
+                endmodule
+                module top;
+                  wire [19:0] sig20;
+                  wire [11:0] sig12;
+                  child #(.WIDTH(16)) u1(.in(sig20));
+                  child #(.WIDTH(16)) u2(.in(sig12));
+                endmodule
+                """
+            }
+        )
+        # u1 matches 16 + 4 = 20 bits; u2 has 12 bits connected to 20-bit port (mismatch)
+        result.expect_code_once("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_parent_parameter_passed_to_override(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH = 8) (input [WIDTH-1:0] in);
+                endmodule
+                module top #(parameter TOP_W = 16) ();
+                  wire [15:0] bus16;
+                  child #(.WIDTH(TOP_W)) u1(.in(bus16));
+                endmodule
+                """
+            }
+        )
+        result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_cross_file_parameter_override_propagation(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "child.sv": """
+                module child #(parameter WIDTH = 64) (input [WIDTH-1:0] in);
+                endmodule
+                """,
+                "top.sv": """
+                module top;
+                  wire [3:0] sig4;
+                  wire [7:0] sig8;
+                  child #(.WIDTH(4)) u1(.in(sig4));
+                  child #(.WIDTH(4)) u2(.in(sig8));
+                endmodule
+                """,
+            }
+        )
+        result.expect_code_once("PORT_CONNECTION_WIDTH_MISMATCH")
+
 
 class TestPortConnectionWidthUnknownRule:
     def test_flags_unsized_literal_connection(

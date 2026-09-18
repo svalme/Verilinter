@@ -6,6 +6,7 @@ from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
 from ..parser.syntax import (
     branch_exclusivity_signature,
+    evaluate_constant_expression,
     hierarchical_instance_name,
     hierarchical_instance_list,
     instantiation_type_name,
@@ -40,12 +41,17 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
         parameter_overrides: list[ParameterOverride] = []
         parameter_override_kinds: set[str] = set()
         for param in parameter_override_list(vnode.raw):
+            expr = getattr(param, "expr", None)
+            expr_text = source_text_for_node(expr, vnode.tree) if expr is not None else None
+            expr_value = evaluate_constant_expression(expr, scope=ctx.scope()) if expr is not None else None
             if is_named_parameter_override(param):
                 parameter_overrides.append(
                     ParameterOverride(
                         kind="named",
                         param_name=named_parameter_override_name(param),
                         location=node_location(param, vnode.tree),
+                        expr_text=expr_text,
+                        expr_value=expr_value,
                     )
                 )
                 parameter_override_kinds.add("named")
@@ -54,6 +60,8 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                     ParameterOverride(
                         kind="ordered",
                         location=node_location(param, vnode.tree),
+                        expr_text=expr_text,
+                        expr_value=expr_value,
                     )
                 )
                 parameter_override_kinds.add("ordered")

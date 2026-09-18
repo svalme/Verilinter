@@ -10,13 +10,14 @@ from ..syntax_kinds import (
     ELSE_CLAUSE_KIND,
     EMPTY_STATEMENT_KIND,
     GENERATE_BLOCK_KIND,
+    LOCALPARAM_TOKEN_KIND,
     MODULE_DECLARATION_KIND,
     PARALLEL_BLOCK_STATEMENT_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
     RANGE_SELECT_KINDS,
 )
 from ..types import IdentifierSelectNameNode, SyntaxNode, SyntaxTree
-from .shared import simple_packed_range, type_text_width_and_signed
+from .shared import simple_packed_range, source_text_for_node, type_text_width_and_signed
 
 
 def declarator_name(raw: object) -> str | None:
@@ -73,6 +74,29 @@ def declarator_is_parameter(ctx: "Context") -> bool:
         if type_name == "ParameterDeclarationSyntax":
             return True
         if type_name.endswith("DataDeclarationSyntax") or type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+            return False
+    return False
+
+
+def declarator_is_localparam(ctx: "Context") -> bool:
+    """True if the declarator being processed belongs to a `localparam` declaration."""
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        type_name = type(raw).__name__
+        if type_name == "ParameterDeclarationStatementSyntax":
+            param = getattr(raw, "parameter", None)
+            kw = getattr(param, "keyword", None)
+            if getattr(kw, "kind", None) == LOCALPARAM_TOKEN_KIND:
+                return True
+        elif type_name == "ParameterDeclarationSyntax":
+            kw = getattr(raw, "keyword", None)
+            if getattr(kw, "kind", None) == LOCALPARAM_TOKEN_KIND:
+                return True
+        if (
+            type_name.endswith("DataDeclarationSyntax")
+            or type_name.endswith("AnsiPortSyntax")
+            or type_name == "PortDeclarationSyntax"
+        ):
             return False
     return False
 
@@ -385,6 +409,25 @@ def _declarator_owner_packed_dimensions(ctx: "Context") -> list[SyntaxNode]:
                 if dims:
                     return dims
     return []
+
+
+def declarator_packed_dimension_texts(ctx: "Context", tree: SyntaxTree | None) -> list[tuple[str, str]]:
+    """Return [(msb_text, lsb_text), ...] raw text representation of packed dimensions
+    for the declarator, or [] if scalar or dimensionless."""
+    dims = _declarator_owner_packed_dimensions(ctx)
+    result: list[tuple[str, str]] = []
+    for dim in dims:
+        spec = getattr(dim, "specifier", None)
+        selector = getattr(spec, "selector", None)
+        if selector is not None:
+            left = getattr(selector, "left", None)
+            right = getattr(selector, "right", None)
+            if left is not None and right is not None:
+                left_text = source_text_for_node(left, tree)
+                right_text = source_text_for_node(right, tree)
+                if left_text and right_text:
+                    result.append((left_text.strip(), right_text.strip()))
+    return result
 
 
 def declarator_bit_width(ctx: "Context") -> int | None:
