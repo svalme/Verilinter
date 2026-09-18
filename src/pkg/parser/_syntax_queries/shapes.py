@@ -5,6 +5,7 @@ from ..syntax_kinds import (
     BIT_SELECT_KIND,
     BLOCK_STATEMENT_KINDS,
     CASE_TOKEN_KINDS,
+    CLOCKING_DECLARATION_KIND,
     COMPILATION_UNIT_KIND,
     CONDITIONAL_STATEMENT_KIND,
     ELSE_CLAUSE_KIND,
@@ -15,9 +16,12 @@ from ..syntax_kinds import (
     PARALLEL_BLOCK_STATEMENT_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
     RANGE_SELECT_KINDS,
+    REAL_LITERAL_EXPRESSION_KIND,
+    REAL_TYPE_KINDS,
+    TIME_LITERAL_EXPRESSION_KIND,
 )
 from ..types import IdentifierSelectNameNode, SyntaxNode, SyntaxTree
-from .shared import simple_packed_range, source_text_for_node, type_text_width_and_signed
+from .shared import node_location, simple_packed_range, source_text_for_node, type_text_width_and_signed
 
 
 def declarator_name(raw: object) -> str | None:
@@ -720,4 +724,133 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
         return symbol, right
 
     return None, None
+
+
+def clocking_declaration_signals(
+    raw: object, tree: SyntaxTree | None = None
+) -> list[tuple[str, bool, bool, dict[str, object]]]:
+    """Extract (signal_name, is_input, is_output, location) for clocking declaration items."""
+    results: list[tuple[str, bool, bool, dict[str, object]]] = []
+    if getattr(raw, "kind", None) != CLOCKING_DECLARATION_KIND:
+        return results
+
+    for item in getattr(raw, "items", []):
+        direction = getattr(item, "direction", None)
+        if direction is None:
+            continue
+        input_tok = getattr(direction, "input", None)
+        output_tok = getattr(direction, "output", None)
+        input_kind_name = getattr(getattr(input_tok, "kind", None), "name", "")
+        output_kind_name = getattr(getattr(output_tok, "kind", None), "name", "")
+
+        is_input = input_kind_name in ("InputKeyword", "InOutKeyword")
+        is_output = output_kind_name == "OutputKeyword" or input_kind_name == "InOutKeyword"
+
+        for decl in getattr(item, "decls", []):
+            val = getattr(decl, "value", None)
+            name: str | None = None
+            if val is not None and hasattr(val, "expr"):
+                name = identifier_name(val.expr)
+            elif hasattr(decl, "name") and hasattr(decl.name, "valueText"):
+                name = decl.name.valueText
+            if not name:
+                continue
+            loc = node_location(decl, tree) if tree is not None else {"line": 0, "col": 0}
+            results.append((name, is_input, is_output, loc))
+
+    return results
+
+
+def is_fractional_time_literal(text: str, timescale_unit_scale: float = 1e-9) -> bool:
+    """Check if a time literal string (e.g. '9.001ns', '9ps') represents a fractional
+    number of time units under the given timescale unit."""
+    s = text.strip()
+    match = re.match(r"^([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z]+)$", s)
+    if not match:
+        return False
+    val_str, unit = match.groups()
+    try:
+        val = float(val_str)
+    except ValueError:
+        return False
+    scales = {
+        "s": 1.0,
+        "ms": 1e-3,
+        "us": 1e-6,
+        "ns": 1e-9,
+        "ps": 1e-12,
+        "fs": 1e-15,
+    }
+    unit_scale = scales.get(unit.lower())
+    if unit_scale is None:
+        return False
+    units_count = val * unit_scale / timescale_unit_scale
+    return abs(units_count - round(units_count)) > 1e-6
+
+
+def declarator_is_implicit_real_conversion(raw: object) -> bool:
+    """Return True if a declarator initializer converts a real or fractional time literal
+    to an integral variable target."""
+    parent = getattr(raw, "parent", None)
+    type_node = getattr(parent, "type", None)
+    type_kind = getattr(type_node, "kind", None)
+    if type_kind in REAL_TYPE_KINDS:
+        return False
+
+    init = getattr(raw, "initializer", None)
+    if init is None:
+        return False
+    expr = getattr(init, "expr", None)
+    if expr is None:
+        return False
+
+    expr_kind = getattr(expr, "kind", None)
+    if expr_kind == REAL_LITERAL_EXPRESSION_KIND:
+        text = str(expr).strip()
+        try:
+            val = float(text)
+            return abs(val - round(val)) > 1e-6
+        except ValueError:
+            return False
+
+    if expr_kind == TIME_LITERAL_EXPRESSION_KIND:
+        text = str(expr).strip()
+        return is_fractional_time_literal(text)
+
+    return False
+
+
+def assignment_is_implicit_real_conversion(raw: object) -> bool:
+    """Return True if an assignment right-hand side converts a real literal or fractional
+    time literal to an integral target."""
+    from ..syntax_queries import assignment_left, assignment_right, is_assignment_expression
+
+    if not is_assignment_expression(raw):
+        return False
+
+    left = assignment_left(raw)
+    right = assignment_right(raw)
+    if left is None or right is None:
+        return False
+
+    right_kind = getattr(right, "kind", None)
+    if right_kind == REAL_LITERAL_EXPRESSION_KIND:
+        text = str(right).strip()
+        try:
+            val = float(text)
+            return abs(val - round(val)) > 1e-6
+        except ValueError:
+            return False
+
+    if right_kind == TIME_LITERAL_EXPRESSION_KIND:
+        text = str(right).strip()
+        return is_fractional_time_literal(text)
+
+    right_str = str(right)
+    if "$signed(" in right_str or "$unsigned(" in right_str or right_str.startswith("{"):
+        for child in getattr(right, "raw_children", getattr(right, "children", [])):
+            if getattr(child, "kind", None) == REAL_LITERAL_EXPRESSION_KIND:
+                return True
+
+    return False
 

@@ -66,6 +66,8 @@ from ._syntax_queries.procedural import (
     sync_clock_signal_name,
 )
 from ._syntax_queries.shapes import (
+    assignment_is_implicit_real_conversion,
+    clocking_declaration_signals,
     conditional_statement_body,
     conditional_statement_else_body,
     conditional_statement_has_else,
@@ -73,6 +75,7 @@ from ._syntax_queries.shapes import (
     declarator_has_initializer,
     declarator_initializer_expression,
     declarator_initializer_value,
+    declarator_is_implicit_real_conversion,
     declarator_is_localparam,
     declarator_is_parameter,
     declarator_is_port,
@@ -261,6 +264,7 @@ from ._syntax_queries.subroutines import (
 
 __all__ = [
     "ALL_SYSTEM_TASK_NAMES",
+    "assignment_is_implicit_real_conversion",
     "assignment_left",
     "assignment_right",
     "assignment_target_identifier_name",
@@ -271,6 +275,7 @@ __all__ = [
     "case_statement_selector_name",
     "case_statement_unique_or_priority",
     "classify_reset_style",
+    "clocking_declaration_signals",
     "conditional_statement_unique_or_priority",
     "conditional_statement_body",
     "conditional_statement_else_body",
@@ -280,6 +285,7 @@ __all__ = [
     "declarator_has_initializer",
     "declarator_initializer_expression",
     "declarator_initializer_value",
+    "declarator_is_implicit_real_conversion",
     "declarator_is_localparam",
     "declarator_is_parameter",
     "declarator_is_port",

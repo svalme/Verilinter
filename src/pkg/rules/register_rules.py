@@ -15,6 +15,7 @@ from .simulation_vs_synthesis.no_initial_block import NoInitialBlockRule
 from .simulation_vs_synthesis.no_final_block import NoFinalBlockRule
 from .sequential_logic.no_always_ff import NoAlwaysFFRule
 from .latches.no_always_latch import NoAlwaysLatchRule
+from .latches.no_latch_in_always_latch import NoLatchInAlwaysLatchRule
 from .parameters_and_generate_logic.no_case_generate import NoCaseGenerateRule
 from .conditional_and_case_statements.no_case_inside import NoCaseInsideRule
 from .assertions_and_verification.no_checker_declaration import NoCheckerDeclarationRule
@@ -79,6 +80,7 @@ from .assertions_and_verification.no_expect_restrict_property import NoExpectRes
 from .simulation_vs_synthesis.no_virtual_interface import NoVirtualInterfaceRule
 from .simulation_vs_synthesis.no_dpi_import_export import NoDpiImportExportRule
 from .declarations_and_types.no_real_type import NoRealTypeRule
+from .declarations_and_types.no_implicit_real_conversion import NoImplicitRealConversionRule
 from .declarations_and_types.no_string_type import NoStringTypeRule
 from .declarations_and_types.no_chandle_type import NoChandleTypeRule
 from .simulation_vs_synthesis.no_random_system_function import NoRandomSystemFunctionRule

@@ -96,4 +96,6 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "MISSING_GENERATE_BLOCK_LABEL",
         "ONE_MODULE_PER_FILE",
         "MODULE_FILENAME_MISMATCH",
+        "NO_LATCH_IN_ALWAYS_LATCH",
+        "NO_IMPLICIT_REAL_CONVERSION",
     }.issubset(codes)

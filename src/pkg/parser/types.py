@@ -51,11 +51,13 @@ HierarchicalInstanceNode: TypeAlias = sl.HierarchicalInstanceSyntax
 PortDeclarationNode: TypeAlias = sl.PortDeclarationSyntax
 PrimitiveDeclarationNode: TypeAlias = sl.UdpDeclarationSyntax
 SystemNameNode: TypeAlias = sl.SystemNameSyntax
+ClockingDeclarationNode: TypeAlias = sl.ClockingDeclarationSyntax
 
 __all__ = [
     "BinaryEventExpressionNode",
     "CaseGenerateNode",
     "CaseStatementNode",
+    "ClockingDeclarationNode",
     "DeclaratorNode",
     "DefaultCaseItemNode",
     "ForLoopStatementNode",

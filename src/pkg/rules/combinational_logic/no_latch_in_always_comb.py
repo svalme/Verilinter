@@ -139,9 +139,12 @@ def _analyze_statement_latch(statement: SyntaxNode, assigned_before: set[str]) -
     return False, unconditional
 
 
-def _has_latch_pattern(statement: SyntaxNode) -> bool:
+def has_latch_pattern(statement: SyntaxNode) -> bool:
     has_latch, _ = _analyze_statement_latch(statement, set())
     return has_latch
+
+
+_has_latch_pattern = has_latch_pattern
 
 
 

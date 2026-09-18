@@ -21,6 +21,8 @@ MODULE_DECLARATION_KIND = _syntax_kind("ModuleDeclaration")
 COMPILATION_UNIT_KIND = _syntax_kind("CompilationUnit")
 INTEGER_LITERAL_EXPRESSION_KIND = _syntax_kind("IntegerLiteralExpression")
 INTEGER_VECTOR_EXPRESSION_KIND = _syntax_kind("IntegerVectorExpression")
+REAL_LITERAL_EXPRESSION_KIND = _syntax_kind("RealLiteralExpression")
+TIME_LITERAL_EXPRESSION_KIND = _syntax_kind("TimeLiteralExpression")
 UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND = _syntax_kind("UnbasedUnsizedLiteralExpression")
 EQUALITY_EXPRESSION_KIND = _syntax_kind("EqualityExpression")
 INEQUALITY_EXPRESSION_KIND = _syntax_kind("InequalityExpression")
@@ -493,6 +495,7 @@ __all__ = [
     "RANGE_SELECT_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
+    "REAL_LITERAL_EXPRESSION_KIND",
     "REAL_TYPE_KINDS",
     "REPEAT_TOKEN_KIND",
     "SCOPED_NAME_KIND",
@@ -506,6 +509,7 @@ __all__ = [
     "TASK_DECLARATION_KIND",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
     "SWITCH_PRIMITIVE_TOKEN_KINDS",
+    "TIME_LITERAL_EXPRESSION_KIND",
     "TIMING_CONTROL_STATEMENT_KIND",
     "TRANIF_RTRANIF_TOKEN_KINDS",
     "TRAN_RTRAN_TOKEN_KINDS",
