@@ -37,49 +37,73 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                 # locally-visible assignment, as read before write.
                 if sym.is_used_in_port_connection:
                     continue
+                if sym.is_event:
+                    continue
 
-                event = self._disqualifying_read(sym)
+                event = self._disqualifying_read(sym, symbol_table)
                 if event is not None:
                     diagnostics.append(self._diagnostic(sym, event))
 
         return diagnostics
 
-    def _disqualifying_read(self, sym: Symbol) -> UseEvent | None:
-        if not sym.is_written:
-            # Never driven anywhere in this scope -- the first read is a real
-            # uninitialized-read/undriven-signal bug, order aside.
+    def _disqualifying_read(self, sym: Symbol, symbol_table: SymbolTable) -> UseEvent | None:
+        if not sym.is_written and not sym.has_declaration_initializer:
+            # Never driven anywhere in this scope and has no declaration initializer --
+            # the first read is a real uninitialized-read/undriven-signal bug, order aside.
             return next((event for event in sym.use_events if event["read"]), None)
 
-        # Written somewhere, so only a same-block *blocking*-assignment ordering
-        # violation is a real hazard from here on:
-        # - A write in a different procedural block/continuous assign (a
-        #   different `driver_id`) has no execution-order relationship to this
-        #   read at all -- they are concurrent constructs, not a sequence, so a
-        #   read "before" it in file order proves nothing.
-        # - A non-blocking (`<=`) write updates a register that already holds a
-        #   value from the previous clock edge; reading it beforehand -- in
-        #   this same block (`if (timer) ...; timer <= timer - 1;`) or a
-        #   different one -- is normal sequential feedback, not an
-        #   uninitialized read.
-        # Only a genuine same-block blocking write (`initial begin y = x; x =
-        # 1; end`) still means the read really did happen before any value was
-        # assigned.
+        # If the symbol holds persistent state (has a declaration initializer, is driven
+        # by a sequential/clocked block, has non-blocking writes, or is initialized in an
+        # initial block), it represents persistent state across clock cycles / evaluations
+        # rather than an uninitialized combinational temporary.
+        if sym.is_persistent_state(symbol_table):
+            return None
+
+        # Purely combinational variable or uninitialized temporary from here on.
+        # Only a same-block blocking-assignment ordering violation in a combinational
+        # block (or initial block) is a hazard:
+        # - Sequential clocked blocks are excluded because reads there represent sequential state feedback.
+        # - Different driver blocks have no execution-order relationship.
         blocking_write_driver_ids = {
             event.get("driver_id")
             for event in sym.use_events
-            if event["write"] and not event.get("is_nonblocking_write")
+            if event["write"]
+            and not event.get("is_nonblocking_write")
+            and event.get("driver_id") not in symbol_table.sequential_driver_ids
         }
-        seen_blocking_write_by_driver: dict[object, bool] = {}
+        seen_unconditional_write_by_driver: dict[object, bool] = {}
+        seen_branch_write_signatures: dict[object, set[tuple[tuple[str, int], ...]]] = {}
+        seen_write_for_none: bool = False
+
         for event in sym.use_events:
             driver_id = event.get("driver_id")
             if (
                 event["read"]
                 and driver_id in blocking_write_driver_ids
-                and not seen_blocking_write_by_driver.get(driver_id, False)
             ):
-                return event
+                if driver_id is None:
+                    if not seen_write_for_none:
+                        return event
+                else:
+                    branch_sig = event.get("branch_signature")
+                    # If an unconditional write was already seen in this block, the variable is
+                    # guaranteed initialized for all subsequent paths in the block.
+                    if not seen_unconditional_write_by_driver.get(driver_id, False):
+                        # If not unconditionally initialized, check if a prior write occurred in the same branch
+                        prior_branches = seen_branch_write_signatures.get(driver_id, set())
+                        if branch_sig is None or branch_sig not in prior_branches:
+                            return event
+
             if event["write"] and not event.get("is_nonblocking_write"):
-                seen_blocking_write_by_driver[driver_id] = True
+                if driver_id is None:
+                    seen_write_for_none = True
+                else:
+                    branch_sig = event.get("branch_signature")
+                    if not branch_sig:
+                        seen_unconditional_write_by_driver[driver_id] = True
+                    else:
+                        seen_branch_write_signatures.setdefault(driver_id, set()).add(branch_sig)
+
         return None
 
     def _diagnostic(self, sym: Symbol, event: UseEvent) -> dict[str, Any]:

@@ -375,6 +375,8 @@ def _lint_single_tree(
                         "value": symbol.value,
                         "is_localparam": symbol.is_localparam,
                         "initializer_text": symbol.initializer_text,
+                        "has_declaration_initializer": symbol.has_declaration_initializer,
+                        "is_event": symbol.is_event,
                         "packed_dimensions": [list(dim) for dim in symbol.packed_dimensions],
                         "packed_dimension_widths": list(symbol.packed_dimension_widths),
                         "is_read": symbol.is_read,
@@ -480,6 +482,8 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
                 symbol.is_localparam = bool(symbol_data.get("is_localparam", False))
                 init_text = symbol_data.get("initializer_text")
                 symbol.initializer_text = str(init_text) if init_text is not None else None
+                symbol.has_declaration_initializer = bool(symbol_data.get("has_declaration_initializer", False))
+                symbol.is_event = bool(symbol_data.get("is_event", False))
                 dims = symbol_data.get("packed_dimensions", [])
                 symbol.packed_dimensions = [
                     (str(d[0]), str(d[1]))

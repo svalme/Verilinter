@@ -115,6 +115,25 @@ def is_combinational_style_always_block(raw: object) -> bool:
     return not has_edge
 
 
+def is_sequential_style_procedural_block(raw: object) -> bool:
+    if getattr(raw, "kind", None) == ALWAYS_FF_BLOCK_KIND:
+        return True
+    if getattr(raw, "kind", None) != ALWAYS_BLOCK_KIND:
+        return False
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return False
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return False
+
+    _names, has_edge = _collect_sensitivity_events(getattr(event_control, "expr", None))
+    return has_edge
+
+
+
 def _count_edge_qualified_signals(node: object) -> int:
     from ..syntax_queries import is_negedge_event, is_posedge_event
 

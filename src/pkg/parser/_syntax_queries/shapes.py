@@ -10,6 +10,7 @@ from ..syntax_kinds import (
     CONDITIONAL_STATEMENT_KIND,
     ELSE_CLAUSE_KIND,
     EMPTY_STATEMENT_KIND,
+    EVENT_TYPE_KIND,
     GENERATE_BLOCK_KIND,
     LOCALPARAM_TOKEN_KIND,
     MODULE_DECLARATION_KIND,
@@ -386,6 +387,26 @@ def _declarator_owner_type_text(ctx: "Context") -> str | None:
             data_type = getattr(raw, "type", None)
             return str(data_type).strip() if data_type is not None else None
     return None
+
+
+def declarator_is_event(ctx: "Context") -> bool:
+    """True if the declarator's declared data type is `event`."""
+    if EVENT_TYPE_KIND is None:
+        return False
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        type_name = type(raw).__name__
+        if type_name.endswith("DataDeclarationSyntax"):
+            dt = getattr(raw, "type", None)
+            if dt is not None and getattr(dt, "kind", None) == EVENT_TYPE_KIND:
+                return True
+        elif type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+            header = getattr(raw, "header", None)
+            if header is not None:
+                dt = getattr(header, "dataType", None)
+                if dt is not None and getattr(dt, "kind", None) == EVENT_TYPE_KIND:
+                    return True
+    return False
 
 
 def _declarator_owner_packed_dimensions(ctx: "Context") -> list[SyntaxNode]:

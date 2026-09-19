@@ -22,6 +22,8 @@ class SymbolTable:
         self.instantiations: list[InstanceRecord] = []
         self.reset_style_events: list[tuple[str, str, Location]] = []  # (module_name, "sync"|"async", location)
         self.combinational_driver_ids: set[str] = set()
+        self.sequential_driver_ids: set[str] = set()
+        self.initial_driver_ids: set[str] = set()
         self.tristate_driver_ids: set[str] = set()
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
@@ -105,6 +107,15 @@ class SymbolTable:
         """Record that `driver_id` (a continuous assign or combinational-style
         procedural block) drives combinationally, for `COMBINATIONAL_LOOP`."""
         self.combinational_driver_ids.add(driver_id)
+
+    def mark_sequential_driver(self, driver_id: str) -> None:
+        """Record that `driver_id` (an always_ff or clocked procedural block)
+        drives sequentially, for sequential register segregation."""
+        self.sequential_driver_ids.add(driver_id)
+
+    def mark_initial_driver(self, driver_id: str) -> None:
+        """Record that `driver_id` (an initial block) drives at time 0."""
+        self.initial_driver_ids.add(driver_id)
 
     def mark_tristate_driver(self, driver_id: str) -> None:
         """Record that `driver_id` (a continuous assign) drives via a tri-state

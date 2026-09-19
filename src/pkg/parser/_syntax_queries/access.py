@@ -106,6 +106,17 @@ def enclosing_continuous_assign(ctx: "Context") -> "BaseVNode | None":
     return None
 
 
+def enclosing_subroutine_declaration(ctx: "Context") -> "BaseVNode | None":
+    from ..syntax_kinds import FUNCTION_DECLARATION_KIND, TASK_DECLARATION_KIND
+
+    for ancestor in reversed(ctx.stack):
+        kind = getattr(ancestor.raw, "kind", None)
+        if kind in (TASK_DECLARATION_KIND, FUNCTION_DECLARATION_KIND):
+            return ancestor
+    return None
+
+
+
 def enclosing_port_connection(ctx: "Context") -> "BaseVNode | None":
     """Return the nearest ancestor that is an instance port-connection node
     (see `is_port_connection_node`), or `None`. READ_BEFORE_WRITE and
@@ -181,6 +192,19 @@ def is_combinational_driver_block(driver_block: "BaseVNode") -> bool:
         or getattr(raw, "kind", None) == ALWAYS_COMB_BLOCK_KIND
         or is_combinational_style_always_block(raw)
     )
+
+
+def is_sequential_driver_block(driver_block: "BaseVNode") -> bool:
+    from .procedural import is_sequential_style_procedural_block
+
+    return is_sequential_style_procedural_block(driver_block.raw)
+
+
+def is_initial_driver_block(driver_block: "BaseVNode") -> bool:
+    from ..syntax_kinds import INITIAL_BLOCK_KIND
+
+    return getattr(driver_block.raw, "kind", None) == INITIAL_BLOCK_KIND
+
 
 
 def enclosing_case_statement(ctx: "Context") -> "BaseVNode | None":

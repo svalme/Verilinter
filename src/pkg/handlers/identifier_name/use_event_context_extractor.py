@@ -14,6 +14,8 @@ from ...parser.syntax import (
     identifier_access_modes,
     is_combinational_driver_block,
     is_continuous_assign,
+    is_initial_driver_block,
+    is_sequential_driver_block,
     is_system_task_output_argument,
     is_tristate_continuous_assign,
     subroutine_formal_direction,
@@ -93,6 +95,10 @@ class UseEventContextExtractor:
             driver_location = loc
             if is_write and is_combinational_driver_block(driver_block):
                 symbol_table.mark_combinational_driver(driver_id)
+            if is_write and is_sequential_driver_block(driver_block):
+                symbol_table.mark_sequential_driver(driver_id)
+            if is_write and is_initial_driver_block(driver_block):
+                symbol_table.mark_initial_driver(driver_id)
             if is_write and is_continuous_assign(driver_block.raw) and is_tristate_continuous_assign(driver_block.raw):
                 symbol_table.mark_tristate_driver(driver_id)
 

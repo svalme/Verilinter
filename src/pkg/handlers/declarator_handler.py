@@ -5,6 +5,7 @@ from ..parser.syntax import (
     declarator_has_initializer,
     declarator_initializer_expression,
     declarator_initializer_value,
+    declarator_is_event,
     declarator_is_localparam,
     declarator_is_parameter,
     declarator_is_port,
@@ -45,8 +46,10 @@ class DeclaratorHandler(SyntaxNodeHandler):
         symbol.packed_dimensions = declarator_packed_dimension_texts(ctx, vnode.tree)
         symbol.packed_dimension_widths = declarator_packed_dimension_widths(ctx)
         symbol.is_signed = declarator_is_signed(ctx)
+        symbol.is_event = declarator_is_event(ctx)
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):
+            symbol.has_declaration_initializer = True
             # Compute driver_id the same way IdentifierNameHandler does for every
             # other write in this block -- otherwise this initializer write has
             # driver_id=None and READ_BEFORE_WRITE's seen_blocking_write_by_driver
@@ -67,11 +70,11 @@ class DeclaratorHandler(SyntaxNodeHandler):
                 driver_id=driver_id,
                 driver_location=driver_location,
             )
+            init_expr = declarator_initializer_expression(vnode.raw)
+            if init_expr is not None and symbol.initializer_text is None:
+                symbol.initializer_text = source_text_for_node(init_expr, vnode.tree)
             if kind == "parameter":
                 symbol.value = declarator_initializer_value(vnode.raw, scope=ctx.scope())
-                init_expr = declarator_initializer_expression(vnode.raw)
-                if init_expr is not None:
-                    symbol.initializer_text = source_text_for_node(init_expr, vnode.tree)
         ctx.scope().define(symbol)
         return ctx.push(vnode)
 

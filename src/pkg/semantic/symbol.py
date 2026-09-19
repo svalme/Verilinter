@@ -7,6 +7,7 @@ from ..vnodes.base_vnode import Location
 
 if TYPE_CHECKING:
     from .scope import Scope
+    from .symbol_table import SymbolTable
 
 
 class UseEvent(TypedDict):
@@ -52,6 +53,8 @@ class Symbol:
         self.read_count: int = 0
         self.write_count: int = 0
         self.is_used_in_port_connection: bool = False
+        self.has_declaration_initializer: bool = False
+        self.is_event: bool = False
 
     def set_scope(self, scope: Scope | None) -> None:
         self.scope = scope
@@ -110,3 +113,25 @@ class Symbol:
         `sym.is_explicit_kind("parameter")` for `NO_UNUSED_PARAMETER`).
         """
         return self.kind == kind and self.is_declared and not self.is_implicit
+
+    def has_sequential_driver(self, symbol_table: "SymbolTable | None" = None) -> bool:
+        """True if the symbol has any non-blocking write or write within a sequential/clocked block."""
+        for event in self.use_events:
+            if not event.get("write"):
+                continue
+            if event.get("is_nonblocking_write"):
+                return True
+            driver_id = event.get("driver_id")
+            if driver_id is not None:
+                if str(driver_id).startswith("clocking:"):
+                    return True
+                if symbol_table is not None and driver_id in symbol_table.sequential_driver_ids:
+                    return True
+        return False
+
+    def is_persistent_state(self, symbol_table: "SymbolTable | None" = None) -> bool:
+        """True if the symbol holds persistent state across evaluation steps/clock cycles."""
+        if self.has_declaration_initializer:
+            return True
+        return self.has_sequential_driver(symbol_table)
+
