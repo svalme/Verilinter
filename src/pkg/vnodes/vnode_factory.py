@@ -23,8 +23,8 @@ class VNodeFactory:
     @classmethod
     def create(cls, raw: RawNode, tree: SyntaxTree) -> BaseVNode:
         # if a vnode is passed in, return it unchanged
-        if isinstance(raw, BaseVNode):
-            return raw
+        if isinstance(raw, BaseVNode) or hasattr(raw, "raw"):
+            return raw  # type: ignore[return-value]
 
         for base in type(raw).__mro__:
             if base in cls._node_map:

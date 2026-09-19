@@ -376,6 +376,7 @@ def _lint_single_tree(
                         "is_localparam": symbol.is_localparam,
                         "initializer_text": symbol.initializer_text,
                         "packed_dimensions": [list(dim) for dim in symbol.packed_dimensions],
+                        "packed_dimension_widths": list(symbol.packed_dimension_widths),
                         "is_read": symbol.is_read,
                         "is_written": symbol.is_written,
                         "use_count": symbol.use_count,
@@ -484,6 +485,10 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
                     (str(d[0]), str(d[1]))
                     for d in dims
                     if isinstance(d, (list, tuple)) and len(d) == 2
+                ]
+                symbol.packed_dimension_widths = [
+                    int(w) if isinstance(w, int) else None
+                    for w in symbol_data.get("packed_dimension_widths", [])
                 ]
                 symbol.is_read = bool(symbol_data.get("is_read", False))
                 symbol.is_written = bool(symbol_data.get("is_written", False))

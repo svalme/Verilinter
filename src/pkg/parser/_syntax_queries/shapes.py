@@ -434,6 +434,31 @@ def declarator_packed_dimension_texts(ctx: "Context", tree: SyntaxTree | None) -
     return result
 
 
+def declarator_packed_dimension_widths(ctx: "Context") -> list[int | None]:
+    """Return [width, ...] for each packed dimension of the declarator."""
+    dims = _declarator_owner_packed_dimensions(ctx)
+    if not dims:
+        return []
+    from ..syntax_queries import evaluate_constant_expression
+
+    scope = getattr(ctx, "scope", lambda: None)()
+    result: list[int | None] = []
+    for dim in dims:
+        spec = getattr(dim, "specifier", None)
+        selector = getattr(spec, "selector", None)
+        dim_w = None
+        if selector is not None:
+            left = getattr(selector, "left", None)
+            right = getattr(selector, "right", None)
+            if left is not None and right is not None:
+                msb = evaluate_constant_expression(left, scope=scope)
+                lsb = evaluate_constant_expression(right, scope=scope)
+                if msb is not None and lsb is not None:
+                    dim_w = abs(msb - lsb) + 1
+        result.append(dim_w)
+    return result
+
+
 def declarator_bit_width(ctx: "Context") -> int | None:
     dims = _declarator_owner_packed_dimensions(ctx)
     if dims:
@@ -684,16 +709,55 @@ def named_parameter_override_name(raw: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def extract_assignment_target_and_selectors(raw: object) -> tuple[str | None, list[SyntaxNode]]:
+    """Extract `(base_name, selectors)` from an assignment target node.
+    Handles `IdentifierName`, `IdentifierSelectName`, and `ElementSelectExpression`.
+    """
+    if raw is None:
+        return None, []
+    from ..syntax_kinds import (
+        ELEMENT_SELECT_EXPRESSION_KIND,
+        IDENTIFIER_NAME_KIND,
+        IDENTIFIER_SELECT_NAME_KIND,
+    )
+
+    kind = getattr(raw, "kind", None)
+    if kind == IDENTIFIER_NAME_KIND:
+        ident = getattr(raw, "identifier", None)
+        name = getattr(ident, "value", None)
+        return (name if isinstance(name, str) and name else None), []
+    if kind == IDENTIFIER_SELECT_NAME_KIND:
+        ident = getattr(raw, "identifier", None)
+        name = getattr(ident, "value", None)
+        selectors = getattr(raw, "selectors", None)
+        sels = [s for s in selectors if isinstance(s, SyntaxNode)] if selectors else []
+        return (name if isinstance(name, str) and name else None), sels
+    if kind == ELEMENT_SELECT_EXPRESSION_KIND:
+        nested_selectors: list[SyntaxNode] = []
+        curr = raw
+        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND:
+            sel = getattr(curr, "select", None)
+            if isinstance(sel, SyntaxNode):
+                nested_selectors.append(sel)
+            curr = getattr(curr, "left", None)
+        base_name, base_selectors = extract_assignment_target_and_selectors(curr)
+        return base_name, base_selectors + list(reversed(nested_selectors))
+    name = identifier_name(raw)
+    return (name if isinstance(name, str) and name else None), []
+
+
 def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
     """Unpack an assignment-like construct -- continuous assignment, procedural
     assignment, or variable declarator initializer -- returning
-    `(lhs_symbol, right_expr)` resolved against `ctx.scope()`.
+    `(lhs_target, right_expr)` resolved against `ctx.scope()`.
     Returns `(None, None)` when the construct is not an assignment or the
     target cannot be resolved.
     """
+    from ...semantic.models.assignment_target import AssignmentTarget
     from ..syntax_queries import (
         assignment_left,
         assignment_right,
+        compute_sliced_width,
         is_assignment_expression,
     )
 
@@ -703,14 +767,29 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
     if is_assignment_expression(raw):
         left = assignment_left(raw)
         right = assignment_right(raw)
-        if left is None or right is None:
+        if left is None or right is None or scope is None:
             return None, None
-        name = identifier_name(left)
-        if name is None or scope is None:
+        name, selectors = extract_assignment_target_and_selectors(left)
+        if name is None:
             return None, None
         lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
         symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
-        return symbol, right
+        if symbol is None:
+            return None, None
+        if selectors:
+            slice_w = compute_sliced_width(symbol, selectors, scope=scope)
+            target = AssignmentTarget(
+                base_symbol=symbol,
+                slice_width=slice_w,
+                is_sliced=True,
+            )
+            return target, right
+        target = AssignmentTarget(
+            base_symbol=symbol,
+            slice_width=None,
+            is_sliced=False,
+        )
+        return target, right
 
     if declarator_has_initializer(raw):
         if declarator_is_parameter(ctx):
@@ -720,8 +799,15 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
             return None, None
         lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
         symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+        if symbol is None:
+            return None, None
         right = declarator_initializer_expression(raw)
-        return symbol, right
+        target = AssignmentTarget(
+            base_symbol=symbol,
+            slice_width=None,
+            is_sliced=False,
+        )
+        return target, right
 
     return None, None
 

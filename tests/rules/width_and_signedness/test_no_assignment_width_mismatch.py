@@ -467,3 +467,95 @@ class TestNoAssignmentTruncationRule:
         )
         assert diagnostics == []
 
+    def test_does_not_flag_matching_multidim_array_element_assignment(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [7:0][2:0] sel_n;
+              logic [31:0] op;
+              genvar i;
+              assign sel_n[i] = op[i*4 +: 3];
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert diagnostics == []
+
+    def test_flags_multidim_array_element_assignment_width_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [7:0][2:0] sel_n;
+              genvar i;
+              assign sel_n[i] = 2'b10;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(diagnostics) == 1
+
+    def test_flags_multidim_array_element_assignment_truncation(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [7:0][2:0] sel_n;
+              genvar i;
+              assign sel_n[i] = 4'b1010;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_matching_multidim_array_element_rhs(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [7:0][2:0] sel_n;
+              logic [2:0] out;
+              genvar i;
+              assign out = sel_n[i];
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert diagnostics == []
+
+    def test_does_not_flag_matching_part_select_target(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [31:0] data;
+              assign data[15:0] = 16'h1234;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert diagnostics == []
+
+    def test_flags_part_select_target_width_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [31:0] data;
+              assign data[15:0] = 8'h12;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_scalar_element_select_from_multidim_array(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [7:0][2:0] sel_n;
+              genvar i, j;
+              assign sel_n[i][j] = 1'b0;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert diagnostics == []
+
+

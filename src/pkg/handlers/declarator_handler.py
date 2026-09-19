@@ -11,6 +11,7 @@ from ..parser.syntax import (
     declarator_is_signed,
     declarator_name,
     declarator_packed_dimension_texts,
+    declarator_packed_dimension_widths,
     declarator_packed_range,
     declarator_port_direction,
     enclosing_continuous_assign,
@@ -42,6 +43,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
         symbol.bit_width = declarator_bit_width(ctx)
         symbol.msb, symbol.lsb = declarator_packed_range(ctx)
         symbol.packed_dimensions = declarator_packed_dimension_texts(ctx, vnode.tree)
+        symbol.packed_dimension_widths = declarator_packed_dimension_widths(ctx)
         symbol.is_signed = declarator_is_signed(ctx)
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):

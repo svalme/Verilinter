@@ -236,6 +236,102 @@ def _selector_width(selector: object, scope: object = None) -> int | None:
     return None
 
 
+def compute_sliced_width(
+    symbol: object | None,
+    selectors: list[object],
+    scope: object = None,
+) -> int | None:
+    """Compute the bit width resulting from indexing or slicing an identifier with `selectors`.
+
+    Supports:
+    - Single-element bit selects on 1D vectors (`vec[i]` -> 1 bit)
+    - Element selects on multi-dimensional packed arrays (`arr[i]` -> element slice width)
+    - Nested element selects (`arr[i][j]` -> scalar bit width or sub-slice width)
+    - Simple range selects (`vec[7:0]` -> 8 bits, `arr[3:1]` -> range count * inner element width)
+    - Indexed part-selects (`vec[i +: 8]` -> 8 bits)
+    """
+    if not selectors:
+        return getattr(symbol, "bit_width", None) if symbol is not None else None
+
+    # Recover individual packed dimension widths
+    dim_widths: list[int | None] = []
+    if symbol is not None:
+        dim_widths = list(getattr(symbol, "packed_dimension_widths", []))
+        if not dim_widths and getattr(symbol, "packed_dimensions", None):
+            for msb_txt, lsb_txt in symbol.packed_dimensions:
+                try:
+                    m = int(msb_txt)
+                    l = int(lsb_txt)
+                    dim_widths.append(abs(m - l) + 1)
+                except (ValueError, TypeError):
+                    dim_widths.append(None)
+
+    current_dim_index = 0
+    slice_width: int | None = None
+
+    for s_idx, selector in enumerate(selectors):
+        unwrapped = element_select_index_or_range(selector)
+        if unwrapped is None:
+            return None
+        shape, payload = unwrapped
+        is_last = (s_idx == len(selectors) - 1)
+
+        if shape == "bit":
+            current_dim_index += 1
+            if is_last:
+                rem_dims = dim_widths[current_dim_index:] if dim_widths else []
+                if not rem_dims:
+                    slice_width = 1
+                elif any(d is None for d in rem_dims):
+                    slice_width = None
+                else:
+                    prod = 1
+                    for d in rem_dims:
+                        prod *= d
+                    slice_width = prod
+
+        elif shape == "simple_range":
+            left, right = payload
+            l_val = evaluate_constant_expression(left, scope=scope)
+            r_val = evaluate_constant_expression(right, scope=scope)
+            if l_val is None or r_val is None:
+                return None
+            range_count = abs(l_val - r_val) + 1
+            current_dim_index += 1
+            if is_last:
+                rem_dims = dim_widths[current_dim_index:] if dim_widths else []
+                if not rem_dims:
+                    slice_width = range_count
+                elif any(d is None for d in rem_dims):
+                    slice_width = None
+                else:
+                    prod = range_count
+                    for d in rem_dims:
+                        prod *= d
+                    slice_width = prod
+
+        elif shape in ("ascending", "descending"):
+            _base, width_expr = payload
+            w_val = evaluate_constant_expression(width_expr, scope=scope)
+            if w_val is None:
+                return None
+            current_dim_index += 1
+            if is_last:
+                rem_dims = dim_widths[current_dim_index:] if dim_widths else []
+                if not rem_dims:
+                    slice_width = w_val
+                elif any(d is None for d in rem_dims):
+                    slice_width = None
+                else:
+                    prod = w_val
+                    for d in rem_dims:
+                        prod *= d
+                    slice_width = prod
+
+    return slice_width
+
+
+
 def simple_expression_width_and_signed(
     scope: object, expr: SyntaxNode, tree: SyntaxTree | None = None
 ) -> tuple[int | None, bool | None]:
@@ -283,20 +379,30 @@ def simple_expression_width_and_signed(
         return None, False
 
     if kind == IDENTIFIER_SELECT_NAME_KIND:
+        name = identifier_name(expr)
         selectors = getattr(expr, "selectors", None)
+        symbol = _resolve_symbol_in_scope(scope, name) if (name and scope) else None
         if selectors:
             valid_selectors = [s for s in selectors if isinstance(s, SyntaxNode)]
             if valid_selectors:
-                width = _selector_width(valid_selectors[-1], scope=scope)
+                width = compute_sliced_width(symbol, valid_selectors, scope=scope)
                 return width, None
         return None, None
 
     if kind == ELEMENT_SELECT_EXPRESSION_KIND:
-        select = getattr(expr, "select", None)
-        if select is not None:
-            width = _selector_width(select, scope=scope)
-            return width, None
-        return None, None
+        nested_selectors: list[SyntaxNode] = []
+        curr = expr
+        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND:
+            sel = getattr(curr, "select", None)
+            if isinstance(sel, SyntaxNode):
+                nested_selectors.append(sel)
+            curr = getattr(curr, "left", None)
+        base_name = identifier_name(curr)
+        symbol = _resolve_symbol_in_scope(scope, base_name) if (base_name and scope) else None
+        ordered_selectors = list(reversed(nested_selectors))
+        width = compute_sliced_width(symbol, ordered_selectors, scope=scope)
+        return width, None
+
 
     if kind == CONCATENATION_EXPRESSION_KIND:
         raw_expressions = getattr(expr, "expressions", None)
