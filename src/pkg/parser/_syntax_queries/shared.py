@@ -13,10 +13,16 @@ def source_text_for_node(raw: object, tree: SyntaxTree | None) -> str | None:
             return " ".join(text.split()) or None
         return None
 
-    source = tree.sourceManager.getSourceText(start.buffer)
-    snippet = source[start.offset:end.offset]
-    normalized = " ".join(snippet.split())
-    return normalized or None
+    try:
+        source = tree.sourceManager.getSourceText(start.buffer)
+        snippet = source[start.offset:end.offset]
+        normalized = " ".join(snippet.split())
+        return normalized or None
+    except (UnicodeDecodeError, Exception):
+        if raw is not None:
+            text = str(raw).strip()
+            return " ".join(text.split()) or None
+        return None
 
 
 def syntax_node_snippet(raw: object) -> str:

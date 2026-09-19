@@ -84,7 +84,7 @@ def text_uses_default_nettype_none(text: str) -> bool:
 
 
 def file_uses_default_nettype_none(path: str) -> bool:
-    return text_uses_default_nettype_none(Path(path).read_text(encoding="utf-8"))
+    return text_uses_default_nettype_none(Path(path).read_text(encoding="utf-8", errors="replace"))
 
 
 def extract_parse_diagnostics(tree: SyntaxTree, default_file: str) -> list[dict[str, Any]]:

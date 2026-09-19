@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from pathlib import Path
 import re
 
 from ..syntax_kinds import (
@@ -302,7 +303,14 @@ def has_full_parallel_case_pragma(raw: object, tree: SyntaxTree) -> bool:
         return False
 
     source_manager = tree.sourceManager
-    source = source_manager.getSourceText(location.buffer)
+    try:
+        source = source_manager.getSourceText(location.buffer)
+    except (UnicodeDecodeError, Exception):
+        full_path = source_manager.getFullPath(location.buffer) if source_manager else None
+        if full_path and Path(full_path).is_file():
+            source = Path(full_path).read_text(encoding="utf-8", errors="replace")
+        else:
+            return False
     line_number = source_manager.getLineNumber(location)
     lines = source.splitlines()
     if line_number <= 1 or line_number - 2 >= len(lines):
@@ -360,7 +368,15 @@ def has_timescale_directive_before(raw: object, tree: SyntaxTree) -> bool:
     start = getattr(source_range, "start", None)
     if start is None:
         return False
-    source = tree.sourceManager.getSourceText(start.buffer)
+    try:
+        source = tree.sourceManager.getSourceText(start.buffer)
+    except (UnicodeDecodeError, Exception):
+        source_manager = getattr(tree, "sourceManager", None)
+        full_path = source_manager.getFullPath(start.buffer) if source_manager else None
+        if full_path and Path(full_path).is_file():
+            source = Path(full_path).read_text(encoding="utf-8", errors="replace")
+        else:
+            return False
     return TIMESCALE_DIRECTIVE_RE.search(source[: start.offset]) is not None
 
 
