@@ -3,6 +3,7 @@ import pyslang as sl
 from ..syntax_kinds import (
     ADD_SUBTRACT_EXPRESSION_KINDS,
     ASSIGNMENT_KINDS,
+    COMPARISON_EXPRESSION_KINDS,
     CONDITIONAL_EXPRESSION_KIND,
     CONTINUOUS_ASSIGN_KIND,
     DIVIDE_EXPRESSION_KIND,
@@ -164,6 +165,22 @@ def is_xz_equality_comparison(raw: object) -> bool:
     left = getattr(raw, "left", None)
     right = getattr(raw, "right", None)
     return is_explicit_xz_literal(left) or is_explicit_xz_literal(right)
+
+
+def is_comparison_expression(raw: object) -> bool:
+    """True if `raw` is a comparison expression (==, !=, <, <=, >, >=, ===, !==, ==?, !=?)."""
+    return getattr(raw, "kind", None) in COMPARISON_EXPRESSION_KINDS
+
+
+def comparison_operands(raw: object) -> tuple[object, object, str] | None:
+    """If `raw` is a comparison expression, return `(left, right, op_text)`, else `None`."""
+    if not is_comparison_expression(raw):
+        return None
+    left = getattr(raw, "left", None)
+    right = getattr(raw, "right", None)
+    op_token = getattr(raw, "operatorToken", None)
+    op_text = str(op_token).strip() if op_token is not None else ""
+    return left, right, op_text
 
 
 def _is_all_wildcard_text(raw: object, wildcard_chars: str) -> bool:

@@ -130,10 +130,12 @@ from ._syntax_queries.shapes import (
     resolve_assignment_target_and_rhs,
 )
 from ._syntax_queries.literals import (
+    comparison_operands,
     constant_integer_value,
     has_casex_casez_wildcard_case_item,
     is_add_subtract_expression,
     is_assignment_expression,
+    is_comparison_expression,
     is_continuous_assign,
     is_divide_or_mod_expression,
     is_explicit_xz_literal,
@@ -286,6 +288,7 @@ __all__ = [
     "case_statement_unique_or_priority",
     "classify_reset_style",
     "clocking_declaration_signals",
+    "comparison_operands",
     "compute_sliced_width",
     "conditional_statement_unique_or_priority",
     "conditional_statement_body",
@@ -358,6 +361,7 @@ __all__ = [
     "is_class_declaration_node",
     "is_clocking_declaration_node",
     "is_combinational_style_always_block",
+    "is_comparison_expression",
     "is_concurrent_assertion_node",
     "is_conditional_statement",
     "is_config_declaration_node",

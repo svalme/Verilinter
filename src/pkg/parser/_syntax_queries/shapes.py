@@ -594,7 +594,7 @@ def declarator_bit_width(ctx: "Context") -> int | None:
 
             if dt is not None:
                 kw = getattr(getattr(dt, "keyword", None), "valueText", None)
-                if kw in ("integer",):
+                if kw in ("integer", "int"):
                     return 32
                 if kw in ("time", "longint"):
                     return 64
@@ -634,7 +634,7 @@ def declarator_is_signed(ctx: "Context") -> bool | None:
                 if st == "unsigned":
                     return False
             kw = getattr(getattr(dt, "keyword", None), "valueText", None)
-            if kw in ("integer", "shortint", "longint", "byte"):
+            if kw in ("integer", "int", "shortint", "longint", "byte"):
                 return True
             if kw in ("time", "logic", "bit", "reg", "wire") or type(dt).__name__ == "ImplicitTypeSyntax":
                 return False
