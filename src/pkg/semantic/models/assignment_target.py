@@ -21,14 +21,16 @@ class AssignmentTarget:
         base_symbol: Symbol,
         slice_width: int | None = None,
         is_sliced: bool = False,
+        selectors: list[object] | None = None,
     ) -> None:
         self.base_symbol = base_symbol
         self.slice_width = slice_width
         self.is_sliced = is_sliced
+        self.selectors = list(selectors or [])
 
     @property
     def bit_width(self) -> int | None:
-        if self.is_sliced and self.slice_width is not None:
+        if self.is_sliced:
             return self.slice_width
         return getattr(self.base_symbol, "bit_width", None)
 

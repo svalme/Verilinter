@@ -496,6 +496,62 @@ def declarator_packed_dimension_widths(ctx: "Context") -> list[int | None]:
     return result
 
 
+def declarator_unpacked_dimension_texts(raw: object, tree: SyntaxTree | None) -> list[tuple[str, str]]:
+    """Return [(msb_text, lsb_text), ...] raw text representation of unpacked dimensions
+    for the declarator, or [] if non-array."""
+    dims = getattr(raw, "dimensions", None)
+    if not dims:
+        return []
+    result: list[tuple[str, str]] = []
+    for dim in dims:
+        spec = getattr(dim, "specifier", None)
+        selector = getattr(spec, "selector", None)
+        if selector is not None:
+            left = getattr(selector, "left", None)
+            right = getattr(selector, "right", None)
+            if left is not None and right is not None:
+                left_text = source_text_for_node(left, tree)
+                right_text = source_text_for_node(right, tree)
+                if left_text and right_text:
+                    result.append((left_text.strip(), right_text.strip()))
+                    continue
+            expr = getattr(selector, "expr", None)
+            if expr is not None:
+                expr_text = source_text_for_node(expr, tree)
+                if expr_text:
+                    result.append(("0", expr_text.strip()))
+                    continue
+    return result
+
+
+def declarator_unpacked_dimension_widths(raw: object, scope: object = None) -> list[int | None]:
+    """Return [size, ...] element count for each unpacked dimension of the declarator."""
+    dims = getattr(raw, "dimensions", None)
+    if not dims:
+        return []
+    from ..syntax_queries import evaluate_constant_expression
+
+    result: list[int | None] = []
+    for dim in dims:
+        spec = getattr(dim, "specifier", None)
+        selector = getattr(spec, "selector", None)
+        dim_w = None
+        if selector is not None:
+            left = getattr(selector, "left", None)
+            right = getattr(selector, "right", None)
+            if left is not None and right is not None:
+                msb = evaluate_constant_expression(left, scope=scope)
+                lsb = evaluate_constant_expression(right, scope=scope)
+                if msb is not None and lsb is not None:
+                    dim_w = abs(msb - lsb) + 1
+            else:
+                expr = getattr(selector, "expr", None)
+                if expr is not None:
+                    dim_w = evaluate_constant_expression(expr, scope=scope)
+        result.append(dim_w)
+    return result
+
+
 def declarator_bit_width(ctx: "Context") -> int | None:
     dims = _declarator_owner_packed_dimensions(ctx)
     if dims:
@@ -520,12 +576,70 @@ def declarator_bit_width(ctx: "Context") -> int | None:
             break
         if all_folded:
             return total_width
+
+    # When there are no packed dimensions, determine scalar width directly from AST keyword
+    if not dims:
+        for ancestor in reversed(ctx.stack):
+            raw = ancestor.raw
+            type_name = type(raw).__name__
+            dt = None
+            if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+                header = getattr(raw, "header", None)
+                if header is not None:
+                    dt = getattr(header, "dataType", None)
+            elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+                dt = getattr(raw, "type", None)
+            elif type_name.endswith("ParameterDeclarationSyntax"):
+                dt = getattr(raw, "type", None)
+
+            if dt is not None:
+                kw = getattr(getattr(dt, "keyword", None), "valueText", None)
+                if kw in ("integer",):
+                    return 32
+                if kw in ("time", "longint"):
+                    return 64
+                if kw in ("shortint",):
+                    return 16
+                if kw in ("byte",):
+                    return 8
+                if kw in ("logic", "bit", "reg", "wire") or type(dt).__name__ == "ImplicitTypeSyntax":
+                    return 1
+                break
+
     type_text = _declarator_owner_type_text(ctx)
     width, _signed = type_text_width_and_signed(type_text)
     return width
 
 
 def declarator_is_signed(ctx: "Context") -> bool | None:
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        type_name = type(raw).__name__
+        dt = None
+        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+            header = getattr(raw, "header", None)
+            if header is not None:
+                dt = getattr(header, "dataType", None)
+        elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+            dt = getattr(raw, "type", None)
+        elif type_name.endswith("ParameterDeclarationSyntax"):
+            dt = getattr(raw, "type", None)
+
+        if dt is not None:
+            signing_tok = getattr(dt, "signing", None)
+            if signing_tok is not None:
+                st = getattr(signing_tok, "valueText", "")
+                if st == "signed":
+                    return True
+                if st == "unsigned":
+                    return False
+            kw = getattr(getattr(dt, "keyword", None), "valueText", None)
+            if kw in ("integer", "shortint", "longint", "byte"):
+                return True
+            if kw in ("time", "logic", "bit", "reg", "wire") or type(dt).__name__ == "ImplicitTypeSyntax":
+                return False
+            break
+
     type_text = _declarator_owner_type_text(ctx)
     _width, signed = type_text_width_and_signed(type_text)
     return signed
@@ -819,6 +933,7 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
                 base_symbol=symbol,
                 slice_width=slice_w,
                 is_sliced=True,
+                selectors=selectors,
             )
             return target, right
         target = AssignmentTarget(

@@ -253,20 +253,54 @@ def compute_sliced_width(
     if not selectors:
         return getattr(symbol, "bit_width", None) if symbol is not None else None
 
-    # Recover individual packed dimension widths
-    dim_widths: list[int | None] = []
+    # Recover individual unpacked and packed dimension widths
+    unpacked_widths: list[int | None] = []
+    packed_widths: list[int | None] = []
     if symbol is not None:
-        dim_widths = list(getattr(symbol, "packed_dimension_widths", []))
-        if not dim_widths and getattr(symbol, "packed_dimensions", None):
+        unpacked_widths = list(getattr(symbol, "unpacked_dimension_widths", []))
+        if not unpacked_widths and getattr(symbol, "unpacked_dimensions", None):
+            for msb_txt, lsb_txt in symbol.unpacked_dimensions:
+                try:
+                    m = int(msb_txt)
+                    l = int(lsb_txt)
+                    unpacked_widths.append(abs(m - l) + 1)
+                except (ValueError, TypeError):
+                    unpacked_widths.append(None)
+
+        packed_widths = list(getattr(symbol, "packed_dimension_widths", []))
+        if not packed_widths and getattr(symbol, "packed_dimensions", None):
             for msb_txt, lsb_txt in symbol.packed_dimensions:
                 try:
                     m = int(msb_txt)
                     l = int(lsb_txt)
-                    dim_widths.append(abs(m - l) + 1)
+                    packed_widths.append(abs(m - l) + 1)
                 except (ValueError, TypeError):
-                    dim_widths.append(None)
+                    packed_widths.append(None)
 
-    current_dim_index = 0
+        # If symbol has a known bit width and no explicit packed dimensions (e.g. 1-bit logic or multi-bit integer),
+        # treat its packed element width as [symbol.bit_width] when unpacked dimensions exist.
+        if unpacked_widths and not packed_widths and isinstance(getattr(symbol, "bit_width", None), int):
+            packed_widths = [symbol.bit_width]
+
+    num_unpacked = len(unpacked_widths)
+
+    # Compute single packed element bit width (product of all packed dimensions)
+    packed_elem_width: int | None = None
+    if packed_widths:
+        if any(d is None for d in packed_widths):
+            packed_elem_width = None
+        else:
+            prod = 1
+            for d in packed_widths:
+                prod *= d
+            packed_elem_width = prod
+    elif symbol is not None and isinstance(getattr(symbol, "bit_width", None), int):
+        packed_elem_width = symbol.bit_width
+    elif not unpacked_widths:
+        packed_elem_width = None
+    else:
+        packed_elem_width = 1
+
     slice_width: int | None = None
 
     for s_idx, selector in enumerate(selectors):
@@ -276,57 +310,100 @@ def compute_sliced_width(
         shape, payload = unwrapped
         is_last = (s_idx == len(selectors) - 1)
 
-        if shape == "bit":
-            current_dim_index += 1
-            if is_last:
-                rem_dims = dim_widths[current_dim_index:] if dim_widths else []
-                if not rem_dims:
-                    slice_width = 1
-                elif any(d is None for d in rem_dims):
-                    slice_width = None
-                else:
-                    prod = 1
-                    for d in rem_dims:
-                        prod *= d
-                    slice_width = prod
+        if s_idx < num_unpacked:
+            # Indexing or slicing an unpacked array dimension
+            if shape == "bit":
+                if is_last:
+                    rem_unpacked = unpacked_widths[s_idx + 1:]
+                    if any(d is None for d in rem_unpacked) or packed_elem_width is None:
+                        slice_width = None
+                    else:
+                        prod = packed_elem_width
+                        for d in rem_unpacked:
+                            prod *= d
+                        slice_width = prod
+            elif shape == "simple_range":
+                left, right = payload
+                l_val = evaluate_constant_expression(left, scope=scope)
+                r_val = evaluate_constant_expression(right, scope=scope)
+                if l_val is None or r_val is None:
+                    return None
+                range_count = abs(l_val - r_val) + 1
+                if is_last:
+                    rem_unpacked = unpacked_widths[s_idx + 1:]
+                    if any(d is None for d in rem_unpacked) or packed_elem_width is None:
+                        slice_width = None
+                    else:
+                        prod = range_count * packed_elem_width
+                        for d in rem_unpacked:
+                            prod *= d
+                        slice_width = prod
+            elif shape in ("ascending", "descending"):
+                _base, width_expr = payload
+                w_val = evaluate_constant_expression(width_expr, scope=scope)
+                if w_val is None:
+                    return None
+                if is_last:
+                    rem_unpacked = unpacked_widths[s_idx + 1:]
+                    if any(d is None for d in rem_unpacked) or packed_elem_width is None:
+                        slice_width = None
+                    else:
+                        prod = w_val * packed_elem_width
+                        for d in rem_unpacked:
+                            prod *= d
+                        slice_width = prod
+        else:
+            # Indexing or slicing packed dimensions
+            p_idx = s_idx - num_unpacked
 
-        elif shape == "simple_range":
-            left, right = payload
-            l_val = evaluate_constant_expression(left, scope=scope)
-            r_val = evaluate_constant_expression(right, scope=scope)
-            if l_val is None or r_val is None:
-                return None
-            range_count = abs(l_val - r_val) + 1
-            current_dim_index += 1
-            if is_last:
-                rem_dims = dim_widths[current_dim_index:] if dim_widths else []
-                if not rem_dims:
-                    slice_width = range_count
-                elif any(d is None for d in rem_dims):
-                    slice_width = None
-                else:
-                    prod = range_count
-                    for d in rem_dims:
-                        prod *= d
-                    slice_width = prod
+            if shape == "bit":
+                if is_last:
+                    rem_dims = packed_widths[p_idx + 1:] if packed_widths else []
+                    if not rem_dims:
+                        slice_width = 1
+                    elif any(d is None for d in rem_dims):
+                        slice_width = None
+                    else:
+                        prod = 1
+                        for d in rem_dims:
+                            prod *= d
+                        slice_width = prod
 
-        elif shape in ("ascending", "descending"):
-            _base, width_expr = payload
-            w_val = evaluate_constant_expression(width_expr, scope=scope)
-            if w_val is None:
-                return None
-            current_dim_index += 1
-            if is_last:
-                rem_dims = dim_widths[current_dim_index:] if dim_widths else []
-                if not rem_dims:
-                    slice_width = w_val
-                elif any(d is None for d in rem_dims):
-                    slice_width = None
-                else:
-                    prod = w_val
-                    for d in rem_dims:
-                        prod *= d
-                    slice_width = prod
+            elif shape == "simple_range":
+                left, right = payload
+                l_val = evaluate_constant_expression(left, scope=scope)
+                r_val = evaluate_constant_expression(right, scope=scope)
+                if l_val is None or r_val is None:
+                    return None
+                range_count = abs(l_val - r_val) + 1
+                if is_last:
+                    rem_dims = packed_widths[p_idx + 1:] if packed_widths else []
+                    if not rem_dims:
+                        slice_width = range_count
+                    elif any(d is None for d in rem_dims):
+                        slice_width = None
+                    else:
+                        prod = range_count
+                        for d in rem_dims:
+                            prod *= d
+                        slice_width = prod
+
+            elif shape in ("ascending", "descending"):
+                _base, width_expr = payload
+                w_val = evaluate_constant_expression(width_expr, scope=scope)
+                if w_val is None:
+                    return None
+                if is_last:
+                    rem_dims = packed_widths[p_idx + 1:] if packed_widths else []
+                    if not rem_dims:
+                        slice_width = w_val
+                    elif any(d is None for d in rem_dims):
+                        slice_width = None
+                    else:
+                        prod = w_val
+                        for d in rem_dims:
+                            prod *= d
+                        slice_width = prod
 
     return slice_width
 

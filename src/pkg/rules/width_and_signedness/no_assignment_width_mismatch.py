@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
+    element_select_index_or_range,
+    extract_assignment_target_and_selectors,
     resolve_assignment_target_and_rhs,
     simple_expression_width_and_signed,
 )
@@ -10,6 +12,39 @@ from ..rule_runner import rule_runner
 
 if TYPE_CHECKING:
     from ...walk.context import Context
+
+
+def _check_index_selector_width_mismatch(
+    selectors: list[object],
+    symbol: object,
+    ctx: "Context",
+    tree: object,
+) -> tuple[int, int] | None:
+    if not selectors or symbol is None:
+        return None
+    scope = getattr(ctx, "scope", lambda: None)()
+    if scope is None:
+        return None
+    unpacked_widths = getattr(symbol, "unpacked_dimension_widths", [])
+    if not unpacked_widths and getattr(symbol, "unpacked_dimensions", None):
+        for msb_txt, lsb_txt in symbol.unpacked_dimensions:
+            try:
+                m = int(msb_txt)
+                l = int(lsb_txt)
+                unpacked_widths.append(abs(m - l) + 1)
+            except (ValueError, TypeError):
+                unpacked_widths.append(None)
+    for i, sel in enumerate(selectors):
+        if i < len(unpacked_widths):
+            dim_w = unpacked_widths[i]
+            if isinstance(dim_w, int) and dim_w > 1:
+                req_bits = max(1, (dim_w - 1).bit_length())
+                unwrapped = element_select_index_or_range(sel)
+                if unwrapped is not None and unwrapped[0] == "bit":
+                    idx_w, _ = simple_expression_width_and_signed(scope, unwrapped[1], tree)
+                    if isinstance(idx_w, int) and idx_w < req_bits:
+                        return (req_bits, idx_w)
+    return None
 
 
 def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
@@ -27,6 +62,38 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
 
     if lhs_symbol.bit_width != rhs_width:
         return lhs_symbol.bit_width, rhs_width
+
+    # Check for index selector width mismatch in indexed array expressions
+    scope = getattr(ctx, "scope", lambda: None)()
+    if scope is not None:
+        lhs_sels = getattr(lhs_symbol, "selectors", None)
+        if lhs_sels and getattr(lhs_symbol, "base_symbol", None):
+            lhs_mismatch = _check_index_selector_width_mismatch(lhs_sels, lhs_symbol.base_symbol, ctx, vnode.tree)
+            if lhs_mismatch is not None:
+                return lhs_mismatch
+
+        def _check_selects(node: object) -> tuple[int, int] | None:
+            if node is None:
+                return None
+            name, selectors = extract_assignment_target_and_selectors(node)
+            if name and selectors:
+                lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
+                sym = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+                if sym is not None:
+                    mismatch = _check_index_selector_width_mismatch(selectors, sym, ctx, vnode.tree)
+                    if mismatch is not None:
+                        return mismatch
+            for child in getattr(node, "children", []):
+                if hasattr(child, "kind"):
+                    res = _check_selects(child)
+                    if res is not None:
+                        return res
+            return None
+
+        rhs_mismatch = _check_selects(right)
+        if rhs_mismatch is not None:
+            return rhs_mismatch
+
     return None
 
 

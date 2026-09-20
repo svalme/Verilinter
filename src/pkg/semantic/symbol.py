@@ -47,6 +47,8 @@ class Symbol:
         self.initializer_text: str | None = None
         self.packed_dimensions: list[tuple[str, str]] = []
         self.packed_dimension_widths: list[int | None] = []
+        self.unpacked_dimensions: list[tuple[str, str]] = []
+        self.unpacked_dimension_widths: list[int | None] = []
         self.is_read: bool = False
         self.is_written: bool = False
         self.use_count: int = 0
@@ -134,4 +136,9 @@ class Symbol:
         if self.has_declaration_initializer:
             return True
         return self.has_sequential_driver(symbol_table)
+
+    @property
+    def is_array(self) -> bool:
+        """True if the symbol is declared with unpacked dimensions."""
+        return bool(self.unpacked_dimensions or self.unpacked_dimension_widths)
 

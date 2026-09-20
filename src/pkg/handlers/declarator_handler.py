@@ -15,6 +15,8 @@ from ..parser.syntax import (
     declarator_packed_dimension_widths,
     declarator_packed_range,
     declarator_port_direction,
+    declarator_unpacked_dimension_texts,
+    declarator_unpacked_dimension_widths,
     enclosing_continuous_assign,
     enclosing_procedural_block,
     source_text_for_node,
@@ -45,6 +47,8 @@ class DeclaratorHandler(SyntaxNodeHandler):
         symbol.msb, symbol.lsb = declarator_packed_range(ctx)
         symbol.packed_dimensions = declarator_packed_dimension_texts(ctx, vnode.tree)
         symbol.packed_dimension_widths = declarator_packed_dimension_widths(ctx)
+        symbol.unpacked_dimensions = declarator_unpacked_dimension_texts(vnode.raw, vnode.tree)
+        symbol.unpacked_dimension_widths = declarator_unpacked_dimension_widths(vnode.raw, scope=ctx.scope())
         symbol.is_signed = declarator_is_signed(ctx)
         symbol.is_event = declarator_is_event(ctx)
         symbol.add_declaration(vnode.location)
