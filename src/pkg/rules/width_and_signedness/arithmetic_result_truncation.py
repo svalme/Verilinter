@@ -36,7 +36,7 @@ def _arithmetic_result_truncation(vnode: BaseVNode, ctx: "Context") -> bool:
     symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)
     if symbol is None or right is None or not isinstance(symbol.bit_width, int):
         return False
-    if getattr(symbol, "is_sliced", False):
+    if getattr(symbol, "is_sliced", False) or getattr(symbol, "is_concatenated", False):
         return False
 
     result_width = _natural_result_width(vnode, ctx, right)

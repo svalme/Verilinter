@@ -66,11 +66,22 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
     # Check for index selector width mismatch in indexed array expressions
     scope = getattr(ctx, "scope", lambda: None)()
     if scope is not None:
-        lhs_sels = getattr(lhs_symbol, "selectors", None)
-        if lhs_sels and getattr(lhs_symbol, "base_symbol", None):
-            lhs_mismatch = _check_index_selector_width_mismatch(lhs_sels, lhs_symbol.base_symbol, ctx, vnode.tree)
-            if lhs_mismatch is not None:
-                return lhs_mismatch
+        def _check_target_selectors(target: object) -> tuple[int, int] | None:
+            if getattr(target, "is_concatenated", False):
+                for elem in getattr(target, "elements", []):
+                    mismatch = _check_target_selectors(elem)
+                    if mismatch is not None:
+                        return mismatch
+                return None
+            lhs_sels = getattr(target, "selectors", None)
+            base_sym = getattr(target, "base_symbol", None)
+            if lhs_sels and base_sym:
+                return _check_index_selector_width_mismatch(lhs_sels, base_sym, ctx, vnode.tree)
+            return None
+
+        lhs_mismatch = _check_target_selectors(lhs_symbol)
+        if lhs_mismatch is not None:
+            return lhs_mismatch
 
         def _check_selects(node: object) -> tuple[int, int] | None:
             if node is None:
@@ -83,11 +94,13 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
                     mismatch = _check_index_selector_width_mismatch(selectors, sym, ctx, vnode.tree)
                     if mismatch is not None:
                         return mismatch
-            for child in getattr(node, "children", []):
-                if hasattr(child, "kind"):
-                    res = _check_selects(child)
-                    if res is not None:
-                        return res
+            from ...parser.types import SyntaxNode
+            if isinstance(node, SyntaxNode):
+                for child in node:
+                    if isinstance(child, SyntaxNode):
+                        res = _check_selects(child)
+                        if res is not None:
+                            return res
             return None
 
         rhs_mismatch = _check_selects(right)

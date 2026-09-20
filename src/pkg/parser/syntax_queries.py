@@ -126,6 +126,7 @@ from ._syntax_queries.shapes import (
     port_connection_expression,
     port_connection_list,
     procedural_block_statement,
+    resolve_assignment_target,
     resolve_assignment_target_and_rhs,
 )
 from ._syntax_queries.literals import (
@@ -486,6 +487,7 @@ __all__ = [
     "procedural_block_sensitivity_names",
     "procedural_block_statement",
     "procedural_nesting_depth",
+    "resolve_assignment_target",
     "resolve_case_item_value",
     "scoped_name_package_qualifier",
     "sized_literal_overflow",

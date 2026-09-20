@@ -897,6 +897,90 @@ def extract_assignment_target_and_selectors(raw: object) -> tuple[str | None, li
     return (name if isinstance(name, str) and name else None), []
 
 
+def resolve_assignment_target(
+    target_node: object, scope: object, tree: object = None
+) -> object:
+    """Recursively resolve an assignment target expression (single identifier,
+    indexed/sliced target, or concatenated target) into an `AssignmentTarget`.
+    Returns `None` if the target cannot be resolved or any component has an
+    unresolved width.
+    """
+    from ...semantic.models.assignment_target import AssignmentTarget
+    from ..syntax_kinds import (
+        CONCATENATION_EXPRESSION_KIND,
+        MULTIPLE_CONCATENATION_EXPRESSION_KIND,
+    )
+    from ..syntax_queries import (
+        compute_sliced_width,
+        evaluate_constant_expression,
+        unwrap_parentheses,
+    )
+
+    raw = getattr(target_node, "raw", target_node)
+    if raw is None or scope is None:
+        return None
+
+    raw = unwrap_parentheses(raw)
+    kind = getattr(raw, "kind", None)
+
+    if kind == CONCATENATION_EXPRESSION_KIND:
+        raw_exprs = getattr(raw, "expressions", None)
+        if raw_exprs is None:
+            return None
+        members = [e for e in raw_exprs if isinstance(e, SyntaxNode)]
+        if not members:
+            return None
+        elements: list[AssignmentTarget] = []
+        total_w = 0
+        for m in members:
+            elem_target = resolve_assignment_target(m, scope, tree)
+            if elem_target is None or not isinstance(getattr(elem_target, "bit_width", None), int):
+                return None
+            elements.append(elem_target)
+            total_w += elem_target.bit_width
+        return AssignmentTarget(
+            is_concatenated=True,
+            elements=elements,
+            total_width=total_w,
+        )
+
+    if kind == MULTIPLE_CONCATENATION_EXPRESSION_KIND:
+        count_node = unwrap_parentheses(getattr(raw, "expression", None))
+        concat_node = unwrap_parentheses(getattr(raw, "concatenation", None))
+        count = evaluate_constant_expression(count_node, scope=scope)
+        if count is None or not isinstance(count, int) or count <= 0 or concat_node is None:
+            return None
+        inner_target = resolve_assignment_target(concat_node, scope, tree)
+        if inner_target is None or not isinstance(getattr(inner_target, "bit_width", None), int):
+            return None
+        return AssignmentTarget(
+            is_concatenated=True,
+            elements=[inner_target] * count,
+            total_width=count * inner_target.bit_width,
+        )
+
+    name, selectors = extract_assignment_target_and_selectors(raw)
+    if name is None:
+        return None
+    lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
+    symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+    if symbol is None:
+        return None
+    if selectors:
+        slice_w = compute_sliced_width(symbol, selectors, scope=scope)
+        return AssignmentTarget(
+            base_symbol=symbol,
+            slice_width=slice_w,
+            is_sliced=True,
+            selectors=selectors,
+        )
+    return AssignmentTarget(
+        base_symbol=symbol,
+        slice_width=None,
+        is_sliced=False,
+    )
+
+
 def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
     """Unpack an assignment-like construct -- continuous assignment, procedural
     assignment, or variable declarator initializer -- returning
@@ -908,39 +992,21 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
     from ..syntax_queries import (
         assignment_left,
         assignment_right,
-        compute_sliced_width,
         is_assignment_expression,
     )
 
     raw = getattr(vnode, "raw", vnode)
     scope = getattr(ctx, "scope", lambda: None)()
+    tree = getattr(vnode, "tree", None) or getattr(ctx, "tree", None)
 
     if is_assignment_expression(raw):
         left = assignment_left(raw)
         right = assignment_right(raw)
         if left is None or right is None or scope is None:
             return None, None
-        name, selectors = extract_assignment_target_and_selectors(left)
-        if name is None:
+        target = resolve_assignment_target(left, scope, tree)
+        if target is None:
             return None, None
-        lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
-        symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
-        if symbol is None:
-            return None, None
-        if selectors:
-            slice_w = compute_sliced_width(symbol, selectors, scope=scope)
-            target = AssignmentTarget(
-                base_symbol=symbol,
-                slice_width=slice_w,
-                is_sliced=True,
-                selectors=selectors,
-            )
-            return target, right
-        target = AssignmentTarget(
-            base_symbol=symbol,
-            slice_width=None,
-            is_sliced=False,
-        )
         return target, right
 
     if declarator_has_initializer(raw):
@@ -962,6 +1028,7 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
         return target, right
 
     return None, None
+
 
 
 def clocking_declaration_signals(

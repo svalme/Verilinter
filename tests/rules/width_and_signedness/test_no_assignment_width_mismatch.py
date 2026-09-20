@@ -705,4 +705,206 @@ class TestNoAssignmentTruncationRule:
         assert len(diagnostics) == 1
 
 
+class TestConcatenatedAssignmentTarget:
+    def test_does_not_flag_concatenation_target_matching_width(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [3:0] b;
+              wire [7:0] c;
+              assign {a, b} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert diagnostics == []
+
+    def test_flags_concatenation_target_too_narrow_rhs(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [3:0] b;
+              wire [5:0] c;
+              assign {a, b} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(diagnostics) == 1
+
+        trunc_diags = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [3:0] b;
+              wire [5:0] c;
+              assign {a, b} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+        assert trunc_diags == []
+
+    def test_flags_concatenation_target_too_wide_rhs_truncation(self) -> None:
+        width_diags = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [3:0] b;
+              wire [9:0] c;
+              assign {a, b} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(width_diags) == 1
+
+        trunc_diags = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              wire [3:0] b;
+              wire [9:0] c;
+              assign {a, b} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_TRUNCATION",
+        )
+        assert len(trunc_diags) == 1
+
+    def test_concatenation_target_with_bit_and_part_selects(self) -> None:
+        match_diags = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [7:0] b;
+              wire [5:0] c;
+              assign {a[3:0], b[1:0]} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert match_diags == []
+
+        mismatch_diags = _diagnostics(
+            """
+            module top;
+              wire [7:0] a;
+              wire [7:0] b;
+              wire [7:0] c;
+              assign {a[3:0], b[1:0]} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(mismatch_diags) == 1
+
+    def test_concatenation_target_nested_matching_and_mismatch(self) -> None:
+        match_diags = _diagnostics(
+            """
+            module top;
+              wire [1:0] a;
+              wire [1:0] b;
+              wire [3:0] c;
+              wire [7:0] d;
+              assign {{a, b}, c} = d;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert match_diags == []
+
+        mismatch_diags = _diagnostics(
+            """
+            module top;
+              wire [1:0] a;
+              wire [1:0] b;
+              wire [3:0] c;
+              wire [5:0] d;
+              assign {{a, b}, c} = d;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(mismatch_diags) == 1
+
+    def test_concatenation_target_procedural_assignments(self) -> None:
+        match_diags = _diagnostics(
+            """
+            module top (input logic clk);
+              logic [3:0] a;
+              logic [3:0] b;
+              logic [7:0] c;
+              always_ff @(posedge clk) begin
+                {a, b} <= c;
+              end
+              always_comb begin
+                {a, b} = c;
+              end
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert match_diags == []
+
+        mismatch_diags = _diagnostics(
+            """
+            module top (input logic clk);
+              logic [3:0] a;
+              logic [3:0] b;
+              logic [9:0] c;
+              always_ff @(posedge clk) begin
+                {a, b} <= c;
+              end
+              always_comb begin
+                {a, b} = c;
+              end
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(mismatch_diags) == 2
+
+    def test_concatenation_target_index_selector_width_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [31:0] array [5];
+              bit [1:0] wr_addr;
+              wire [31:0] b;
+              wire [63:0] val;
+              assign {array[wr_addr], b} = val;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(diagnostics) == 1
+
+    def test_concatenation_target_does_not_flag_signedness_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire signed [3:0] a;
+              wire signed [3:0] b;
+              wire signed [7:0] c;
+              assign {a, b} = c;
+            endmodule
+            """,
+            "ASSIGNMENT_SIGNEDNESS_MISMATCH",
+        )
+        assert diagnostics == []
+
+    def test_concatenation_target_unresolved_member_skips_cleanly(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] a;
+              assign {a, unknown_member} = 8'h0;
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert diagnostics == []
 
