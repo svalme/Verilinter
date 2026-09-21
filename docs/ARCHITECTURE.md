@@ -216,3 +216,31 @@ Complex RTL constructs (such as `generate for` loops, unrolled procedural loops,
 
 ---
 
+## 7. Dependency Injection & Modular Subcomponent Architecture
+
+Verilinter employs dependency injection (DI) across its analysis pipeline, walker, and AST handlers to enable isolated testing, mock backends, and decoupled extension:
+
+### A. Pipeline & Storage Dependency Injection (`engine.py`)
+`LintPipeline` accepts optional dependency injection in its constructor:
+- `rule_runner`: Custom or filtered `RuleRunner` instance for syntax AST rules.
+- `symbol_rule_runner`: Custom `SymbolRuleRunner` instance for per-file symbol table rules.
+- `module_rule_runner`: Custom `ModuleRuleRunner` instance for cross-file module rules.
+- `store`: Custom `AnalysisStore` or mock storage backend, decoupling analysis runs from physical SQLite database creation during unit tests.
+
+Injected runners are executed identically across in-memory syntax trees (`analyze_trees`) and on-disk files (`analyze_paths`).
+
+### B. AST Walker Decoupling (`walker.py`)
+`Walker` accepts injectable:
+- `dispatch`: Custom `Dispatch` registry for routing AST nodes to handlers without modifying the global dispatch table.
+- `vnode_factory`: Custom node factory/wrapper, allowing mock vnode generation in unit tests without module monkeypatching.
+
+### C. Handler Subcomponent Decomposition (`handlers/`)
+Complex AST handlers decompose disparate concerns into injectable strategy subcomponents:
+- **`IdentifierNameHandler`**:
+  - `StructuralReferenceFilter`: Configurable predicates to filter non-referential identifier tokens.
+  - `SymbolResolver`: Resolves or synthesizes symbols across lexical/package scopes, with injectable `qualifier_fn`.
+  - `UseEventContextExtractor`: Extracts access modes, driver blocks, and branch exclusivity signatures.
+- **`HierarchyInstantiationHandler`**:
+  - `ParameterOverrideExtractor`: Extracts parameter overrides and computes style, accepting an injectable constant `evaluator`.
+  - `PortConnectionExtractor`: Resolves port connections and connection style, accepting an injectable `width_resolver`.
+

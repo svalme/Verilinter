@@ -426,6 +426,8 @@ def _lint_single_file(
     include_dirs: list[str] | None = None,
     package_registry: dict[str, list[dict[str, Any]]] | None = None,
     defines: Sequence[str] | None = None,
+    rule_runner_inst: Any = None,
+    symbol_rule_runner_inst: Any = None,
 ) -> WorkerResult:
     _parse_file = _get_override("parse_file", parse_file)
     _file_uses_default_nettype_none = _get_override(
@@ -453,6 +455,8 @@ def _lint_single_file(
         package_registry=package_registry,
         default_nettype_none=_file_uses_default_nettype_none(path),
         header_dependencies=header_dependencies,
+        rule_runner_inst=rule_runner_inst,
+        symbol_rule_runner_inst=symbol_rule_runner_inst,
     )
 
 
@@ -543,12 +547,22 @@ def _run_workers(
     include_dirs: list[str] | None = None,
     package_registry: dict[str, list[dict[str, Any]]] | None = None,
     defines: Sequence[str] | None = None,
+    rule_runner_inst: Any = None,
+    symbol_rule_runner_inst: Any = None,
 ) -> list[WorkerResult]:
     ordered_paths = [str(path) for path in paths]
 
-    if jobs == 1:
+    if jobs == 1 or rule_runner_inst is not None or symbol_rule_runner_inst is not None:
         return [
-            _lint_single_file(path, rule_selection, include_dirs, package_registry, defines)
+            _lint_single_file(
+                path,
+                rule_selection,
+                include_dirs,
+                package_registry,
+                defines,
+                rule_runner_inst=rule_runner_inst,
+                symbol_rule_runner_inst=symbol_rule_runner_inst,
+            )
             for path in ordered_paths
         ]
 
@@ -625,10 +639,12 @@ class LintPipeline:
         rule_runner: Any = None,
         symbol_rule_runner: Any = None,
         module_rule_runner: Any = None,
+        store: Any = None,
     ) -> None:
         self._rule_runner = rule_runner
         self._symbol_rule_runner = symbol_rule_runner
         self._module_rule_runner = module_rule_runner
+        self._store = store
 
     def analyze_trees(
         self,
@@ -743,7 +759,7 @@ class LintPipeline:
         package_registry = _scan_packages(paths, include_dirs, defines=normalized_defines)
         package_registry_fingerprint = _fingerprint_package_registry(package_registry)
 
-        store = AnalysisStore(store_path) if store_path is not None else None
+        store = self._store if self._store is not None else (AnalysisStore(store_path) if store_path is not None else None)
         file_records: list[dict[str, Any]] = []
         results_by_path: dict[str, WorkerResult] = {}
         missed_paths: list[Path] = []
@@ -786,6 +802,8 @@ class LintPipeline:
                 include_dirs,
                 package_registry,
                 defines=normalized_defines,
+                rule_runner_inst=self._rule_runner,
+                symbol_rule_runner_inst=self._symbol_rule_runner,
             )
             if missed_paths
             else []

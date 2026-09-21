@@ -90,3 +90,93 @@ class TestHierarchyInstantiationHandler:
         assert isinstance(second.parameter_overrides[0], ParameterOverride)
         assert second.parameter_overrides[0].param_name == "WIDTH"
 
+
+class TestParameterOverrideExtractor:
+    def test_custom_evaluator_injection(self) -> None:
+        from unittest.mock import Mock
+        from src.pkg.handlers.hierarchy_instantiation import ParameterOverrideExtractor
+
+        tree = sl.SyntaxTree.fromText("module top; child #(.PARAM(1 + 2)) u_inst(); endmodule\n")
+        inst_node = tree.root.members[0]
+
+        mock_eval = Mock(return_value=999)
+        extractor = ParameterOverrideExtractor(evaluator=mock_eval)
+        overrides, style = extractor.extract(inst_node, tree)
+
+        assert style == "named"
+        assert len(overrides) == 1
+        assert overrides[0].param_name == "PARAM"
+        assert overrides[0].expr_value == 999
+        mock_eval.assert_called_once()
+
+
+class TestPortConnectionExtractor:
+    def test_custom_width_resolver_injection(self) -> None:
+        from unittest.mock import Mock
+        from src.pkg.handlers.hierarchy_instantiation import PortConnectionExtractor
+
+        tree = sl.SyntaxTree.fromText("module top; child u_inst(.clk(sys_clk)); endmodule\n")
+        inst_node = tree.root.members[0]
+        item = inst_node.instances[0]
+
+        mock_width_resolver = Mock(return_value=(32, True))
+        extractor = PortConnectionExtractor(width_resolver=mock_width_resolver)
+        conns, style = extractor.extract(item, tree)
+
+        assert style == "named"
+        assert len(conns) == 1
+        assert conns[0].port_name == "clk"
+        assert conns[0].expr_width == 32
+        assert conns[0].expr_signed is True
+        mock_width_resolver.assert_called_once()
+
+
+class TestHierarchyInstantiationHandlerInjection:
+    def test_extractors_injection(self) -> None:
+        from unittest.mock import Mock
+        from src.pkg.handlers.hierarchy_instantiation import (
+            ParameterOverrideExtractor,
+            PortConnectionExtractor,
+        )
+        from src.pkg.handlers.hierarchy_instantiation_handler import (
+            HierarchyInstantiationHandler,
+        )
+        from src.pkg.semantic.models import ParameterOverride, PortConnection
+        from src.pkg.semantic.scope import Scope
+        from src.pkg.vnodes.syntax_vnode import SyntaxVNode
+
+        mock_param_extractor = Mock(spec=ParameterOverrideExtractor)
+        dummy_override = ParameterOverride(kind="named", param_name="DUMMY_PARAM")
+        mock_param_extractor.extract.return_value = ([dummy_override], "named")
+
+        mock_conn_extractor = Mock(spec=PortConnectionExtractor)
+        dummy_conn = PortConnection(kind="named", port_name="dummy_port")
+        mock_conn_extractor.extract.return_value = ([dummy_conn], "named")
+
+        handler = HierarchyInstantiationHandler(
+            parameter_extractor=mock_param_extractor,
+            connection_extractor=mock_conn_extractor,
+        )
+
+        tree = sl.SyntaxTree.fromText("module top; child u_inst(); endmodule\n")
+        inst_node = tree.root.members[0]
+        vnode = SyntaxVNode(inst_node, tree)
+
+        table = SymbolTable()
+        top_scope = Scope(kind="module", name="top")
+        table.register_module("top", top_scope)
+        ctx = Context(scope=top_scope)
+
+        handler.update_context(ctx, vnode, table)
+
+        mock_param_extractor.extract.assert_called_once_with(vnode.raw, vnode.tree, ctx.scope())
+        mock_conn_extractor.extract.assert_called_once()
+
+        assert len(table.instantiations) == 1
+        record = table.instantiations[0]
+        assert record.parameter_overrides == [dummy_override]
+        assert record.parameter_override_style == "named"
+        assert record.connections == [dummy_conn]
+        assert record.connection_style == "named"
+
+

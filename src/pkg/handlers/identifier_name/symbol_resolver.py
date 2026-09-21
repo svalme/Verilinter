@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from ...parser.syntax import scoped_name_package_qualifier
 from ...semantic.symbol import Symbol
@@ -17,6 +17,12 @@ class SymbolResolver:
     nets or variables when appropriate.
     """
 
+    def __init__(
+        self,
+        qualifier_fn: Callable[[object], str | None] | None = None,
+    ) -> None:
+        self._qualifier_fn = qualifier_fn if qualifier_fn is not None else scoped_name_package_qualifier
+
     def resolve_or_create(
         self,
         name: str,
@@ -31,7 +37,7 @@ class SymbolResolver:
         Returns None if the identifier is explicitly package-qualified but the
         package or symbol is not found (avoiding false implicit-net creation).
         """
-        package_qualifier = scoped_name_package_qualifier(vnode.raw)
+        package_qualifier = self._qualifier_fn(vnode.raw)
         if package_qualifier is not None:
             package_scope = symbol_table.lookup_package(package_qualifier)
             symbol = package_scope.lookup(name) if package_scope is not None else None

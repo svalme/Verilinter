@@ -90,7 +90,7 @@ class TestSymbolResolver:
         assert symbol.is_implicit is False
         assert ctx.scope().lookup("my_var") is symbol
 
-    def test_package_qualified_resolution_existing_and_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_package_qualified_resolution_existing_and_missing(self) -> None:
         table = SymbolTable()
         ctx = Context(scope=table.global_scope)
 
@@ -104,12 +104,8 @@ class TestSymbolResolver:
         vnode = Mock(spec=IdentifierNameVNode)
         vnode.raw = Mock()
 
-        # Case 1: Package exists, symbol exists
-        monkeypatch.setattr(
-            "src.pkg.handlers.identifier_name.symbol_resolver.scoped_name_package_qualifier",
-            lambda raw: "my_pkg",
-        )
-        resolver = SymbolResolver()
+        # Case 1: Injected qualifier finds registered package with matching symbol
+        resolver = SymbolResolver(qualifier_fn=lambda raw: "my_pkg")
         resolved = resolver.resolve_or_create("CONST_VAL", vnode, ctx, table)
         assert resolved is pkg_symbol
 
@@ -117,12 +113,9 @@ class TestSymbolResolver:
         resolved_missing = resolver.resolve_or_create("UNKNOWN_VAL", vnode, ctx, table)
         assert resolved_missing is None
 
-        # Case 3: Package does not exist
-        monkeypatch.setattr(
-            "src.pkg.handlers.identifier_name.symbol_resolver.scoped_name_package_qualifier",
-            lambda raw: "unregistered_pkg",
-        )
-        resolved_pkg_missing = resolver.resolve_or_create("ANY", vnode, ctx, table)
+        # Case 3: Injected qualifier returns unregistered package
+        resolver_unregistered = SymbolResolver(qualifier_fn=lambda raw: "unregistered_pkg")
+        resolved_pkg_missing = resolver_unregistered.resolve_or_create("ANY", vnode, ctx, table)
         assert resolved_pkg_missing is None
 
 

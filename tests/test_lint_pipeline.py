@@ -146,7 +146,7 @@ class TestLintPipeline:
         assert deserialized_inst.generate_branch_signature == (("gen_if", 0),)
 
     def test_pipeline_custom_runners_injection(self) -> None:
-        """Verify that custom rule runners can be injected into LintPipeline."""
+        """Verify that custom rule runners (AST, symbol, module) can be injected into LintPipeline."""
         class CustomRule(Rule):
             code = "CUSTOM_AST"
             message = "custom ast violation"
@@ -154,18 +154,27 @@ class TestLintPipeline:
             def applies(self, vnode: Any, ctx: Any) -> bool:
                 return getattr(vnode, "identifier_name", None) == "flag_me"
 
+        class CustomSymbolRule(BaseSymbolRule):
+            code = "CUSTOM_SYM"
+            message = "custom symbol violation"
+
+            def run(self, symbol_table: SymbolTable, rule_selection: Any = None) -> list[dict[str, Any]]:
+                return [{"code": self.code, "message": self.message, "line": 1, "col": 1, "file": "test.sv"}]
+
         class CustomModuleRule(BaseSymbolRule):
             code = "CUSTOM_MOD"
             message = "custom module violation"
 
-            def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
+            def run(self, symbol_table: SymbolTable, rule_selection: Any = None) -> list[dict[str, Any]]:
                 return [{"code": self.code, "message": self.message, "line": 1, "col": 1, "file": "test.sv"}]
 
         custom_rule_runner = RuleRunner(rules=[CustomRule()])
+        custom_symbol_runner = SymbolRuleRunner(rules=[CustomSymbolRule()])
         custom_module_runner = ModuleRuleRunner(rules=[CustomModuleRule()])
 
         pipeline = LintPipeline(
             rule_runner=custom_rule_runner,
+            symbol_rule_runner=custom_symbol_runner,
             module_rule_runner=custom_module_runner,
         )
 
@@ -176,4 +185,62 @@ class TestLintPipeline:
 
         codes = {d["code"] for d in result.diagnostics}
         assert "CUSTOM_AST" in codes
+        assert "CUSTOM_SYM" in codes
         assert "CUSTOM_MOD" in codes
+
+    def test_pipeline_custom_runners_injection_in_analyze_paths(self, tmp_path: Path) -> None:
+        """Verify that injected custom runners are executed during analyze_paths."""
+        src_file = tmp_path / "mod.sv"
+        src_file.write_text("module mod;\n  logic flag_me;\n  assign flag_me = 1'b0;\nendmodule\n", encoding="utf-8")
+
+        class CustomRule(Rule):
+            code = "CUSTOM_PATH_AST"
+            message = "custom path ast violation"
+
+            def applies(self, vnode: Any, ctx: Any) -> bool:
+                return getattr(vnode, "identifier_name", None) == "flag_me"
+
+        class CustomSymbolRule(BaseSymbolRule):
+            code = "CUSTOM_PATH_SYM"
+            message = "custom path sym violation"
+
+            def run(self, symbol_table: SymbolTable, rule_selection: Any = None) -> list[dict[str, Any]]:
+                return [{"code": self.code, "message": self.message, "line": 1, "col": 1, "file": str(src_file)}]
+
+        class CustomModuleRule(BaseSymbolRule):
+            code = "CUSTOM_PATH_MOD"
+            message = "custom path mod violation"
+
+            def run(self, symbol_table: SymbolTable, rule_selection: Any = None) -> list[dict[str, Any]]:
+                return [{"code": self.code, "message": self.message, "line": 1, "col": 1, "file": str(src_file)}]
+
+        pipeline = LintPipeline(
+            rule_runner=RuleRunner(rules=[CustomRule()]),
+            symbol_rule_runner=SymbolRuleRunner(rules=[CustomSymbolRule()]),
+            module_rule_runner=ModuleRuleRunner(rules=[CustomModuleRule()]),
+        )
+
+        result = pipeline.analyze_paths([src_file], jobs=1)
+        codes = {d["code"] for d in result.diagnostics}
+        assert "CUSTOM_PATH_AST" in codes
+        assert "CUSTOM_PATH_SYM" in codes
+        assert "CUSTOM_PATH_MOD" in codes
+
+    def test_pipeline_custom_store_injection_in_analyze_paths(self, tmp_path: Path) -> None:
+        """Verify that a custom or mock store can be injected into LintPipeline."""
+        from unittest.mock import Mock
+        from src.pkg.analysis_store import AnalysisStore
+
+        src_file = tmp_path / "store_test.sv"
+        src_file.write_text("module store_test;\nendmodule\n", encoding="utf-8")
+
+        mock_store = Mock(spec=AnalysisStore)
+        mock_store.load_cached_worker_result.return_value = None
+
+        pipeline = LintPipeline(store=mock_store)
+        result = pipeline.analyze_paths([src_file], jobs=1)
+
+        assert mock_store.load_cached_worker_result.called
+        assert mock_store.store_cached_worker_result.called
+        assert mock_store.record_run.called
+        assert result.cache_stats == {"hits": 0, "misses": 1}

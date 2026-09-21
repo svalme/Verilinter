@@ -61,6 +61,30 @@ class TestWalker:
         assert walker._dispatch is mock_dispatch
         assert walker._results == []
 
+    def test_walker_custom_vnode_factory_injection(
+        self,
+        mock_dispatch: Mock,
+        mock_handler: Mock,
+        mock_syntax_node: Mock,
+        mock_tree: Mock,
+        context: Context,
+        symbol_table: SymbolTable,
+    ) -> None:
+        """Test that Walker uses an injected custom vnode_factory without module patching."""
+        mock_vnode = Mock(spec=BaseVNode)
+        mock_vnode.raw = mock_syntax_node
+        custom_factory = Mock()
+        custom_factory.create.return_value = mock_vnode
+
+        mock_dispatch.get.return_value = mock_handler
+
+        walker = Walker(mock_dispatch, vnode_factory=custom_factory)
+        walker.walk(mock_syntax_node, mock_tree, context, symbol_table)
+
+        custom_factory.create.assert_called_once_with(mock_syntax_node, mock_tree)
+        assert len(walker.results) == 1
+        assert walker.results[0][0] is mock_vnode
+
     def test_walk_creates_vnode_from_raw_node(
         self,
         walker: Walker,

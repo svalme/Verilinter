@@ -1,18 +1,19 @@
-from typing import Callable
+from typing import Any, Callable
 
 from .dispatch import Dispatch
 from .context import Context
 
 from ..vnodes.register_vnodes import *
 from ..vnodes.base_vnode import BaseVNode
-from ..vnodes.vnode_factory import vnode_factory
+from ..vnodes.vnode_factory import vnode_factory as default_vnode_factory
 from ..semantic.symbol_table import SymbolTable
 from ..parser.types import RawNode, SyntaxTree
 
 
 class Walker:
-    def __init__(self, dispatch: Dispatch) -> None:
+    def __init__(self, dispatch: Dispatch, vnode_factory: Any = None) -> None:
         self._dispatch = dispatch
+        self._vnode_factory = vnode_factory if vnode_factory is not None else default_vnode_factory
         self._results: list[tuple[BaseVNode, Context]] = []
 
     @property
@@ -28,7 +29,7 @@ class Walker:
         on_node: Callable[[BaseVNode, Context], None] | None = None,
     ) -> None:
         def _walk(node: RawNode | BaseVNode, ctx: Context) -> None:
-            vnode = node if isinstance(node, BaseVNode) else vnode_factory.create(node, tree)
+            vnode = node if isinstance(node, BaseVNode) else self._vnode_factory.create(node, tree)
             handler = self._dispatch.get(vnode)
             ctx = handler.update_context(ctx, vnode, symbol_table)
             if on_node is not None:
