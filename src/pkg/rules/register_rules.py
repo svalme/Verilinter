@@ -14,6 +14,7 @@ from .combinational_logic.no_mixed_assignment_style import NoMixedAssignmentStyl
 from .simulation_vs_synthesis.no_initial_block import NoInitialBlockRule
 from .simulation_vs_synthesis.no_final_block import NoFinalBlockRule
 from .sequential_logic.no_always_ff import NoAlwaysFFRule
+from .sequential_logic.multi_clock_procedural_block import MultiClockProceduralBlockRule
 from .latches.no_always_latch import NoAlwaysLatchRule
 from .latches.no_latch_in_always_latch import NoLatchInAlwaysLatchRule
 from .parameters_and_generate_logic.no_case_generate import NoCaseGenerateRule
@@ -109,6 +110,7 @@ from .width_and_signedness.explicit_xz_literal import ExplicitXZLiteralRule
 from .conditional_and_case_statements.casex_casez_wildcard_case_item import CasexCasezWildcardCaseItemRule
 from .operators_and_expressions.xz_equality_comparison import XZEqualityComparisonRule
 from .clock_and_reset.x_valued_reset_value import AsyncResetXZValueRule
+from .clock_and_reset.async_reset_as_data import AsyncResetAsDataRule
 from .naming_and_style.module_name_casing import ModuleNameCasingRule
 from .naming_and_style.signal_name_casing import SignalNameCasingRule
 from .naming_and_style.parameter_name_casing import ParameterNameCasingRule

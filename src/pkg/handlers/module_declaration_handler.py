@@ -1,6 +1,6 @@
 from ..walk.dispatch import dispatch
 from ..walk.context import Context
-from ..parser.syntax import is_package_declaration_node, module_declaration_name
+from ..parser.syntax import is_package_declaration_node, module_async_reset_signals, module_declaration_name
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.syntax_vnode import SyntaxVNode
 from ..parser.types import ModuleDeclarationNode
@@ -34,7 +34,8 @@ class ModuleDeclarationHandler(SyntaxNodeHandler):
             location=vnode.location,
         )
         symbol_table.register_module(name, module_scope)
-        return ctx.push(vnode).with_scope(module_scope)
+        async_resets = module_async_reset_signals(vnode.raw)
+        return ctx.push(vnode).with_scope(module_scope).with_data("module_async_resets", async_resets)
 
     def on_exit(self, _ctx: Context, _vnode: SyntaxVNode, symbol_table: SymbolTable) -> None:
         symbol_table.pop_scope()

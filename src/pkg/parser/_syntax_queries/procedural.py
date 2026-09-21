@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from ..syntax_kinds import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_FF_BLOCK_KIND,
+    INVOCATION_EXPRESSION_KIND,
     SIMPLE_ASSIGNMENT_KINDS,
     TIMING_CONTROL_STATEMENT_KIND,
 )
@@ -292,6 +293,262 @@ def async_reset_signal_edges(raw: object) -> dict[str, str]:
 
     _walk(getattr(event_control, "expr", None))
     return edges
+
+
+def procedural_block_edge_events(raw: object) -> list[tuple[str, str]]:
+    """Return all (edge_kind, signal_name) tuples for edge-qualified events
+    in `raw`'s sensitivity list in document order.
+    """
+    from ..syntax_queries import is_negedge_event, is_posedge_event
+
+    if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
+        return []
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return []
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return []
+
+    events: list[tuple[str, str]] = []
+
+    def _walk(current: object) -> None:
+        if current is None:
+            return
+        if isinstance(current, ParenthesizedEventExpressionNode):
+            _walk(getattr(current, "expr", None))
+        elif isinstance(current, BinaryEventExpressionNode):
+            _walk(getattr(current, "left", None))
+            _walk(getattr(current, "right", None))
+        elif isinstance(current, SignalEventExpressionNode):
+            if is_posedge_event(current):
+                edge = "posedge"
+            elif is_negedge_event(current):
+                edge = "negedge"
+            else:
+                edge = None
+            if edge is not None:
+                expr = getattr(current, "expr", None)
+                if isinstance(expr, SyntaxNode):
+                    for name, _identifier in _iter_identifier_nodes(expr):
+                        events.append((edge, name))
+
+    _walk(getattr(event_control, "expr", None))
+    return events
+
+
+def procedural_block_top_level_reset_names(raw: object) -> set[str]:
+    """Return the set of signal names tested in the top-level `if` (and chained
+    `else if`) condition predicates of procedural block `raw`.
+    """
+    from ..syntax_queries import is_block_statement, is_conditional_statement
+
+    if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
+        return set()
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) == TIMING_CONTROL_STATEMENT_KIND:
+        stmt = getattr(timing_statement, "statement", None)
+    else:
+        stmt = timing_statement
+
+    first_stmt = None
+    if is_block_statement(stmt):
+        items = getattr(stmt, "items", None)
+        if items:
+            for it in items:
+                kind_str = str(getattr(it, "kind", ""))
+                if "EmptyStatement" in kind_str or "Declaration" in kind_str:
+                    continue
+                first_stmt = it
+                break
+    else:
+        first_stmt = stmt
+
+    reset_names: set[str] = set()
+    curr = first_stmt
+    while is_conditional_statement(curr):
+        pred = getattr(curr, "predicate", None)
+        if isinstance(pred, SyntaxNode):
+            for name, _ in _iter_identifier_nodes(pred):
+                reset_names.add(name)
+        else_clause = getattr(curr, "elseClause", None)
+        if else_clause is None:
+            break
+        clause_stmt = getattr(else_clause, "clause", None)
+        if is_conditional_statement(clause_stmt):
+            curr = clause_stmt
+        else:
+            break
+
+    return reset_names
+
+
+def is_multi_clock_procedural_block(raw: object) -> bool:
+    """True if `raw` is a sequential procedural block whose sensitivity list
+    contains multiple clock signals or illegal edge combinations (such as
+    opposite edges of the same signal, multiple clock triggers, or multiple
+    edge-qualified signals with no async reset condition).
+    """
+    events = procedural_block_edge_events(raw)
+    if not events:
+        return False
+
+    edge_signals = [name for _edge, name in events]
+    unique_signals = set(edge_signals)
+
+    # If duplicate events on the same signal exist (e.g. posedge clk or negedge clk)
+    if len(edge_signals) != len(unique_signals):
+        return True
+
+    # Single-edge block (e.g. always @(posedge clk)) is a valid synchronous clock
+    if len(unique_signals) <= 1:
+        return False
+
+    # Block has 2 or more edge-qualified signals.
+    # Exactly one can be the clock; the rest must be accounted for by the reset condition.
+    reset_names = procedural_block_top_level_reset_names(raw)
+    resets_in_edges = unique_signals & reset_names
+    clocks = unique_signals - resets_in_edges
+
+    # If more than 1 signal is not accounted for as a reset, multiple clocks exist!
+    # If 0 signals act as a clock (all are in the reset condition), there is no clock trigger!
+    return len(clocks) != 1
+
+
+def procedural_block_async_reset_signals(raw: object) -> set[str]:
+    """Return the set of signal names that serve as verified asynchronous resets
+    in `raw` (an edge-qualified sequential block where 2+ edges exist, 1 is the clock,
+    and the remaining edge-qualified signals are tested in the top-level reset condition).
+    """
+    events = procedural_block_edge_events(raw)
+    if len(events) < 2:
+        return set()
+
+    edge_signals = [name for _edge, name in events]
+    unique_signals = set(edge_signals)
+    if len(edge_signals) != len(unique_signals):
+        return set()
+
+    reset_names = procedural_block_top_level_reset_names(raw)
+    resets_in_edges = unique_signals & reset_names
+    clocks = unique_signals - resets_in_edges
+    if len(clocks) == 1 and len(resets_in_edges) >= 1:
+        return resets_in_edges
+    return set()
+
+
+def module_async_reset_signals(module_raw: object) -> set[str]:
+    """Return all verified asynchronous reset signal names across procedural blocks in `module_raw`."""
+    members = getattr(module_raw, "members", None)
+    if not members:
+        return set()
+
+    resets: set[str] = set()
+    for member in members:
+        kind = getattr(member, "kind", None)
+        if kind in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
+            resets.update(procedural_block_async_reset_signals(member))
+    return resets
+
+
+def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
+    """True if `vnode` is an identifier reference reading an asynchronous reset
+    signal as a data operand rather than in an event list, port connection,
+    assertion, system task, or the top-level reset control predicate.
+    """
+    from ..syntax_queries import (
+        contains_descendant,
+        enclosing_port_connection,
+        enclosing_procedural_block,
+        identifier_is_assignment_lhs,
+        identifier_name,
+        is_block_statement,
+        is_concurrent_assertion_node,
+        is_conditional_statement,
+        is_identifier_name_node,
+        is_immediate_assertion_node,
+        system_task_name,
+    )
+    from ..types import SignalEventExpressionNode
+
+    if not is_identifier_name_node(vnode.raw):
+        return False
+
+    name = identifier_name(vnode.raw)
+    if not name:
+        return False
+
+    async_resets = ctx.data.get("module_async_resets")
+    if not async_resets or name not in async_resets:
+        return False
+
+    # 1. Not flagged if it is a write (assignment LHS, e.g. assign rst_n = ~rst_in;)
+    if identifier_is_assignment_lhs(ctx, vnode.raw):
+        return False
+
+    # 2. Not flagged if in a submodule port connection (passing reset down hierarchy)
+    if enclosing_port_connection(ctx) is not None:
+        return False
+
+    # 3. Not flagged if in an event control or sensitivity list
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        if isinstance(raw, SignalEventExpressionNode):
+            return False
+        type_name = type(raw).__name__
+        if "EventControl" in type_name or "EventExpression" in type_name:
+            return False
+
+    # 4. Not flagged if in an assertion statement or diagnostic system task
+    for ancestor in reversed(ctx.stack):
+        if is_immediate_assertion_node(ancestor.raw) or is_concurrent_assertion_node(ancestor.raw):
+            return False
+        if getattr(ancestor.raw, "kind", None) == INVOCATION_EXPRESSION_KIND:
+            callee = getattr(ancestor.raw, "left", None)
+            sys_name = system_task_name(callee) or identifier_name(callee) or ""
+            if sys_name.startswith(("$display", "$monitor", "$strobe", "$write", "$info", "$warning", "$error", "$fatal")):
+                return False
+
+    # 5. Not flagged if in the predicate expression of a top-level async reset conditional
+    block = enclosing_procedural_block(ctx)
+    if block is not None:
+        timing_statement = getattr(block.raw, "statement", None)
+        if getattr(timing_statement, "kind", None) == TIMING_CONTROL_STATEMENT_KIND:
+            inner_stmt = getattr(timing_statement, "statement", None)
+        else:
+            inner_stmt = timing_statement
+
+        first_stmt = None
+        if is_block_statement(inner_stmt):
+            items = getattr(inner_stmt, "items", None)
+            if items:
+                for it in items:
+                    kind_str = str(getattr(it, "kind", ""))
+                    if "EmptyStatement" in kind_str or "Declaration" in kind_str:
+                        continue
+                    first_stmt = it
+                    break
+        else:
+            first_stmt = inner_stmt
+
+        curr = first_stmt
+        while is_conditional_statement(curr):
+            pred = getattr(curr, "predicate", None)
+            if pred is not None and contains_descendant(pred, vnode.raw):
+                return False
+            else_clause = getattr(curr, "elseClause", None)
+            if else_clause is None:
+                break
+            clause_stmt = getattr(else_clause, "clause", None)
+            if is_conditional_statement(clause_stmt):
+                curr = clause_stmt
+            else:
+                break
+
+    return True
 
 
 def procedural_nesting_depth(ctx: "Context") -> int:
