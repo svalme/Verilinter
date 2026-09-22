@@ -21,6 +21,7 @@ from ..syntax_kinds import (
     REAL_LITERAL_EXPRESSION_KIND,
     REAL_TYPE_KINDS,
     TIME_LITERAL_EXPRESSION_KIND,
+    UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
 )
 from ..types import IdentifierSelectNameNode, SyntaxNode, SyntaxTree
 from .shared import node_location, simple_packed_range, source_text_for_node, type_text_width_and_signed
@@ -247,6 +248,41 @@ def conditional_statement_else_body(raw: object) -> SyntaxNode | None:
     if else_clause is None:
         return None
     return else_clause_body(else_clause)
+
+
+def is_conditional_constant_expression(raw: object) -> bool:
+    """True if `raw` is a runtime procedural `if` statement whose condition
+    predicate statically evaluates to a constant boolean value (e.g. 0, 1, 1'b0,
+    1'b1, '0, '1, or a pure constant expression like 1 == 0).
+    Excludes `generate if` statements (`IfGenerateSyntax`)."""
+    if not is_conditional_statement(raw):
+        return False
+
+    predicate = getattr(raw, "predicate", None)
+    conditions = getattr(predicate, "conditions", None) or []
+    if not conditions:
+        return False
+
+    from .procedural import _iter_identifier_nodes
+    from .expressions import evaluate_constant_expression, unwrap_parentheses
+    from .literals import constant_integer_value
+
+    for condition in conditions:
+        expr = getattr(condition, "expr", None)
+        if expr is None:
+            continue
+        unwrapped = unwrap_parentheses(expr)
+        if getattr(unwrapped, "kind", None) == UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND:
+            return True
+        val = constant_integer_value(unwrapped)
+        if val is not None:
+            return True
+        idents = list(_iter_identifier_nodes(unwrapped))
+        if not idents:
+            eval_val = evaluate_constant_expression(unwrapped)
+            if eval_val is not None:
+                return True
+    return False
 
 
 

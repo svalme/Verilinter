@@ -298,3 +298,162 @@ def is_tristate_continuous_assign(raw: object) -> bool:
         if _is_all_wildcard_text(left, "z") or _is_all_wildcard_text(right, "z"):
             return True
     return False
+
+
+def _extract_case_pattern(expr: object, wildcards: str) -> tuple[int, str] | None:
+    from .expressions import evaluate_constant_expression, unwrap_parentheses
+
+    unwrapped = unwrap_parentheses(expr)
+    kind = getattr(unwrapped, "kind", None)
+
+    # 1. Unbased unsized literal: '0, '1, 'x, 'z
+    if kind == UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND:
+        tok = getattr(unwrapped, "literal", None)
+        if tok is not None:
+            text = str(tok).strip().lstrip("'").lower()
+            return 1, text
+
+    # 2. Integer vector expression: sized/unbased vector e.g. 3'b00?, 4'hA, 2'b10
+    if kind == INTEGER_VECTOR_EXPRESSION_KIND:
+        val_tok = getattr(unwrapped, "value", None)
+        size_tok = getattr(unwrapped, "size", None)
+        base_tok = getattr(unwrapped, "base", None)
+        if val_tok is not None:
+            raw_text = str(val_tok).strip().replace("_", "").lower()
+            base_text = str(base_tok).strip().lower() if base_tok is not None else ""
+            size_int = None
+            if size_tok is not None:
+                try:
+                    size_int = int(str(size_tok).strip())
+                except ValueError:
+                    pass
+
+            if "b" in base_text:
+                bit_str = raw_text
+                width = size_int if size_int is not None else len(bit_str)
+                if len(bit_str) < width:
+                    pad_char = "0"
+                    if bit_str and bit_str[0] in ("x", "z", "?"):
+                        pad_char = bit_str[0]
+                    bit_str = pad_char * (width - len(bit_str)) + bit_str
+                return width, bit_str
+            elif "o" in base_text:
+                oct_to_bin = {
+                    "0": "000", "1": "001", "2": "010", "3": "011",
+                    "4": "100", "5": "101", "6": "110", "7": "111",
+                    "x": "xxx", "z": "zzz", "?": "???"
+                }
+                if all(ch in oct_to_bin for ch in raw_text):
+                    bit_str = "".join(oct_to_bin[ch] for ch in raw_text)
+                    width = size_int if size_int is not None else len(bit_str)
+                    if len(bit_str) > width:
+                        bit_str = bit_str[-width:]
+                    elif len(bit_str) < width:
+                        pad_char = "0"
+                        if bit_str and bit_str[0] in ("x", "z", "?"):
+                            pad_char = bit_str[0]
+                        bit_str = pad_char * (width - len(bit_str)) + bit_str
+                    return width, bit_str
+            elif "h" in base_text:
+                hex_to_bin = {
+                    "0": "0000", "1": "0001", "2": "0010", "3": "0011",
+                    "4": "0100", "5": "0101", "6": "0110", "7": "0111",
+                    "8": "1000", "9": "1001", "a": "1010", "b": "1011",
+                    "c": "1100", "d": "1101", "e": "1110", "f": "1111",
+                    "x": "xxxx", "z": "zzzz", "?": "????"
+                }
+                if all(ch in hex_to_bin for ch in raw_text):
+                    bit_str = "".join(hex_to_bin[ch] for ch in raw_text)
+                    width = size_int if size_int is not None else len(bit_str)
+                    if len(bit_str) > width:
+                        bit_str = bit_str[-width:]
+                    elif len(bit_str) < width:
+                        pad_char = "0"
+                        if bit_str and bit_str[0] in ("x", "z", "?"):
+                            pad_char = bit_str[0]
+                        bit_str = pad_char * (width - len(bit_str)) + bit_str
+                    return width, bit_str
+
+    # 3. Standard constant integer value or evaluation
+    val = constant_integer_value(unwrapped)
+    if val is None:
+        val = evaluate_constant_expression(unwrapped)
+    if val is not None:
+        if val >= 0:
+            width = max(1, val.bit_length())
+            return width, bin(val)[2:].zfill(width)
+        else:
+            uval = (1 << 32) + val
+            return 32, bin(uval)[2:].zfill(32)
+
+    return None
+
+
+def _patterns_overlap(pat1: tuple[int, str], pat2: tuple[int, str], wildcards: str) -> bool:
+    w1, s1 = pat1
+    w2, s2 = pat2
+    max_w = max(w1, w2)
+    s1_ext = "0" * (max_w - w1) + s1
+    s2_ext = "0" * (max_w - w2) + s2
+    for b1, b2 in zip(s1_ext, s2_ext):
+        if b1 in wildcards or b2 in wildcards:
+            continue
+        if b1 != b2:
+            return False
+    return True
+
+
+def has_case_overlapping_items(raw: object) -> bool:
+    """True if `raw` is a `CaseStatementSyntax` containing duplicate or overlapping
+    case item expressions, including exact numeric duplicates (4'd2 vs 4'b0010)
+    in standard `case` or wildcard overlaps (3'b00? vs 3'b001) in `casez`/`casex`."""
+    from ..syntax_queries import (
+        case_item_expressions,
+        case_statement_items,
+        is_case_statement,
+    )
+    from .expressions import evaluate_constant_expression, unwrap_parentheses
+
+    if not is_case_statement(raw):
+        return False
+
+    style_kind = getattr(getattr(raw, "caseKeyword", None), "kind", None)
+    if style_kind == sl.TokenKind.CaseXKeyword:
+        wildcards = "xz?"
+    elif style_kind == sl.TokenKind.CaseZKeyword:
+        wildcards = "z?"
+    else:
+        wildcards = ""
+
+    seen_patterns: list[tuple[int, str]] = []
+    seen_values: set[int] = set()
+
+    for item in case_statement_items(raw):
+        expressions = case_item_expressions(item)
+        for expr in expressions:
+            unwrapped = unwrap_parentheses(expr)
+            # 1. Exact numeric value check for standard case (fast path)
+            val = constant_integer_value(unwrapped)
+            if val is None:
+                val = evaluate_constant_expression(unwrapped)
+
+            if not wildcards and val is not None:
+                if val in seen_values:
+                    return True
+                seen_values.add(val)
+
+            # 2. Pattern overlap check for wildcard cases or duplicate patterns
+            pat = _extract_case_pattern(unwrapped, wildcards)
+            if pat is not None:
+                if wildcards:
+                    for prev_pat in seen_patterns:
+                        if _patterns_overlap(prev_pat, pat, wildcards):
+                            return True
+                else:
+                    for prev_pat in seen_patterns:
+                        if prev_pat == pat:
+                            return True
+                seen_patterns.append(pat)
+
+    return False
+

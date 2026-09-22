@@ -36,6 +36,16 @@ from ..syntax_kinds import (
     UNARY_MINUS_EXPRESSION_KIND,
     UNARY_PLUS_EXPRESSION_KIND,
     UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
+    CASE_EQUALITY_EXPRESSION_KIND,
+    CASE_INEQUALITY_EXPRESSION_KIND,
+    EQUALITY_EXPRESSION_KIND,
+    GREATER_THAN_EQUAL_EXPRESSION_KIND,
+    GREATER_THAN_EXPRESSION_KIND,
+    INEQUALITY_EXPRESSION_KIND,
+    LESS_THAN_EQUAL_EXPRESSION_KIND,
+    LESS_THAN_EXPRESSION_KIND,
+    WILDCARD_EQUALITY_EXPRESSION_KIND,
+    WILDCARD_INEQUALITY_EXPRESSION_KIND,
 )
 from ..types import SyntaxNode, SyntaxTree
 from .literals import constant_integer_value
@@ -115,6 +125,15 @@ def evaluate_constant_expression(
     lit_val = constant_integer_value(expr)
     if lit_val is not None:
         return lit_val
+
+    if kind == UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND:
+        tok = getattr(expr, "literal", None)
+        if tok is not None:
+            text = str(tok).strip().lstrip("'").lower()
+            if text == "0":
+                return 0
+            elif text == "1":
+                return 1
 
     # 2. Identifier lookup in scope
     if kind == IDENTIFIER_NAME_KIND:
@@ -211,6 +230,24 @@ def evaluate_constant_expression(
                 return l_val | r_val
             elif kind == BINARY_XOR_EXPRESSION_KIND:
                 return l_val ^ r_val
+            elif kind in (EQUALITY_EXPRESSION_KIND, CASE_EQUALITY_EXPRESSION_KIND, WILDCARD_EQUALITY_EXPRESSION_KIND):
+                return int(l_val == r_val)
+            elif kind in (INEQUALITY_EXPRESSION_KIND, CASE_INEQUALITY_EXPRESSION_KIND, WILDCARD_INEQUALITY_EXPRESSION_KIND):
+                return int(l_val != r_val)
+            elif kind == LESS_THAN_EXPRESSION_KIND:
+                return int(l_val < r_val)
+            elif kind == LESS_THAN_EQUAL_EXPRESSION_KIND:
+                return int(l_val <= r_val)
+            elif kind == GREATER_THAN_EXPRESSION_KIND:
+                return int(l_val > r_val)
+            elif kind == GREATER_THAN_EQUAL_EXPRESSION_KIND:
+                return int(l_val >= r_val)
+            else:
+                kind_name = getattr(kind, "name", str(kind))
+                if kind_name == "LogicalAndExpression":
+                    return int(bool(l_val) and bool(r_val))
+                elif kind_name == "LogicalOrExpression":
+                    return int(bool(l_val) or bool(r_val))
 
     return None
 

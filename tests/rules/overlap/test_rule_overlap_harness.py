@@ -1196,3 +1196,46 @@ def test_implication_operator_in_expression_does_not_trigger_event_trigger_rule(
     )
 
     result.expect_no_code("NO_EVENT_TRIGGER")
+
+
+def test_case_overlapping_items_and_no_duplicate_case_item_coexist(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    # 1. Numeric duplicate with different representations triggers CASE_OVERLAPPING_ITEMS but not NO_DUPLICATE_CASE_ITEM
+    diff_repr = lint_inline_case(
+        {
+            "case_diff_repr.sv": """
+            module top(input [3:0] sel, output logic y);
+              always_comb begin
+                case (sel)
+                  4'd2: y = 1'b1;
+                  4'b0010: y = 1'b0;
+                  default: y = 1'b0;
+                endcase
+              end
+            endmodule
+            """
+        }
+    )
+    diff_repr.expect_code_once("CASE_OVERLAPPING_ITEMS")
+    diff_repr.expect_no_code("NO_DUPLICATE_CASE_ITEM")
+
+    # 2. Exact literal duplicate triggers both CASE_OVERLAPPING_ITEMS and NO_DUPLICATE_CASE_ITEM
+    exact_dup = lint_inline_case(
+        {
+            "case_exact_dup.sv": """
+            module top(input [3:0] sel, output logic y);
+              always_comb begin
+                case (sel)
+                  4'd2: y = 1'b1;
+                  4'd2: y = 1'b0;
+                  default: y = 1'b0;
+                endcase
+              end
+            endmodule
+            """
+        }
+    )
+    exact_dup.expect_code_once("CASE_OVERLAPPING_ITEMS")
+    exact_dup.expect_code_once("NO_DUPLICATE_CASE_ITEM")
+
