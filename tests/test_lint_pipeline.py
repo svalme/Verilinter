@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import json
 from pathlib import Path
 from typing import Any
 import pytest
@@ -9,8 +10,11 @@ import pyslang as sl
 from src.pkg.engine import (
     LintPipeline,
     WorkerResult,
+    _symbol_from_dict,
+    _symbol_to_dict,
     _worker_result_from_payload,
 )
+from src.pkg.semantic.symbol import Symbol, UseEvent
 from src.pkg.rules.rule_runner import RuleRunner
 from src.pkg.rules.rule_selection import RuleSelection
 from src.pkg.rules.symbol_rule_runner import SymbolRuleRunner
@@ -144,6 +148,39 @@ class TestLintPipeline:
         assert deserialized_inst.connections[0].port_name == "clk"
         assert deserialized_inst.parameter_overrides[0].param_name == "WIDTH"
         assert deserialized_inst.generate_branch_signature == (("gen_if", 0),)
+
+    def test_symbol_use_event_roundtrip_preserves_all_fields(self) -> None:
+        """`_symbol_to_dict`/`_symbol_from_dict` back the cross-file SymbolTable
+        reconstruction (`_build_cross_file_symbol_table`) -- every `UseEvent`
+        field must survive a real JSON round-trip (the SQLite cache path), not
+        just the fields today's cross-file rules happen to read. The `keys()`
+        assertion is the actual parity guarantee: if `UseEvent` ever gains a
+        new field, this fixture (and the round-trip assertion below) must be
+        updated to cover it, or this test fails first."""
+        symbol = Symbol(name="sig", kind="wire")
+        symbol.add_use(
+            loc={"line": 3, "col": 5, "file": "top.sv"},
+            read=True,
+            write=True,
+            driver_id="block:1",
+            driver_location={"line": 2, "col": 1, "file": "top.sv"},
+            branch_signature=(("if_stmt:1", 0), ("case_stmt:2", 1)),
+            statement_id="stmt:1",
+            in_port_connection=True,
+            is_nonblocking_write=True,
+            loop_ids=("loop:1", "loop:2"),
+        )
+        event = symbol.use_events[0]
+        all_fields = UseEvent.__required_keys__ | UseEvent.__optional_keys__
+        assert set(event.keys()) == all_fields, (
+            "UseEvent gained/lost a field -- update this fixture's add_use(...) "
+            "call to cover it before trusting the round-trip assertion below."
+        )
+
+        payload = json.loads(json.dumps(_symbol_to_dict(symbol)))
+        restored = _symbol_from_dict(payload)
+
+        assert restored.use_events == symbol.use_events
 
     def test_pipeline_custom_runners_injection(self) -> None:
         """Verify that custom rule runners (AST, symbol, module) can be injected into LintPipeline."""

@@ -20,7 +20,7 @@ from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_r
 from .rules.rule_selection import RuleSelection
 from .semantic.models import InstanceRecord
 from .semantic.scope import Scope
-from .semantic.symbol import Symbol
+from .semantic.symbol import Symbol, UseEvent
 from .semantic.symbol_table import SymbolTable
 from .walk.context import Context
 from .walk.dispatch import dispatch
@@ -327,6 +327,127 @@ def _seed_cross_file_packages(
             symbol_table.packages.setdefault(name, []).append(scope)
 
 
+def _symbol_to_dict(symbol: Symbol) -> dict[str, Any]:
+    """Serialize a `Symbol` (including its full `use_events`) to a plain,
+    JSON-safe dict -- the counterpart to `_symbol_from_dict`. This is the
+    per-symbol shape cached to SQLite and passed across the worker-process
+    boundary, so every field a cross-file (`module_rule_runner`) rule might
+    need has to round-trip through here faithfully, not just the fields
+    today's rules happen to read."""
+    return {
+        "name": symbol.name,
+        "kind": symbol.kind,
+        "is_port": symbol.is_port,
+        "direction": symbol.port_direction,
+        "bit_width": symbol.bit_width,
+        "msb": symbol.msb,
+        "lsb": symbol.lsb,
+        "is_signed": symbol.is_signed,
+        "value": symbol.value,
+        "is_localparam": symbol.is_localparam,
+        "initializer_text": symbol.initializer_text,
+        "has_declaration_initializer": symbol.has_declaration_initializer,
+        "is_event": symbol.is_event,
+        "packed_dimensions": [list(dim) for dim in symbol.packed_dimensions],
+        "packed_dimension_widths": list(symbol.packed_dimension_widths),
+        "unpacked_dimensions": [list(dim) for dim in symbol.unpacked_dimensions],
+        "unpacked_dimension_widths": list(symbol.unpacked_dimension_widths),
+        "is_read": symbol.is_read,
+        "is_written": symbol.is_written,
+        "use_count": symbol.use_count,
+        "read_count": symbol.read_count,
+        "write_count": symbol.write_count,
+        "use_events": [dict(event) for event in symbol.use_events],
+    }
+
+
+def _use_event_from_dict(data: dict[str, Any]) -> UseEvent:
+    """Reconstruct one `UseEvent` from its serialized dict, re-tupling
+    `branch_signature`/`loop_ids` -- a JSON round-trip (the SQLite cache path)
+    decays a tuple to a list, but callers compare/hash these as tuples."""
+    event: UseEvent = {
+        "location": data.get("location") or {"line": 0, "col": 0},
+        "read": bool(data.get("read", False)),
+        "write": bool(data.get("write", False)),
+    }
+    driver_id = data.get("driver_id")
+    if driver_id is not None:
+        event["driver_id"] = str(driver_id)
+    driver_location = data.get("driver_location")
+    if driver_location is not None:
+        event["driver_location"] = driver_location
+    branch_signature = data.get("branch_signature")
+    if branch_signature is not None:
+        event["branch_signature"] = tuple(tuple(pair) for pair in branch_signature)
+    statement_id = data.get("statement_id")
+    if statement_id is not None:
+        event["statement_id"] = str(statement_id)
+    if data.get("in_port_connection"):
+        event["in_port_connection"] = True
+    if data.get("is_nonblocking_write"):
+        event["is_nonblocking_write"] = True
+    loop_ids = data.get("loop_ids")
+    if loop_ids:
+        event["loop_ids"] = tuple(loop_ids)
+    return event
+
+
+def _symbol_from_dict(symbol_data: dict[str, Any]) -> Symbol:
+    """Reconstruct a `Symbol` from its serialized dict -- the counterpart to
+    `_symbol_to_dict`. Used to rebuild the cross-file `SymbolTable` from every
+    worker's per-file JSON result."""
+    symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
+    symbol.is_port = bool(symbol_data.get("is_port", False))
+    symbol.port_direction = (
+        str(symbol_data.get("direction")) if symbol_data.get("direction") else None
+    )
+    symbol.bit_width = (
+        int(symbol_data["bit_width"]) if symbol_data.get("bit_width") is not None else None
+    )
+    symbol.msb = int(symbol_data["msb"]) if symbol_data.get("msb") is not None else None
+    symbol.lsb = int(symbol_data["lsb"]) if symbol_data.get("lsb") is not None else None
+    signed = symbol_data.get("is_signed")
+    symbol.is_signed = bool(signed) if signed is not None else None
+    val = symbol_data.get("value")
+    symbol.value = int(val) if val is not None else None
+    symbol.is_localparam = bool(symbol_data.get("is_localparam", False))
+    init_text = symbol_data.get("initializer_text")
+    symbol.initializer_text = str(init_text) if init_text is not None else None
+    symbol.has_declaration_initializer = bool(symbol_data.get("has_declaration_initializer", False))
+    symbol.is_event = bool(symbol_data.get("is_event", False))
+    dims = symbol_data.get("packed_dimensions", [])
+    symbol.packed_dimensions = [
+        (str(d[0]), str(d[1]))
+        for d in dims
+        if isinstance(d, (list, tuple)) and len(d) == 2
+    ]
+    symbol.packed_dimension_widths = [
+        int(w) if isinstance(w, int) else None
+        for w in symbol_data.get("packed_dimension_widths", [])
+    ]
+    u_dims = symbol_data.get("unpacked_dimensions", [])
+    symbol.unpacked_dimensions = [
+        (str(d[0]), str(d[1]))
+        for d in u_dims
+        if isinstance(d, (list, tuple)) and len(d) == 2
+    ]
+    symbol.unpacked_dimension_widths = [
+        int(w) if isinstance(w, int) else None
+        for w in symbol_data.get("unpacked_dimension_widths", [])
+    ]
+    symbol.is_read = bool(symbol_data.get("is_read", False))
+    symbol.is_written = bool(symbol_data.get("is_written", False))
+    symbol.use_count = int(symbol_data.get("use_count", 0))
+    symbol.read_count = int(symbol_data.get("read_count", 0))
+    symbol.write_count = int(symbol_data.get("write_count", 0))
+    symbol.use_events = [
+        _use_event_from_dict(event)
+        for event in symbol_data.get("use_events", []) or []
+        if isinstance(event, dict)
+    ]
+    return symbol
+
+
 def _lint_single_tree(
     file_name: str,
     tree: Any,
@@ -362,43 +483,7 @@ def _lint_single_tree(
         for scope in scopes:
             symbols: list[dict[str, object]] = []
             for symbol in scope.symbols.values():
-                symbols.append(
-                    {
-                        "name": symbol.name,
-                        "kind": symbol.kind,
-                        "is_port": symbol.is_port,
-                        "direction": symbol.port_direction,
-                        "bit_width": symbol.bit_width,
-                        "msb": symbol.msb,
-                        "lsb": symbol.lsb,
-                        "is_signed": symbol.is_signed,
-                        "value": symbol.value,
-                        "is_localparam": symbol.is_localparam,
-                        "initializer_text": symbol.initializer_text,
-                        "has_declaration_initializer": symbol.has_declaration_initializer,
-                        "is_event": symbol.is_event,
-                        "packed_dimensions": [list(dim) for dim in symbol.packed_dimensions],
-                        "packed_dimension_widths": list(symbol.packed_dimension_widths),
-                        "unpacked_dimensions": [list(dim) for dim in symbol.unpacked_dimensions],
-                        "unpacked_dimension_widths": list(symbol.unpacked_dimension_widths),
-                        "is_read": symbol.is_read,
-                        "is_written": symbol.is_written,
-                        "use_count": symbol.use_count,
-                        "read_count": symbol.read_count,
-                        "write_count": symbol.write_count,
-                        # Lets a cross-file module rule (INSTANCE_OUTPUT_DRIVER_CONFLICT)
-                        # tell a write confined to a `generate if`/`else` branch mutually
-                        # exclusive with an instantiation's own branch from a genuine
-                        # simultaneous conflict -- see branch_exclusivity_signature.
-                        # `is_written`/counts above already summarize whether *any*
-                        # write exists; this is the per-write detail that summary loses.
-                        "write_branch_signatures": [
-                            list(event.get("branch_signature", ()))
-                            for event in symbol.use_events
-                            if event["write"]
-                        ],
-                    }
-                )
+                symbols.append(_symbol_to_dict(symbol))
             modules.append(
                 {
                     "name": name,
@@ -471,64 +556,7 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
             scope = Scope(kind="module", name=module["name"], location=location)
             scope.file = module.get("file")
             for symbol_data in module.get("symbols", []):
-                symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
-                symbol.is_port = bool(symbol_data.get("is_port", False))
-                symbol.port_direction = (
-                    str(symbol_data.get("direction")) if symbol_data.get("direction") else None
-                )
-                symbol.bit_width = (
-                    int(symbol_data["bit_width"]) if symbol_data.get("bit_width") is not None else None
-                )
-                symbol.msb = int(symbol_data["msb"]) if symbol_data.get("msb") is not None else None
-                symbol.lsb = int(symbol_data["lsb"]) if symbol_data.get("lsb") is not None else None
-                signed = symbol_data.get("is_signed")
-                symbol.is_signed = bool(signed) if signed is not None else None
-                val = symbol_data.get("value")
-                symbol.value = int(val) if val is not None else None
-                symbol.is_localparam = bool(symbol_data.get("is_localparam", False))
-                init_text = symbol_data.get("initializer_text")
-                symbol.initializer_text = str(init_text) if init_text is not None else None
-                symbol.has_declaration_initializer = bool(symbol_data.get("has_declaration_initializer", False))
-                symbol.is_event = bool(symbol_data.get("is_event", False))
-                dims = symbol_data.get("packed_dimensions", [])
-                symbol.packed_dimensions = [
-                    (str(d[0]), str(d[1]))
-                    for d in dims
-                    if isinstance(d, (list, tuple)) and len(d) == 2
-                ]
-                symbol.packed_dimension_widths = [
-                    int(w) if isinstance(w, int) else None
-                    for w in symbol_data.get("packed_dimension_widths", [])
-                ]
-                u_dims = symbol_data.get("unpacked_dimensions", [])
-                symbol.unpacked_dimensions = [
-                    (str(d[0]), str(d[1]))
-                    for d in u_dims
-                    if isinstance(d, (list, tuple)) and len(d) == 2
-                ]
-                symbol.unpacked_dimension_widths = [
-                    int(w) if isinstance(w, int) else None
-                    for w in symbol_data.get("unpacked_dimension_widths", [])
-                ]
-                symbol.is_read = bool(symbol_data.get("is_read", False))
-                symbol.is_written = bool(symbol_data.get("is_written", False))
-                symbol.use_count = int(symbol_data.get("use_count", 0))
-                symbol.read_count = int(symbol_data.get("read_count", 0))
-                symbol.write_count = int(symbol_data.get("write_count", 0))
-                # Reconstruct just enough of use_events for branch-exclusivity checks
-                # (INSTANCE_OUTPUT_DRIVER_CONFLICT) to work on this cross-file table;
-                # the summary fields above already cover every other consumer. Each
-                # signature entry round-trips through the JSON-backed analysis store
-                # as a plain list, so re-tuple it for use as a dict key.
-                symbol.use_events = [
-                    {
-                        "location": {"line": 0, "col": 0},
-                        "read": False,
-                        "write": True,
-                        "branch_signature": tuple(tuple(pair) for pair in raw_signature),
-                    }
-                    for raw_signature in symbol_data.get("write_branch_signatures", []) or []
-                ]
+                symbol = _symbol_from_dict(symbol_data)
                 scope.define(symbol)
             symbol_table.modules.setdefault(module["name"], []).append(scope)
 
