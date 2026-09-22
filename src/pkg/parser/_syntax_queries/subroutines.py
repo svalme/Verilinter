@@ -5,7 +5,7 @@ import pyslang as sl
 
 from ..syntax_kinds import INVOCATION_EXPRESSION_KIND
 from .package_scoping import scoped_name_package_qualifier
-from .shapes import identifier_name
+from .shared import identifier_name
 
 if TYPE_CHECKING:
     from ...semantic.symbol_table import SymbolTable

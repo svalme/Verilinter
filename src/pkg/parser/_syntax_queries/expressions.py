@@ -49,8 +49,8 @@ from ..syntax_kinds import (
 )
 from ..types import SyntaxNode, SyntaxTree
 from .literals import constant_integer_value
-from .shapes import element_select_index_or_range, identifier_name
-from .shared import _split_top_level, simple_identifier_text, source_text_for_node
+from .shapes import element_select_index_or_range
+from .shared import _split_top_level, identifier_name, simple_identifier_text, source_text_for_node
 
 
 def unwrap_parentheses(expr: object) -> object:

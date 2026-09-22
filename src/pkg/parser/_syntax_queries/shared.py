@@ -131,3 +131,9 @@ def token_location(raw: object, tree: SyntaxTree) -> dict[str, int | str]:
 def token_raw_text(raw: object) -> str:
     text = getattr(raw, "rawText", None)
     return text if isinstance(text, str) else ""
+
+
+def identifier_name(raw: object) -> str | None:
+    identifier = getattr(raw, "identifier", None)
+    value = getattr(identifier, "value", None)
+    return value if isinstance(value, str) and value else None

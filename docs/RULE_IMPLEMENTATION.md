@@ -91,10 +91,16 @@ it (or from `syntax.py`, which re-exports the same names plus the `syntax_kinds`
 constants it needs). It no longer defines helpers directly; it purely
 re-exports them from `src/pkg/parser/_syntax_queries/`, split by theme:
 
-- `shared.py`: low-level token/location/source-text plumbing
+- `shared.py`: low-level token/location/source-text plumbing, plus the
+  leaf `identifier_name` accessor
 - `access.py`: read/write access classification, `enclosing_*` ancestor walks
 - `procedural.py`: procedural-block sensitivity-list and reset-style facts
-- `shapes.py`: node-shape extraction (declarators, conditionals, ports, assignment target/RHS resolution, ...)
+- `shapes.py`: assignment target/RHS resolution and element-select (bit/part-select) decoding
+- `declarators.py`: declarator name/initializer/kind/direction/dimension/width/signedness queries, plus clocking-declaration signal extraction
+- `conditional_shapes.py`: `if`/`else`/case-branch shape predicates (begin/end wrapping, constant-condition detection, the `full_case`/`parallel_case` pragma check)
+- `generate_blocks.py`: labeled/unlabeled generate-block and duplicate branch-label queries
+- `instantiation.py`: instance/type names, port connections, and parameter overrides
+- `real_number_conversions.py`: implicit real/fractional-time-literal-to-integral conversion checks
 - `expressions.py`: AST-dispatch expression evaluation (`simple_expression_width_and_signed`, `natural_expression_width_and_signed`, unwrap parentheses)
 - `literals.py`: literal/value/expression-kind checks (unsized literals, X/Z
   literals, width overflow, tri-state ternary detection)
@@ -105,7 +111,8 @@ re-exports them from `src/pkg/parser/_syntax_queries/`, split by theme:
   the group `_STRUCTURAL_NAME_PREDICATES` in `identifier_name_handler.py` draws from
 - `keywords_and_tokens.py`: keyword/operator token-kind checks (loop
   keywords, case/casex/casez, unique/priority, legacy net-type keywords)
-- `module_file.py`: file-scoped module-identity helpers
+- `module_file.py`: file-scoped module-identity helpers, plus module-position
+  and timescale-directive checks
 - `system_tasks.py`: system task/function name-set checks
 
 Adding a new helper: put it in the submodule matching its theme (or a new one,

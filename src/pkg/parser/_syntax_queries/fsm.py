@@ -9,7 +9,7 @@ documented gap, consistent with why `UNREACHABLE_STATE`/`DEADLOCK_STATE`
 aren't attempted at all yet.
 """
 
-from .shapes import identifier_name
+from .shared import identifier_name
 
 
 def case_statement_selector_name(raw: object) -> str | None:

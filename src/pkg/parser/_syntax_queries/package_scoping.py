@@ -1,5 +1,5 @@
 from ..syntax_kinds import DOUBLE_COLON_TOKEN_KIND, PACKAGE_IMPORT_DECLARATION_KIND, SCOPED_NAME_KIND, STAR_TOKEN_KIND
-from .shapes import identifier_name
+from .shared import identifier_name
 
 
 def is_member_selector(raw: object) -> bool:

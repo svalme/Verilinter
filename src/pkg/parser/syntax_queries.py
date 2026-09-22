@@ -1,4 +1,5 @@
 from ._syntax_queries.shared import (
+    identifier_name,
     node_location,
     raw_node_children,
     simple_identifier_text,
@@ -76,17 +77,19 @@ from ._syntax_queries.procedural import (
     sync_clock_signal_name,
 )
 from ._syntax_queries.shapes import (
-    assignment_is_implicit_real_conversion,
+    element_select_index_or_range,
+    extract_assignment_target_and_selectors,
+    identifier_select_base_and_selectors,
+    resolve_assignment_target,
+    resolve_assignment_target_and_rhs,
+)
+from ._syntax_queries.declarators import (
     clocking_declaration_signals,
-    conditional_statement_body,
-    conditional_statement_else_body,
-    conditional_statement_has_else,
     declarator_bit_width,
     declarator_has_initializer,
     declarator_initializer_expression,
     declarator_initializer_value,
     declarator_is_event,
-    declarator_is_implicit_real_conversion,
     declarator_is_localparam,
     declarator_is_parameter,
     declarator_is_port,
@@ -98,43 +101,45 @@ from ._syntax_queries.shapes import (
     declarator_port_direction,
     declarator_unpacked_dimension_texts,
     declarator_unpacked_dimension_widths,
-    duplicate_generate_branch_label,
+)
+from ._syntax_queries.conditional_shapes import (
+    conditional_statement_body,
+    conditional_statement_else_body,
+    conditional_statement_has_else,
     else_clause_body,
-    element_select_index_or_range,
     expression_statement_expression,
-    extract_assignment_target_and_selectors,
     has_full_parallel_case_pragma,
-    has_timescale_directive_before,
-    hierarchical_instance_list,
-    hierarchical_instance_name,
-    identifier_name,
-    identifier_select_base_and_selectors,
-    instantiation_type_name,
     is_block_statement,
     is_conditional_constant_expression,
     is_conditional_statement,
     is_else_clause_node,
     is_empty_conditional_or_case_branch,
-    is_extra_module_declaration_in_file,
-    is_first_module_declaration_in_file,
-    is_missing_timescale_directive,
-    is_module_declaration_node,
-    is_named_parameter_override,
-    is_ordered_parameter_override,
     is_parallel_block_statement,
-    is_port_connection_node,
-    is_unlabeled_generate_block,
     is_unwrapped_else_body,
     is_unwrapped_if_body,
     iter_statement_nodes,
+    procedural_block_statement,
+)
+from ._syntax_queries.generate_blocks import (
+    duplicate_generate_branch_label,
+    is_unlabeled_generate_block,
+)
+from ._syntax_queries.instantiation import (
+    hierarchical_instance_list,
+    hierarchical_instance_name,
+    instantiation_type_name,
+    is_named_parameter_override,
+    is_ordered_parameter_override,
+    is_port_connection_node,
     named_parameter_override_name,
     named_port_connection_name,
     parameter_override_list,
     port_connection_expression,
     port_connection_list,
-    procedural_block_statement,
-    resolve_assignment_target,
-    resolve_assignment_target_and_rhs,
+)
+from ._syntax_queries.real_number_conversions import (
+    assignment_is_implicit_real_conversion,
+    declarator_is_implicit_real_conversion,
 )
 from ._syntax_queries.literals import (
     comparison_operands,
@@ -259,6 +264,11 @@ from ._syntax_queries.keywords_and_tokens import (
     is_defparam_token,
 )
 from ._syntax_queries.module_file import (
+    has_timescale_directive_before,
+    is_extra_module_declaration_in_file,
+    is_first_module_declaration_in_file,
+    is_missing_timescale_directive,
+    is_module_declaration_node,
     is_module_filename_mismatch,
     module_declaration_file_stem,
     module_declaration_name,
