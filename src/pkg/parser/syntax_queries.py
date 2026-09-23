@@ -3,12 +3,10 @@ from ._syntax_queries.shared import (
     node_location,
     raw_node_children,
     simple_identifier_text,
-    simple_packed_width,
     source_text_for_node,
     syntax_node_snippet,
     token_location,
     token_raw_text,
-    type_text_width_and_signed,
 )
 from ._syntax_queries.access import (
     assignment_left,

@@ -1,6 +1,13 @@
 """Module-instantiation shape queries: instance/type names, port connections,
 and parameter overrides (named and ordered)."""
 
+from ..syntax_kinds import (
+    NAMED_PARAM_ASSIGNMENT_KIND,
+    NAMED_PORT_CONNECTION_KIND,
+    ORDERED_PARAM_ASSIGNMENT_KIND,
+    ORDERED_PORT_CONNECTION_KIND,
+    WILDCARD_PORT_CONNECTION_KIND,
+)
 from ..types import SyntaxNode
 
 
@@ -68,15 +75,30 @@ def is_port_connection_node(raw: object) -> bool:
     actually driving the net) generally isn't resolvable at the point a
     single file is walked -- the instantiated module may be defined in
     another file, or simply not yet visited."""
-    return type(raw).__name__ in ("NamedPortConnectionSyntax", "OrderedPortConnectionSyntax")
+    return getattr(raw, "kind", None) in (
+        NAMED_PORT_CONNECTION_KIND,
+        ORDERED_PORT_CONNECTION_KIND,
+    )
+
+
+def is_named_port_connection(raw: object) -> bool:
+    return getattr(raw, "kind", None) == NAMED_PORT_CONNECTION_KIND
+
+
+def is_ordered_port_connection(raw: object) -> bool:
+    return getattr(raw, "kind", None) == ORDERED_PORT_CONNECTION_KIND
+
+
+def is_wildcard_port_connection(raw: object) -> bool:
+    return getattr(raw, "kind", None) == WILDCARD_PORT_CONNECTION_KIND
 
 
 def is_named_parameter_override(raw: object) -> bool:
-    return type(raw).__name__ == "NamedParamAssignmentSyntax"
+    return getattr(raw, "kind", None) == NAMED_PARAM_ASSIGNMENT_KIND
 
 
 def is_ordered_parameter_override(raw: object) -> bool:
-    return type(raw).__name__ == "OrderedParamAssignmentSyntax"
+    return getattr(raw, "kind", None) == ORDERED_PARAM_ASSIGNMENT_KIND
 
 
 def named_parameter_override_name(raw: object) -> str | None:

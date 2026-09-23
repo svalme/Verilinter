@@ -279,7 +279,6 @@ from .syntax_queries import (
     scoped_name_package_qualifier,
     simple_identifier_text,
     simple_expression_width_and_signed,
-    simple_packed_width,
     sized_literal_overflow,
     source_text_for_node,
     subroutine_formal_direction,
@@ -287,7 +286,6 @@ from .syntax_queries import (
     syntax_node_snippet,
     token_location,
     token_raw_text,
-    type_text_width_and_signed,
     unary_write_operand,
     unwrap_parentheses,
 )
@@ -571,7 +569,6 @@ __all__ = [
     "scoped_name_package_qualifier",
     "simple_identifier_text",
     "simple_expression_width_and_signed",
-    "simple_packed_width",
     "sized_literal_overflow",
     "source_text_for_node",
     "subroutine_formal_direction",
@@ -579,7 +576,6 @@ __all__ = [
     "syntax_node_snippet",
     "token_location",
     "token_raw_text",
-    "type_text_width_and_signed",
     "unary_write_operand",
     "unwrap_parentheses",
 ]

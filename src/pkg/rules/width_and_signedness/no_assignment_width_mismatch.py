@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
     element_select_index_or_range,
+    evaluate_constant_text_expression,
     extract_assignment_target_and_selectors,
     resolve_assignment_target_and_rhs,
     simple_expression_width_and_signed,
@@ -25,14 +26,23 @@ def _check_index_selector_width_mismatch(
     scope = getattr(ctx, "scope", lambda: None)()
     if scope is None:
         return None
-    unpacked_widths = getattr(symbol, "unpacked_dimension_widths", [])
+    unpacked_widths = list(getattr(symbol, "unpacked_dimension_widths", []))
     if not unpacked_widths and getattr(symbol, "unpacked_dimensions", None):
         for msb_txt, lsb_txt in symbol.unpacked_dimensions:
+            m = None
+            l = None
             try:
                 m = int(msb_txt)
-                l = int(lsb_txt)
-                unpacked_widths.append(abs(m - l) + 1)
             except (ValueError, TypeError):
+                m = evaluate_constant_text_expression(msb_txt, scope=scope)
+            try:
+                l = int(lsb_txt)
+            except (ValueError, TypeError):
+                l = evaluate_constant_text_expression(lsb_txt, scope=scope)
+
+            if isinstance(m, int) and isinstance(l, int):
+                unpacked_widths.append(abs(m - l) + 1)
+            else:
                 unpacked_widths.append(None)
     for i, sel in enumerate(selectors):
         if i < len(unpacked_widths):

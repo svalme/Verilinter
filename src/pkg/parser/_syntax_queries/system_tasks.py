@@ -1,4 +1,9 @@
-from ..syntax_kinds import INVOCATION_EXPRESSION_KIND
+from ..syntax_kinds import (
+    ARGUMENT_LIST_KIND,
+    INVOCATION_EXPRESSION_KIND,
+    NAMED_ARGUMENT_KIND,
+    ORDERED_ARGUMENT_KIND,
+)
 from ..types import SyntaxNode, SystemNameNode
 
 READMEM_SYSTEM_TASK_NAMES = {"$readmemh", "$readmemb"}
@@ -125,7 +130,10 @@ def is_system_task_output_argument(raw: object) -> bool:
     These populate that argument rather than reading it."""
     node = raw
     parent = getattr(node, "parent", None)
-    while parent is not None and type(parent).__name__ not in ("OrderedArgumentSyntax", "NamedArgumentSyntax"):
+    while parent is not None and getattr(parent, "kind", None) not in (
+        ORDERED_ARGUMENT_KIND,
+        NAMED_ARGUMENT_KIND,
+    ):
         node = parent
         parent = getattr(parent, "parent", None)
     if parent is None:
@@ -133,7 +141,7 @@ def is_system_task_output_argument(raw: object) -> bool:
     arg_node = parent
 
     arg_list = getattr(arg_node, "parent", None)
-    if type(arg_list).__name__ != "ArgumentListSyntax":
+    if getattr(arg_list, "kind", None) != ARGUMENT_LIST_KIND:
         return False
     items = system_task_argument_list(arg_list)
     try:

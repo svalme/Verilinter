@@ -908,3 +908,21 @@ class TestConcatenatedAssignmentTarget:
         )
         assert diagnostics == []
 
+    def test_parameterized_unpacked_dimension_index_selector_width_mismatch(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              localparam DEPTH = 16;
+              reg [7:0] mem [0:DEPTH-1];
+              reg [1:0] idx;
+              wire [7:0] val;
+              always @(*) begin
+                mem[idx] = val;
+              end
+            endmodule
+            """,
+            "ASSIGNMENT_WIDTH_MISMATCH",
+        )
+        assert len(diagnostics) == 1
+
+

@@ -9,9 +9,11 @@ from ..syntax_kinds import (
     BLOCK_STATEMENT_KINDS,
     CASE_TOKEN_KINDS,
     CONDITIONAL_STATEMENT_KIND,
+    DEFAULT_CASE_ITEM_KIND,
     ELSE_CLAUSE_KIND,
     EMPTY_STATEMENT_KIND,
     PARALLEL_BLOCK_STATEMENT_KIND,
+    STANDARD_CASE_ITEM_KIND,
     UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
 )
 from ..types import SyntaxNode, SyntaxTree
@@ -180,11 +182,11 @@ def is_empty_conditional_or_case_branch(raw: object) -> bool:
         return False
 
     parent = getattr(raw, "parent", None)
-    parent_type = type(parent).__name__
-    if parent_type == "ConditionalStatementSyntax":
+    parent_kind = getattr(parent, "kind", None)
+    if parent_kind == CONDITIONAL_STATEMENT_KIND:
         return getattr(parent, "statement", None) is raw
-    if parent_type == "ElseClauseSyntax":
+    if parent_kind == ELSE_CLAUSE_KIND:
         return getattr(parent, "clause", None) is raw
-    if parent_type in ("StandardCaseItemSyntax", "DefaultCaseItemSyntax"):
+    if parent_kind in (STANDARD_CASE_ITEM_KIND, DEFAULT_CASE_ITEM_KIND):
         return getattr(parent, "clause", None) is raw
     return False

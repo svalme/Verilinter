@@ -2,6 +2,7 @@ from ...parser.syntax import (
     enclosing_combinational_style_always_block,
     is_blocking_assignment_token,
 )
+from ...parser.syntax_kinds import FOR_LOOP_STATEMENT_KIND
 from ...vnodes.base_vnode import BaseVNode
 from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
@@ -10,7 +11,7 @@ from ..rule_runner import rule_runner
 def _is_in_for_loop_header(raw: object, ctx: Context) -> bool:
     for ancestor in reversed(ctx.stack):
         raw_anc = ancestor.raw
-        if type(raw_anc).__name__ == "ForLoopStatementSyntax":
+        if getattr(raw_anc, "kind", None) == FOR_LOOP_STATEMENT_KIND:
             statement = getattr(raw_anc, "statement", None)
             if statement is not None:
                 s_range = getattr(statement, "sourceRange", None) or getattr(statement, "range", None)

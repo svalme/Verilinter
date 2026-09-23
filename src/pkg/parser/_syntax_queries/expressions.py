@@ -30,8 +30,11 @@ from ..syntax_kinds import (
     POWER_EXPRESSION_KIND,
     RANGE_SELECT_KINDS,
     SHIFT_EXPRESSION_KINDS,
+    SIMPLE_PROPERTY_EXPR_KIND,
+    SIMPLE_SEQUENCE_EXPR_KIND,
     SUBTRACT_EXPRESSION_KIND,
     UNARY_BITWISE_NOT_EXPRESSION_KIND,
+    UNARY_LOGICAL_NOT_EXPRESSION_KIND,
     UNARY_MINUS_EXPRESSION_KIND,
     UNARY_PLUS_EXPRESSION_KIND,
     UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
@@ -56,12 +59,13 @@ def unwrap_parentheses(expr: object) -> object:
     """Recursively strip `ParenthesizedExpressionSyntax`, `SimplePropertyExprSyntax`,
     and `SimpleSequenceExprSyntax` wrappers down to the underlying expression."""
     while expr is not None:
-        if getattr(expr, "kind", None) == PARENTHESIZED_EXPRESSION_KIND:
+        kind = getattr(expr, "kind", None)
+        if kind == PARENTHESIZED_EXPRESSION_KIND:
             inner = getattr(expr, "expression", None)
             if inner is None:
                 break
             expr = inner
-        elif type(expr).__name__ in ("SimplePropertyExprSyntax", "SimpleSequenceExprSyntax"):
+        elif kind in (SIMPLE_PROPERTY_EXPR_KIND, SIMPLE_SEQUENCE_EXPR_KIND):
             inner = getattr(expr, "expr", None)
             if inner is None:
                 break
@@ -165,8 +169,7 @@ def evaluate_constant_expression(
         val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
         return ~val if val is not None else None
 
-    kind_name = type(expr).__name__
-    if kind_name == "UnaryLogicalNotExpression" or getattr(kind, "name", None) == "UnaryLogicalNotExpression":
+    if kind == UNARY_LOGICAL_NOT_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
         val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
         return (1 if val == 0 else 0) if val is not None else None

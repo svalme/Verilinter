@@ -1,4 +1,5 @@
 from ..syntax_kinds import (
+    ASSIGNMENT_PATTERN_ITEM_KIND,
     DOT_TOKEN_KIND,
     DOUBLE_COLON_TOKEN_KIND,
     PACKAGE_IMPORT_DECLARATION_KIND,
@@ -11,7 +12,7 @@ from .shared import identifier_name
 def is_member_selector(raw: object) -> bool:
     """The right side of a dot selects a member, not a lexical-scope symbol."""
     parent = getattr(raw, "parent", None)
-    if type(parent).__name__ == "AssignmentPatternItemSyntax":
+    if getattr(parent, "kind", None) == ASSIGNMENT_PATTERN_ITEM_KIND:
         return getattr(parent, "key", None) is raw
     return (getattr(parent, "kind", None) == SCOPED_NAME_KIND
             and getattr(getattr(parent, "separator", None), "kind", None) == DOT_TOKEN_KIND

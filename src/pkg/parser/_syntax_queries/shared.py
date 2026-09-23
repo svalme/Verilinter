@@ -73,35 +73,6 @@ def _split_top_level(text: str, separator: str) -> list[str]:
     return [part for part in parts if part]
 
 
-def simple_packed_width(type_text: str | None) -> int | None:
-    if not type_text:
-        return None
-    match = re.search(r"\[\s*(-?\d+)\s*:\s*(-?\d+)\s*\]", type_text)
-    if match is None:
-        if "[" in type_text and "]" in type_text:
-            return None
-        return 1 if type_text.strip() else None
-    left = int(match.group(1))
-    right = int(match.group(2))
-    return abs(left - right) + 1
-
-
-def simple_packed_range(type_text: str | None) -> tuple[int | None, int | None]:
-    if not type_text:
-        return None, None
-    match = re.search(r"\[\s*(-?\d+)\s*:\s*(-?\d+)\s*\]", type_text)
-    if match is None:
-        if "[" in type_text and "]" in type_text:
-            return None, None
-        return (0, 0) if type_text.strip() else (None, None)
-    return int(match.group(1)), int(match.group(2))
-
-
-def type_text_width_and_signed(type_text: str | None) -> tuple[int | None, bool | None]:
-    if type_text is None:
-        return None, None
-    return simple_packed_width(type_text), bool(re.search(r"\bsigned\b", type_text))
-
 
 def node_location(raw: object, tree: SyntaxTree | None) -> dict[str, int | str] | None:
     source_range = getattr(raw, "sourceRange", None)

@@ -3,9 +3,19 @@ localparam), direction, packed/unpacked dimensions, bit width, signedness,
 and clocking-declaration signal extraction."""
 
 from ..syntax_kinds import (
+    ALL_PORT_DECLARATION_KINDS,
+    ANSI_PORT_KINDS,
     CLOCKING_DECLARATION_KIND,
+    DATA_DECLARATION_KINDS,
     EVENT_TYPE_KIND,
+    FUNCTION_PORT_KIND,
+    IMPLICIT_TYPE_KIND,
     LOCALPARAM_TOKEN_KIND,
+    NET_DECLARATION_KINDS,
+    PARAMETER_DECLARATION_KIND,
+    PARAMETER_DECLARATION_KINDS,
+    PARAMETER_DECLARATION_STATEMENT_KIND,
+    PORT_DECLARATION_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
 )
 from ..types import SyntaxNode, SyntaxTree
@@ -46,10 +56,10 @@ def declarator_initializer_expression(raw: object) -> SyntaxNode | None:
 def declarator_is_port(ctx: "Context") -> bool:
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
-        if type_name.endswith("AnsiPortSyntax") or type_name in ("PortDeclarationSyntax", "FunctionPortSyntax"):
+        kind = getattr(raw, "kind", None)
+        if kind in ALL_PORT_DECLARATION_KINDS:
             return True
-        if type_name.endswith("DataDeclarationSyntax"):
+        if kind in DATA_DECLARATION_KINDS:
             return False
     return False
 
@@ -62,10 +72,14 @@ def declarator_is_parameter(ctx: "Context") -> bool:
     field, which this project's rules have no current need to tell apart."""
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
-        if type_name == "ParameterDeclarationSyntax":
+        kind = getattr(raw, "kind", None)
+        if kind in PARAMETER_DECLARATION_KINDS:
             return True
-        if type_name.endswith("DataDeclarationSyntax") or type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+        if (
+            kind in DATA_DECLARATION_KINDS
+            or kind in ALL_PORT_DECLARATION_KINDS
+            or kind in NET_DECLARATION_KINDS
+        ):
             return False
     return False
 
@@ -74,20 +88,20 @@ def declarator_is_localparam(ctx: "Context") -> bool:
     """True if the declarator being processed belongs to a `localparam` declaration."""
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
-        if type_name == "ParameterDeclarationStatementSyntax":
+        kind = getattr(raw, "kind", None)
+        if kind == PARAMETER_DECLARATION_STATEMENT_KIND:
             param = getattr(raw, "parameter", None)
             kw = getattr(param, "keyword", None)
             if getattr(kw, "kind", None) == LOCALPARAM_TOKEN_KIND:
                 return True
-        elif type_name == "ParameterDeclarationSyntax":
+        elif kind == PARAMETER_DECLARATION_KIND:
             kw = getattr(raw, "keyword", None)
             if getattr(kw, "kind", None) == LOCALPARAM_TOKEN_KIND:
                 return True
         if (
-            type_name.endswith("DataDeclarationSyntax")
-            or type_name.endswith("AnsiPortSyntax")
-            or type_name == "PortDeclarationSyntax"
+            kind in DATA_DECLARATION_KINDS
+            or kind in ALL_PORT_DECLARATION_KINDS
+            or kind in NET_DECLARATION_KINDS
         ):
             return False
     return False
@@ -109,7 +123,7 @@ def _ansi_port_list_items(list_node: object) -> list[object]:
         for child in node:
             if not isinstance(child, SyntaxNode):
                 continue
-            if type(child).__name__.endswith("AnsiPortSyntax"):
+            if getattr(child, "kind", None) in ANSI_PORT_KINDS:
                 items.append(child)
             else:
                 _walk(child)
@@ -147,24 +161,27 @@ def declarator_port_direction(ctx: "Context") -> str | None:
     shares a preceding port's direction keyword instead of repeating it."""
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
-        if type_name == "FunctionPortSyntax":
+        kind = getattr(raw, "kind", None)
+        if kind == FUNCTION_PORT_KIND:
             # Function/task ANSI arguments default to input and inherit omitted
             # directions from earlier arguments in the same prototype.
             direction = "input"
-            for port in raw.parent.ports:
-                if type(port).__name__ != "FunctionPortSyntax":
+            parent = getattr(raw, "parent", None)
+            ports = getattr(parent, "ports", None) or ()
+            for port in ports:
+                if getattr(port, "kind", None) != FUNCTION_PORT_KIND:
                     continue
-                direction = PORT_DIRECTION_TOKEN_KINDS.get(port.direction.kind, direction)
+                dir_tok = getattr(port, "direction", None)
+                direction = PORT_DIRECTION_TOKEN_KINDS.get(getattr(dir_tok, "kind", None), direction)
                 if port is raw:
                     return direction
             return direction
-        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
             direction = _explicit_port_direction(raw)
             if direction is not None:
                 return direction
             return _inherited_port_direction(raw)
-        if type_name.endswith("DataDeclarationSyntax"):
+        if kind in DATA_DECLARATION_KINDS:
             return None
     return None
 
@@ -175,12 +192,12 @@ def declarator_is_event(ctx: "Context") -> bool:
         return False
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
-        if type_name.endswith("DataDeclarationSyntax"):
+        kind = getattr(raw, "kind", None)
+        if kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
             dt = getattr(raw, "type", None)
             if dt is not None and getattr(dt, "kind", None) == EVENT_TYPE_KIND:
                 return True
-        elif type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+        elif kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
             header = getattr(raw, "header", None)
             if header is not None:
                 dt = getattr(header, "dataType", None)
@@ -192,8 +209,8 @@ def declarator_is_event(ctx: "Context") -> bool:
 def _declarator_owner_packed_dimensions(ctx: "Context") -> list[SyntaxNode]:
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
-        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+        kind = getattr(raw, "kind", None)
+        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
             header = getattr(raw, "header", None)
             if header is not None:
                 dt = getattr(header, "dataType", None)
@@ -201,13 +218,13 @@ def _declarator_owner_packed_dimensions(ctx: "Context") -> list[SyntaxNode]:
                     dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
                     if dims:
                         return dims
-        elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+        elif kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
             dt = getattr(raw, "type", None)
             if dt is not None and hasattr(dt, "dimensions"):
                 dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
                 if dims:
                     return dims
-        elif type_name.endswith("ParameterDeclarationSyntax"):
+        elif kind in PARAMETER_DECLARATION_KINDS:
             dt = getattr(raw, "type", None)
             if dt is not None and hasattr(dt, "dimensions"):
                 dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
@@ -345,15 +362,15 @@ def declarator_bit_width(ctx: "Context") -> int | None:
     # When there are no packed dimensions, determine scalar width directly from AST keyword
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
+        kind = getattr(raw, "kind", None)
         dt = None
-        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
             header = getattr(raw, "header", None)
             if header is not None:
                 dt = getattr(header, "dataType", None)
-        elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+        elif kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
             dt = getattr(raw, "type", None)
-        elif type_name.endswith("ParameterDeclarationSyntax"):
+        elif kind in PARAMETER_DECLARATION_KINDS:
             dt = getattr(raw, "type", None)
 
         if dt is not None:
@@ -366,7 +383,7 @@ def declarator_bit_width(ctx: "Context") -> int | None:
                 return 16
             if kw in ("byte",):
                 return 8
-            if kw in ("logic", "bit", "reg", "wire") or type(dt).__name__ == "ImplicitTypeSyntax":
+            if kw in ("logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
                 return 1
             break
 
@@ -376,15 +393,15 @@ def declarator_bit_width(ctx: "Context") -> int | None:
 def declarator_is_signed(ctx: "Context") -> bool | None:
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        type_name = type(raw).__name__
+        kind = getattr(raw, "kind", None)
         dt = None
-        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
             header = getattr(raw, "header", None)
             if header is not None:
                 dt = getattr(header, "dataType", None)
-        elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+        elif kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
             dt = getattr(raw, "type", None)
-        elif type_name.endswith("ParameterDeclarationSyntax"):
+        elif kind in PARAMETER_DECLARATION_KINDS:
             dt = getattr(raw, "type", None)
 
         if dt is not None:
@@ -398,7 +415,7 @@ def declarator_is_signed(ctx: "Context") -> bool | None:
             kw = getattr(getattr(dt, "keyword", None), "valueText", None)
             if kw in ("integer", "int", "shortint", "longint", "byte"):
                 return True
-            if kw in ("time", "logic", "bit", "reg", "wire") or type(dt).__name__ == "ImplicitTypeSyntax":
+            if kw in ("time", "logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
                 return False
             break
 

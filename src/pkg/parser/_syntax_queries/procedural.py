@@ -5,6 +5,7 @@ from ..syntax_kinds import (
     ALWAYS_FF_BLOCK_KIND,
     CASE_ITEM_KINDS,
     CASE_STATEMENT_KIND,
+    EVENT_CONTROL_OR_EXPRESSION_KINDS,
     EXPRESSION_STATEMENT_KIND,
     INVOCATION_EXPRESSION_KIND,
     NONBLOCKING_ASSIGNMENT_KIND,
@@ -500,10 +501,7 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
     # 3. Not flagged if in an event control or sensitivity list
     for ancestor in reversed(ctx.stack):
         raw = ancestor.raw
-        if isinstance(raw, SignalEventExpressionNode):
-            return False
-        type_name = type(raw).__name__
-        if "EventControl" in type_name or "EventExpression" in type_name:
+        if getattr(raw, "kind", None) in EVENT_CONTROL_OR_EXPRESSION_KINDS:
             return False
 
     # 4. Not flagged if in an assertion statement or diagnostic system task

@@ -11,6 +11,12 @@ from ...parser.syntax import (
     simple_identifier_text,
     source_text_for_node,
 )
+from ...parser.syntax_kinds import (
+    EMPTY_PORT_CONNECTION_KIND,
+    NAMED_PORT_CONNECTION_KIND,
+    ORDERED_PORT_CONNECTION_KIND,
+    WILDCARD_PORT_CONNECTION_KIND,
+)
 from ...semantic.models import PortConnection
 
 if TYPE_CHECKING:
@@ -38,8 +44,8 @@ class PortConnectionExtractor:
         connection_kinds: set[str] = set()
 
         for conn in port_connection_list(item):
-            kind_name = type(conn).__name__
-            if kind_name == "NamedPortConnectionSyntax":
+            conn_kind = getattr(conn, "kind", None)
+            if conn_kind == NAMED_PORT_CONNECTION_KIND:
                 expr = port_connection_expression(conn)
                 expr_text = source_text_for_node(expr, tree) if expr is not None else None
                 expr_width, expr_signed = (
@@ -59,7 +65,7 @@ class PortConnectionExtractor:
                     )
                 )
                 connection_kinds.add("named")
-            elif kind_name == "OrderedPortConnectionSyntax":
+            elif conn_kind == ORDERED_PORT_CONNECTION_KIND:
                 expr = port_connection_expression(conn)
                 expr_text = source_text_for_node(expr, tree) if expr is not None else None
                 expr_width, expr_signed = (
@@ -78,7 +84,7 @@ class PortConnectionExtractor:
                     )
                 )
                 connection_kinds.add("ordered")
-            elif kind_name == "WildcardPortConnectionSyntax":
+            elif conn_kind == WILDCARD_PORT_CONNECTION_KIND:
                 connections.append(
                     PortConnection(
                         kind="wildcard",
@@ -86,7 +92,7 @@ class PortConnectionExtractor:
                     )
                 )
                 connection_kinds.add("wildcard")
-            elif kind_name == "EmptyPortConnectionSyntax":
+            elif conn_kind == EMPTY_PORT_CONNECTION_KIND:
                 connections.append(
                     PortConnection(
                         kind="empty",

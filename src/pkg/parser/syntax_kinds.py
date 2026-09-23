@@ -89,6 +89,85 @@ FUNCTION_PORT_KIND = _syntax_kind("FunctionPort")
 ARGUMENT_LIST_KIND = _syntax_kind("ArgumentList")
 ORDERED_ARGUMENT_KIND = _syntax_kind("OrderedArgument")
 NAMED_ARGUMENT_KIND = _syntax_kind("NamedArgument")
+NAMED_PORT_CONNECTION_KIND = _syntax_kind("NamedPortConnection")
+ORDERED_PORT_CONNECTION_KIND = _syntax_kind("OrderedPortConnection")
+WILDCARD_PORT_CONNECTION_KIND = _syntax_kind("WildcardPortConnection")
+EMPTY_PORT_CONNECTION_KIND = _syntax_kind("EmptyPortConnection")
+PORT_CONNECTION_KINDS = {
+    kind
+    for kind in (
+        NAMED_PORT_CONNECTION_KIND,
+        ORDERED_PORT_CONNECTION_KIND,
+        WILDCARD_PORT_CONNECTION_KIND,
+        EMPTY_PORT_CONNECTION_KIND,
+    )
+    if kind is not None
+}
+NAMED_PARAM_ASSIGNMENT_KIND = _syntax_kind("NamedParamAssignment")
+ORDERED_PARAM_ASSIGNMENT_KIND = _syntax_kind("OrderedParamAssignment")
+PARAM_ASSIGNMENT_KINDS = {
+    kind
+    for kind in (
+        NAMED_PARAM_ASSIGNMENT_KIND,
+        ORDERED_PARAM_ASSIGNMENT_KIND,
+    )
+    if kind is not None
+}
+CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
+ELSE_CLAUSE_KIND = _syntax_kind("ElseClause")
+ASSIGNMENT_PATTERN_ITEM_KIND = _syntax_kind("AssignmentPatternItem")
+IMPLICIT_ANSI_PORT_KIND = _syntax_kind("ImplicitAnsiPort")
+EXPLICIT_ANSI_PORT_KIND = _syntax_kind("ExplicitAnsiPort")
+ANSI_PORT_KINDS = {
+    kind
+    for kind in (
+        IMPLICIT_ANSI_PORT_KIND,
+        EXPLICIT_ANSI_PORT_KIND,
+    )
+    if kind is not None
+}
+PORT_DECLARATION_KIND = _syntax_kind("PortDeclaration")
+ALL_PORT_DECLARATION_KINDS = {
+    kind
+    for kind in (
+        IMPLICIT_ANSI_PORT_KIND,
+        EXPLICIT_ANSI_PORT_KIND,
+        PORT_DECLARATION_KIND,
+        FUNCTION_PORT_KIND,
+    )
+    if kind is not None
+}
+DATA_DECLARATION_KIND = _syntax_kind("DataDeclaration")
+CHECKER_DATA_DECLARATION_KIND = _syntax_kind("CheckerDataDeclaration")
+DATA_DECLARATION_KINDS = {
+    kind
+    for kind in (
+        DATA_DECLARATION_KIND,
+        CHECKER_DATA_DECLARATION_KIND,
+    )
+    if kind is not None
+}
+NET_DECLARATION_KIND = _syntax_kind("NetDeclaration")
+USER_DEFINED_NET_DECLARATION_KIND = _syntax_kind("UserDefinedNetDeclaration")
+NET_DECLARATION_KINDS = {
+    kind
+    for kind in (
+        NET_DECLARATION_KIND,
+        USER_DEFINED_NET_DECLARATION_KIND,
+    )
+    if kind is not None
+}
+PARAMETER_DECLARATION_KIND = _syntax_kind("ParameterDeclaration")
+PARAMETER_DECLARATION_STATEMENT_KIND = _syntax_kind("ParameterDeclarationStatement")
+PARAMETER_DECLARATION_KINDS = {
+    kind
+    for kind in (
+        PARAMETER_DECLARATION_KIND,
+        PARAMETER_DECLARATION_STATEMENT_KIND,
+    )
+    if kind is not None
+}
+IMPLICIT_TYPE_KIND = _syntax_kind("ImplicitType")
 BLOCK_STATEMENT_KINDS = {
     kind
     for kind in (
@@ -102,6 +181,31 @@ PARALLEL_BLOCK_STATEMENT_KIND = _syntax_kind("ParallelBlockStatement")
 ENDCASE_TOKEN_KIND = sl.TokenKind.EndCaseKeyword
 DISABLE_TOKEN_KIND = sl.TokenKind.DisableKeyword
 DO_TOKEN_KIND = sl.TokenKind.DoKeyword
+EVENT_CONTROL_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("EventControl"),
+        _syntax_kind("EventControlWithExpression"),
+        _syntax_kind("ImplicitEventControl"),
+        _syntax_kind("RepeatedEventControl"),
+    )
+    if kind is not None
+}
+EVENT_EXPRESSION_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("SignalEventExpression"),
+        _syntax_kind("BinaryEventExpression"),
+        _syntax_kind("ParenthesizedEventExpression"),
+        _syntax_kind("BinaryBlockEventExpression"),
+        _syntax_kind("PrimaryBlockEventExpression"),
+    )
+    if kind is not None
+}
+EVENT_CONTROL_OR_EXPRESSION_KINDS = EVENT_CONTROL_KINDS | EVENT_EXPRESSION_KINDS
+UNARY_LOGICAL_NOT_EXPRESSION_KIND = _syntax_kind("UnaryLogicalNotExpression")
+SIMPLE_PROPERTY_EXPR_KIND = _syntax_kind("SimplePropertyExpr")
+SIMPLE_SEQUENCE_EXPR_KIND = _syntax_kind("SimpleSequenceExpr")
 EVENT_TRIGGER_TOKEN_KINDS = {
     sl.TokenKind.MinusArrow,
     sl.TokenKind.MinusDoubleArrow,
@@ -470,9 +574,12 @@ __all__ = [
     "ALWAYS_LATCH_BLOCK_KIND",
     "ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND",
     "ARITHMETIC_SHIFT_RIGHT_EXPRESSION_KIND",
+    "ALL_PORT_DECLARATION_KINDS",
+    "ANSI_PORT_KINDS",
     "ASCENDING_RANGE_SELECT_KIND",
     "ASSIGNMENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
+    "ASSIGNMENT_PATTERN_ITEM_KIND",
     "BINARY_AND_EXPRESSION_KIND",
     "BINARY_OR_EXPRESSION_KIND",
     "BINARY_XOR_EXPRESSION_KIND",
@@ -503,6 +610,8 @@ __all__ = [
     "CONTINUOUS_ASSIGN_KIND",
     "COVERGROUP_DECLARATION_KIND",
     "COVER_CROSS_KIND",
+    "DATA_DECLARATION_KIND",
+    "DATA_DECLARATION_KINDS",
     "DEFAULT_CASE_ITEM_KIND",
     "DEFAULT_NETTYPE_DIRECTIVE_KIND",
     "DELAY_CONTROL_KINDS",
@@ -521,13 +630,18 @@ __all__ = [
     "ELEMENT_SELECT_EXPRESSION_KIND",
     "ELEMENT_SELECT_KIND",
     "ELSE_CLAUSE_KIND",
+    "EMPTY_PORT_CONNECTION_KIND",
     "EMPTY_STATEMENT_KIND",
     "ENDCASE_KEYWORD_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
     "EQUALS_TOKEN_KIND",
     "EQUALITY_EXPRESSION_KIND",
     "EXPECT_RESTRICT_PROPERTY_KINDS",
+    "EXPLICIT_ANSI_PORT_KIND",
     "EXPRESSION_STATEMENT_KIND",
+    "EVENT_CONTROL_KINDS",
+    "EVENT_EXPRESSION_KINDS",
+    "EVENT_CONTROL_OR_EXPRESSION_KINDS",
     "EVENT_TRIGGER_STATEMENT_KINDS",
     "EVENT_TRIGGER_TOKEN_KINDS",
     "EXTENDS_CLAUSE_KIND",
@@ -548,6 +662,8 @@ __all__ = [
     "IDENTIFIER_SELECT_NAME_KIND",
     "IF_GENERATE_KIND",
     "IMMEDIATE_ASSERTION_KINDS",
+    "IMPLICIT_ANSI_PORT_KIND",
+    "IMPLICIT_TYPE_KIND",
     "INEQUALITY_EXPRESSION_KIND",
     "INITIAL_BLOCK_KIND",
     "INOUT_KEYWORD_TOKEN_KIND",
@@ -569,15 +685,27 @@ __all__ = [
     "MULTIPLE_CONCATENATION_EXPRESSION_KIND",
     "MULTIPLY_EXPRESSION_KIND",
     "NAMED_ARGUMENT_KIND",
+    "NAMED_PARAM_ASSIGNMENT_KIND",
+    "NAMED_PORT_CONNECTION_KIND",
     "NAMED_TYPE_KIND",
+    "NET_DECLARATION_KIND",
+    "NET_DECLARATION_KINDS",
     "NONBLOCKING_ASSIGNMENT_KIND",
     "NEGEDGE_KEYWORD_TOKEN_KIND",
     "ORDERED_ARGUMENT_KIND",
+    "ORDERED_PARAM_ASSIGNMENT_KIND",
+    "ORDERED_PORT_CONNECTION_KIND",
     "PACKAGE_DECLARATION_KIND",
     "PACKAGE_IMPORT_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
+    "PARAMETER_DECLARATION_KIND",
+    "PARAMETER_DECLARATION_KINDS",
+    "PARAMETER_DECLARATION_STATEMENT_KIND",
+    "PARAM_ASSIGNMENT_KINDS",
     "PARENTHESIZED_EXPRESSION_KIND",
     "PATTERN_CASE_ITEM_KIND",
+    "PORT_CONNECTION_KINDS",
+    "PORT_DECLARATION_KIND",
     "PORT_DIRECTION_TOKEN_KINDS",
     "POSEDGE_KEYWORD_TOKEN_KIND",
     "POWER_EXPRESSION_KIND",
@@ -600,7 +728,9 @@ __all__ = [
     "SEQUENCE_DECLARATION_KIND",
     "SHIFT_EXPRESSION_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
+    "SIMPLE_PROPERTY_EXPR_KIND",
     "SIMPLE_RANGE_SELECT_KIND",
+    "SIMPLE_SEQUENCE_EXPR_KIND",
     "SPECIFY_BLOCK_KIND",
     "STANDARD_CASE_ITEM_KIND",
     "STAR_TOKEN_KIND",
@@ -617,6 +747,7 @@ __all__ = [
     "TRAN_RTRAN_TOKEN_KINDS",
     "TRIREG_TOKEN_KIND",
     "UNARY_BITWISE_NOT_EXPRESSION_KIND",
+    "UNARY_LOGICAL_NOT_EXPRESSION_KIND",
     "UNARY_MINUS_EXPRESSION_KIND",
     "UNARY_PLUS_EXPRESSION_KIND",
     "UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND",
@@ -632,4 +763,5 @@ __all__ = [
     "WILDCARD_DIMENSION_SPECIFIER_KIND",
     "WILDCARD_EQUALITY_EXPRESSION_KIND",
     "WILDCARD_INEQUALITY_EXPRESSION_KIND",
+    "WILDCARD_PORT_CONNECTION_KIND",
 ]
