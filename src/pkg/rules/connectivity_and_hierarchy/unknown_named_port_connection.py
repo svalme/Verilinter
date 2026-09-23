@@ -18,7 +18,7 @@ class UnknownNamedPortConnectionRule(BaseSymbolRule):
             unknown = unknown_named_port_names(symbol_table, inst)
             if not unknown:
                 continue
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

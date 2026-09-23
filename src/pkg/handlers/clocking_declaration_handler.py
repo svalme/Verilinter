@@ -18,8 +18,8 @@ class ClockingDeclarationHandler(SyntaxNodeHandler):
     into the active module scope's symbol table with driver IDs representing the clocking block."""
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
-        clocking_loc = vnode.location
-        driver_id = f"clocking:{clocking_loc.get('file', '')}:{clocking_loc['line']}:{clocking_loc['col']}"
+        clocking_loc = vnode.location or {}
+        driver_id = f"clocking:{clocking_loc.get('file', '')}:{clocking_loc.get('line', 0)}:{clocking_loc.get('col', 0)}"
 
         scope = ctx.scope()
         signals = clocking_declaration_signals(vnode.raw, vnode.tree)

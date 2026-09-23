@@ -1,6 +1,8 @@
 from ..syntax_kinds import (
     ALWAYS_COMB_BLOCK_KIND,
+    ELEMENT_SELECT_KIND,
     FOR_LOOP_STATEMENT_KIND,
+    NONBLOCKING_ASSIGNMENT_KIND,
     PRIMITIVE_INSTANTIATION_KIND,
 )
 from ..types import ProceduralBlockNode, SyntaxNode
@@ -46,13 +48,27 @@ def unary_write_operand(raw: object) -> SyntaxNode | None:
 
 
 def _selectors_containing_identifier(raw: object, raw_identifier: SyntaxNode) -> bool:
-    selectors = getattr(raw, "selectors", None)
-    if selectors is None:
+    if not isinstance(raw, SyntaxNode):
         return False
 
-    for selector in selectors:
-        if isinstance(selector, SyntaxNode) and contains_descendant(selector, raw_identifier):
-            return True
+    selectors = getattr(raw, "selectors", None)
+    if selectors is not None:
+        for selector in selectors:
+            if isinstance(selector, SyntaxNode) and contains_descendant(selector, raw_identifier):
+                return True
+
+    select = getattr(raw, "select", None)
+    if select is not None and isinstance(select, SyntaxNode) and contains_descendant(select, raw_identifier):
+        return True
+
+    if getattr(raw, "kind", None) == ELEMENT_SELECT_KIND:
+        return contains_descendant(raw, raw_identifier)
+
+    for child in raw:
+        if isinstance(child, SyntaxNode) and contains_descendant(child, raw_identifier):
+            if _selectors_containing_identifier(child, raw_identifier):
+                return True
+
     return False
 
 
@@ -266,7 +282,7 @@ def _statement_assigns_register(raw: object, register_name: str) -> bool:
         return False
     if (
         is_assignment_expression(raw)
-        and str(getattr(raw, "kind", "")) == "SyntaxKind.NonblockingAssignmentExpression"
+        and getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
         and assignment_target_identifier_name(raw) == register_name
     ):
         return True

@@ -63,15 +63,16 @@ class NoMultipleDriversRule(BaseSymbolRule):
                     continue
 
                 first_driver_loc, second_event = conflict
-                loc = second_event["location"]
+                loc = second_event.get("location") or {}
+                first_driver_line = first_driver_loc.get("line", 0) if isinstance(first_driver_loc, dict) else 0
 
                 diagnostic = {
                     "code": self.code,
-                    "line": loc["line"],
-                    "col": loc["col"],
+                    "line": loc.get("line", 0),
+                    "col": loc.get("col", 0),
                     "message": (
                         f"Variable '{sym.name}' is written from multiple drivers "
-                        f"(first driver at line {first_driver_loc['line']})"
+                        f"(first driver at line {first_driver_line})"
                     ),
                 }
                 if "file" in loc:

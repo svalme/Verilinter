@@ -28,11 +28,11 @@ class NoInputPortWriteRule(BaseSymbolRule):
                 for event in sym.use_events:
                     if not event["write"]:
                         continue
-                    loc = event["location"]
+                    loc = event.get("location") or {}
                     diagnostic: dict[str, Any] = {
                         "code": self.code,
-                        "line": loc["line"],
-                        "col": loc["col"],
+                        "line": loc.get("line", 0),
+                        "col": loc.get("col", 0),
                         "message": f"Input port '{sym.name}' should not be written",
                     }
                     if "file" in loc:

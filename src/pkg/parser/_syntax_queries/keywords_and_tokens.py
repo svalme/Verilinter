@@ -1,7 +1,6 @@
-import pyslang as sl
-
 from ..syntax_kinds import (
     ASSIGN_DEASSIGN_TOKEN_KINDS,
+    CASE_KEYWORD_TOKEN_KIND,
     CASE_STATEMENT_KIND,
     CASE_STYLE_TOKEN_KINDS,
     CASE_TOKEN_KINDS,
@@ -12,7 +11,9 @@ from ..syntax_kinds import (
     DISABLE_TOKEN_KIND,
     DO_TOKEN_KIND,
     DO_WHILE_STATEMENT_KIND,
+    ENDCASE_KEYWORD_TOKEN_KIND,
     ENDCASE_TOKEN_KIND,
+    EQUALS_TOKEN_KIND,
     EVENT_TRIGGER_STATEMENT_KINDS,
     EVENT_TRIGGER_TOKEN_KINDS,
     FORCE_RELEASE_TOKEN_KINDS,
@@ -21,7 +22,12 @@ from ..syntax_kinds import (
     FOR_TOKEN_KIND,
     GATE_PRIMITIVE_TOKEN_KINDS,
     IMMEDIATE_ASSERTION_KINDS,
+    INOUT_KEYWORD_TOKEN_KIND,
     INSIDE_TOKEN_KIND,
+    LESS_THAN_EQUALS_TOKEN_KIND,
+    NEGEDGE_KEYWORD_TOKEN_KIND,
+    POSEDGE_KEYWORD_TOKEN_KIND,
+    PRIORITY_KEYWORD_TOKEN_KIND,
     REPEAT_TOKEN_KIND,
     SUPPLY0_SUPPLY1_TOKEN_KINDS,
     SWITCH_PRIMITIVE_TOKEN_KINDS,
@@ -29,6 +35,7 @@ from ..syntax_kinds import (
     TRAN_RTRAN_TOKEN_KINDS,
     TRIREG_TOKEN_KIND,
     UNIQUE0_TOKEN_KIND,
+    UNIQUE_KEYWORD_TOKEN_KIND,
     UNIQUE_PRIORITY_TOKEN_KINDS,
     UWIRE_TOKEN_KIND,
     WAIT_TOKEN_KIND,
@@ -77,15 +84,15 @@ def is_internal_inout_port_declaration(raw: object) -> bool:
         return False
     header = getattr(raw, "header", None)
     direction = getattr(header, "direction", None)
-    return getattr(direction, "kind", None) == sl.TokenKind.InOutKeyword
+    return getattr(direction, "kind", None) == INOUT_KEYWORD_TOKEN_KIND
 
 
 def is_blocking_assignment_token(raw: object) -> bool:
-    return getattr(raw, "kind", None) == sl.TokenKind.Equals
+    return getattr(raw, "kind", None) == EQUALS_TOKEN_KIND
 
 
 def is_nonblocking_assignment_token(raw: object) -> bool:
-    return getattr(raw, "kind", None) == sl.TokenKind.LessThanEquals
+    return getattr(raw, "kind", None) == LESS_THAN_EQUALS_TOKEN_KIND
 
 
 def is_casex_casez_token(raw: object) -> bool:
@@ -244,7 +251,7 @@ def enclosing_conditional_statement(ctx: "Context") -> "BaseVNode | None":
 
 
 def is_unique_if_token(raw: object, ctx: "Context") -> bool:
-    if getattr(raw, "kind", None) != sl.TokenKind.UniqueKeyword:
+    if getattr(raw, "kind", None) != UNIQUE_KEYWORD_TOKEN_KIND:
         return False
 
     conditional_statement = enclosing_conditional_statement(ctx)
@@ -255,7 +262,7 @@ def is_unique_if_token(raw: object, ctx: "Context") -> bool:
 
 
 def is_priority_if_token(raw: object, ctx: "Context") -> bool:
-    if getattr(raw, "kind", None) != sl.TokenKind.PriorityKeyword:
+    if getattr(raw, "kind", None) != PRIORITY_KEYWORD_TOKEN_KIND:
         return False
 
     conditional_statement = enclosing_conditional_statement(ctx)
@@ -348,7 +355,11 @@ def is_endcase_token(raw: object) -> bool:
 
 
 def is_case_generate_keyword_pair(raw: object) -> bool:
-    return str(getattr(raw, "keyword", "")).strip() == "case" and str(getattr(raw, "endCase", "")).strip() == "endcase"
+    kw = getattr(raw, "keyword", None)
+    end_kw = getattr(raw, "endCase", None)
+    kw_kind = getattr(kw, "kind", kw)
+    end_kw_kind = getattr(end_kw, "kind", end_kw)
+    return (kw_kind == CASE_KEYWORD_TOKEN_KIND and end_kw_kind == ENDCASE_KEYWORD_TOKEN_KIND)
 
 
 def has_default_case_item(raw: object) -> bool:
@@ -357,8 +368,10 @@ def has_default_case_item(raw: object) -> bool:
 
 
 def is_posedge_event(raw: object) -> bool:
-    return str(getattr(raw, "edge", "")).strip() == "posedge"
+    edge = getattr(raw, "edge", None)
+    return getattr(edge, "kind", edge) == POSEDGE_KEYWORD_TOKEN_KIND
 
 
 def is_negedge_event(raw: object) -> bool:
-    return str(getattr(raw, "edge", "")).strip() == "negedge"
+    edge = getattr(raw, "edge", None)
+    return getattr(edge, "kind", edge) == NEGEDGE_KEYWORD_TOKEN_KIND

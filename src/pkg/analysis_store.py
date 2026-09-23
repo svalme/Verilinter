@@ -12,7 +12,7 @@ from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
 
 SCHEMA_VERSION = "3"
-ANALYZER_CACHE_VERSION = "2026-09-22-full-use-event-roundtrip"
+ANALYZER_CACHE_VERSION = "2026-09-23-package-declarations-roundtrip"
 
 
 def utc_now_iso() -> str:
@@ -493,7 +493,7 @@ class AnalysisStore:
             module_ordinal = 0
             for module_name, scopes in symbol_table.modules.items():
                 for scope in scopes:
-                    loc = scope.location or {"line": 0, "col": 0}
+                    loc = scope.location or {}
                     conn.execute(
                         """
                         INSERT INTO analysis_run_modules(run_id, ordinal, module_name, file, line, col)
@@ -511,7 +511,7 @@ class AnalysisStore:
                     module_ordinal += 1
 
             for inst_ordinal, inst in enumerate(symbol_table.instantiations):
-                loc = dict(inst.get("location", {"line": 0, "col": 0}))
+                loc = dict(inst.get("location") or {})
                 conn.execute(
                     """
                     INSERT INTO analysis_run_instantiations(
@@ -532,7 +532,7 @@ class AnalysisStore:
                     ),
                 )
                 for conn_ordinal, connection in enumerate(inst.get("connections", [])):
-                    conn_loc = dict(connection.get("location", {"line": 0, "col": 0}))
+                    conn_loc = dict(connection.get("location") or {})
                     conn.execute(
                         """
                         INSERT INTO analysis_run_connections(

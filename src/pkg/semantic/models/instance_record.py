@@ -20,7 +20,7 @@ class InstanceRecord(Mapping[str, Any]):
     parent_module: str | None = None
     child_module: str | None = None
     instance_name: str | None = None
-    location: dict[str, Any] = field(default_factory=lambda: {"line": 0, "col": 0})
+    location: dict[str, Any] | None = None
     connection_style: str = "empty"
     connections: list[PortConnection] = field(default_factory=list)
     parameter_override_style: str = "none"
@@ -44,7 +44,7 @@ class InstanceRecord(Mapping[str, Any]):
             "parent_module": self.parent_module,
             "child_module": self.child_module,
             "instance_name": self.instance_name,
-            "location": dict(self.location),
+            "location": dict(self.location) if self.location is not None else None,
             "connection_style": self.connection_style,
             "connections": [c.to_dict() for c in self.connections],
             "parameter_override_style": self.parameter_override_style,
@@ -81,11 +81,14 @@ class InstanceRecord(Mapping[str, Any]):
         else:
             sig = ()
 
+        raw_loc = data.get("location")
+        loc = dict(raw_loc) if raw_loc is not None else None
+
         return cls(
             parent_module=data.get("parent_module"),
             child_module=data.get("child_module"),
             instance_name=data.get("instance_name"),
-            location=dict(data.get("location", {"line": 0, "col": 0})),
+            location=loc,
             connection_style=str(data.get("connection_style", "empty")),
             connections=connections,
             parameter_override_style=str(data.get("parameter_override_style", "none")),

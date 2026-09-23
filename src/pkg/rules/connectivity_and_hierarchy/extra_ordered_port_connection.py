@@ -19,7 +19,7 @@ class ExtraOrderedPortConnectionRule(BaseSymbolRule):
             if not extras:
                 continue
             port_count = len(module_ports_for(symbol_table, inst.get("child_module")))
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

@@ -11,11 +11,11 @@ if TYPE_CHECKING:
 
 
 class UseEvent(TypedDict):
-    location: Location
+    location: Location | None
     read: bool
     write: bool
     driver_id: NotRequired[str]
-    driver_location: NotRequired[Location]
+    driver_location: NotRequired[Location | None]
     branch_signature: NotRequired[tuple[tuple[str, int], ...]]
     statement_id: NotRequired[str]
     in_port_connection: NotRequired[bool]
@@ -66,7 +66,7 @@ class Symbol:
 
     def add_use(
         self,
-        loc: Location,
+        loc: Location | None,
         read: bool = False,
         write: bool = False,
         driver_id: str | None = None,
@@ -77,7 +77,8 @@ class Symbol:
         is_nonblocking_write: bool = False,
         loop_ids: tuple[str, ...] = (),
     ) -> None:
-        self.uses.append(loc)
+        if loc is not None:
+            self.uses.append(loc)
         event: UseEvent = {"location": loc, "read": read, "write": write}
         if driver_id is not None:
             event["driver_id"] = driver_id

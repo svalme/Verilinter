@@ -18,7 +18,7 @@ class NoUnconnectedInstancePortsRule(BaseSymbolRule):
             names = unconnected_port_names(symbol_table, inst)
             if not names:
                 continue
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

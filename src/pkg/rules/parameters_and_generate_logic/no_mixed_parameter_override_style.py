@@ -16,7 +16,7 @@ class NoMixedParameterOverrideStyleRule(BaseSymbolRule):
         for inst in symbol_table.instantiations:
             if inst.get("parameter_override_style") != "mixed":
                 continue
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

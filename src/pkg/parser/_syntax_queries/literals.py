@@ -1,8 +1,8 @@
-import pyslang as sl
-
 from ..syntax_kinds import (
     ADD_SUBTRACT_EXPRESSION_KINDS,
     ASSIGNMENT_KINDS,
+    CASEX_KEYWORD_TOKEN_KIND,
+    CASEZ_KEYWORD_TOKEN_KIND,
     COMPARISON_EXPRESSION_KINDS,
     CONDITIONAL_EXPRESSION_KIND,
     CONTINUOUS_ASSIGN_KIND,
@@ -201,9 +201,9 @@ def has_casex_casez_wildcard_case_item(raw: object) -> bool:
         return False
 
     style_kind = getattr(getattr(raw, "caseKeyword", None), "kind", None)
-    if style_kind == sl.TokenKind.CaseXKeyword:
+    if style_kind == CASEX_KEYWORD_TOKEN_KIND:
         wildcard_chars = "xz?"
-    elif style_kind == sl.TokenKind.CaseZKeyword:
+    elif style_kind == CASEZ_KEYWORD_TOKEN_KIND:
         wildcard_chars = "z?"
     else:
         return False
@@ -418,9 +418,9 @@ def has_case_overlapping_items(raw: object) -> bool:
         return False
 
     style_kind = getattr(getattr(raw, "caseKeyword", None), "kind", None)
-    if style_kind == sl.TokenKind.CaseXKeyword:
+    if style_kind == CASEX_KEYWORD_TOKEN_KIND:
         wildcards = "xz?"
-    elif style_kind == sl.TokenKind.CaseZKeyword:
+    elif style_kind == CASEZ_KEYWORD_TOKEN_KIND:
         wildcards = "z?"
     else:
         wildcards = ""

@@ -1,4 +1,10 @@
-from ..syntax_kinds import DOUBLE_COLON_TOKEN_KIND, PACKAGE_IMPORT_DECLARATION_KIND, SCOPED_NAME_KIND, STAR_TOKEN_KIND
+from ..syntax_kinds import (
+    DOT_TOKEN_KIND,
+    DOUBLE_COLON_TOKEN_KIND,
+    PACKAGE_IMPORT_DECLARATION_KIND,
+    SCOPED_NAME_KIND,
+    STAR_TOKEN_KIND,
+)
 from .shared import identifier_name
 
 
@@ -8,7 +14,7 @@ def is_member_selector(raw: object) -> bool:
     if type(parent).__name__ == "AssignmentPatternItemSyntax":
         return getattr(parent, "key", None) is raw
     return (getattr(parent, "kind", None) == SCOPED_NAME_KIND
-            and str(getattr(parent, "separator", "")).strip() == "."
+            and getattr(getattr(parent, "separator", None), "kind", None) == DOT_TOKEN_KIND
             and getattr(parent, "right", None) is raw)
 
 

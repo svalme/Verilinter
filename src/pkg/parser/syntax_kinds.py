@@ -5,6 +5,10 @@ def _syntax_kind(name: str) -> object | None:
     return getattr(sl.SyntaxKind, name, None)
 
 
+def _token_kind(name: str) -> object | None:
+    return getattr(sl.TokenKind, name, None)
+
+
 ALWAYS_BLOCK_KIND = sl.SyntaxKind.AlwaysBlock
 ALWAYS_COMB_BLOCK_KIND = sl.SyntaxKind.AlwaysCombBlock
 ALWAYS_FF_BLOCK_KIND = _syntax_kind("AlwaysFFBlock") or sl.SyntaxKind.AlwaysFFBlock
@@ -54,6 +58,20 @@ COMPARISON_EXPRESSION_KINDS = {
 }
 FOR_LOOP_STATEMENT_KIND = _syntax_kind("ForLoopStatement")
 CASE_STATEMENT_KIND = _syntax_kind("CaseStatement")
+STANDARD_CASE_ITEM_KIND = _syntax_kind("StandardCaseItem")
+DEFAULT_CASE_ITEM_KIND = _syntax_kind("DefaultCaseItem")
+PATTERN_CASE_ITEM_KIND = _syntax_kind("PatternCaseItem")
+CASE_ITEM_KINDS = {
+    kind
+    for kind in (
+        STANDARD_CASE_ITEM_KIND,
+        DEFAULT_CASE_ITEM_KIND,
+        PATTERN_CASE_ITEM_KIND,
+    )
+    if kind is not None
+}
+TIMESCALE_DIRECTIVE_KIND = _syntax_kind("TimeScaleDirective")
+DEFAULT_NETTYPE_DIRECTIVE_KIND = _syntax_kind("DefaultNetTypeDirective")
 CHECKER_DECLARATION_KIND = _syntax_kind("CheckerDeclaration")
 DO_WHILE_STATEMENT_KIND = _syntax_kind("DoWhileStatement")
 INTERFACE_DECLARATION_KIND = _syntax_kind("InterfaceDeclaration")
@@ -64,6 +82,13 @@ PACKAGE_IMPORT_DECLARATION_KIND = _syntax_kind("PackageImportDeclaration")
 PROGRAM_DECLARATION_KIND = _syntax_kind("ProgramDeclaration")
 TASK_DECLARATION_KIND = _syntax_kind("TaskDeclaration")
 TIMING_CONTROL_STATEMENT_KIND = _syntax_kind("TimingControlStatement")
+EXPRESSION_STATEMENT_KIND = _syntax_kind("ExpressionStatement")
+IF_GENERATE_KIND = _syntax_kind("IfGenerate")
+SYSTEM_NAME_KIND = _syntax_kind("SystemName")
+FUNCTION_PORT_KIND = _syntax_kind("FunctionPort")
+ARGUMENT_LIST_KIND = _syntax_kind("ArgumentList")
+ORDERED_ARGUMENT_KIND = _syntax_kind("OrderedArgument")
+NAMED_ARGUMENT_KIND = _syntax_kind("NamedArgument")
 BLOCK_STATEMENT_KINDS = {
     kind
     for kind in (
@@ -159,6 +184,18 @@ UNIQUE0_TOKEN_KIND = getattr(sl.TokenKind, "Unique0Keyword", None)
 DEFPARAM_TOKEN_KIND = _syntax_kind("DefParamKeyword") or sl.TokenKind.DefParamKeyword
 
 STAR_TOKEN_KIND = getattr(sl.TokenKind, "Star", None)
+DOT_TOKEN_KIND = _token_kind("Dot")
+CASE_KEYWORD_TOKEN_KIND = _token_kind("CaseKeyword")
+CASEX_KEYWORD_TOKEN_KIND = _token_kind("CaseXKeyword")
+CASEZ_KEYWORD_TOKEN_KIND = _token_kind("CaseZKeyword")
+ENDCASE_KEYWORD_TOKEN_KIND = _token_kind("EndCaseKeyword")
+POSEDGE_KEYWORD_TOKEN_KIND = _token_kind("PosEdgeKeyword")
+NEGEDGE_KEYWORD_TOKEN_KIND = _token_kind("NegEdgeKeyword")
+EQUALS_TOKEN_KIND = _token_kind("Equals")
+LESS_THAN_EQUALS_TOKEN_KIND = _token_kind("LessThanEquals")
+INOUT_KEYWORD_TOKEN_KIND = _token_kind("InOutKeyword")
+UNIQUE_KEYWORD_TOKEN_KIND = _token_kind("UniqueKeyword")
+PRIORITY_KEYWORD_TOKEN_KIND = _token_kind("PriorityKeyword")
 
 # pyslang uses `ScopedNameSyntax` for BOTH `pkg::name` package scope resolution
 # AND `struct_var.field` member access -- syntactically identical shape at parse
@@ -391,12 +428,16 @@ UNARY_MINUS_EXPRESSION_KIND = _syntax_kind("UnaryMinusExpression")
 PARENTHESIZED_EXPRESSION_KIND = _syntax_kind("ParenthesizedExpression")
 EMPTY_STATEMENT_KIND = _syntax_kind("EmptyStatement")
 BIT_SELECT_KIND = _syntax_kind("BitSelect")
+ELEMENT_SELECT_KIND = _syntax_kind("ElementSelect")
+SIMPLE_RANGE_SELECT_KIND = _syntax_kind("SimpleRangeSelect")
+ASCENDING_RANGE_SELECT_KIND = _syntax_kind("AscendingRangeSelect")
+DESCENDING_RANGE_SELECT_KIND = _syntax_kind("DescendingRangeSelect")
 RANGE_SELECT_KINDS = {
     kind
     for kind in (
-        _syntax_kind("SimpleRangeSelect"),
-        _syntax_kind("AscendingRangeSelect"),
-        _syntax_kind("DescendingRangeSelect"),
+        SIMPLE_RANGE_SELECT_KIND,
+        ASCENDING_RANGE_SELECT_KIND,
+        DESCENDING_RANGE_SELECT_KIND,
     )
     if kind is not None
 }
@@ -429,6 +470,7 @@ __all__ = [
     "ALWAYS_LATCH_BLOCK_KIND",
     "ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND",
     "ARITHMETIC_SHIFT_RIGHT_EXPRESSION_KIND",
+    "ASCENDING_RANGE_SELECT_KIND",
     "ASSIGNMENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
     "BINARY_AND_EXPRESSION_KIND",
@@ -437,8 +479,13 @@ __all__ = [
     "BIND_DIRECTIVE_KIND",
     "BIT_SELECT_KIND",
     "BLOCK_STATEMENT_KINDS",
+    "ARGUMENT_LIST_KIND",
+    "CASEX_KEYWORD_TOKEN_KIND",
+    "CASEZ_KEYWORD_TOKEN_KIND",
     "CASE_EQUALITY_EXPRESSION_KIND",
     "CASE_INEQUALITY_EXPRESSION_KIND",
+    "CASE_ITEM_KINDS",
+    "CASE_KEYWORD_TOKEN_KIND",
     "CASE_STATEMENT_KIND",
     "CASE_STYLE_TOKEN_KINDS",
     "CASE_TOKEN_KINDS",
@@ -456,11 +503,15 @@ __all__ = [
     "CONTINUOUS_ASSIGN_KIND",
     "COVERGROUP_DECLARATION_KIND",
     "COVER_CROSS_KIND",
+    "DEFAULT_CASE_ITEM_KIND",
+    "DEFAULT_NETTYPE_DIRECTIVE_KIND",
     "DELAY_CONTROL_KINDS",
+    "DESCENDING_RANGE_SELECT_KIND",
     "DISABLE_IFF_KIND",
     "DISABLE_STATEMENT_KIND",
     "DISABLE_TOKEN_KIND",
     "DIVIDE_EXPRESSION_KIND",
+    "DOT_TOKEN_KIND",
     "DOUBLE_COLON_TOKEN_KIND",
     "DO_TOKEN_KIND",
     "DO_WHILE_STATEMENT_KIND",
@@ -468,11 +519,15 @@ __all__ = [
     "DEFPARAM_TOKEN_KIND",
     "DPI_IMPORT_EXPORT_KINDS",
     "ELEMENT_SELECT_EXPRESSION_KIND",
+    "ELEMENT_SELECT_KIND",
     "ELSE_CLAUSE_KIND",
     "EMPTY_STATEMENT_KIND",
+    "ENDCASE_KEYWORD_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
+    "EQUALS_TOKEN_KIND",
     "EQUALITY_EXPRESSION_KIND",
     "EXPECT_RESTRICT_PROPERTY_KINDS",
+    "EXPRESSION_STATEMENT_KIND",
     "EVENT_TRIGGER_STATEMENT_KINDS",
     "EVENT_TRIGGER_TOKEN_KINDS",
     "EXTENDS_CLAUSE_KIND",
@@ -483,6 +538,7 @@ __all__ = [
     "FOREVER_TOKEN_KIND",
     "FORCE_RELEASE_TOKEN_KINDS",
     "FUNCTION_DECLARATION_KIND",
+    "FUNCTION_PORT_KIND",
     "FUNCTION_PROTOTYPE_KIND",
     "GATE_PRIMITIVE_TOKEN_KINDS",
     "GENERATE_BLOCK_KIND",
@@ -490,14 +546,17 @@ __all__ = [
     "GREATER_THAN_EXPRESSION_KIND",
     "IDENTIFIER_NAME_KIND",
     "IDENTIFIER_SELECT_NAME_KIND",
+    "IF_GENERATE_KIND",
     "IMMEDIATE_ASSERTION_KINDS",
     "INEQUALITY_EXPRESSION_KIND",
     "INITIAL_BLOCK_KIND",
+    "INOUT_KEYWORD_TOKEN_KIND",
     "INTEGER_LITERAL_EXPRESSION_KIND",
     "INTEGER_VECTOR_EXPRESSION_KIND",
     "INTERFACE_DECLARATION_KIND",
     "INSIDE_TOKEN_KIND",
     "INVOCATION_EXPRESSION_KIND",
+    "LESS_THAN_EQUALS_TOKEN_KIND",
     "LESS_THAN_EQUAL_EXPRESSION_KIND",
     "LESS_THAN_EXPRESSION_KIND",
     "LET_DECLARATION_KIND",
@@ -509,14 +568,20 @@ __all__ = [
     "MOD_EXPRESSION_KIND",
     "MULTIPLE_CONCATENATION_EXPRESSION_KIND",
     "MULTIPLY_EXPRESSION_KIND",
+    "NAMED_ARGUMENT_KIND",
     "NAMED_TYPE_KIND",
     "NONBLOCKING_ASSIGNMENT_KIND",
+    "NEGEDGE_KEYWORD_TOKEN_KIND",
+    "ORDERED_ARGUMENT_KIND",
     "PACKAGE_DECLARATION_KIND",
     "PACKAGE_IMPORT_DECLARATION_KIND",
     "PARALLEL_BLOCK_STATEMENT_KIND",
     "PARENTHESIZED_EXPRESSION_KIND",
+    "PATTERN_CASE_ITEM_KIND",
     "PORT_DIRECTION_TOKEN_KINDS",
+    "POSEDGE_KEYWORD_TOKEN_KIND",
     "POWER_EXPRESSION_KIND",
+    "PRIORITY_KEYWORD_TOKEN_KIND",
     "PRIMITIVE_DECLARATION_KIND",
     "PRIMITIVE_INSTANTIATION_KIND",
     "PROGRAM_DECLARATION_KIND",
@@ -535,14 +600,18 @@ __all__ = [
     "SEQUENCE_DECLARATION_KIND",
     "SHIFT_EXPRESSION_KINDS",
     "SIMPLE_ASSIGNMENT_KINDS",
+    "SIMPLE_RANGE_SELECT_KIND",
     "SPECIFY_BLOCK_KIND",
+    "STANDARD_CASE_ITEM_KIND",
     "STAR_TOKEN_KIND",
     "STRING_TYPE_KIND",
     "SUBTRACT_EXPRESSION_KIND",
+    "SYSTEM_NAME_KIND",
     "TASK_DECLARATION_KIND",
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
     "SWITCH_PRIMITIVE_TOKEN_KINDS",
     "TIME_LITERAL_EXPRESSION_KIND",
+    "TIMESCALE_DIRECTIVE_KIND",
     "TIMING_CONTROL_STATEMENT_KIND",
     "TRANIF_RTRANIF_TOKEN_KINDS",
     "TRAN_RTRAN_TOKEN_KINDS",
@@ -552,6 +621,7 @@ __all__ = [
     "UNARY_PLUS_EXPRESSION_KIND",
     "UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND",
     "UNIQUE0_TOKEN_KIND",
+    "UNIQUE_KEYWORD_TOKEN_KIND",
     "UNIQUE_PRIORITY_TOKEN_KINDS",
     "UWIRE_TOKEN_KIND",
     "VARIABLE_DIMENSION_KIND",

@@ -1,5 +1,3 @@
-import pyslang as sl
-
 from ..syntax_kinds import (
     ALIAS_STATEMENT_KIND,
     ALWAYS_COMB_BLOCK_KIND,
@@ -16,6 +14,7 @@ from ..syntax_kinds import (
     EXPECT_RESTRICT_PROPERTY_KINDS,
     FINAL_BLOCK_KIND,
     FUNCTION_DECLARATION_KIND,
+    IF_GENERATE_KIND,
     INITIAL_BLOCK_KIND,
     INTERFACE_DECLARATION_KIND,
     LET_DECLARATION_KIND,
@@ -37,7 +36,7 @@ from ..syntax_kinds import (
     VIRTUAL_INTERFACE_TYPE_KIND,
     WILDCARD_DIMENSION_SPECIFIER_KIND,
 )
-from ..types import CaseGenerateNode, IfGenerateNode, LoopGenerateNode
+from ..types import CaseGenerateNode, DataTypeNode, IfGenerateNode, LoopGenerateNode
 
 
 def is_initial_block(raw: object) -> bool:
@@ -85,7 +84,7 @@ def is_loop_generate_node(raw: object) -> bool:
 
 
 def is_if_generate_node(raw: object) -> bool:
-    return isinstance(raw, IfGenerateNode) or getattr(raw, "kind", None) == getattr(sl.SyntaxKind, "IfGenerate", None)
+    return isinstance(raw, IfGenerateNode) or getattr(raw, "kind", None) == IF_GENERATE_KIND
 
 
 def is_task_declaration_node(raw: object) -> bool:
@@ -182,7 +181,7 @@ def is_associative_array_dimension_node(raw: object) -> bool:
         return False
     selector = getattr(raw, "selector", None)
     index_expr = getattr(selector, "expr", None)
-    return isinstance(index_expr, sl.DataTypeSyntax)
+    return isinstance(index_expr, DataTypeNode)
 
 
 def is_program_declaration_node(raw: object) -> bool:

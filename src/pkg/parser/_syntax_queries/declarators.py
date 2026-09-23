@@ -9,7 +9,7 @@ from ..syntax_kinds import (
     PORT_DIRECTION_TOKEN_KINDS,
 )
 from ..types import SyntaxNode, SyntaxTree
-from .shared import identifier_name, node_location, simple_packed_range, source_text_for_node, type_text_width_and_signed
+from .shared import identifier_name, node_location, source_text_for_node
 
 
 def declarator_name(raw: object) -> str | None:
@@ -166,27 +166,6 @@ def declarator_port_direction(ctx: "Context") -> str | None:
             return _inherited_port_direction(raw)
         if type_name.endswith("DataDeclarationSyntax"):
             return None
-    return None
-
-
-def _declarator_owner_type_text(ctx: "Context") -> str | None:
-    for ancestor in reversed(ctx.stack):
-        raw = ancestor.raw
-        type_name = type(raw).__name__
-        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
-            header = getattr(raw, "header", None)
-            return str(header).strip() if header is not None else None
-        if type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
-            # Both node kinds expose their packed-dimension text via `.type`
-            # (e.g. `reg [7:0]` / ` [7:0]` for a `wire [7:0]` -- the `wire`
-            # keyword itself lives in NetDeclarationSyntax's separate
-            # `.netType` field, not `.type`, but `type_text_width_and_signed`
-            # only needs the bracket range so that's irrelevant here).
-            # Both `DataDeclarationSyntax` (`reg`/`logic`/plain variable
-            # declarations) and `NetDeclarationSyntax` (`wire [N:0] sig;`) carry
-            # the bracket range.
-            data_type = getattr(raw, "type", None)
-            return str(data_type).strip() if data_type is not None else None
     return None
 
 
@@ -361,39 +340,37 @@ def declarator_bit_width(ctx: "Context") -> int | None:
             break
         if all_folded:
             return total_width
+        return None
 
     # When there are no packed dimensions, determine scalar width directly from AST keyword
-    if not dims:
-        for ancestor in reversed(ctx.stack):
-            raw = ancestor.raw
-            type_name = type(raw).__name__
-            dt = None
-            if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
-                header = getattr(raw, "header", None)
-                if header is not None:
-                    dt = getattr(header, "dataType", None)
-            elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
-                dt = getattr(raw, "type", None)
-            elif type_name.endswith("ParameterDeclarationSyntax"):
-                dt = getattr(raw, "type", None)
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        type_name = type(raw).__name__
+        dt = None
+        if type_name.endswith("AnsiPortSyntax") or type_name == "PortDeclarationSyntax":
+            header = getattr(raw, "header", None)
+            if header is not None:
+                dt = getattr(header, "dataType", None)
+        elif type_name.endswith("DataDeclarationSyntax") or type_name.endswith("NetDeclarationSyntax"):
+            dt = getattr(raw, "type", None)
+        elif type_name.endswith("ParameterDeclarationSyntax"):
+            dt = getattr(raw, "type", None)
 
-            if dt is not None:
-                kw = getattr(getattr(dt, "keyword", None), "valueText", None)
-                if kw in ("integer", "int"):
-                    return 32
-                if kw in ("time", "longint"):
-                    return 64
-                if kw in ("shortint",):
-                    return 16
-                if kw in ("byte",):
-                    return 8
-                if kw in ("logic", "bit", "reg", "wire") or type(dt).__name__ == "ImplicitTypeSyntax":
-                    return 1
-                break
+        if dt is not None:
+            kw = getattr(getattr(dt, "keyword", None), "valueText", None)
+            if kw in ("integer", "int"):
+                return 32
+            if kw in ("time", "longint"):
+                return 64
+            if kw in ("shortint",):
+                return 16
+            if kw in ("byte",):
+                return 8
+            if kw in ("logic", "bit", "reg", "wire") or type(dt).__name__ == "ImplicitTypeSyntax":
+                return 1
+            break
 
-    type_text = _declarator_owner_type_text(ctx)
-    width, _signed = type_text_width_and_signed(type_text)
-    return width
+    return None
 
 
 def declarator_is_signed(ctx: "Context") -> bool | None:
@@ -425,9 +402,7 @@ def declarator_is_signed(ctx: "Context") -> bool | None:
                 return False
             break
 
-    type_text = _declarator_owner_type_text(ctx)
-    _width, signed = type_text_width_and_signed(type_text)
-    return signed
+    return None
 
 
 def declarator_packed_range(ctx: "Context") -> tuple[int | None, int | None]:
@@ -447,15 +422,20 @@ def declarator_packed_range(ctx: "Context") -> tuple[int | None, int | None]:
                 lsb = evaluate_constant_expression(right, scope=scope)
                 if msb is not None and lsb is not None:
                     return msb, lsb
-    type_text = _declarator_owner_type_text(ctx)
-    return simple_packed_range(type_text)
+        return None, None
+
+    # When there are no packed dimensions, a declared scalar signal has implicit range (0, 0)
+    width = declarator_bit_width(ctx)
+    if width == 1:
+        return 0, 0
+    return None, None
 
 
 def clocking_declaration_signals(
     raw: object, tree: SyntaxTree | None = None
-) -> list[tuple[str, bool, bool, dict[str, object]]]:
+) -> list[tuple[str, bool, bool, dict[str, object] | None]]:
     """Extract (signal_name, is_input, is_output, location) for clocking declaration items."""
-    results: list[tuple[str, bool, bool, dict[str, object]]] = []
+    results: list[tuple[str, bool, bool, dict[str, object] | None]] = []
     if getattr(raw, "kind", None) != CLOCKING_DECLARATION_KIND:
         return results
 
@@ -480,7 +460,7 @@ def clocking_declaration_signals(
                 name = decl.name.valueText
             if not name:
                 continue
-            loc = node_location(decl, tree) if tree is not None else {"line": 0, "col": 0}
+            loc = node_location(decl, tree) if tree is not None else None
             results.append((name, is_input, is_output, loc))
 
     return results

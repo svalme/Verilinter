@@ -197,6 +197,7 @@ def _record_packages_from_symbol_table(
                     "value": symbol.value,
                     "bit_width": symbol.bit_width,
                     "is_signed": symbol.is_signed,
+                    "declarations": [dict(d) for d in symbol.declarations],
                 }
                 for symbol in scope.symbols.values()
                 if symbol.is_declared and not symbol.is_implicit
@@ -206,7 +207,11 @@ def _record_packages_from_symbol_table(
                     "name": child.name,
                     "kind": child.kind,
                     "formals": [
-                        {"name": s.name, "direction": s.port_direction}
+                        {
+                            "name": s.name,
+                            "direction": s.port_direction,
+                            "declarations": [dict(d) for d in s.declarations],
+                        }
                         for s in child.symbols.values()
                         if s.is_port
                     ],
@@ -312,7 +317,12 @@ def _seed_cross_file_packages(
                         pass
                 if symbol_data.get("is_signed") is not None:
                     symbol.is_signed = bool(symbol_data["is_signed"])
-                symbol.add_declaration({"line": 0, "col": 0, "file": entry["file"]})
+                decls = symbol_data.get("declarations")
+                if decls:
+                    for d in decls:
+                        symbol.add_declaration(dict(d))
+                else:
+                    symbol.add_declaration({"file": entry["file"]})
                 scope.define(symbol)
             for sub_data in entry.get("subroutines", []):
                 sub_scope = Scope(kind=str(sub_data.get("kind", "task")), name=str(sub_data.get("name", "")))
@@ -321,7 +331,12 @@ def _seed_cross_file_packages(
                     formal_sym = Symbol(name=str(f["name"]), kind="variable")
                     formal_sym.is_port = True
                     formal_sym.port_direction = f.get("direction")
-                    formal_sym.add_declaration({"line": 0, "col": 0, "file": entry["file"]})
+                    decls = f.get("declarations")
+                    if decls:
+                        for d in decls:
+                            formal_sym.add_declaration(dict(d))
+                    else:
+                        formal_sym.add_declaration({"file": entry["file"]})
                     sub_scope.define(formal_sym)
                 sub_scope.set_parent(scope)
             symbol_table.packages.setdefault(name, []).append(scope)
@@ -366,7 +381,7 @@ def _use_event_from_dict(data: dict[str, Any]) -> UseEvent:
     `branch_signature`/`loop_ids` -- a JSON round-trip (the SQLite cache path)
     decays a tuple to a list, but callers compare/hash these as tuples."""
     event: UseEvent = {
-        "location": data.get("location") or {"line": 0, "col": 0},
+        "location": data.get("location"),
         "read": bool(data.get("read", False)),
         "write": bool(data.get("write", False)),
     }
@@ -488,7 +503,7 @@ def _lint_single_tree(
                 {
                     "name": name,
                     "file": scope.file,
-                    "location": scope.location or {"line": 0, "col": 0},
+                    "location": scope.location,
                     "symbols": symbols,
                 }
             )

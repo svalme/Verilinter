@@ -103,29 +103,39 @@ def type_text_width_and_signed(type_text: str | None) -> tuple[int | None, bool 
     return simple_packed_width(type_text), bool(re.search(r"\bsigned\b", type_text))
 
 
-def node_location(raw: object, tree: SyntaxTree) -> dict[str, int | str]:
+def node_location(raw: object, tree: SyntaxTree | None) -> dict[str, int | str] | None:
     source_range = getattr(raw, "sourceRange", None)
     start = getattr(source_range, "start", None)
-    if start is None:
-        return {"line": 0, "col": 0}
-    sm = tree.sourceManager
-    return {
-        "line": sm.getLineNumber(start),
-        "col": sm.getColumnNumber(start),
-        "file": str(sm.getFileName(start)),
-    }
+    if start is None or tree is None:
+        return None
+    sm = getattr(tree, "sourceManager", None)
+    if sm is None:
+        return None
+    try:
+        return {
+            "line": sm.getLineNumber(start),
+            "col": sm.getColumnNumber(start),
+            "file": str(sm.getFileName(start)),
+        }
+    except Exception:
+        return None
 
 
-def token_location(raw: object, tree: SyntaxTree) -> dict[str, int | str]:
+def token_location(raw: object, tree: SyntaxTree | None) -> dict[str, int | str] | None:
     loc = getattr(raw, "location", None)
-    if not loc:
-        return {"line": 0, "col": 0}
-    sm = tree.sourceManager
-    return {
-        "line": sm.getLineNumber(loc),
-        "col": sm.getColumnNumber(loc),
-        "file": str(sm.getFileName(loc)),
-    }
+    if not loc or tree is None:
+        return None
+    sm = getattr(tree, "sourceManager", None)
+    if sm is None:
+        return None
+    try:
+        return {
+            "line": sm.getLineNumber(loc),
+            "col": sm.getColumnNumber(loc),
+            "file": str(sm.getFileName(loc)),
+        }
+    except Exception:
+        return None
 
 
 def token_raw_text(raw: object) -> str:

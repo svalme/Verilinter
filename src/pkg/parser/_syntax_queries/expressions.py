@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-import re
 from typing import TYPE_CHECKING
 
 from ..syntax_kinds import (
@@ -50,7 +49,7 @@ from ..syntax_kinds import (
 from ..types import SyntaxNode, SyntaxTree
 from .literals import constant_integer_value
 from .shapes import element_select_index_or_range
-from .shared import _split_top_level, identifier_name, simple_identifier_text, source_text_for_node
+from .shared import identifier_name
 
 
 def unwrap_parentheses(expr: object) -> object:
@@ -542,7 +541,10 @@ def simple_expression_width_and_signed(
         concat_node = unwrap_parentheses(getattr(expr, "concatenation", None))
         count = evaluate_constant_expression(count_node, scope=scope)
         if count is not None and concat_node is not None:
-            inner_width, _ = simple_expression_width_and_signed(scope, concat_node, tree)
+            if getattr(concat_node, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
+                inner_width = 32
+            else:
+                inner_width, _ = simple_expression_width_and_signed(scope, concat_node, tree)
             if inner_width is not None:
                 return count * inner_width, False
         return None, None
@@ -552,12 +554,6 @@ def simple_expression_width_and_signed(
         if left is not None:
             return simple_expression_width_and_signed(scope, left, tree)
         return None, None
-
-    # Fallback to source-text inference if AST shape was unrecognized or tree is provided
-    if tree is not None:
-        expr_text = source_text_for_node(expr, tree)
-        if expr_text is not None:
-            return _infer_text_width_and_signed_direct(scope, expr_text)
 
     return None, None
 
@@ -600,85 +596,16 @@ def natural_expression_width_and_signed(
     return simple_expression_width_and_signed(scope, expr, tree)
 
 
-def _concatenation_member_width(scope: object, member_text: str) -> int | None:
-    width, _signed = _infer_text_width_and_signed_direct(scope, member_text)
-    if width is None and re.match(r"\s*\d+\s*$", member_text):
-        return 32
-    return width
-
-
-def _infer_text_width_and_signed_direct(scope: object, expr_text: str) -> tuple[int | None, bool | None]:
-    simple_identifier = simple_identifier_text(expr_text)
-    if simple_identifier is not None and scope is not None:
-        symbol = _resolve_symbol_in_scope(scope, simple_identifier)
-        if symbol is not None:
-            return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
-
-    sized_literal = re.match(r"(?i)\s*(\d+)\s*'\s*[sS]?[bodhBODH][0-9a-f_xz?]+\s*$", expr_text)
-    if sized_literal is not None:
-        return int(sized_literal.group(1)), "'s" in expr_text.lower()
-
-    unsized_decimal = re.match(r"\s*\d+\s*$", expr_text)
-    if unsized_decimal is not None:
-        return None, False
-
-    bit_select = re.match(r"^(?P<base>[a-zA-Z_][a-zA-Z0-9_$]*)\s*\[\s*[^:\[\]]+\s*\]$", expr_text)
-    if bit_select is not None:
-        return 1, None
-
-    part_select = re.match(
-        r"^(?P<base>[a-zA-Z_][a-zA-Z0-9_$]*)\s*\[\s*(?P<left>-?\d+)\s*:\s*(?P<right>-?\d+)\s*\]$",
-        expr_text,
-    )
-    if part_select is not None:
-        return abs(int(part_select.group("left")) - int(part_select.group("right"))) + 1, None
-
-    indexed_part_select = re.match(
-        r"^(?P<base>[a-zA-Z_][a-zA-Z0-9_$]*)\s*\[\s*.+?\s*[+-]:\s*(?P<width>\d+)\s*\]$",
-        expr_text,
-    )
-    if indexed_part_select is not None:
-        return int(indexed_part_select.group("width")), None
-
-    if expr_text.startswith("{") and expr_text.endswith("}"):
-        inner = expr_text[1:-1].strip()
-        replication = re.match(r"^(?P<count>\d+)\s*\{(?P<body>.*)\}$", inner)
-        if replication is not None:
-            inner_width = _concatenation_member_width(scope, replication.group("body"))
-            if inner_width is None:
-                return None, None
-            return int(replication.group("count")) * inner_width, None
-
-        parts = _split_top_level(inner, ",")
-        if not parts:
-            return None, None
-        total = 0
-        for part in parts:
-            width = _concatenation_member_width(scope, part)
-            if width is None:
-                return None, None
-            total += width
-        return total, None
-
-    shift_match = re.match(r"^(?P<left>.+?)\s*(?:<<|>>|<<<|>>>)\s*(?P<right>.+?)$", expr_text)
-    if shift_match is not None:
-        left_text = shift_match.group("left").strip()
-        while left_text.startswith("(") and left_text.endswith(")"):
-            left_text = left_text[1:-1].strip()
-        return _infer_text_width_and_signed_direct(scope, left_text)
-
-    return None, None
-
-
 def evaluate_constant_text_expression(expr_text: str | None, scope: object = None) -> int | None:
-    """Parse an expression text string into a native pyslang CST/AST node and
-    constant-fold it against `scope`. Encapsulates pyslang syntax tree construction."""
+    """Parse an expression text string into a native CST/AST node and
+    constant-fold it against `scope`. Encapsulates syntax tree construction."""
     if not expr_text or not expr_text.strip():
         return None
     try:
-        import pyslang as sl
-        tree = sl.SyntaxTree.fromText(expr_text.strip())
-        if tree is None or tree.root is None:
+        from ..parse import parse_text
+
+        tree = parse_text(expr_text.strip())
+        if tree is None or getattr(tree, "root", None) is None:
             return None
         return evaluate_constant_expression(tree.root, scope=scope)
     except Exception:

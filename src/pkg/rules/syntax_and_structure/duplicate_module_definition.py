@@ -22,7 +22,7 @@ class DuplicateModuleDefinitionRule(BaseSymbolRule):
             first_file = first.location.get("file") if first.location else first.file
 
             for scope in scopes[1:]:
-                loc = scope.location or {"line": 0, "col": 0}
+                loc = scope.location or {}
                 diagnostic = {
                     "code": self.code,
                     "line": loc.get("line", 0),
@@ -31,6 +31,8 @@ class DuplicateModuleDefinitionRule(BaseSymbolRule):
                 }
                 if "file" in loc:
                     diagnostic["file"] = loc["file"]
+                elif scope.file:
+                    diagnostic["file"] = scope.file
                 diagnostics.append(diagnostic)
 
         return diagnostics

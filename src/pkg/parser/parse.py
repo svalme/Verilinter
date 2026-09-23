@@ -1,13 +1,11 @@
 import hashlib
-import re
 from pathlib import Path
 from typing import Any
 
 import pyslang as sl
 
+from .syntax_kinds import DEFAULT_NETTYPE_DIRECTIVE_KIND
 from .types import SyntaxTree
-
-DEFAULT_NETTYPE_NONE_RE = re.compile(r"^\s*`default_nettype\s+none\b", re.MULTILINE)
 
 
 def parse_file(
@@ -79,12 +77,41 @@ def extract_header_dependencies(tree: SyntaxTree) -> list[dict[str, str]]:
     return dependencies
 
 
+def tree_uses_default_nettype_none(tree: SyntaxTree | None) -> bool:
+    if tree is None:
+        return False
+    root = getattr(tree, "root", None)
+    if root is None:
+        return False
+    tok = getattr(root, "getFirstToken", lambda: None)()
+    end_of_file = getattr(sl.TokenKind, "EndOfFile", None)
+    while tok is not None and getattr(tok, "kind", None) != end_of_file:
+        for tr in getattr(tok, "trivia", ()):
+            syn = getattr(tr, "syntax", None)
+            if callable(syn):
+                syn = syn()
+            if getattr(syn, "kind", None) == DEFAULT_NETTYPE_DIRECTIVE_KIND:
+                net_type = getattr(syn, "netType", None)
+                if str(net_type).strip() == "none":
+                    return True
+        tok = tok.getNextToken()
+    return False
+
+
 def text_uses_default_nettype_none(text: str) -> bool:
-    return bool(DEFAULT_NETTYPE_NONE_RE.search(text))
+    try:
+        tree = parse_text(text)
+        return tree_uses_default_nettype_none(tree)
+    except Exception:
+        return False
 
 
-def file_uses_default_nettype_none(path: str) -> bool:
-    return text_uses_default_nettype_none(Path(path).read_text(encoding="utf-8", errors="replace"))
+def file_uses_default_nettype_none(path: str | Path) -> bool:
+    try:
+        tree = parse_file(str(path))
+        return tree_uses_default_nettype_none(tree)
+    except Exception:
+        return False
 
 
 def extract_parse_diagnostics(tree: SyntaxTree, default_file: str) -> list[dict[str, Any]]:

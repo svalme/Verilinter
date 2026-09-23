@@ -19,12 +19,13 @@ class BaseDiagnostic(ABC):
     overlaps_with: tuple[str, ...] = ()
 
     def report(self, vnode: BaseVNode) -> dict[str, Any]:
+        loc = vnode.location or {}
         diagnostic: dict[str, Any] = {
             "code": self.code,
-            "line": vnode.location["line"],
-            "col": vnode.location["col"],
+            "line": loc.get("line", 0),
+            "col": loc.get("col", 0),
             "message": self.message,
         }
-        if "file" in vnode.location:
-            diagnostic["file"] = vnode.location["file"]
+        if "file" in loc:
+            diagnostic["file"] = loc["file"]
         return diagnostic

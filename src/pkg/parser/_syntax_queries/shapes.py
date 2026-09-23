@@ -2,7 +2,13 @@
 of continuous assignments, procedural assignments, and declarator
 initializers, plus element-select (bit/part-select) decoding."""
 
-from ..syntax_kinds import BIT_SELECT_KIND, RANGE_SELECT_KINDS
+from ..syntax_kinds import (
+    ASCENDING_RANGE_SELECT_KIND,
+    BIT_SELECT_KIND,
+    DESCENDING_RANGE_SELECT_KIND,
+    RANGE_SELECT_KINDS,
+    SIMPLE_RANGE_SELECT_KIND,
+)
 from ..types import IdentifierSelectNameNode, SyntaxNode
 from .declarators import (
     declarator_has_initializer,
@@ -46,11 +52,14 @@ def element_select_index_or_range(
         right = getattr(inner, "right", None)
         if not isinstance(left, SyntaxNode) or not isinstance(right, SyntaxNode):
             return None
-        shape = {
-            "SimpleRangeSelect": "simple_range",
-            "AscendingRangeSelect": "ascending",
-            "DescendingRangeSelect": "descending",
-        }.get(str(inner_kind).rsplit(".", 1)[-1])
+        if inner_kind == SIMPLE_RANGE_SELECT_KIND:
+            shape = "simple_range"
+        elif inner_kind == ASCENDING_RANGE_SELECT_KIND:
+            shape = "ascending"
+        elif inner_kind == DESCENDING_RANGE_SELECT_KIND:
+            shape = "descending"
+        else:
+            shape = None
         return (shape, (left, right)) if shape is not None else None
     return None
 

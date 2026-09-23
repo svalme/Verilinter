@@ -15,7 +15,7 @@ class ParameterOverride(Mapping[str, Any]):
     """
 
     kind: str  # "named", "ordered"
-    location: dict[str, Any] = field(default_factory=lambda: {"line": 0, "col": 0})
+    location: dict[str, Any] | None = None
     param_name: str | None = None
     expr_text: str | None = None
     expr_value: int | None = None
@@ -25,7 +25,7 @@ class ParameterOverride(Mapping[str, Any]):
     def to_dict(self) -> dict[str, Any]:
         return {
             "kind": self.kind,
-            "location": dict(self.location),
+            "location": dict(self.location) if self.location is not None else None,
             "param_name": self.param_name,
             "expr_text": self.expr_text,
             "expr_value": self.expr_value,
@@ -35,9 +35,11 @@ class ParameterOverride(Mapping[str, Any]):
     def from_dict(cls, data: Mapping[str, Any] | ParameterOverride) -> ParameterOverride:
         if isinstance(data, ParameterOverride):
             return data
+        raw_loc = data.get("location")
+        loc = dict(raw_loc) if raw_loc is not None else None
         return cls(
             kind=str(data.get("kind", "ordered")),
-            location=dict(data.get("location", {"line": 0, "col": 0})),
+            location=loc,
             param_name=data.get("param_name"),
             expr_text=data.get("expr_text"),
             expr_value=data.get("expr_value") if isinstance(data.get("expr_value"), int) else None,

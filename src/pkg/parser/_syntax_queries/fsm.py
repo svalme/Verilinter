@@ -9,6 +9,7 @@ documented gap, consistent with why `UNREACHABLE_STATE`/`DEADLOCK_STATE`
 aren't attempted at all yet.
 """
 
+from ..syntax_kinds import NONBLOCKING_ASSIGNMENT_KIND
 from .shared import identifier_name
 
 
@@ -47,7 +48,7 @@ def is_state_register_case(raw: object, ctx: "Context") -> bool:
 
     for node in iter_assignment_nodes(block.raw):
         if (
-            str(getattr(node, "kind", "")) == "SyntaxKind.NonblockingAssignmentExpression"
+            getattr(node, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
             and assignment_target_identifier_name(node) == name
         ):
             return True

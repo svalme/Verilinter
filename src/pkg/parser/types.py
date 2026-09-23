@@ -46,6 +46,11 @@ IfGenerateNode: TypeAlias = sl.IfGenerateSyntax
 CaseStatementNode: TypeAlias = sl.CaseStatementSyntax
 DefaultCaseItemNode: TypeAlias = sl.DefaultCaseItemSyntax
 
+DataTypeNode: TypeAlias = sl.DataTypeSyntax
+FunctionPortNode: TypeAlias = sl.FunctionPortSyntax
+ArgumentListNode: TypeAlias = sl.ArgumentListSyntax
+OrderedArgumentNode: TypeAlias = sl.OrderedArgumentSyntax
+NamedArgumentNode: TypeAlias = sl.NamedArgumentSyntax
 HierarchyInstantiationNode: TypeAlias = sl.HierarchyInstantiationSyntax
 HierarchicalInstanceNode: TypeAlias = sl.HierarchicalInstanceSyntax
 PortDeclarationNode: TypeAlias = sl.PortDeclarationSyntax
@@ -54,15 +59,18 @@ SystemNameNode: TypeAlias = sl.SystemNameSyntax
 ClockingDeclarationNode: TypeAlias = sl.ClockingDeclarationSyntax
 
 __all__ = [
+    "ArgumentListNode",
     "BinaryEventExpressionNode",
     "CaseGenerateNode",
     "CaseStatementNode",
     "ClockingDeclarationNode",
+    "DataTypeNode",
     "DeclaratorNode",
     "DefaultCaseItemNode",
     "ForLoopStatementNode",
     "ForwardTypedefDeclarationNode",
     "FunctionDeclarationNode",
+    "FunctionPortNode",
     "StructUnionTypeNode",
     "LoopGenerateNode",
     "HierarchicalInstanceNode",
@@ -72,8 +80,9 @@ __all__ = [
     "IdentifierSelectNameNode",
     "IfGenerateNode",
     "ImplicitEventControlNode",
-    "LoopGenerateNode",
     "ModuleDeclarationNode",
+    "NamedArgumentNode",
+    "OrderedArgumentNode",
     "PackageImportDeclarationNode",
     "ParenthesizedEventExpressionNode",
     "PortDeclarationNode",

@@ -17,7 +17,7 @@ class MultipleInstanceDriverConflictRule(BaseSymbolRule):
         for inst, port_name, signal_name, first_inst, first_port_name in multiple_instance_driver_conflicts(
             symbol_table
         ):
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

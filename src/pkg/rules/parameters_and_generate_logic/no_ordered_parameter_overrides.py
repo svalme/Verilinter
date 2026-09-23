@@ -17,7 +17,7 @@ class NoOrderedParameterOverridesRule(BaseSymbolRule):
         for inst in symbol_table.instantiations:
             if not has_ordered_parameter_overrides(inst):
                 continue
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

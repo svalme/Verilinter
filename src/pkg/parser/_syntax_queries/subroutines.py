@@ -1,9 +1,26 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-import pyslang as sl
 
-from ..syntax_kinds import INVOCATION_EXPRESSION_KIND
+from ..syntax_kinds import (
+    ARGUMENT_LIST_KIND,
+    ASCENDING_RANGE_SELECT_KIND,
+    BIT_SELECT_KIND,
+    DESCENDING_RANGE_SELECT_KIND,
+    ELEMENT_SELECT_KIND,
+    FUNCTION_DECLARATION_KIND,
+    FUNCTION_PORT_KIND,
+    INVOCATION_EXPRESSION_KIND,
+    MODULE_DECLARATION_KIND,
+    NAMED_ARGUMENT_KIND,
+    ORDERED_ARGUMENT_KIND,
+    PACKAGE_DECLARATION_KIND,
+    SCOPED_NAME_KIND,
+    SIMPLE_RANGE_SELECT_KIND,
+    SYSTEM_NAME_KIND,
+    TASK_DECLARATION_KIND,
+)
+from ..types import SyntaxNode
 from .package_scoping import scoped_name_package_qualifier
 from .shared import identifier_name
 
@@ -12,11 +29,11 @@ if TYPE_CHECKING:
     from ...walk.context import Context
 
 _SELECTOR_KINDS = (
-    sl.SyntaxKind.BitSelect,
-    sl.SyntaxKind.SimpleRangeSelect,
-    sl.SyntaxKind.AscendingRangeSelect,
-    sl.SyntaxKind.DescendingRangeSelect,
-    sl.SyntaxKind.ElementSelect,
+    BIT_SELECT_KIND,
+    SIMPLE_RANGE_SELECT_KIND,
+    ASCENDING_RANGE_SELECT_KIND,
+    DESCENDING_RANGE_SELECT_KIND,
+    ELEMENT_SELECT_KIND,
 )
 
 
@@ -36,7 +53,7 @@ def extract_formals_from_subroutine_syntax(node: object) -> list[tuple[str, str]
     result: list[tuple[str, str]] = []
     direction = "input"
     for p in ports:
-        if isinstance(p, sl.SyntaxNode) and type(p).__name__ == "FunctionPortSyntax":
+        if getattr(p, "kind", None) == FUNCTION_PORT_KIND:
             d_token = getattr(p, "direction", None)
             d_str = str(d_token).strip() if d_token is not None else ""
             if d_str in ("input", "output", "inout", "ref"):
@@ -50,7 +67,7 @@ def extract_formals_from_subroutine_syntax(node: object) -> list[tuple[str, str]
 
 def _find_subroutine_in_container_syntax(container: object, callee_name: str) -> object | None:
     for m in getattr(container, "members", ()):
-        if getattr(m, "kind", None) in (sl.SyntaxKind.TaskDeclaration, sl.SyntaxKind.FunctionDeclaration):
+        if getattr(m, "kind", None) in (TASK_DECLARATION_KIND, FUNCTION_DECLARATION_KIND):
             proto = getattr(m, "prototype", None)
             name = identifier_name(getattr(proto, "name", None)) or str(getattr(proto, "name", "")).strip()
             if name == callee_name:
@@ -68,7 +85,7 @@ def subroutine_formal_direction(
     """
     node = raw
     parent = getattr(node, "parent", None)
-    while parent is not None and type(parent).__name__ not in ("OrderedArgumentSyntax", "NamedArgumentSyntax"):
+    while parent is not None and getattr(parent, "kind", None) not in (ORDERED_ARGUMENT_KIND, NAMED_ARGUMENT_KIND):
         node = parent
         parent = getattr(parent, "parent", None)
     if parent is None:
@@ -76,7 +93,7 @@ def subroutine_formal_direction(
 
     arg_node = parent
     arg_list = getattr(arg_node, "parent", None)
-    if type(arg_list).__name__ != "ArgumentListSyntax":
+    if getattr(arg_list, "kind", None) != ARGUMENT_LIST_KIND:
         return None
 
     invocation = getattr(arg_list, "parent", None)
@@ -84,7 +101,7 @@ def subroutine_formal_direction(
         return None
 
     callee = getattr(invocation, "left", None)
-    if callee is None or getattr(callee, "kind", None) == sl.SyntaxKind.SystemName:
+    if callee is None or getattr(callee, "kind", None) == SYSTEM_NAME_KIND:
         return None
 
     # If raw is inside an index or range selector of the argument, it is an input index read
@@ -98,7 +115,7 @@ def subroutine_formal_direction(
     # Determine callee name and optional package qualifier
     package_qualifier: str | None = None
     callee_name: str
-    if getattr(callee, "kind", None) == sl.SyntaxKind.ScopedName:
+    if getattr(callee, "kind", None) == SCOPED_NAME_KIND:
         package_qualifier = scoped_name_package_qualifier(callee) or identifier_name(getattr(callee, "left", None))
         callee_name = identifier_name(getattr(callee, "right", None)) or str(callee.right).strip()
     else:
@@ -160,7 +177,7 @@ def subroutine_formal_direction(
             while getattr(root, "parent", None) is not None:
                 root = root.parent
             for m in getattr(root, "members", ()):
-                if getattr(m, "kind", None) == sl.SyntaxKind.PackageDeclaration:
+                if getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND:
                     pkg_name = identifier_name(getattr(m.header, "name", None)) or str(m.header.name).strip()
                     if pkg_name == package_qualifier:
                         sub = _find_subroutine_in_container_syntax(m, callee_name)
@@ -171,8 +188,8 @@ def subroutine_formal_direction(
             # Search in enclosing module/package members
             container = invocation
             while container is not None and getattr(container, "kind", None) not in (
-                sl.SyntaxKind.ModuleDeclaration,
-                sl.SyntaxKind.PackageDeclaration,
+                MODULE_DECLARATION_KIND,
+                PACKAGE_DECLARATION_KIND,
             ):
                 container = getattr(container, "parent", None)
             if container is not None:
@@ -191,7 +208,7 @@ def subroutine_formal_direction(
                         while getattr(root, "parent", None) is not None:
                             root = root.parent
                         for m in getattr(root, "members", ()):
-                            if getattr(m, "kind", None) == sl.SyntaxKind.PackageDeclaration:
+                            if getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND:
                                 p_name = identifier_name(getattr(m.header, "name", None)) or str(m.header.name).strip()
                                 if p_name == pkg_name:
                                     sub = _find_subroutine_in_container_syntax(m, callee_name)
@@ -206,13 +223,13 @@ def subroutine_formal_direction(
         return None
 
     # Match argument position or name to formal direction
-    if type(arg_node).__name__ == "OrderedArgumentSyntax":
-        ordered_args = [a for a in getattr(arg_list, "parameters", ()) if type(a).__name__ == "OrderedArgumentSyntax"]
+    if getattr(arg_node, "kind", None) == ORDERED_ARGUMENT_KIND:
+        ordered_args = [a for a in getattr(arg_list, "parameters", ()) if getattr(a, "kind", None) == ORDERED_ARGUMENT_KIND]
         if arg_node in ordered_args:
             idx = ordered_args.index(arg_node)
             if idx < len(formals):
                 return formals[idx][1]
-    elif type(arg_node).__name__ == "NamedArgumentSyntax":
+    elif getattr(arg_node, "kind", None) == NAMED_ARGUMENT_KIND:
         arg_name = str(getattr(getattr(arg_node, "name", None), "value", "") or getattr(arg_node, "name", "")).strip()
         for f_name, f_dir in formals:
             if f_name == arg_name:

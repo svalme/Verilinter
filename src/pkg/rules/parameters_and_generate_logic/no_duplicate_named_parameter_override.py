@@ -18,7 +18,7 @@ class NoDuplicateNamedParameterOverrideRule(BaseSymbolRule):
             duplicates = duplicate_named_parameter_override_names(inst)
             if not duplicates:
                 continue
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

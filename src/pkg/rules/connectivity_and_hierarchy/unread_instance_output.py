@@ -15,7 +15,7 @@ class UnreadInstanceOutputRule(BaseSymbolRule):
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
         for inst in symbol_table.instantiations:
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             for port_name, signal_name in unread_instance_output_details(symbol_table, inst):
                 diagnostics.append(
                     {

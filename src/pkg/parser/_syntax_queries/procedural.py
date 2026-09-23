@@ -3,7 +3,11 @@ from collections.abc import Iterator
 from ..syntax_kinds import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_FF_BLOCK_KIND,
+    CASE_ITEM_KINDS,
+    CASE_STATEMENT_KIND,
+    EXPRESSION_STATEMENT_KIND,
     INVOCATION_EXPRESSION_KIND,
+    NONBLOCKING_ASSIGNMENT_KIND,
     SIMPLE_ASSIGNMENT_KINDS,
     TIMING_CONTROL_STATEMENT_KIND,
 )
@@ -637,7 +641,7 @@ def _enclosing_statement_parent(node: object) -> object:
     never spuriously matches another write.
     """
     stmt = node
-    while stmt is not None and str(getattr(stmt, "kind", "")) != "SyntaxKind.ExpressionStatement":
+    while stmt is not None and getattr(stmt, "kind", None) != EXPRESSION_STATEMENT_KIND:
         stmt = getattr(stmt, "parent", None)
     if stmt is None:
         return object()
@@ -660,7 +664,7 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
     for node in iter_assignment_nodes(block_raw):
         if getattr(node, "kind", None) not in SIMPLE_ASSIGNMENT_KINDS:
             continue
-        if str(getattr(node, "kind", "")) != "SyntaxKind.NonblockingAssignmentExpression":
+        if getattr(node, "kind", None) != NONBLOCKING_ASSIGNMENT_KIND:
             continue
         name = assignment_target_identifier_name(node)
         if name is None:
@@ -725,8 +729,7 @@ def branch_exclusivity_signature(raw: object, tree: SyntaxTree | None = None) ->
     workers, and persistent cache storage.
     """
     from ..syntax_queries import is_conditional_statement, is_else_clause_node
-    from .node_kind_checks import is_if_generate_node, is_case_generate_node
-    import pyslang as sl
+    from .node_kind_checks import is_case_generate_node, is_if_generate_node
 
     signature: list[tuple[str, int]] = []
     node = raw
@@ -742,12 +745,12 @@ def branch_exclusivity_signature(raw: object, tree: SyntaxTree | None = None) ->
                 primary = getattr(parent, "block", None)
             if node is primary:
                 signature.append((_construct_identity(parent, tree), 0))
-        elif isinstance(parent, sl.CaseItemSyntax):
+        elif getattr(parent, "kind", None) in CASE_ITEM_KINDS:
             clause = getattr(parent, "clause", None)
             if node is clause:
                 construct = getattr(parent, "parent", None)
                 if construct is not None and (
-                    isinstance(construct, sl.CaseStatementSyntax) or is_case_generate_node(construct)
+                    getattr(construct, "kind", None) == CASE_STATEMENT_KIND or is_case_generate_node(construct)
                 ):
                     items = getattr(construct, "items", ())
                     branch_idx = next((i for i, it in enumerate(items) if it is parent), -1)

@@ -16,7 +16,7 @@ class NoMixedPortConnectionStyleRule(BaseSymbolRule):
         for inst in symbol_table.instantiations:
             if inst.get("connection_style") != "mixed":
                 continue
-            loc = dict(inst.get("location", {"line": 0, "col": 0}))
+            loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {
                     "code": self.code,

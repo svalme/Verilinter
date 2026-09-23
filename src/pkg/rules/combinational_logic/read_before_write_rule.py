@@ -107,11 +107,11 @@ class ReadBeforeWriteRule(BaseSymbolRule):
         return None
 
     def _diagnostic(self, sym: Symbol, event: UseEvent) -> dict[str, Any]:
-        loc = event["location"]
+        loc = event.get("location") or {}
         diagnostic: dict[str, Any] = {
             "code": self.code,
-            "line": loc["line"],
-            "col": loc["col"],
+            "line": loc.get("line", 0),
+            "col": loc.get("col", 0),
             "message": f"Variable '{sym.name}' read before write",
         }
         if "file" in loc:

@@ -3,7 +3,13 @@ for declarator initializers and procedural/continuous assignments."""
 
 import re
 
-from ..syntax_kinds import REAL_LITERAL_EXPRESSION_KIND, REAL_TYPE_KINDS, TIME_LITERAL_EXPRESSION_KIND
+from ..syntax_kinds import (
+    CONCATENATION_EXPRESSION_KIND,
+    INVOCATION_EXPRESSION_KIND,
+    REAL_LITERAL_EXPRESSION_KIND,
+    REAL_TYPE_KINDS,
+    TIME_LITERAL_EXPRESSION_KIND,
+)
 
 
 def is_fractional_time_literal(text: str, timescale_unit_scale: float = 1e-9) -> bool:
@@ -91,10 +97,21 @@ def assignment_is_implicit_real_conversion(raw: object) -> bool:
         text = str(right).strip()
         return is_fractional_time_literal(text)
 
-    right_str = str(right)
-    if "$signed(" in right_str or "$unsigned(" in right_str or right_str.startswith("{"):
-        for child in getattr(right, "raw_children", getattr(right, "children", [])):
-            if getattr(child, "kind", None) == REAL_LITERAL_EXPRESSION_KIND:
+    if right_kind == INVOCATION_EXPRESSION_KIND:
+        from .shared import identifier_name
+
+        callee = getattr(right, "left", None)
+        name = identifier_name(callee) or str(callee).strip() if callee is not None else ""
+        if name in ("$signed", "$unsigned"):
+            args = getattr(getattr(right, "arguments", None), "parameters", []) or []
+            for arg in args:
+                arg_expr = getattr(arg, "expr", arg)
+                if getattr(arg_expr, "kind", None) == REAL_LITERAL_EXPRESSION_KIND:
+                    return True
+
+    if right_kind == CONCATENATION_EXPRESSION_KIND:
+        for member in getattr(right, "expressions", []) or []:
+            if getattr(member, "kind", None) == REAL_LITERAL_EXPRESSION_KIND:
                 return True
 
     return False

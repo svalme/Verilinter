@@ -4,8 +4,15 @@ from dataclasses import asdict
 
 import pytest
 
-from src.pkg.engine import WorkerResult, _worker_result_from_payload
+from src.pkg.engine import (
+    WorkerResult,
+    _record_packages_from_symbol_table,
+    _seed_cross_file_packages,
+    _worker_result_from_payload,
+)
 from src.pkg.semantic.models import InstanceRecord, ParameterOverride, PortConnection
+from src.pkg.semantic.scope import Scope
+from src.pkg.semantic.symbol import Symbol
 from src.pkg.semantic.symbol_table import SymbolTable
 
 
@@ -31,7 +38,7 @@ class TestPortConnection:
     def test_default_values(self) -> None:
         conn = PortConnection(kind="empty")
         assert conn.kind == "empty"
-        assert conn.location == {"line": 0, "col": 0}
+        assert conn.location is None
         assert conn.port_name is None
         assert conn.expr_text is None
         assert conn.expr_name is None
@@ -113,8 +120,29 @@ class TestParameterOverride:
         assert reconstructed == override
         assert ParameterOverride.from_dict(reconstructed) is reconstructed
 
+    def test_default_values(self) -> None:
+        override = ParameterOverride(kind="empty")
+        assert override.kind == "empty"
+        assert override.location is None
+        assert override.param_name is None
+        assert override.expr_text is None
+        assert override.expr_value is None
+
 
 class TestInstanceRecord:
+    def test_default_values(self) -> None:
+        inst = InstanceRecord(
+            parent_module="top",
+            child_module="sub",
+            instance_name="u_sub",
+            connection_style="empty",
+        )
+        assert inst.location is None
+        assert inst.connections == []
+        assert inst.parameter_overrides == []
+        assert inst.parameter_override_style == "none"
+        assert inst.generate_branch_signature == ()
+
     def test_construction_and_typed_attributes(self) -> None:
         conn = PortConnection(kind="named", port_name="a", expr_text="x")
         param = ParameterOverride(kind="named", param_name="P")
@@ -260,3 +288,50 @@ class TestSymbolTableAndWorkerResultIntegration:
         assert reconstructed_inst.instance_name == "u_sub"
         assert isinstance(reconstructed_inst.connections[0], PortConnection)
         assert reconstructed_inst.connections[0].port_name == "clk"
+
+    def test_cross_file_package_declarations_preserved(self) -> None:
+        st = SymbolTable()
+        pkg_scope = Scope(kind="package", name="my_pkg")
+        pkg_scope.file = "pkg.sv"
+        st.register_package("my_pkg", pkg_scope)
+
+        sym = Symbol("DATA_WIDTH", "parameter")
+        sym.value = 32
+        sym.add_declaration({"line": 12, "col": 15, "file": "pkg.sv"})
+        pkg_scope.define(sym)
+
+        task_scope = Scope(kind="task", name="do_reset")
+        task_scope.file = "pkg.sv"
+        formal = Symbol("rst_n", "variable")
+        formal.is_port = True
+        formal.port_direction = "input"
+        formal.add_declaration({"line": 25, "col": 10, "file": "pkg.sv"})
+        task_scope.define(formal)
+        task_scope.set_parent(pkg_scope)
+
+        registry: dict[str, list[dict[str, Any]]] = {}
+        _record_packages_from_symbol_table("pkg.sv", st, registry)
+
+        # Verify recorded registry contains real declarations
+        assert "my_pkg" in registry
+        pkg_entry = registry["my_pkg"][0]
+        assert pkg_entry["symbols"][0]["declarations"] == [{"line": 12, "col": 15, "file": "pkg.sv"}]
+        assert pkg_entry["subroutines"][0]["formals"][0]["declarations"] == [
+            {"line": 25, "col": 10, "file": "pkg.sv"}
+        ]
+
+        # Re-seed into a fresh symbol table for another file
+        new_st = SymbolTable()
+        _seed_cross_file_packages(new_st, registry, current_file="top.sv")
+
+        reseeded_pkg = new_st.packages["my_pkg"][0]
+        reseeded_sym = reseeded_pkg.lookup("DATA_WIDTH")
+        assert reseeded_sym is not None
+        assert reseeded_sym.is_declared
+        assert reseeded_sym.declarations == [{"line": 12, "col": 15, "file": "pkg.sv"}]
+
+        reseeded_task = next(child for child in reseeded_pkg.children if child.name == "do_reset")
+        reseeded_formal = reseeded_task.lookup("rst_n")
+        assert reseeded_formal is not None
+        assert reseeded_formal.is_declared
+        assert reseeded_formal.declarations == [{"line": 25, "col": 10, "file": "pkg.sv"}]

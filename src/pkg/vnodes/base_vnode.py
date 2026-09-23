@@ -4,10 +4,10 @@ from typing import TypedDict, NotRequired
 from ..parser.types import RawNode, SyntaxTree
 
 
-class Location(TypedDict):
+class Location(TypedDict, total=False):
     line: int
     col: int
-    file: NotRequired[str]
+    file: str
 
 
 class BaseVNode(ABC):
@@ -19,8 +19,8 @@ class BaseVNode(ABC):
     def snippet(self) -> str: ...
 
     @property
-    def location(self) -> Location:
-        return {"line": 0, "col": 0}
+    def location(self) -> Location | None:
+        return None
 
     @property
     def raw_children(self) -> list[RawNode]:

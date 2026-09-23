@@ -1,7 +1,6 @@
-from pathlib import Path, PurePath
-import re
+from pathlib import PurePath
 
-from ..syntax_kinds import COMPILATION_UNIT_KIND, MODULE_DECLARATION_KIND
+from ..syntax_kinds import COMPILATION_UNIT_KIND, MODULE_DECLARATION_KIND, TIMESCALE_DIRECTIVE_KIND
 from ..types import SyntaxTree
 
 
@@ -95,24 +94,45 @@ def is_extra_module_declaration_in_file(raw: object, tree: SyntaxTree) -> bool:
     return False
 
 
-TIMESCALE_DIRECTIVE_RE = re.compile(r"`timescale\b")
+def _has_timescale_in_trivia(tok: object) -> bool:
+    if tok is None:
+        return False
+    trivia_list = getattr(tok, "trivia", None)
+    if not trivia_list:
+        return False
+    for tr in trivia_list:
+        syn = getattr(tr, "syntax", None)
+        if callable(syn):
+            syn = syn()
+        if getattr(syn, "kind", None) == TIMESCALE_DIRECTIVE_KIND:
+            return True
+    return False
 
 
 def has_timescale_directive_before(raw: object, tree: SyntaxTree) -> bool:
-    source_range = getattr(raw, "sourceRange", None)
-    start = getattr(source_range, "start", None)
-    if start is None:
+    if tree is None:
         return False
-    try:
-        source = tree.sourceManager.getSourceText(start.buffer)
-    except (UnicodeDecodeError, Exception):
-        source_manager = getattr(tree, "sourceManager", None)
-        full_path = source_manager.getFullPath(start.buffer) if source_manager else None
-        if full_path and Path(full_path).is_file():
-            source = Path(full_path).read_text(encoding="utf-8", errors="replace")
-        else:
-            return False
-    return TIMESCALE_DIRECTIVE_RE.search(source[: start.offset]) is not None
+    root = getattr(tree, "root", None)
+    if root is None:
+        return False
+
+    first_tok = getattr(root, "getFirstToken", lambda: None)()
+    if _has_timescale_in_trivia(first_tok):
+        return True
+
+    if getattr(root, "kind", None) == COMPILATION_UNIT_KIND:
+        for member in getattr(root, "members", None) or []:
+            mem_tok = getattr(member, "getFirstToken", lambda: None)()
+            if _has_timescale_in_trivia(mem_tok):
+                return True
+            if member is raw:
+                break
+
+    raw_tok = getattr(raw, "getFirstToken", lambda: None)()
+    if _has_timescale_in_trivia(raw_tok):
+        return True
+
+    return False
 
 
 def is_missing_timescale_directive(raw: object, tree: SyntaxTree) -> bool:
