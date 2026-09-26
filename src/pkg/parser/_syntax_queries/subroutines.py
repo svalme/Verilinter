@@ -83,12 +83,17 @@ def subroutine_formal_direction(
     If `raw` is inside a selector expression (e.g. index `idx` in `arr[idx]`), returns "input".
     If `raw` is not a subroutine argument or the subroutine cannot be resolved, returns None.
     """
+    if not isinstance(raw, SyntaxNode):
+        return None
+
     node = raw
     parent = getattr(node, "parent", None)
-    while parent is not None and getattr(parent, "kind", None) not in (ORDERED_ARGUMENT_KIND, NAMED_ARGUMENT_KIND):
+    depth = 0
+    while parent is not None and getattr(parent, "kind", None) not in (ORDERED_ARGUMENT_KIND, NAMED_ARGUMENT_KIND) and depth < 64:
+        depth += 1
         node = parent
         parent = getattr(parent, "parent", None)
-    if parent is None:
+    if parent is None or depth >= 64:
         return None
 
     arg_node = parent
@@ -106,7 +111,9 @@ def subroutine_formal_direction(
 
     # If raw is inside an index or range selector of the argument, it is an input index read
     check_node = raw
-    while check_node is not None and check_node is not arg_node:
+    check_depth = 0
+    while check_node is not None and check_node is not arg_node and check_depth < 64:
+        check_depth += 1
         p = getattr(check_node, "parent", None)
         if p is not None and getattr(p, "kind", None) in _SELECTOR_KINDS:
             return "input"
@@ -140,45 +147,50 @@ def subroutine_formal_direction(
                     break
     else:
         # Search from current scope upwards (module, block, etc.)
-        scope = ctx.scope()
-        while scope is not None and formals is None:
-            for child in scope.children:
-                if child.kind in ("task", "function") and child.name == callee_name:
+        scope = getattr(ctx, "scope", lambda: None)()
+        scope_depth = 0
+        while scope is not None and formals is None and scope_depth < 64:
+            scope_depth += 1
+            for child in getattr(scope, "children", ()):
+                if getattr(child, "kind", None) in ("task", "function") and getattr(child, "name", None) == callee_name:
                     formals = [
                         (s.name, s.port_direction or "input")
-                        for s in child.symbols.values()
-                        if s.is_port and s.name != child.name
+                        for s in getattr(child, "symbols", {}).values()
+                        if getattr(s, "is_port", False) and getattr(s, "name", None) != child.name
                     ]
                     break
             # Also check imported packages for this scope
-            for pkg_name, imported_name in scope.imports:
+            for pkg_name, imported_name in getattr(scope, "imports", ()):
                 if imported_name is not None and imported_name != callee_name:
                     continue
-                for pkg_scope in symbol_table.packages.get(pkg_name, ()):
-                    for child in pkg_scope.children:
-                        if child.kind in ("task", "function") and child.name == callee_name:
+                for pkg_scope in getattr(symbol_table, "packages", {}).get(pkg_name, ()):
+                    for child in getattr(pkg_scope, "children", ()):
+                        if getattr(child, "kind", None) in ("task", "function") and getattr(child, "name", None) == callee_name:
                             formals = [
                                 (s.name, s.port_direction or "input")
-                                for s in child.symbols.values()
-                                if s.is_port and s.name != child.name
+                                for s in getattr(child, "symbols", {}).values()
+                                if getattr(s, "is_port", False) and getattr(s, "name", None) != child.name
                             ]
                             break
                     if formals is not None:
                         break
                 if formals is not None:
                     break
-            scope = scope.parent
+            scope = getattr(scope, "parent", None)
 
     # 2. If not found in SymbolTable (e.g. forward-called subroutine declared later in source), query AST
     if formals is None:
         if package_qualifier is not None:
             # Look for package declaration in tree root
             root = invocation
-            while getattr(root, "parent", None) is not None:
+            root_depth = 0
+            while getattr(root, "parent", None) is not None and root_depth < 64:
+                root_depth += 1
                 root = root.parent
             for m in getattr(root, "members", ()):
                 if getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND:
-                    pkg_name = identifier_name(getattr(m.header, "name", None)) or str(m.header.name).strip()
+                    header = getattr(m, "header", None)
+                    pkg_name = identifier_name(getattr(header, "name", None)) or str(getattr(header, "name", "")).strip()
                     if pkg_name == package_qualifier:
                         sub = _find_subroutine_in_container_syntax(m, callee_name)
                         if sub is not None:
@@ -187,10 +199,12 @@ def subroutine_formal_direction(
         else:
             # Search in enclosing module/package members
             container = invocation
+            container_depth = 0
             while container is not None and getattr(container, "kind", None) not in (
                 MODULE_DECLARATION_KIND,
                 PACKAGE_DECLARATION_KIND,
-            ):
+            ) and container_depth < 64:
+                container_depth += 1
                 container = getattr(container, "parent", None)
             if container is not None:
                 sub = _find_subroutine_in_container_syntax(container, callee_name)
@@ -199,17 +213,22 @@ def subroutine_formal_direction(
 
             # Also check imported packages declared in this syntax tree
             if formals is None:
-                scope = ctx.scope()
-                while scope is not None and formals is None:
-                    for pkg_name, imported_name in scope.imports:
+                scope = getattr(ctx, "scope", lambda: None)()
+                scope_depth = 0
+                while scope is not None and formals is None and scope_depth < 64:
+                    scope_depth += 1
+                    for pkg_name, imported_name in getattr(scope, "imports", ()):
                         if imported_name is not None and imported_name != callee_name:
                             continue
                         root = invocation
-                        while getattr(root, "parent", None) is not None:
+                        root_depth = 0
+                        while getattr(root, "parent", None) is not None and root_depth < 64:
+                            root_depth += 1
                             root = root.parent
                         for m in getattr(root, "members", ()):
                             if getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND:
-                                p_name = identifier_name(getattr(m.header, "name", None)) or str(m.header.name).strip()
+                                header = getattr(m, "header", None)
+                                p_name = identifier_name(getattr(header, "name", None)) or str(getattr(header, "name", "")).strip()
                                 if p_name == pkg_name:
                                     sub = _find_subroutine_in_container_syntax(m, callee_name)
                                     if sub is not None:
@@ -217,7 +236,7 @@ def subroutine_formal_direction(
                                         break
                         if formals is not None:
                             break
-                    scope = scope.parent
+                    scope = getattr(scope, "parent", None)
 
     if not formals:
         return None

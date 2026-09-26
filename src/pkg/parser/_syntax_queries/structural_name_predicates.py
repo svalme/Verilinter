@@ -46,8 +46,12 @@ def _is_scoped_name_target(raw: object, owner_kind: object, field: str = "name")
     checks below. `field` defaults to `"name"`, the common case; pass e.g.
     `field="left"` for owners (like `InvocationExpressionSyntax`) that use a
     different field name for the name/path in this position."""
+    if not isinstance(raw, SyntaxNode):
+        return False
     node = getattr(raw, "parent", None)
-    while node is not None and getattr(node, "kind", None) == SCOPED_NAME_KIND:
+    depth = 0
+    while node is not None and getattr(node, "kind", None) == SCOPED_NAME_KIND and depth < 64:
+        depth += 1
         parent = getattr(node, "parent", None)
         if getattr(parent, "kind", None) == owner_kind and getattr(parent, field, None) is node:
             return True

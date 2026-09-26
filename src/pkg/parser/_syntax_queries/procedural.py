@@ -30,6 +30,9 @@ def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
     from ..syntax_queries import identifier_name, is_identifier_name_node
     from .access import _identifier_access_modes_over_ancestors
 
+    if not isinstance(root, SyntaxNode):
+        return
+
     def _walk(node: SyntaxNode, ancestors: list[object]) -> Iterator[tuple[str, SyntaxNode]]:
         if is_identifier_name_node(node):
             name = identifier_name(node)
@@ -49,6 +52,9 @@ def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
 
 def _iter_identifier_nodes(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
     from ..syntax_queries import identifier_name, is_identifier_name_node
+
+    if not isinstance(root, SyntaxNode):
+        return
 
     if is_identifier_name_node(root):
         name = identifier_name(root)
@@ -374,7 +380,9 @@ def procedural_block_top_level_reset_names(raw: object) -> set[str]:
 
     reset_names: set[str] = set()
     curr = first_stmt
-    while is_conditional_statement(curr):
+    depth = 0
+    while is_conditional_statement(curr) and depth < 64:
+        depth += 1
         pred = getattr(curr, "predicate", None)
         if isinstance(pred, SyntaxNode):
             for name, _ in _iter_identifier_nodes(pred):
@@ -537,7 +545,9 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
             first_stmt = inner_stmt
 
         curr = first_stmt
-        while is_conditional_statement(curr):
+        depth = 0
+        while is_conditional_statement(curr) and depth < 64:
+            depth += 1
             pred = getattr(curr, "predicate", None)
             if pred is not None and contains_descendant(pred, vnode.raw):
                 return False
@@ -601,6 +611,9 @@ def missing_sensitivity_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode
 def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
     from ..syntax_queries import is_assignment_expression
 
+    if not isinstance(node, SyntaxNode):
+        return
+
     if is_assignment_expression(node):
         yield node
 
@@ -613,6 +626,9 @@ def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
 
 
 def mixed_assignment_trigger_node(block_raw: object) -> SyntaxNode | None:
+    if not isinstance(block_raw, SyntaxNode):
+        return None
+
     seen_kinds: set[object] = set()
 
     for node in iter_assignment_nodes(block_raw):
@@ -638,10 +654,14 @@ def _enclosing_statement_parent(node: object) -> object:
     happen for an assignment used as a statement) gets a unique sentinel so it
     never spuriously matches another write.
     """
+    if not isinstance(node, SyntaxNode):
+        return object()
     stmt = node
-    while stmt is not None and getattr(stmt, "kind", None) != EXPRESSION_STATEMENT_KIND:
+    depth = 0
+    while stmt is not None and getattr(stmt, "kind", None) != EXPRESSION_STATEMENT_KIND and depth < 64:
+        depth += 1
         stmt = getattr(stmt, "parent", None)
-    if stmt is None:
+    if stmt is None or depth >= 64:
         return object()
     return getattr(stmt, "parent", None)
 
@@ -654,6 +674,9 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
     flagged since only the sibling case is definitely dead code rather than
     ordinary, correct RTL control flow.
     """
+    if not isinstance(block_raw, SyntaxNode):
+        return {}
+
     from .access import assignment_target_identifier_name
 
     triggers: dict[str, SyntaxNode] = {}
@@ -770,11 +793,16 @@ def branch_exclusivity_signature(
     from ..syntax_queries import is_conditional_statement, is_else_clause_node
     from .node_kind_checks import is_case_generate_node, is_if_generate_node
 
+    if not isinstance(raw, SyntaxNode):
+        return ()
+
     signature: list[tuple[str, int]] = []
     construct_nodes: list[object] = []
     node = raw
     parent = getattr(node, "parent", None)
-    while parent is not None:
+    depth = 0
+    while parent is not None and depth < 64:
+        depth += 1
         if is_else_clause_node(parent):
             construct = getattr(parent, "parent", None)
             if construct is not None:

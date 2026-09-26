@@ -63,11 +63,13 @@ class Scope:
     def lookup_hierarchical(self, name: str) -> Symbol | None:
         """Lookup a symbol starting from this scope and walking up enclosing parent scopes."""
         current: Scope | None = self
-        while current is not None:
-            symbol = current.lookup(name)
+        depth = 0
+        while current is not None and depth < 64:
+            depth += 1
+            symbol = getattr(current, "lookup", lambda _n: None)(name)
             if symbol is not None:
                 return symbol
-            current = current.parent
+            current = getattr(current, "parent", None)
         return None
 
     def add_import(self, package_name: str, imported_name: str | None) -> None:
@@ -78,8 +80,10 @@ class Scope:
 
 
 def enclosing_module_scope(scope: Scope | None) -> Scope | None:
-    while scope is not None:
-        if scope.kind == "module":
+    depth = 0
+    while scope is not None and depth < 64:
+        depth += 1
+        if getattr(scope, "kind", None) == "module":
             return scope
-        scope = scope.parent
+        scope = getattr(scope, "parent", None)
     return None

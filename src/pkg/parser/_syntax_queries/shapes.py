@@ -90,7 +90,9 @@ def extract_assignment_target_and_selectors(raw: object) -> tuple[str | None, li
     if kind == ELEMENT_SELECT_EXPRESSION_KIND:
         nested_selectors: list[SyntaxNode] = []
         curr = raw
-        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND:
+        depth = 0
+        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
+            depth += 1
             sel = getattr(curr, "select", None)
             if isinstance(sel, SyntaxNode):
                 nested_selectors.append(sel)

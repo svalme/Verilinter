@@ -41,7 +41,9 @@ class Context:
         """Ancestor chain from root to current node, rebuilt on demand from parent pointers."""
         nodes: list[BaseVNode] = []
         node: "Context | None" = self
-        while node is not None and node._vnode is not None:
+        depth = 0
+        while node is not None and node._vnode is not None and depth < 1000:
+            depth += 1
             nodes.append(node._vnode)
             node = node._parent
         nodes.reverse()

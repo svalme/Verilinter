@@ -58,7 +58,9 @@ from .shared import identifier_name
 def unwrap_parentheses(expr: object) -> object:
     """Recursively strip `ParenthesizedExpressionSyntax`, `SimplePropertyExprSyntax`,
     and `SimpleSequenceExprSyntax` wrappers down to the underlying expression."""
-    while expr is not None:
+    depth = 0
+    while expr is not None and depth < 64:
+        depth += 1
         kind = getattr(expr, "kind", None)
         if kind == PARENTHESIZED_EXPRESSION_KIND:
             inner = getattr(expr, "expression", None)
@@ -90,7 +92,9 @@ def _resolve_symbol_in_scope(scope: object, name: str) -> object:
     if callable(lookup_hierarchical):
         return lookup_hierarchical(name)
     current = scope
-    while current is not None:
+    depth = 0
+    while current is not None and depth < 64:
+        depth += 1
         symbol = getattr(current, "lookup", lambda _name: None)(name)
         if symbol is not None:
             return symbol
@@ -102,6 +106,7 @@ def evaluate_constant_expression(
     expr: object,
     scope: object = None,
     _visited: set[str] | None = None,
+    _depth: int = 0,
 ) -> int | None:
     """Recursively constant-fold a compile-time constant expression to an integer,
     resolving parameter/localparam identifiers against `scope`.
@@ -118,7 +123,7 @@ def evaluate_constant_expression(
     - Parentheses unwrapping
     - Cycle detection on identifier lookups to prevent infinite recursion
     """
-    if expr is None:
+    if expr is None or _depth > 32 or not isinstance(expr, SyntaxNode):
         return None
 
     expr = unwrap_parentheses(expr)
@@ -157,21 +162,21 @@ def evaluate_constant_expression(
     # 3. Unary expressions
     if kind == UNARY_PLUS_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        return evaluate_constant_expression(op, scope=scope, _visited=_visited)
+        return evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
 
     if kind == UNARY_MINUS_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
         return -val if val is not None else None
 
     if kind == UNARY_BITWISE_NOT_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
         return ~val if val is not None else None
 
     if kind == UNARY_LOGICAL_NOT_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
         return (1 if val == 0 else 0) if val is not None else None
 
     # 4. Invocations ($clog2)
@@ -185,7 +190,7 @@ def evaluate_constant_expression(
             if params and len(params) == 1:
                 arg = params[0]
                 arg_expr = getattr(arg, "expr", getattr(arg, "expression", None))
-                arg_val = evaluate_constant_expression(arg_expr, scope=scope, _visited=_visited)
+                arg_val = evaluate_constant_expression(arg_expr, scope=scope, _visited=_visited, _depth=_depth + 1)
                 if arg_val is not None:
                     return (arg_val - 1).bit_length() if arg_val > 0 else 0
         return None
@@ -194,8 +199,8 @@ def evaluate_constant_expression(
     left = getattr(expr, "left", None)
     right = getattr(expr, "right", None)
     if left is not None and right is not None:
-        l_val = evaluate_constant_expression(left, scope=scope, _visited=_visited)
-        r_val = evaluate_constant_expression(right, scope=scope, _visited=_visited)
+        l_val = evaluate_constant_expression(left, scope=scope, _visited=_visited, _depth=_depth + 1)
+        r_val = evaluate_constant_expression(right, scope=scope, _visited=_visited, _depth=_depth + 1)
         if l_val is not None and r_val is not None:
             if kind == ADD_EXPRESSION_KIND:
                 return l_val + r_val
@@ -508,7 +513,9 @@ def simple_expression_width_and_signed(
     if kind == ELEMENT_SELECT_EXPRESSION_KIND:
         nested_selectors: list[SyntaxNode] = []
         curr = expr
-        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND:
+        depth = 0
+        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
+            depth += 1
             sel = getattr(curr, "select", None)
             if isinstance(sel, SyntaxNode):
                 nested_selectors.append(sel)

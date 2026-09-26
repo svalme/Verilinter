@@ -163,22 +163,26 @@ class SymbolTable:
         if scope is None:
             return None
         node = scope
-        while node:
-            exists = node.lookup(name)
+        depth = 0
+        while node and depth < 64:
+            depth += 1
+            exists = getattr(node, "lookup", lambda _n: None)(name)
             if exists:
                 return exists
-            node = node.parent
+            node = getattr(node, "parent", None)
 
         node = scope
-        while node:
-            for package_name, imported_name in node.imports:
+        depth = 0
+        while node and depth < 64:
+            depth += 1
+            for package_name, imported_name in getattr(node, "imports", ()):
                 if imported_name is not None and imported_name != name:
                     continue
                 for package_scope in self.packages.get(package_name, ()):
-                    found = package_scope.lookup(name)
+                    found = getattr(package_scope, "lookup", lambda _n: None)(name)
                     if found:
                         return found
-            node = node.parent
+            node = getattr(node, "parent", None)
         return None
 
     def lookup_qualified(self, path: list[str]) -> Symbol | None:

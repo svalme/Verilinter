@@ -5,7 +5,7 @@ from typing import Any
 import pyslang as sl
 
 from .syntax_kinds import DEFAULT_NETTYPE_DIRECTIVE_KIND
-from .types import SyntaxTree
+from .types import SyntaxNode, SyntaxTree
 
 
 def parse_file(
@@ -81,11 +81,13 @@ def tree_uses_default_nettype_none(tree: SyntaxTree | None) -> bool:
     if tree is None:
         return False
     root = getattr(tree, "root", None)
-    if root is None:
+    if root is None or not isinstance(root, SyntaxNode):
         return False
     tok = getattr(root, "getFirstToken", lambda: None)()
     end_of_file = getattr(sl.TokenKind, "EndOfFile", None)
-    while tok is not None and getattr(tok, "kind", None) != end_of_file:
+    depth = 0
+    while tok is not None and getattr(tok, "kind", None) != end_of_file and depth < 1_000_000:
+        depth += 1
         for tr in getattr(tok, "trivia", ()):
             syn = getattr(tr, "syntax", None)
             if callable(syn):
@@ -94,7 +96,7 @@ def tree_uses_default_nettype_none(tree: SyntaxTree | None) -> bool:
                 net_type = getattr(syn, "netType", None)
                 if str(net_type).strip() == "none":
                     return True
-        tok = tok.getNextToken()
+        tok = getattr(tok, "getNextToken", lambda: None)()
     return False
 
 

@@ -128,15 +128,19 @@ def is_system_task_output_argument(raw: object) -> bool:
     `SYSTEM_TASK_OUTPUT_ARGUMENT_INDEX`) -- e.g. `firmware_file` in
     `$readmemh(firmware_file, memory)` or `x` in `$value$plusargs("...", x)`.
     These populate that argument rather than reading it."""
+    if not isinstance(raw, SyntaxNode):
+        return False
     node = raw
     parent = getattr(node, "parent", None)
+    depth = 0
     while parent is not None and getattr(parent, "kind", None) not in (
         ORDERED_ARGUMENT_KIND,
         NAMED_ARGUMENT_KIND,
-    ):
+    ) and depth < 64:
+        depth += 1
         node = parent
         parent = getattr(parent, "parent", None)
-    if parent is None:
+    if parent is None or depth >= 64:
         return False
     arg_node = parent
 
