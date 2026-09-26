@@ -46,22 +46,36 @@ class PortConnectionExtractor:
         for conn in port_connection_list(item):
             conn_kind = getattr(conn, "kind", None)
             if conn_kind == NAMED_PORT_CONNECTION_KIND:
+                port_name = named_port_connection_name(conn)
                 expr = port_connection_expression(conn)
-                expr_text = source_text_for_node(expr, tree) if expr is not None else None
-                expr_width, expr_signed = (
-                    self.width_resolver(scope, expr, tree)
-                    if expr is not None
-                    else (None, None)
-                )
+                has_open_paren = bool(getattr(conn, "openParen", None))
+                is_shorthand = expr is None and not has_open_paren
+                if expr is not None:
+                    expr_text = source_text_for_node(expr, tree)
+                    expr_name = simple_identifier_text(expr_text)
+                    expr_width, expr_signed = self.width_resolver(scope, expr, tree)
+                elif is_shorthand:
+                    expr_text = port_name
+                    expr_name = port_name
+                    sym = scope.lookup(port_name) if scope is not None and port_name is not None else None
+                    if sym is not None:
+                        expr_width, expr_signed = sym.bit_width, sym.is_signed
+                    else:
+                        expr_width, expr_signed = None, None
+                else:
+                    expr_text = None
+                    expr_name = None
+                    expr_width, expr_signed = None, None
                 connections.append(
                     PortConnection(
                         kind="named",
-                        port_name=named_port_connection_name(conn),
+                        port_name=port_name,
                         expr_text=expr_text,
-                        expr_name=simple_identifier_text(expr_text),
+                        expr_name=expr_name,
                         expr_width=expr_width,
                         expr_signed=expr_signed,
                         location=node_location(conn, tree),
+                        is_shorthand=is_shorthand,
                     )
                 )
                 connection_kinds.add("named")

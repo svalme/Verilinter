@@ -23,6 +23,7 @@ CONDITIONAL_EXPRESSION_KIND = _syntax_kind("ConditionalExpression")
 ELSE_CLAUSE_KIND = _syntax_kind("ElseClause")
 MODULE_DECLARATION_KIND = _syntax_kind("ModuleDeclaration")
 EVENT_TYPE_KIND = _syntax_kind("EventType")
+ENUM_TYPE_KIND = _syntax_kind("EnumType")
 COMPILATION_UNIT_KIND = _syntax_kind("CompilationUnit")
 INTEGER_LITERAL_EXPRESSION_KIND = _syntax_kind("IntegerLiteralExpression")
 INTEGER_VECTOR_EXPRESSION_KIND = _syntax_kind("IntegerVectorExpression")
@@ -632,6 +633,7 @@ __all__ = [
     "ELSE_CLAUSE_KIND",
     "EMPTY_PORT_CONNECTION_KIND",
     "EMPTY_STATEMENT_KIND",
+    "ENUM_TYPE_KIND",
     "ENDCASE_KEYWORD_TOKEN_KIND",
     "ENDCASE_TOKEN_KIND",
     "EQUALS_TOKEN_KIND",

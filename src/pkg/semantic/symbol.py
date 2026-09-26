@@ -43,6 +43,7 @@ class Symbol:
         self.lsb: int | None = None
         self.is_signed: bool | None = None
         self.value: int | None = None
+        self.is_constant: bool = False
         self.is_localparam: bool = False
         self.initializer_text: str | None = None
         self.packed_dimensions: list[tuple[str, str]] = []

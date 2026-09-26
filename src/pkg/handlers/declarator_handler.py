@@ -6,6 +6,7 @@ from ..parser.syntax import (
     declarator_initializer_expression,
     declarator_initializer_value,
     declarator_is_event,
+    declarator_is_enum_member,
     declarator_is_localparam,
     declarator_is_parameter,
     declarator_is_port,
@@ -34,12 +35,19 @@ class DeclaratorHandler(SyntaxNodeHandler):
         name = declarator_name(vnode.raw)
         if not name:
             return ctx.push(vnode)
-        kind = "parameter" if declarator_is_parameter(ctx) else "variable"
-        if ctx.scope().kind == "aggregate":
+        if declarator_is_enum_member(ctx):
+            kind = "enum_member"
+        elif declarator_is_parameter(ctx):
+            kind = "parameter"
+        elif ctx.scope().kind == "aggregate":
             kind = "field"
+        else:
+            kind = "variable"
         symbol = Symbol(name=name, kind=kind)
         if kind == "parameter":
             symbol.is_localparam = declarator_is_localparam(ctx)
+        elif kind == "enum_member":
+            symbol.is_constant = True
         symbol.is_port = declarator_is_port(ctx)
         if symbol.is_port:
             symbol.port_direction = declarator_port_direction(ctx)
@@ -77,7 +85,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
             init_expr = declarator_initializer_expression(vnode.raw)
             if init_expr is not None and symbol.initializer_text is None:
                 symbol.initializer_text = source_text_for_node(init_expr, vnode.tree)
-            if kind == "parameter":
+            if kind in ("parameter", "enum_member"):
                 symbol.value = declarator_initializer_value(vnode.raw, scope=ctx.scope())
         ctx.scope().define(symbol)
         return ctx.push(vnode)

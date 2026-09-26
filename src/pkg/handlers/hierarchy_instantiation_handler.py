@@ -69,6 +69,12 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                 item, vnode.tree, ctx.scope()
             )
 
+            for conn in connections:
+                if getattr(conn, "is_shorthand", False) and conn.port_name:
+                    sym = symbol_table.lookup_from_scope(conn.port_name, ctx.scope())
+                    if sym is not None:
+                        sym.add_use(conn.location, read=True, in_port_connection=True)
+
             symbol_table.register_instantiation(
                 InstanceRecord(
                     parent_module=enclosing_module.name if enclosing_module is not None else None,

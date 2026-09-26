@@ -21,6 +21,7 @@ class PortConnection(Mapping[str, Any]):
     expr_name: str | None = None
     expr_width: int | None = None
     expr_signed: bool | None = None
+    is_shorthand: bool = False
 
     _FIELDS = (
         "kind",
@@ -30,6 +31,7 @@ class PortConnection(Mapping[str, Any]):
         "expr_name",
         "expr_width",
         "expr_signed",
+        "is_shorthand",
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -41,6 +43,7 @@ class PortConnection(Mapping[str, Any]):
             "expr_name": self.expr_name,
             "expr_width": self.expr_width,
             "expr_signed": self.expr_signed,
+            "is_shorthand": self.is_shorthand,
         }
 
     @classmethod
@@ -57,6 +60,7 @@ class PortConnection(Mapping[str, Any]):
             expr_name=data.get("expr_name"),
             expr_width=data.get("expr_width"),
             expr_signed=data.get("expr_signed"),
+            is_shorthand=bool(data.get("is_shorthand", False)),
         )
 
     def __getitem__(self, key: str) -> Any:

@@ -25,6 +25,7 @@ class SymbolTable:
         self.sequential_driver_ids: set[str] = set()
         self.initial_driver_ids: set[str] = set()
         self.tristate_driver_ids: set[str] = set()
+        self.branch_constructs: dict[str, tuple[set[int] | None, tuple[tuple[str, int], ...]]] = {}
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
 
@@ -121,6 +122,16 @@ class SymbolTable:
         """Record that `driver_id` (a continuous assign) drives via a tri-state
         (`cond ? value : 'bz`) ternary, for `UNDRIVEN_TRISTATE_SIGNAL`."""
         self.tristate_driver_ids.add(driver_id)
+
+    def register_branch_construct(
+        self,
+        construct_id: str,
+        required_branches: set[int] | None,
+        parent_signature: tuple[tuple[str, int], ...] = (),
+    ) -> None:
+        """Record branching construct metadata (required branches for exhaustiveness,
+        and enclosing parent branch signature) for control-flow analysis."""
+        self.branch_constructs[construct_id] = (required_branches, parent_signature)
 
     def lookup_module(self, name: str) -> Scope | None:
         """Return the first scope for a named module, or None if not yet seen."""

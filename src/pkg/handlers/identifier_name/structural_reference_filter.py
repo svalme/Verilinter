@@ -13,6 +13,7 @@ from ...parser.syntax import (
     is_named_type_reference,
     is_scoped_name_qualifier,
     is_subroutine_prototype_name,
+    is_type_query_argument,
 )
 
 # Every check here recognizes an IdentifierNameSyntax-shaped node that names a
@@ -32,6 +33,7 @@ DEFAULT_STRUCTURAL_NAME_PREDICATES: tuple[Callable[[object], bool], ...] = (
     is_extends_clause_base_name,
     is_scoped_name_qualifier,
     is_member_selector,
+    is_type_query_argument,
 )
 
 

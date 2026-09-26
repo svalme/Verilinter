@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import declarator_is_parameter, declarator_name
+from ...parser.syntax import declarator_is_enum_member, declarator_is_parameter, declarator_name
 from ...parser.types import DeclaratorNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -22,7 +22,7 @@ class SignalNameCasingRule(Rule):
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not isinstance(vnode.raw, DeclaratorNode):
             return False
-        if declarator_is_parameter(ctx):
+        if declarator_is_parameter(ctx) or declarator_is_enum_member(ctx):
             return False
         name = declarator_name(vnode.raw)
         return name is not None and not is_lower_snake_case(name)

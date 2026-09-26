@@ -102,7 +102,9 @@ class UseEventContextExtractor:
             if is_write and is_continuous_assign(driver_block.raw) and is_tristate_continuous_assign(driver_block.raw):
                 symbol_table.mark_tristate_driver(driver_id)
 
-        branch_signature = branch_exclusivity_signature(vnode.raw, vnode.tree)
+        branch_signature = branch_exclusivity_signature(
+            vnode.raw, vnode.tree, construct_registry=symbol_table.branch_constructs
+        )
 
         assignment_node = enclosing_assignment_expression(ctx)
         statement_id = None

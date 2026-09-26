@@ -7,6 +7,7 @@ from ..syntax_kinds import (
     ANSI_PORT_KINDS,
     CLOCKING_DECLARATION_KIND,
     DATA_DECLARATION_KINDS,
+    ENUM_TYPE_KIND,
     EVENT_TYPE_KIND,
     FUNCTION_PORT_KIND,
     IMPLICIT_TYPE_KIND,
@@ -77,6 +78,24 @@ def declarator_is_parameter(ctx: "Context") -> bool:
             return True
         if (
             kind in DATA_DECLARATION_KINDS
+            or kind in ALL_PORT_DECLARATION_KINDS
+            or kind in NET_DECLARATION_KINDS
+        ):
+            return False
+    return False
+
+
+def declarator_is_enum_member(ctx: "Context") -> bool:
+    """True if the declarator being processed belongs to an `enum` definition
+    (`EnumTypeSyntax`) rather than an ordinary variable/signal declaration."""
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        kind = getattr(raw, "kind", None)
+        if kind == ENUM_TYPE_KIND:
+            return True
+        if (
+            kind in DATA_DECLARATION_KINDS
+            or kind in PARAMETER_DECLARATION_KINDS
             or kind in ALL_PORT_DECLARATION_KINDS
             or kind in NET_DECLARATION_KINDS
         ):

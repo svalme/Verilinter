@@ -9,6 +9,7 @@ from ..syntax_kinds import (
     NAMED_TYPE_KIND,
     SCOPED_NAME_KIND,
 )
+from ..types import SyntaxNode
 
 
 def is_bind_directive_target(raw: object) -> bool:
@@ -118,3 +119,42 @@ def is_extends_clause_base_name(raw: object) -> bool:
     That identifier names a class, not a variable.
     """
     return _is_scoped_name_target(raw, EXTENDS_CLAUSE_KIND, field="baseName")
+
+
+TYPE_QUERY_SYSTEM_FUNCTIONS = {
+    "$bits",
+    "$dimensions",
+    "$unpacked_dimensions",
+    "$left",
+    "$right",
+    "$low",
+    "$high",
+    "$increment",
+    "$size",
+}
+
+
+def is_type_query_argument(raw: object) -> bool:
+    """True if `raw` is an identifier argument inside an elaboration type-query
+    system function call (`$bits`, `$dimensions`, `$size`, etc.).
+
+    These IEEE 1800 functions evaluate properties of types or array dimensions at
+    compile/elaboration time, not runtime signal values. Treating them as runtime reads
+    causes false `READ_BEFORE_WRITE` warnings when output ports or signals driven later
+    in the module are referenced inside `$bits(...)` (e.g. `NumBufferBits = $bits({..., sig, ...})`).
+    """
+    if not isinstance(raw, SyntaxNode):
+        return False
+
+    node = getattr(raw, "parent", None)
+    depth = 0
+    while node is not None and depth < 32:
+        depth += 1
+        if getattr(node, "kind", None) == INVOCATION_EXPRESSION_KIND:
+            left = getattr(node, "left", None)
+            callee_name = getattr(getattr(left, "name", None), "value", None)
+            if not callee_name:
+                callee_name = str(left).strip()
+            return callee_name in TYPE_QUERY_SYSTEM_FUNCTIONS
+        node = getattr(node, "parent", None)
+    return False

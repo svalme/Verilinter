@@ -702,7 +702,48 @@ def _construct_identity(construct: object, tree: SyntaxTree | None = None) -> st
     return f"id:{id(construct)}"
 
 
-def branch_exclusivity_signature(raw: object, tree: SyntaxTree | None = None) -> BranchSignature:
+def construct_branch_metadata(
+    construct: object, tree: SyntaxTree | None = None
+) -> tuple[set[int] | None, BranchSignature]:
+    """Return `(required_branches, parent_signature)` for a branching construct.
+
+    For `if`/`else` (`ConditionalStatement`, `IfGenerate`):
+        required_branches is `{0, 1}` if an `else` clause is present, else `None`.
+    For `case` (`CaseStatement`, `CaseGenerate`):
+        required_branches is `set(range(len(items)))` if a `default` case item or
+        `unique`/`priority` qualifier is present, else `None`.
+    """
+    from ..syntax_kinds import DEFAULT_CASE_ITEM_KIND
+    from ..syntax_queries import has_default_case_item, is_conditional_statement
+    from .node_kind_checks import is_case_generate_node, is_if_generate_node
+
+    parent_sig = branch_exclusivity_signature(construct, tree)
+
+    if is_conditional_statement(construct) or is_if_generate_node(construct):
+        else_clause = getattr(construct, "elseClause", None)
+        required_branches = {0, 1} if else_clause is not None else None
+        return required_branches, parent_sig
+
+    if getattr(construct, "kind", None) == CASE_STATEMENT_KIND or is_case_generate_node(construct):
+        items = getattr(construct, "items", ())
+        has_default = has_default_case_item(construct) or any(
+            getattr(it, "kind", None) == DEFAULT_CASE_ITEM_KIND for it in items
+        )
+        unique_or_priority = getattr(construct, "uniqueOrPriority", None)
+        has_unique_priority = bool(unique_or_priority)
+        required_branches = (
+            set(range(len(items))) if ((has_default or has_unique_priority) and len(items) > 0) else None
+        )
+        return required_branches, parent_sig
+
+    return None, parent_sig
+
+
+def branch_exclusivity_signature(
+    raw: object,
+    tree: SyntaxTree | None = None,
+    construct_registry: dict[str, tuple[set[int] | None, BranchSignature]] | None = None,
+) -> BranchSignature:
     """Return `((construct_identity, branch_taken), ...)` for every enclosing
     conditional construct (procedural `if`/`else`, generate `if`/`else`,
     procedural `case`, or generate `case`, mixed freely in any nesting order)
@@ -730,6 +771,7 @@ def branch_exclusivity_signature(raw: object, tree: SyntaxTree | None = None) ->
     from .node_kind_checks import is_case_generate_node, is_if_generate_node
 
     signature: list[tuple[str, int]] = []
+    construct_nodes: list[object] = []
     node = raw
     parent = getattr(node, "parent", None)
     while parent is not None:
@@ -737,12 +779,14 @@ def branch_exclusivity_signature(raw: object, tree: SyntaxTree | None = None) ->
             construct = getattr(parent, "parent", None)
             if construct is not None:
                 signature.append((_construct_identity(construct, tree), 1))
+                construct_nodes.append(construct)
         elif is_conditional_statement(parent) or is_if_generate_node(parent):
             primary = getattr(parent, "statement", None)
             if primary is None:
                 primary = getattr(parent, "block", None)
             if node is primary:
                 signature.append((_construct_identity(parent, tree), 0))
+                construct_nodes.append(parent)
         elif getattr(parent, "kind", None) in CASE_ITEM_KINDS:
             clause = getattr(parent, "clause", None)
             if node is clause:
@@ -754,10 +798,20 @@ def branch_exclusivity_signature(raw: object, tree: SyntaxTree | None = None) ->
                     branch_idx = next((i for i, it in enumerate(items) if it is parent), -1)
                     if branch_idx >= 0:
                         signature.append((_construct_identity(construct, tree), branch_idx))
+                        construct_nodes.append(construct)
         node = parent
         parent = getattr(parent, "parent", None)
 
-    return tuple(signature)
+    sig_tuple = tuple(signature)
+    if construct_registry is not None:
+        for i, (cid, _bidx) in enumerate(signature):
+            if cid not in construct_registry:
+                construct_node = construct_nodes[i]
+                parent_sig = sig_tuple[i + 1:]
+                req_branches, _ = construct_branch_metadata(construct_node, tree)
+                construct_registry[cid] = (req_branches, parent_sig)
+
+    return sig_tuple
 
 
 def is_mutually_exclusive_branch_pair(sig_a: BranchSignature, sig_b: BranchSignature) -> bool:

@@ -85,26 +85,84 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                     if not seen_write_for_none:
                         return event
                 else:
-                    branch_sig = event.get("branch_signature")
+                    branch_sig = event.get("branch_signature") or ()
                     # If an unconditional write was already seen in this block, the variable is
                     # guaranteed initialized for all subsequent paths in the block.
                     if not seen_unconditional_write_by_driver.get(driver_id, False):
-                        # If not unconditionally initialized, check if a prior write occurred in the same branch
                         prior_branches = seen_branch_write_signatures.get(driver_id, set())
-                        if branch_sig is None or branch_sig not in prior_branches:
+                        if not self._is_covered_by_writes(branch_sig, prior_branches):
                             return event
 
             if event["write"] and not event.get("is_nonblocking_write"):
                 if driver_id is None:
                     seen_write_for_none = True
                 else:
-                    branch_sig = event.get("branch_signature")
+                    branch_sig = event.get("branch_signature") or ()
+                    driver_written_sigs = seen_branch_write_signatures.setdefault(driver_id, set())
+                    driver_written_sigs.add(branch_sig)
                     if not branch_sig:
                         seen_unconditional_write_by_driver[driver_id] = True
                     else:
-                        seen_branch_write_signatures.setdefault(driver_id, set()).add(branch_sig)
+                        self._collapse_exhaustive_branches(driver_written_sigs, symbol_table.branch_constructs)
+                        if () in driver_written_sigs:
+                            seen_unconditional_write_by_driver[driver_id] = True
 
         return None
+
+    @staticmethod
+    def _collapse_exhaustive_branches(
+        written_sigs: set[tuple[tuple[str, int], ...]],
+        branch_constructs: dict[str, tuple[set[int] | None, tuple[tuple[str, int], ...]]],
+    ) -> None:
+        """Propagate complete write coverage up enclosing branching constructs.
+
+        If all required branch alternatives of a construct are present in `written_sigs`
+        under the same parent signature, that construct's parent signature is added to
+        `written_sigs`, repeating until no more constructs can be collapsed.
+        """
+        if () in written_sigs:
+            return
+
+        changed = True
+        while changed:
+            changed = False
+            branches_by_construct_and_parent: dict[tuple[str, tuple[tuple[str, int], ...]], set[int]] = {}
+            for sig in list(written_sigs):
+                if sig:
+                    cid, branch_idx = sig[0]
+                    parent_sig = sig[1:]
+                    branches_by_construct_and_parent.setdefault((cid, parent_sig), set()).add(branch_idx)
+
+            for (cid, parent_sig), written_branches in branches_by_construct_and_parent.items():
+                if parent_sig in written_sigs:
+                    continue
+                metadata = branch_constructs.get(cid)
+                if metadata is None:
+                    continue
+                req_branches, _ = metadata
+                if req_branches is not None and req_branches.issubset(written_branches):
+                    written_sigs.add(parent_sig)
+                    changed = True
+                    if parent_sig == ():
+                        return
+
+    @staticmethod
+    def _is_covered_by_writes(
+        read_sig: tuple[tuple[str, int], ...],
+        written_sigs: set[tuple[tuple[str, int], ...]],
+    ) -> bool:
+        """Return True if `read_sig` is covered by prior writes in `written_sigs`.
+
+        A read is covered if an unconditional write occurred (`()` in `written_sigs`),
+        or if `read_sig` matches a prior written branch signature or is nested inside
+        an ancestor branch that was fully written.
+        """
+        if () in written_sigs:
+            return True
+        for k in range(len(read_sig) + 1):
+            if read_sig[k:] in written_sigs:
+                return True
+        return False
 
     def _diagnostic(self, sym: Symbol, event: UseEvent) -> dict[str, Any]:
         loc = event.get("location") or {}
