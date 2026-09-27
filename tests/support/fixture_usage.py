@@ -30,19 +30,33 @@ def _reference_pattern(fixture_name: str) -> re.Pattern[str]:
 
 def collect_fixture_usage() -> dict[str, list[str]]:
     """Return {fixture_filename: sorted repo-relative test file paths that reference it}."""
-    fixture_names = sorted(p.name for p in DATA_DIR.iterdir() if p.is_file())
-    test_files = sorted(
-        p for p in TESTS_DIR.rglob("*.py") if "__pycache__" not in p.parts and p not in _EXCLUDED_FILES
-    )
-    file_contents = {p: p.read_text(encoding="utf-8", errors="ignore") for p in test_files}
+    import os
 
+    fixture_names = sorted(p.name for p in DATA_DIR.iterdir() if p.is_file())
+    test_files: list[Path] = []
+    for root, dirs, files in os.walk(TESTS_DIR):
+        dirs[:] = [d for d in dirs if not d.startswith((".", "_")) and d != "data"]
+        for f in files:
+            if f.endswith(".py"):
+                p = Path(root) / f
+                if p not in _EXCLUDED_FILES:
+                    test_files.append(p)
+    test_files.sort()
+
+    file_contents = {}
+    for p in test_files:
+        text = p.read_text(encoding="utf-8", errors="ignore")
+        if ".v" in text or ".sv" in text:
+            file_contents[p] = text
+
+    patterns = {name: _reference_pattern(name) for name in fixture_names}
     usage: dict[str, list[str]] = {}
     for name in fixture_names:
-        pattern = _reference_pattern(name)
+        pattern = patterns[name]
         referencing = [
             path.relative_to(REPO_ROOT).as_posix()
             for path, text in file_contents.items()
-            if pattern.search(text)
+            if name in text and pattern.search(text)
         ]
         usage[name] = sorted(referencing)
     return usage

@@ -8,6 +8,7 @@ import from `src.pkg.*` or `src.run_lint`.
 from __future__ import annotations
 
 import ast
+import os
 from pathlib import Path
 
 TESTS_ROOT = Path(__file__).resolve().parents[1]
@@ -17,9 +18,26 @@ def test_test_suite_imports_use_src_prefix() -> None:
     """Statically verifies that all test files import from src.pkg or src.run_lint."""
     violations: list[str] = []
 
-    for py_file in sorted(TESTS_ROOT.rglob("*.py")):
+    py_files: list[Path] = []
+    for root, dirs, files in os.walk(TESTS_ROOT):
+        dirs[:] = [d for d in dirs if not d.startswith((".", "_")) and d != "data"]
+        for f in files:
+            if f.endswith(".py"):
+                py_files.append(Path(root) / f)
+    py_files.sort()
+
+    for py_file in py_files:
         try:
-            tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+            content = py_file.read_text(encoding="utf-8")
+        except Exception as err:
+            violations.append(f"{py_file}: Read error: {err}")
+            continue
+
+        if "pkg" not in content and "run_lint" not in content:
+            continue
+
+        try:
+            tree = ast.parse(content, filename=str(py_file))
         except Exception as err:
             violations.append(f"{py_file}: Parse error: {err}")
             continue
