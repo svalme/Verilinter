@@ -1,8 +1,6 @@
 """Implicit real-number/fractional-time-literal-to-integral conversion checks,
 for declarator initializers and procedural/continuous assignments."""
 
-import re
-
 from ..syntax_kinds import (
     CONCATENATION_EXPRESSION_KIND,
     INVOCATION_EXPRESSION_KIND,
@@ -16,10 +14,15 @@ def is_fractional_time_literal(text: str, timescale_unit_scale: float = 1e-9) ->
     """Check if a time literal string (e.g. '9.001ns', '9ps') represents a fractional
     number of time units under the given timescale unit."""
     s = text.strip()
-    match = re.match(r"^([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z]+)$", s)
-    if not match:
+    if not s:
         return False
-    val_str, unit = match.groups()
+    i = 0
+    while i < len(s) and (s[i].isdigit() or s[i] == "."):
+        i += 1
+    val_str = s[:i]
+    unit = s[i:].strip()
+    if not val_str or not unit:
+        return False
     try:
         val = float(val_str)
     except ValueError:

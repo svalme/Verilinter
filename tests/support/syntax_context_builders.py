@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
-import pyslang as sl
-
+from src.pkg.parser.syntax_kinds import (
+    BLOCKING_EVENT_TRIGGER_STATEMENT_KIND,
+    CASE_STATEMENT_KIND,
+    CONDITIONAL_STATEMENT_KIND,
+    CONTINUOUS_ASSIGN_KIND,
+    NONBLOCKING_EVENT_TRIGGER_STATEMENT_KIND,
+    PRIMITIVE_INSTANTIATION_KIND,
+)
 from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.walk.context import Context
 
@@ -18,7 +24,7 @@ def token_vnode(kind: object) -> Mock:
 def case_context(*, unique_or_priority: str | None = None) -> Context:
     vnode = Mock(spec=BaseVNode)
     vnode.raw = Mock()
-    vnode.raw.kind = sl.SyntaxKind.CaseStatement
+    vnode.raw.kind = CASE_STATEMENT_KIND
     vnode.raw.uniqueOrPriority = unique_or_priority
     return Context().push(vnode)
 
@@ -32,7 +38,7 @@ def case_inside_context(inside_token: object) -> Context:
     """
     vnode = Mock(spec=BaseVNode)
     vnode.raw = Mock()
-    vnode.raw.kind = sl.SyntaxKind.CaseStatement
+    vnode.raw.kind = CASE_STATEMENT_KIND
     vnode.raw.matchesOrInside = inside_token
     return Context().push(vnode)
 
@@ -40,7 +46,7 @@ def case_inside_context(inside_token: object) -> Context:
 def conditional_context(*, unique_or_priority: str | None = None) -> Context:
     vnode = Mock(spec=BaseVNode)
     vnode.raw = Mock()
-    vnode.raw.kind = sl.SyntaxKind.ConditionalStatement
+    vnode.raw.kind = CONDITIONAL_STATEMENT_KIND
     vnode.raw.uniqueOrPriority = unique_or_priority
     return Context().push(vnode)
 
@@ -48,14 +54,14 @@ def conditional_context(*, unique_or_priority: str | None = None) -> Context:
 def continuous_assign_context() -> Context:
     vnode = Mock(spec=BaseVNode)
     vnode.raw = Mock()
-    vnode.raw.kind = sl.SyntaxKind.ContinuousAssign
+    vnode.raw.kind = CONTINUOUS_ASSIGN_KIND
     return Context().push(vnode)
 
 
 def primitive_instantiation_context() -> Context:
     vnode = Mock(spec=BaseVNode)
     vnode.raw = Mock()
-    vnode.raw.kind = sl.SyntaxKind.PrimitiveInstantiation
+    vnode.raw.kind = PRIMITIVE_INSTANTIATION_KIND
     return Context().push(vnode)
 
 
@@ -63,7 +69,7 @@ def event_trigger_statement_context(*, nonblocking: bool = False) -> Context:
     vnode = Mock(spec=BaseVNode)
     vnode.raw = Mock()
     vnode.raw.kind = (
-        sl.SyntaxKind.NonblockingEventTriggerStatement if nonblocking else sl.SyntaxKind.BlockingEventTriggerStatement
+        NONBLOCKING_EVENT_TRIGGER_STATEMENT_KIND if nonblocking else BLOCKING_EVENT_TRIGGER_STATEMENT_KIND
     )
     return Context().push(vnode)
 

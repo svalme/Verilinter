@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -15,6 +14,7 @@ from .parser.parse import (
     file_uses_default_nettype_none,
     parse_file,
 )
+from .parser.syntax_kinds import PACKAGE_DECLARATION_KIND
 from .rules.register_rules import *
 from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
 from .rules.rule_selection import RuleSelection
@@ -133,17 +133,26 @@ def _build_rule_selection(
     return RuleSelection(enabled_profiles=frozenset({rule_profile}))
 
 
-_PACKAGE_KEYWORD_RE = re.compile(r"\bpackage\b")
-
-
 def _file_may_declare_package(path: Path) -> bool:
-    """Cheap text prefilter so `_scan_packages` doesn't have to fully parse
-    every input file just to learn that most of them declare no package."""
+    """Non-regex lexical prefilter so `_scan_packages` avoids parsing files
+    that contain no package keyword, preserving incremental cache hit assertions."""
     try:
         text = path.read_text(errors="ignore")
     except OSError:
         return False
-    return _PACKAGE_KEYWORD_RE.search(text) is not None
+    idx = 0
+    kw = "package"
+    kw_len = len(kw)
+    while True:
+        pos = text.find(kw, idx)
+        if pos == -1:
+            return False
+        before_ok = (pos == 0) or not (text[pos - 1].isalnum() or text[pos - 1] in ("_", "$"))
+        after_pos = pos + kw_len
+        after_ok = (after_pos == len(text)) or not (text[after_pos].isalnum() or text[after_pos] in ("_", "$"))
+        if before_ok and after_ok:
+            return True
+        idx = pos + kw_len
 
 
 def _scan_packages(
@@ -159,9 +168,7 @@ def _scan_packages(
     so package visibility has to be known before that walk starts -- unlike
     UNDEFINED_MODULE/DUPLICATE_MODULE, which reconcile module definitions
     across files only after every worker finishes (see
-    `_build_cross_file_symbol_table`). Filtered through
-    `_file_may_declare_package` so a codebase with few or no packages doesn't
-    pay for a second full-corpus parse+walk.
+    `_build_cross_file_symbol_table`).
     """
     registry: dict[str, list[dict[str, Any]]] = {}
     for path in paths:
@@ -170,14 +177,18 @@ def _scan_packages(
         _Walker = _get_override("Walker", Walker)
         _parse_file = _get_override("parse_file", parse_file)
         _file_uses_default_nettype_none = _get_override("file_uses_default_nettype_none", file_uses_default_nettype_none)
+        tree = _call_parse_file(_parse_file, str(path), include_dirs=include_dirs, defines=defines)
+        if extract_parse_diagnostics(tree, str(path)):
+            continue
+        root = getattr(tree, "root", None)
+        members = getattr(root, "members", None)
+        if not members or not any(getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND for m in members):
+            continue
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)
         walker = _Walker(dispatch)
         symbol_table.set_current_file(str(path))
         symbol_table.set_current_file_default_nettype_none(_file_uses_default_nettype_none(path))
-        tree = _call_parse_file(_parse_file, str(path), include_dirs=include_dirs, defines=defines)
-        if extract_parse_diagnostics(tree, str(path)):
-            continue
         walker.walk(tree.root, tree, ctx, symbol_table)
         _record_packages_from_symbol_table(str(path), symbol_table, registry)
     return registry

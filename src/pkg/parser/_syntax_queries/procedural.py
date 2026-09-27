@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from ..syntax_kinds import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_FF_BLOCK_KIND,
+    BLOCK_ITEM_SKIP_KINDS,
     CASE_ITEM_KINDS,
     CASE_STATEMENT_KIND,
     EVENT_CONTROL_OR_EXPRESSION_KINDS,
@@ -370,8 +371,7 @@ def procedural_block_top_level_reset_names(raw: object) -> set[str]:
         items = getattr(stmt, "items", None)
         if items:
             for it in items:
-                kind_str = str(getattr(it, "kind", ""))
-                if "EmptyStatement" in kind_str or "Declaration" in kind_str:
+                if getattr(it, "kind", None) in BLOCK_ITEM_SKIP_KINDS:
                     continue
                 first_stmt = it
                 break
@@ -536,8 +536,7 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
             items = getattr(inner_stmt, "items", None)
             if items:
                 for it in items:
-                    kind_str = str(getattr(it, "kind", ""))
-                    if "EmptyStatement" in kind_str or "Declaration" in kind_str:
+                    if getattr(it, "kind", None) in BLOCK_ITEM_SKIP_KINDS:
                         continue
                     first_stmt = it
                     break

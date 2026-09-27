@@ -1,5 +1,3 @@
-import re
-
 from ..types import RawNode, SyntaxNode, SyntaxTree, Token
 
 
@@ -38,39 +36,10 @@ def raw_node_children(raw: object) -> list[RawNode]:
 def simple_identifier_text(expr_text: str | None) -> str | None:
     if expr_text is None:
         return None
-    match = re.fullmatch(r"\s*([a-zA-Z_][a-zA-Z0-9_$]*)\s*", expr_text)
-    return match.group(1) if match is not None else None
-
-
-def _split_top_level(text: str, separator: str) -> list[str]:
-    parts: list[str] = []
-    depth_brace = 0
-    depth_bracket = 0
-    depth_paren = 0
-    start = 0
-    for index, char in enumerate(text):
-        if char == "{":
-            depth_brace += 1
-        elif char == "}":
-            depth_brace -= 1
-        elif char == "[":
-            depth_bracket += 1
-        elif char == "]":
-            depth_bracket -= 1
-        elif char == "(":
-            depth_paren += 1
-        elif char == ")":
-            depth_paren -= 1
-        elif (
-            char == separator
-            and depth_brace == 0
-            and depth_bracket == 0
-            and depth_paren == 0
-        ):
-            parts.append(text[start:index].strip())
-            start = index + 1
-    parts.append(text[start:].strip())
-    return [part for part in parts if part]
+    s = expr_text.strip()
+    if s and (s[0].isalpha() or s[0] == "_") and all(c.isalnum() or c in ("_", "$") for c in s[1:]):
+        return s
+    return None
 
 
 

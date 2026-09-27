@@ -25,10 +25,9 @@ class TypedefDeclarationHandler(SyntaxNodeHandler):
             name = str(getattr(name_token, "value", "") or name_token).strip()
             if name:
                 symbol = Symbol(name=name, kind="typedef")
-                loc = token_location(name_token, vnode.tree)
-                if loc.get("line", 0) == 0:
-                    loc = vnode.location
-                symbol.add_declaration(loc)
+                loc = token_location(name_token, vnode.tree) or vnode.location
+                if loc is not None:
+                    symbol.add_declaration(loc)
                 ctx.scope().define(symbol)
         return ctx.push(vnode)
 

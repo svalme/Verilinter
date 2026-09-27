@@ -21,6 +21,8 @@ from ..syntax_kinds import (
     INTEGER_LITERAL_EXPRESSION_KIND,
     INTEGER_VECTOR_EXPRESSION_KIND,
     INVOCATION_EXPRESSION_KIND,
+    LOGICAL_AND_EXPRESSION_KIND,
+    LOGICAL_OR_EXPRESSION_KIND,
     LOGICAL_SHIFT_LEFT_EXPRESSION_KIND,
     LOGICAL_SHIFT_RIGHT_EXPRESSION_KIND,
     MOD_EXPRESSION_KIND,
@@ -249,12 +251,10 @@ def evaluate_constant_expression(
                 return int(l_val > r_val)
             elif kind == GREATER_THAN_EQUAL_EXPRESSION_KIND:
                 return int(l_val >= r_val)
-            else:
-                kind_name = getattr(kind, "name", str(kind))
-                if kind_name == "LogicalAndExpression":
-                    return int(bool(l_val) and bool(r_val))
-                elif kind_name == "LogicalOrExpression":
-                    return int(bool(l_val) or bool(r_val))
+            elif kind == LOGICAL_AND_EXPRESSION_KIND:
+                return int(bool(l_val) and bool(r_val))
+            elif kind == LOGICAL_OR_EXPRESSION_KIND:
+                return int(bool(l_val) or bool(r_val))
 
     return None
 
@@ -304,21 +304,37 @@ def compute_sliced_width(
         unpacked_widths = list(getattr(symbol, "unpacked_dimension_widths", []))
         if not unpacked_widths and getattr(symbol, "unpacked_dimensions", None):
             for msb_txt, lsb_txt in symbol.unpacked_dimensions:
+                m = None
+                l = None
                 try:
                     m = int(msb_txt)
-                    l = int(lsb_txt)
-                    unpacked_widths.append(abs(m - l) + 1)
                 except (ValueError, TypeError):
+                    m = evaluate_constant_text_expression(msb_txt, scope=scope)
+                try:
+                    l = int(lsb_txt)
+                except (ValueError, TypeError):
+                    l = evaluate_constant_text_expression(lsb_txt, scope=scope)
+                if isinstance(m, int) and isinstance(l, int):
+                    unpacked_widths.append(abs(m - l) + 1)
+                else:
                     unpacked_widths.append(None)
 
         packed_widths = list(getattr(symbol, "packed_dimension_widths", []))
         if not packed_widths and getattr(symbol, "packed_dimensions", None):
             for msb_txt, lsb_txt in symbol.packed_dimensions:
+                m = None
+                l = None
                 try:
                     m = int(msb_txt)
-                    l = int(lsb_txt)
-                    packed_widths.append(abs(m - l) + 1)
                 except (ValueError, TypeError):
+                    m = evaluate_constant_text_expression(msb_txt, scope=scope)
+                try:
+                    l = int(lsb_txt)
+                except (ValueError, TypeError):
+                    l = evaluate_constant_text_expression(lsb_txt, scope=scope)
+                if isinstance(m, int) and isinstance(l, int):
+                    packed_widths.append(abs(m - l) + 1)
+                else:
                     packed_widths.append(None)
 
         # If symbol has a known bit width and no explicit packed dimensions (e.g. 1-bit logic or multi-bit integer),
