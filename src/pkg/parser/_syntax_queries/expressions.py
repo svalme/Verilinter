@@ -548,118 +548,117 @@ def simple_expression_width_and_signed(
     if eid in _visited:
         return None, None
     _visited.add(eid)
+    try:
+        expr = unwrap_parentheses(expr)
+        kind = getattr(expr, "kind", None)
 
-    expr = unwrap_parentheses(expr)
-    kind = getattr(expr, "kind", None)
+        if kind == IDENTIFIER_NAME_KIND:
+            name = identifier_name(expr)
+            if name is not None:
+                symbol = _resolve_symbol_in_scope(scope, name)
+                if symbol is not None:
+                    return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
+            return None, None
 
-    if kind == IDENTIFIER_NAME_KIND:
-        name = identifier_name(expr)
-        if name is not None:
-            symbol = _resolve_symbol_in_scope(scope, name)
-            if symbol is not None:
-                return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
-        return None, None
+        if kind == INTEGER_VECTOR_EXPRESSION_KIND:
+            size_node = getattr(expr, "size", None)
+            size_val = getattr(size_node, "value", None)
+            base_node = getattr(expr, "base", None)
+            base_text = str(getattr(base_node, "rawText", base_node) or "").lower()
+            if size_val is not None:
+                try:
+                    size = int(size_val)
+                    return size, "'s" in base_text
+                except (ValueError, TypeError):
+                    pass
+            return None, "'s" in base_text
 
-    if kind == INTEGER_VECTOR_EXPRESSION_KIND:
-        size_node = getattr(expr, "size", None)
-        size_val = getattr(size_node, "value", None)
-        base_node = getattr(expr, "base", None)
-        base_text = str(getattr(base_node, "rawText", base_node) or "").lower()
-        if size_val is not None:
-            try:
-                size = int(size_val)
-                return size, "'s" in base_text
-            except (ValueError, TypeError):
-                pass
-        return None, "'s" in base_text
+        if kind in (INTEGER_LITERAL_EXPRESSION_KIND, UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND):
+            return None, False
 
-    if kind in (INTEGER_LITERAL_EXPRESSION_KIND, UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND):
-        return None, False
+        if kind == IDENTIFIER_SELECT_NAME_KIND:
+            name = identifier_name(expr)
+            selectors = getattr(expr, "selectors", None)
+            symbol = _resolve_symbol_in_scope(scope, name) if (name and scope) else None
+            if selectors:
+                valid_selectors = [s for s in selectors if isinstance(s, SyntaxNode)]
+                if valid_selectors:
+                    width = compute_sliced_width(symbol, valid_selectors, scope=scope)
+                    return width, None
+            return None, None
 
-    if kind == IDENTIFIER_SELECT_NAME_KIND:
-        name = identifier_name(expr)
-        selectors = getattr(expr, "selectors", None)
-        symbol = _resolve_symbol_in_scope(scope, name) if (name and scope) else None
-        if selectors:
-            valid_selectors = [s for s in selectors if isinstance(s, SyntaxNode)]
-            if valid_selectors:
-                width = compute_sliced_width(symbol, valid_selectors, scope=scope)
-                return width, None
-        return None, None
+        if kind == ELEMENT_SELECT_EXPRESSION_KIND:
+            nested_selectors: list[SyntaxNode] = []
+            curr = expr
+            depth = 0
+            seen_curr: set[int] = set()
+            while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
+                cid = id(curr)
+                if cid in seen_curr:
+                    break
+                seen_curr.add(cid)
+                depth += 1
+                sel = getattr(curr, "select", None)
+                if isinstance(sel, SyntaxNode):
+                    nested_selectors.append(sel)
+                curr = getattr(curr, "left", None)
+            base_name = identifier_name(curr)
+            symbol = _resolve_symbol_in_scope(scope, base_name) if (base_name and scope) else None
+            ordered_selectors = list(reversed(nested_selectors))
+            width = compute_sliced_width(symbol, ordered_selectors, scope=scope)
+            return width, None
 
-    if kind == ELEMENT_SELECT_EXPRESSION_KIND:
-        nested_selectors: list[SyntaxNode] = []
-        curr = expr
-        depth = 0
-        seen_curr: set[int] = set()
-        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
-            cid = id(curr)
-            if cid in seen_curr:
-                break
-            seen_curr.add(cid)
-            depth += 1
-            sel = getattr(curr, "select", None)
-            if isinstance(sel, SyntaxNode):
-                nested_selectors.append(sel)
-            curr = getattr(curr, "left", None)
-        base_name = identifier_name(curr)
-        symbol = _resolve_symbol_in_scope(scope, base_name) if (base_name and scope) else None
-        ordered_selectors = list(reversed(nested_selectors))
-        width = compute_sliced_width(symbol, ordered_selectors, scope=scope)
-        return width, None
+        if kind == CONCATENATION_EXPRESSION_KIND:
+            raw_expressions = getattr(expr, "expressions", None)
+            if raw_expressions is not None:
+                members = [e for e in raw_expressions if isinstance(e, SyntaxNode)]
+                if not members:
+                    return None, None
+                total = 0
+                for member in members:
+                    unwrapped_member = unwrap_parentheses(member)
+                    if getattr(unwrapped_member, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
+                        total += 32
+                    else:
+                        m_width, _ = simple_expression_width_and_signed(
+                            scope, unwrapped_member, tree, _depth + 1, _visited
+                        )
+                        if m_width is None:
+                            return None, None
+                        total += m_width
+                return total, False
+            return None, None
 
-
-    if kind == CONCATENATION_EXPRESSION_KIND:
-        raw_expressions = getattr(expr, "expressions", None)
-        if raw_expressions is not None:
-            members = [e for e in raw_expressions if isinstance(e, SyntaxNode)]
-            if not members:
-                return None, None
-            total = 0
-            for member in members:
-                unwrapped_member = unwrap_parentheses(member)
-                if getattr(unwrapped_member, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
-                    total += 32
+        if kind == MULTIPLE_CONCATENATION_EXPRESSION_KIND:
+            count_node = unwrap_parentheses(getattr(expr, "expression", None))
+            concat_node = unwrap_parentheses(getattr(expr, "concatenation", None))
+            count = evaluate_constant_expression(count_node, scope=scope)
+            if count is not None and concat_node is not None:
+                if getattr(concat_node, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
+                    inner_width = 32
                 else:
-                    m_width, _ = simple_expression_width_and_signed(
-                        scope, unwrapped_member, tree, _depth + 1, _visited
+                    inner_width, _ = simple_expression_width_and_signed(
+                        scope, concat_node, tree, _depth + 1, _visited
                     )
-                    if m_width is None:
-                        return None, None
-                    total += m_width
-            return total, False
-        return None, None
+                if inner_width is not None:
+                    return count * inner_width, False
+            return None, None
 
-    if kind == MULTIPLE_CONCATENATION_EXPRESSION_KIND:
-        count_node = unwrap_parentheses(getattr(expr, "expression", None))
-        concat_node = unwrap_parentheses(getattr(expr, "concatenation", None))
-        count = evaluate_constant_expression(count_node, scope=scope)
-        if count is not None and concat_node is not None:
-            if getattr(concat_node, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
-                inner_width = 32
-            else:
-                inner_width, _ = simple_expression_width_and_signed(
-                    scope, concat_node, tree, _depth + 1, _visited
-                )
-            if inner_width is not None:
-                return count * inner_width, False
-        return None, None
+        if kind in SHIFT_EXPRESSION_KINDS:
+            left = getattr(expr, "left", None)
+            if left is not None:
+                return simple_expression_width_and_signed(scope, left, tree, _depth + 1, _visited)
+            return None, None
 
-    if kind in SHIFT_EXPRESSION_KINDS:
-        left = getattr(expr, "left", None)
-        if left is not None:
-            return simple_expression_width_and_signed(scope, left, tree, _depth + 1, _visited)
         return None, None
-
-    return None, None
+    finally:
+        _visited.discard(eid)
 
 
 def natural_expression_width_and_signed(
     scope: object,
     expr: SyntaxNode,
     tree: SyntaxTree | None = None,
-    _depth: int = 0,
-    _visited: set[int] | None = None,
 ) -> tuple[int | None, bool | None]:
     """Return the natural (self-determined) result width and signedness of
     `expr`, extending `simple_expression_width_and_signed` to cover binary
@@ -670,14 +669,8 @@ def natural_expression_width_and_signed(
     - Multiply: `left_width + right_width`.
     - Signedness: signed only when both operands are signed.
     """
-    if not isinstance(expr, SyntaxNode) or _depth > 32:
+    if not isinstance(expr, SyntaxNode):
         return None, None
-    if _visited is None:
-        _visited = set()
-    eid = id(expr)
-    if eid in _visited:
-        return None, None
-    _visited.add(eid)
 
     expr = unwrap_parentheses(expr)
     kind = getattr(expr, "kind", None)
@@ -686,8 +679,8 @@ def natural_expression_width_and_signed(
         left = getattr(expr, "left", None)
         right = getattr(expr, "right", None)
         if left is not None and right is not None:
-            l_w, l_s = simple_expression_width_and_signed(scope, left, tree, _depth + 1, _visited)
-            r_w, r_s = simple_expression_width_and_signed(scope, right, tree, _depth + 1, _visited)
+            l_w, l_s = simple_expression_width_and_signed(scope, left, tree)
+            r_w, r_s = simple_expression_width_and_signed(scope, right, tree)
             if isinstance(l_w, int) and isinstance(r_w, int):
                 return max(l_w, r_w), bool(l_s and r_s)
         return None, None
@@ -696,13 +689,13 @@ def natural_expression_width_and_signed(
         left = getattr(expr, "left", None)
         right = getattr(expr, "right", None)
         if left is not None and right is not None:
-            l_w, l_s = simple_expression_width_and_signed(scope, left, tree, _depth + 1, _visited)
-            r_w, r_s = simple_expression_width_and_signed(scope, right, tree, _depth + 1, _visited)
+            l_w, l_s = simple_expression_width_and_signed(scope, left, tree)
+            r_w, r_s = simple_expression_width_and_signed(scope, right, tree)
             if isinstance(l_w, int) and isinstance(r_w, int):
                 return l_w + r_w, bool(l_s and r_s)
         return None, None
 
-    return simple_expression_width_and_signed(scope, expr, tree, _depth, _visited)
+    return simple_expression_width_and_signed(scope, expr, tree)
 
 
 def evaluate_constant_text_expression(expr_text: str | None, scope: object = None) -> int | None:

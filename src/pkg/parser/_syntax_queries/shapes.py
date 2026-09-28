@@ -80,43 +80,45 @@ def extract_assignment_target_and_selectors(
     if rid in _visited:
         return None, []
     _visited.add(rid)
+    try:
+        from ..syntax_kinds import (
+            ELEMENT_SELECT_EXPRESSION_KIND,
+            IDENTIFIER_NAME_KIND,
+            IDENTIFIER_SELECT_NAME_KIND,
+        )
 
-    from ..syntax_kinds import (
-        ELEMENT_SELECT_EXPRESSION_KIND,
-        IDENTIFIER_NAME_KIND,
-        IDENTIFIER_SELECT_NAME_KIND,
-    )
-
-    kind = getattr(raw, "kind", None)
-    if kind == IDENTIFIER_NAME_KIND:
-        ident = getattr(raw, "identifier", None)
-        name = getattr(ident, "value", None)
+        kind = getattr(raw, "kind", None)
+        if kind == IDENTIFIER_NAME_KIND:
+            ident = getattr(raw, "identifier", None)
+            name = getattr(ident, "value", None)
+            return (name if isinstance(name, str) and name else None), []
+        if kind == IDENTIFIER_SELECT_NAME_KIND:
+            ident = getattr(raw, "identifier", None)
+            name = getattr(ident, "value", None)
+            selectors = getattr(raw, "selectors", None)
+            sels = [s for s in selectors if isinstance(s, SyntaxNode)] if selectors else []
+            return (name if isinstance(name, str) and name else None), sels
+        if kind == ELEMENT_SELECT_EXPRESSION_KIND:
+            nested_selectors: list[SyntaxNode] = []
+            curr = raw
+            depth = 0
+            seen_curr: set[int] = set()
+            while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
+                cid = id(curr)
+                if cid in seen_curr:
+                    break
+                seen_curr.add(cid)
+                depth += 1
+                sel = getattr(curr, "select", None)
+                if isinstance(sel, SyntaxNode):
+                    nested_selectors.append(sel)
+                curr = getattr(curr, "left", None)
+            base_name, base_selectors = extract_assignment_target_and_selectors(curr, _depth + 1, _visited)
+            return base_name, base_selectors + list(reversed(nested_selectors))
+        name = identifier_name(raw)
         return (name if isinstance(name, str) and name else None), []
-    if kind == IDENTIFIER_SELECT_NAME_KIND:
-        ident = getattr(raw, "identifier", None)
-        name = getattr(ident, "value", None)
-        selectors = getattr(raw, "selectors", None)
-        sels = [s for s in selectors if isinstance(s, SyntaxNode)] if selectors else []
-        return (name if isinstance(name, str) and name else None), sels
-    if kind == ELEMENT_SELECT_EXPRESSION_KIND:
-        nested_selectors: list[SyntaxNode] = []
-        curr = raw
-        depth = 0
-        seen_curr: set[int] = set()
-        while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
-            cid = id(curr)
-            if cid in seen_curr:
-                break
-            seen_curr.add(cid)
-            depth += 1
-            sel = getattr(curr, "select", None)
-            if isinstance(sel, SyntaxNode):
-                nested_selectors.append(sel)
-            curr = getattr(curr, "left", None)
-        base_name, base_selectors = extract_assignment_target_and_selectors(curr, _depth + 1, _visited)
-        return base_name, base_selectors + list(reversed(nested_selectors))
-    name = identifier_name(raw)
-    return (name if isinstance(name, str) and name else None), []
+    finally:
+        _visited.discard(rid)
 
 
 def resolve_assignment_target(
@@ -142,77 +144,79 @@ def resolve_assignment_target(
     if rid in _visited:
         return None
     _visited.add(rid)
+    try:
+        from ...semantic.models.assignment_target import AssignmentTarget
+        from ..syntax_kinds import (
+            CONCATENATION_EXPRESSION_KIND,
+            MULTIPLE_CONCATENATION_EXPRESSION_KIND,
+        )
+        from ..syntax_queries import (
+            compute_sliced_width,
+            evaluate_constant_expression,
+            unwrap_parentheses,
+        )
 
-    from ...semantic.models.assignment_target import AssignmentTarget
-    from ..syntax_kinds import (
-        CONCATENATION_EXPRESSION_KIND,
-        MULTIPLE_CONCATENATION_EXPRESSION_KIND,
-    )
-    from ..syntax_queries import (
-        compute_sliced_width,
-        evaluate_constant_expression,
-        unwrap_parentheses,
-    )
+        raw = unwrap_parentheses(raw)
+        kind = getattr(raw, "kind", None)
 
-    raw = unwrap_parentheses(raw)
-    kind = getattr(raw, "kind", None)
-
-    if kind == CONCATENATION_EXPRESSION_KIND:
-        raw_exprs = getattr(raw, "expressions", None)
-        if raw_exprs is None:
-            return None
-        members = [e for e in raw_exprs if isinstance(e, SyntaxNode)]
-        if not members:
-            return None
-        elements: list[AssignmentTarget] = []
-        total_w = 0
-        for m in members:
-            elem_target = resolve_assignment_target(m, scope, tree, _depth + 1, _visited)
-            if elem_target is None or not isinstance(getattr(elem_target, "bit_width", None), int):
+        if kind == CONCATENATION_EXPRESSION_KIND:
+            raw_exprs = getattr(raw, "expressions", None)
+            if raw_exprs is None:
                 return None
-            elements.append(elem_target)
-            total_w += elem_target.bit_width
-        return AssignmentTarget(
-            is_concatenated=True,
-            elements=elements,
-            total_width=total_w,
-        )
+            members = [e for e in raw_exprs if isinstance(e, SyntaxNode)]
+            if not members:
+                return None
+            elements: list[AssignmentTarget] = []
+            total_w = 0
+            for m in members:
+                elem_target = resolve_assignment_target(m, scope, tree, _depth + 1, _visited)
+                if elem_target is None or not isinstance(getattr(elem_target, "bit_width", None), int):
+                    return None
+                elements.append(elem_target)
+                total_w += elem_target.bit_width
+            return AssignmentTarget(
+                is_concatenated=True,
+                elements=elements,
+                total_width=total_w,
+            )
 
-    if kind == MULTIPLE_CONCATENATION_EXPRESSION_KIND:
-        count_node = unwrap_parentheses(getattr(raw, "expression", None))
-        concat_node = unwrap_parentheses(getattr(raw, "concatenation", None))
-        count = evaluate_constant_expression(count_node, scope=scope)
-        if count is None or not isinstance(count, int) or count <= 0 or concat_node is None:
-            return None
-        inner_target = resolve_assignment_target(concat_node, scope, tree, _depth + 1, _visited)
-        if inner_target is None or not isinstance(getattr(inner_target, "bit_width", None), int):
-            return None
-        return AssignmentTarget(
-            is_concatenated=True,
-            elements=[inner_target] * count,
-            total_width=count * inner_target.bit_width,
-        )
+        if kind == MULTIPLE_CONCATENATION_EXPRESSION_KIND:
+            count_node = unwrap_parentheses(getattr(raw, "expression", None))
+            concat_node = unwrap_parentheses(getattr(raw, "concatenation", None))
+            count = evaluate_constant_expression(count_node, scope=scope)
+            if count is None or not isinstance(count, int) or count <= 0 or concat_node is None:
+                return None
+            inner_target = resolve_assignment_target(concat_node, scope, tree, _depth + 1, _visited)
+            if inner_target is None or not isinstance(getattr(inner_target, "bit_width", None), int):
+                return None
+            return AssignmentTarget(
+                is_concatenated=True,
+                elements=[inner_target] * count,
+                total_width=count * inner_target.bit_width,
+            )
 
-    name, selectors = extract_assignment_target_and_selectors(raw)
-    if name is None:
-        return None
-    lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
-    symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
-    if symbol is None:
-        return None
-    if selectors:
-        slice_w = compute_sliced_width(symbol, selectors, scope=scope)
+        name, selectors = extract_assignment_target_and_selectors(raw)
+        if name is None:
+            return None
+        lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
+        symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+        if symbol is None:
+            return None
+        if selectors:
+            slice_w = compute_sliced_width(symbol, selectors, scope=scope)
+            return AssignmentTarget(
+                base_symbol=symbol,
+                slice_width=slice_w,
+                is_sliced=True,
+                selectors=selectors,
+            )
         return AssignmentTarget(
             base_symbol=symbol,
-            slice_width=slice_w,
-            is_sliced=True,
-            selectors=selectors,
+            slice_width=None,
+            is_sliced=False,
         )
-    return AssignmentTarget(
-        base_symbol=symbol,
-        slice_width=None,
-        is_sliced=False,
-    )
+    finally:
+        _visited.discard(rid)
 
 
 def resolve_assignment_target_and_rhs(vnode: object, ctx: object):

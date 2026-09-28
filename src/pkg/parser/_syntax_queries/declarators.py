@@ -146,19 +146,21 @@ def _ansi_port_list_items(list_node: object) -> list[object]:
         if nid in visited:
             return
         visited.add(nid)
-
         try:
-            children = iter(node)
-        except TypeError:
-            return
+            try:
+                children = iter(node)
+            except TypeError:
+                return
 
-        for child in children:
-            if not isinstance(child, SyntaxNode):
-                continue
-            if getattr(child, "kind", None) in ANSI_PORT_KINDS:
-                items.append(child)
-            else:
-                _walk(child, depth + 1)
+            for child in children:
+                if not isinstance(child, SyntaxNode):
+                    continue
+                if getattr(child, "kind", None) in ANSI_PORT_KINDS:
+                    items.append(child)
+                else:
+                    _walk(child, depth + 1)
+        finally:
+            visited.discard(nid)
 
     _walk(list_node)
     return items

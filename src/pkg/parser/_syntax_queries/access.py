@@ -25,16 +25,18 @@ def contains_descendant(
     if rid in _visited:
         return False
     _visited.add(rid)
-
     try:
-        children = iter(root)
-    except TypeError:
-        return False
+        try:
+            children = iter(root)
+        except TypeError:
+            return False
 
-    for child in children:
-        if isinstance(child, SyntaxNode) and contains_descendant(child, target, _depth + 1, _visited):
-            return True
-    return False
+        for child in children:
+            if isinstance(child, SyntaxNode) and contains_descendant(child, target, _depth + 1, _visited):
+                return True
+        return False
+    finally:
+        _visited.discard(rid)
 
 
 def assignment_left(raw: object) -> SyntaxNode | None:
@@ -80,31 +82,33 @@ def _selectors_containing_identifier(
     if rid in _visited:
         return False
     _visited.add(rid)
-
-    selectors = getattr(raw, "selectors", None)
-    if selectors is not None:
-        for selector in selectors:
-            if isinstance(selector, SyntaxNode) and contains_descendant(selector, raw_identifier):
-                return True
-
-    select = getattr(raw, "select", None)
-    if select is not None and isinstance(select, SyntaxNode) and contains_descendant(select, raw_identifier):
-        return True
-
-    if getattr(raw, "kind", None) == ELEMENT_SELECT_KIND:
-        return contains_descendant(raw, raw_identifier)
-
     try:
-        children = iter(raw)
-    except TypeError:
+        selectors = getattr(raw, "selectors", None)
+        if selectors is not None:
+            for selector in selectors:
+                if isinstance(selector, SyntaxNode) and contains_descendant(selector, raw_identifier):
+                    return True
+
+        select = getattr(raw, "select", None)
+        if select is not None and isinstance(select, SyntaxNode) and contains_descendant(select, raw_identifier):
+            return True
+
+        if getattr(raw, "kind", None) == ELEMENT_SELECT_KIND:
+            return contains_descendant(raw, raw_identifier)
+
+        try:
+            children = iter(raw)
+        except TypeError:
+            return False
+
+        for child in children:
+            if isinstance(child, SyntaxNode) and contains_descendant(child, raw_identifier):
+                if _selectors_containing_identifier(child, raw_identifier, _depth + 1, _visited):
+                    return True
+
         return False
-
-    for child in children:
-        if isinstance(child, SyntaxNode) and contains_descendant(child, raw_identifier):
-            if _selectors_containing_identifier(child, raw_identifier, _depth + 1, _visited):
-                return True
-
-    return False
+    finally:
+        _visited.discard(rid)
 
 
 def _identifier_access_modes_over_ancestors(
@@ -326,24 +330,26 @@ def _statement_assigns_register(
     if rid in _visited:
         return False
     _visited.add(rid)
-
-    if (
-        is_assignment_expression(raw)
-        and getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
-        and assignment_target_identifier_name(raw) == register_name
-    ):
-        return True
-
     try:
-        children = iter(raw)
-    except TypeError:
-        return False
+        if (
+            is_assignment_expression(raw)
+            and getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
+            and assignment_target_identifier_name(raw) == register_name
+        ):
+            return True
 
-    for child in children:
-        if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
-            if _statement_assigns_register(child, register_name, _depth + 1, _visited):
-                return True
-    return False
+        try:
+            children = iter(raw)
+        except TypeError:
+            return False
+
+        for child in children:
+            if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
+                if _statement_assigns_register(child, register_name, _depth + 1, _visited):
+                    return True
+        return False
+    finally:
+        _visited.discard(rid)
 
 
 def is_state_register_reset_covered(block_raw: object, register_name: str) -> bool:
@@ -392,20 +398,22 @@ def is_state_register_reset_covered(block_raw: object, register_name: str) -> bo
         if nid in visited:
             return
         visited.add(nid)
+        try:
+            if is_conditional_statement(node) and _conditional_references_any_name(node, reset_names):
+                if _statement_assigns_register(getattr(node, "statement", None), register_name):
+                    found = True
+                    return
 
-        if is_conditional_statement(node) and _conditional_references_any_name(node, reset_names):
-            if _statement_assigns_register(getattr(node, "statement", None), register_name):
-                found = True
+            try:
+                children = iter(node)
+            except TypeError:
                 return
 
-        try:
-            children = iter(node)
-        except TypeError:
-            return
-
-        for child in children:
-            if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
-                _walk(child, depth + 1)
+            for child in children:
+                if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
+                    _walk(child, depth + 1)
+        finally:
+            visited.discard(nid)
 
     _walk(block_raw)
     return found
