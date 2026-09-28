@@ -244,3 +244,100 @@ Complex AST handlers decompose disparate concerns into injectable strategy subco
   - `ParameterOverrideExtractor`: Extracts parameter overrides and computes style, accepting an injectable constant `evaluator`.
   - `PortConnectionExtractor`: Resolves port connections and connection style, accepting an injectable `width_resolver`.
 
+---
+
+## 8. AST Traversal Guard & Active-Path Cycle Immunity Subsystem
+
+To guarantee complete loop immunity, bound recursion depths, and eliminate manual boilerplate across AST query functions, Verilinter introduces the `TraversalGuard` subsystem (`traversal_guard.py`).
+
+### A. The Challenge: PyBind11 Wrapper Address Recycling vs. Cycle Detection
+
+When analyzing syntax trees with `pyslang`, the Python wrapper `pyslang.SyntaxNode` and token objects are created dynamically on the fly across PyBind11 C++/Python boundaries.
+
+```
+       [Parent Node]
+       /           \
+[Child 1: PyObject 0x1000]   [Child 2: PyObject 0x1000]
+(enters, exits, garbage collected) -> (allocated at recycled address 0x1000!)
+```
+
+1. **Address Recycling Hazard**:
+   - If a traversal keeps a flat set of visited integer IDs (`visited: set[int] = set()`) and leaves IDs in the set across sibling iterations, a critical failure occurs.
+   - Child 1 is processed; when it goes out of scope, Python frees its memory address (e.g. `0x1000`).
+   - CPython's `pymalloc` memory pool immediately allocates the exact same address `0x1000` to Child 2's Python wrapper.
+   - If Child 1's ID was retained in a flat set, Child 2 is spuriously identified as a "cycle" and skipped, leading to false negatives and broken lint analyses.
+2. **Active-Path Invariance**:
+   - Instead of a flat persistent visited set, the traversal must track only the **active path** (nodes currently living on the active call stack frames).
+   - An active parent or ancestor node wrapper is guaranteed alive and anchored on the stack, meaning its memory address can *never* be recycled for any of its children or descendants during its descent.
+   - When a stack frame unwinds, its ID is discarded immediately. Subsequent siblings may reuse that address safely without false-positive collision.
+
+### B. Core Architecture: `ActivePath`, `@guarded_traversal`, and `@guarded_generator`
+
+The `traversal_guard.py` module encapsulates active-path tracking into reusable primitives:
+
+```mermaid
+flowchart TD
+    Call["Function Call: @guarded_traversal / @guarded_generator"] --> ExtractNode["Extract AST Node (positional or keyword)"]
+    ExtractNode --> CheckNull{"Node is None?"}
+    CheckNull -- Yes --> RetDef["Return default / empty"]
+    CheckNull -- No --> CheckPath{"Active Path initialized in ContextVar?"}
+    CheckPath -- No --> InitPath["Initialize active set & set ContextVar token"]
+    CheckPath -- Yes --> CheckDepth{"len(path) >= max_depth?"}
+    InitPath --> CheckDepth
+    CheckDepth -- Yes --> RetDef
+    CheckDepth -- No --> CheckCycle{"id(node) in active path?"}
+    CheckCycle -- Yes --> RetDef
+    CheckCycle -- No --> EnterPath["path.add(id(node))"]
+    EnterPath --> Exec["Execute Wrapped Function"]
+    Exec --> ExitPath["finally: path.discard(id(node))"]
+    ExitPath --> RootCheck{"Is Root Frame?"}
+    RootCheck -- Yes --> ResetCV["Reset ContextVar token"]
+    RootCheck -- No --> ReturnResult["Return Function Result"]
+    ResetCV --> ReturnResult
+```
+
+1. **`ActivePath` & `ActivePathScope`**:
+   - RAII context manager for explicit scoping:
+     ```python
+     path = ActivePath(max_depth=64)
+     with path.enter(node) as scope:
+         if not scope:
+             return None
+         # Traverse children with path.next_level()
+     ```
+2. **`@guarded_traversal(max_depth=64, default=None, node_arg=0)`**:
+   - Decorator for recursive AST value functions.
+   - Uses `ContextVar` to keep independent active paths per traversal entry point.
+   - Pre-computes parameter extraction at decoration time for near-zero runtime overhead.
+   - Supports custom `node_arg` names (`node_arg="expr"`) or parameter indices (`node_arg=1`).
+3. **`@guarded_generator(max_depth=128, node_arg=0)`**:
+   - Decorator for recursive generator traversals (`yield` and `yield from`).
+   - Guarantees unwinding via `try...finally: path.discard(nid)` even on early generator termination (e.g. `break` in consumer loop).
+4. **`ast_descendants_iter(root, stop_at=None, max_depth=128)`**:
+   - Iterative DFS walker using an explicit stack, eliminating call-stack recursion entirely while enforcing active-path cycle protection and depth bounds.
+
+### C. Standardized Integration Across Query Modules
+
+All syntax query modules in `src/pkg/parser/_syntax_queries/` use the `TraversalGuard` subsystem:
+
+| Query Function | Subsystem Primitive | Max Depth | Default Return |
+| :--- | :--- | :--- | :--- |
+| `contains_descendant` (`access.py`) | `@guarded_traversal` | 64 | `False` |
+| `_selectors_containing_identifier` (`access.py`) | `@guarded_traversal` | 32 | `[]` |
+| `_statement_assigns_register` (`access.py`) | `@guarded_traversal` | 64 | `False` |
+| `is_state_register_reset_covered` (`access.py`) | `@guarded_traversal` | 64 | `False` |
+| `_iter_ansi_ports` (`declarators.py`) | `@guarded_generator` | 32 | `Iterator[object]` |
+| `iter_identifier_reads` (`procedural.py`) | `@guarded_generator` | 128 | `Iterator[tuple[str, SyntaxNode]]` |
+| `_iter_identifier_nodes` (`procedural.py`) | `@guarded_generator` | 128 | `Iterator[tuple[str, SyntaxNode]]` |
+| `iter_assignment_nodes` (`procedural.py`) | `@guarded_generator` | 128 | `Iterator[SyntaxNode]` |
+| `_collect_sensitivity_events` (`procedural.py`) | `@guarded_traversal` | 64 | `None` |
+| `_count_edge_qualified_signals` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
+| `_edge_qualified_signal_names` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
+| `async_reset_signal_edges` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
+| `procedural_block_edge_events` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
+| `extract_assignment_target_and_selectors` (`shapes.py`) | `@guarded_traversal` | 64 | `(None, [])` |
+| `resolve_assignment_target` (`shapes.py`) | `@guarded_traversal` | 32 | `None` |
+| `evaluate_constant_expression` (`expressions.py`) | `@guarded_traversal` | 16 | `None` |
+| `simple_expression_width_and_signed` (`expressions.py`) | `@guarded_traversal` (`node_arg="expr"`) | 32 | `(None, None)` |
+
+

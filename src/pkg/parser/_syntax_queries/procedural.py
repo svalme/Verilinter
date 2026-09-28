@@ -13,6 +13,7 @@ from ..syntax_kinds import (
     SIMPLE_ASSIGNMENT_KINDS,
     TIMING_CONTROL_STATEMENT_KIND,
 )
+from ..traversal_guard import guarded_generator, guarded_traversal
 from ..types import (
     BinaryEventExpressionNode,
     ImplicitEventControlNode,
@@ -22,6 +23,14 @@ from ..types import (
     SyntaxNode,
     SyntaxTree,
 )
+def _node_syntax_children(node: object) -> Iterator[SyntaxNode]:
+    try:
+        children = iter(node)
+    except TypeError:
+        return
+    for child in children:
+        if isinstance(child, SyntaxNode):
+            yield child
 
 
 def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
@@ -34,65 +43,40 @@ def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
     if not isinstance(root, SyntaxNode):
         return
 
-    visited: set[int] = set()
+    @guarded_generator(max_depth=128)
+    def _walk(node: SyntaxNode, ancestors: list[object]) -> Iterator[tuple[str, SyntaxNode]]:
+        if is_identifier_name_node(node):
+            name = identifier_name(node)
+            if name:
+                is_read, _is_write = _identifier_access_modes_over_ancestors(ancestors, node)
+                if is_read:
+                    yield name, node
 
-    def _walk(node: SyntaxNode, ancestors: list[object], depth: int = 0) -> Iterator[tuple[str, SyntaxNode]]:
-        if depth > 128:
-            return
-        nid = id(node)
-        if nid in visited:
-            return
-        visited.add(nid)
+        ancestors.append(node)
         try:
-            if is_identifier_name_node(node):
-                name = identifier_name(node)
-                if name:
-                    is_read, _is_write = _identifier_access_modes_over_ancestors(ancestors, node)
-                    if is_read:
-                        yield name, node
-
-            ancestors.append(node)
-            try:
-                children = iter(node)
-            except TypeError:
-                children = ()
-            for child in children:
-                if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
-                    yield from _walk(child, ancestors, depth + 1)
-            ancestors.pop()
+            for child in _node_syntax_children(node):
+                if not isinstance(child, ProceduralBlockNode):
+                    yield from _walk(child, ancestors)
         finally:
-            visited.discard(nid)
+            ancestors.pop()
 
     yield from _walk(root, [])
 
 
-def _iter_identifier_nodes(root: SyntaxNode, depth: int = 0, visited: set[int] | None = None) -> Iterator[tuple[str, SyntaxNode]]:
+@guarded_generator(max_depth=128)
+def _iter_identifier_nodes(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
     from ..syntax_queries import identifier_name, is_identifier_name_node
 
-    if not isinstance(root, SyntaxNode) or depth > 128:
+    if not isinstance(root, SyntaxNode):
         return
 
-    if visited is None:
-        visited = set()
-    nid = id(root)
-    if nid in visited:
-        return
-    visited.add(nid)
-    try:
-        if is_identifier_name_node(root):
-            name = identifier_name(root)
-            if name:
-                yield name, root
+    if is_identifier_name_node(root):
+        name = identifier_name(root)
+        if name:
+            yield name, root
 
-        try:
-            children = iter(root)
-        except TypeError:
-            children = ()
-        for child in children:
-            if isinstance(child, SyntaxNode):
-                yield from _iter_identifier_nodes(child, depth + 1, visited)
-    finally:
-        visited.discard(nid)
+    for child in _node_syntax_children(root):
+        yield from _iter_identifier_nodes(child)
 
 
 def _collect_sensitivity_events(node: object) -> tuple[set[str], bool]:
@@ -100,31 +84,24 @@ def _collect_sensitivity_events(node: object) -> tuple[set[str], bool]:
 
     names: set[str] = set()
     has_edge = False
-    visited: set[int] = set()
 
-    def _collect(current: object, depth: int = 0) -> None:
+    @guarded_traversal(max_depth=64, default=None)
+    def _collect(current: object) -> None:
         nonlocal has_edge
-        if current is None or depth > 64:
+        if current is None:
             return
-        cid = id(current)
-        if cid in visited:
-            return
-        visited.add(cid)
-        try:
-            if isinstance(current, ParenthesizedEventExpressionNode):
-                _collect(getattr(current, "expr", None), depth + 1)
-            elif isinstance(current, BinaryEventExpressionNode):
-                _collect(getattr(current, "left", None), depth + 1)
-                _collect(getattr(current, "right", None), depth + 1)
-            elif isinstance(current, SignalEventExpressionNode):
-                if is_posedge_event(current) or is_negedge_event(current):
-                    has_edge = True
-                expr = getattr(current, "expr", None)
-                if isinstance(expr, SyntaxNode):
-                    for name, _identifier in _iter_identifier_nodes(expr):
-                        names.add(name)
-        finally:
-            visited.discard(cid)
+        if isinstance(current, ParenthesizedEventExpressionNode):
+            _collect(getattr(current, "expr", None))
+        elif isinstance(current, BinaryEventExpressionNode):
+            _collect(getattr(current, "left", None))
+            _collect(getattr(current, "right", None))
+        elif isinstance(current, SignalEventExpressionNode):
+            if is_posedge_event(current) or is_negedge_event(current):
+                has_edge = True
+            expr = getattr(current, "expr", None)
+            if isinstance(expr, SyntaxNode):
+                for name, _identifier in _iter_identifier_nodes(expr):
+                    names.add(name)
 
     _collect(node)
     return names, has_edge
@@ -188,6 +165,7 @@ def _count_edge_qualified_signals(node: object) -> int:
 
     count = 0
 
+    @guarded_traversal(max_depth=32, default=None)
     def _walk(current: object) -> None:
         nonlocal count
         if current is None:
@@ -230,6 +208,7 @@ def _edge_qualified_signal_names(node: object) -> set[str]:
 
     names: set[str] = set()
 
+    @guarded_traversal(max_depth=32, default=None)
     def _walk(current: object) -> None:
         if current is None:
             return
@@ -318,6 +297,7 @@ def async_reset_signal_edges(raw: object) -> dict[str, str]:
 
     edges: dict[str, str] = {}
 
+    @guarded_traversal(max_depth=32, default=None)
     def _walk(current: object) -> None:
         if current is None:
             return
@@ -362,6 +342,7 @@ def procedural_block_edge_events(raw: object) -> list[tuple[str, str]]:
 
     events: list[tuple[str, str]] = []
 
+    @guarded_traversal(max_depth=32, default=None)
     def _walk(current: object) -> None:
         if current is None:
             return
@@ -643,34 +624,20 @@ def missing_sensitivity_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode
     return missing
 
 
-def iter_assignment_nodes(node: SyntaxNode, depth: int = 0, visited: set[int] | None = None) -> Iterator[SyntaxNode]:
+@guarded_generator(max_depth=128)
+def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
     from ..syntax_queries import is_assignment_expression
 
-    if not isinstance(node, SyntaxNode) or depth > 128:
+    if not isinstance(node, SyntaxNode):
         return
 
-    if visited is None:
-        visited = set()
-    nid = id(node)
-    if nid in visited:
-        return
-    visited.add(nid)
-    try:
-        if is_assignment_expression(node):
-            yield node
+    if is_assignment_expression(node):
+        yield node
 
-        try:
-            children = iter(node)
-        except TypeError:
-            children = ()
-        for child in children:
-            if not isinstance(child, SyntaxNode):
-                continue
-            if isinstance(child, ProceduralBlockNode):
-                continue
-            yield from iter_assignment_nodes(child, depth + 1, visited)
-    finally:
-        visited.discard(nid)
+    for child in _node_syntax_children(node):
+        if isinstance(child, ProceduralBlockNode):
+            continue
+        yield from iter_assignment_nodes(child)
 
 
 def mixed_assignment_trigger_node(block_raw: object) -> SyntaxNode | None:

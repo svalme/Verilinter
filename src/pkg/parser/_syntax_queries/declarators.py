@@ -2,6 +2,8 @@
 localparam), direction, packed/unpacked dimensions, bit width, signedness,
 and clocking-declaration signal extraction."""
 
+from typing import Iterator
+
 from ..syntax_kinds import (
     ALL_PORT_DECLARATION_KINDS,
     ANSI_PORT_KINDS,
@@ -19,8 +21,9 @@ from ..syntax_kinds import (
     PORT_DECLARATION_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
 )
+from ..traversal_guard import guarded_generator
 from ..types import SyntaxNode, SyntaxTree
-from .shared import identifier_name, node_location, source_text_for_node
+from .shared import identifier_name, node_location, raw_node_children, source_text_for_node
 
 
 def declarator_name(raw: object) -> str | None:
@@ -132,38 +135,22 @@ def _explicit_port_direction(raw: object) -> str | None:
     return PORT_DIRECTION_TOKEN_KINDS.get(getattr(direction, "kind", None))
 
 
+@guarded_generator(max_depth=64)
+def _iter_ansi_ports(node: object) -> Iterator[object]:
+    for child in raw_node_children(node):
+        if not isinstance(child, SyntaxNode):
+            continue
+        if getattr(child, "kind", None) in ANSI_PORT_KINDS:
+            yield child
+        else:
+            yield from _iter_ansi_ports(child)
+
+
 def _ansi_port_list_items(list_node: object) -> list[object]:
     """Flatten an `AnsiPortListSyntax` down to its ordered `ImplicitAnsiPortSyntax`
     items, looking through the intermediate separated-list wrapper pyslang puts
     between the list and its items."""
-    items: list[object] = []
-    visited: set[int] = set()
-
-    def _walk(node: object, depth: int = 0) -> None:
-        if depth >= 64 or node is None:
-            return
-        nid = id(node)
-        if nid in visited:
-            return
-        visited.add(nid)
-        try:
-            try:
-                children = iter(node)
-            except TypeError:
-                return
-
-            for child in children:
-                if not isinstance(child, SyntaxNode):
-                    continue
-                if getattr(child, "kind", None) in ANSI_PORT_KINDS:
-                    items.append(child)
-                else:
-                    _walk(child, depth + 1)
-        finally:
-            visited.discard(nid)
-
-    _walk(list_node)
-    return items
+    return list(_iter_ansi_ports(list_node))
 
 
 def _inherited_port_direction(raw: object) -> str | None:
