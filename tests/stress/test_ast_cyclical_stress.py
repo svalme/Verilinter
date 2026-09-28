@@ -337,3 +337,100 @@ def test_state_register_reset_covered_cycle_immunity() -> None:
     covered = sq.is_state_register_reset_covered(block, "state_reg")
     assert covered is False
     assert time.perf_counter() - t0 < 0.05
+
+
+def test_has_latch_pattern_deep_and_cyclic_immunity() -> None:
+    """Verifies latch pattern analysis terminates cleanly on cyclic and deeply nested statements."""
+    from src.pkg.rules.combinational_logic.no_latch_in_always_comb import has_latch_pattern, _analyze_statement_latch
+
+    # 1. Direct cyclic node
+    cyclic = _build_cyclic_node()
+    t0 = time.perf_counter()
+    has_latch, assigned = _analyze_statement_latch(cyclic, set())
+    assert has_latch is False
+    assert isinstance(assigned, set)
+    assert has_latch_pattern(cyclic) is False
+    assert time.perf_counter() - t0 < 0.05
+
+    # 2. Deeply nested block of 300 levels
+    from src.pkg.parser.syntax_kinds import BLOCK_STATEMENT_KINDS
+    block_kind = next(iter(BLOCK_STATEMENT_KINDS))
+    curr = Mock(spec=sl.SyntaxNode)
+    curr.kind = block_kind
+    curr.statements = ()
+    for _ in range(300):
+        parent = Mock(spec=sl.SyntaxNode)
+        parent.kind = block_kind
+        parent.statements = (curr,)
+        curr = parent
+
+    t0 = time.perf_counter()
+    has_latch, _ = _analyze_statement_latch(curr, set())
+    assert has_latch is False
+    assert time.perf_counter() - t0 < 0.05
+
+
+def test_combinational_loop_deep_signal_graph_immunity() -> None:
+    """Verifies combinational loop detection does not exceed call stack on deep signal chains."""
+    from src.pkg.rules.combinational_logic.combinational_loop import CombinationalLoopRule
+
+    rule = CombinationalLoopRule()
+    # Construct a 500-node linear DAG: sig_0 -> sig_1 -> ... -> sig_499
+    graph: dict[str, list[tuple[str, dict[str, Any], tuple[str, ...]]]] = {}
+    for i in range(500):
+        graph[f"sig_{i}"] = [(f"sig_{i+1}", {"line": 1, "col": 1}, ())]
+    graph["sig_500"] = []
+
+    t0 = time.perf_counter()
+    diagnostics = rule._find_cycles(graph)
+    assert diagnostics == []
+    assert time.perf_counter() - t0 < 0.1
+
+
+def test_circular_module_instantiation_deep_chain_immunity() -> None:
+    """Verifies circular module instantiation DFS bounds depth on deep instantiation hierarchies."""
+    from src.pkg.rules.connectivity_and_hierarchy.circular_module_instantiation import CircularModuleInstantiationRule
+
+    rule = CircularModuleInstantiationRule()
+    symtab = SymbolTable()
+    # 500 module chain
+    for i in range(500):
+        symtab.instantiation_edges.append((f"mod_{i}", f"mod_{i+1}", {"line": 1, "col": 1}))
+
+    t0 = time.perf_counter()
+    diagnostics = rule.run(symtab)
+    assert diagnostics == []
+    assert time.perf_counter() - t0 < 0.1
+
+
+def test_no_assignment_width_mismatch_deep_rhs_selects_immunity() -> None:
+    """Verifies _check_selects terminates without RecursionError on cyclic raw nodes."""
+    from src.pkg.rules.width_and_signedness.no_assignment_width_mismatch import _check_selects
+
+    cyclic = _build_cyclic_node()
+    mock_ctx = Mock()
+    mock_scope = Mock()
+    mock_scope.lookup = Mock(return_value=None)
+    mock_scope.lookup_hierarchical = Mock(return_value=None)
+
+    t0 = time.perf_counter()
+    mismatch = _check_selects(cyclic, mock_scope, mock_ctx, None)
+    assert mismatch is None
+    assert time.perf_counter() - t0 < 0.05
+
+
+def test_instance_record_cyclic_generate_signature_immunity() -> None:
+    """Verifies InstanceRecord.from_dict terminates on cyclic signature structures."""
+    from src.pkg.semantic.models.instance_record import InstanceRecord
+
+    cyclic_list: list[Any] = []
+    cyclic_list.append(cyclic_list)
+
+    rec = InstanceRecord.from_dict({
+        "parent_module": "top",
+        "child_module": "sub",
+        "instance_name": "u_sub",
+        "generate_branch_signature": cyclic_list,
+    })
+    assert isinstance(rec.generate_branch_signature, tuple)
+

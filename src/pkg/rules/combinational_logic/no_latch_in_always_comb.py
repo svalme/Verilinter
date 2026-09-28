@@ -15,6 +15,7 @@ from ...parser.syntax import (
     iter_statement_nodes,
     procedural_block_statement,
 )
+from ...parser.traversal_guard import guarded_traversal
 from ...parser.types import SyntaxNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from ...walk.context import Context
 
 
+@guarded_traversal(max_depth=64, default=set())
 def _unconditional_assignment_targets(statement: SyntaxNode) -> set[str]:
     if is_block_statement(statement):
         names: set[str] = set()
@@ -50,6 +52,7 @@ def _conditional_assignment_targets(statement: SyntaxNode) -> set[str]:
     return names
 
 
+@guarded_traversal(max_depth=64, default=(False, set()))
 def _analyze_statement_latch(statement: SyntaxNode, assigned_before: set[str]) -> tuple[bool, set[str]]:
     """Analyzes a statement or block for latch inference in combinational logic.
 

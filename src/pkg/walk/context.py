@@ -42,7 +42,12 @@ class Context:
         nodes: list[BaseVNode] = []
         node: "Context | None" = self
         depth = 0
-        while node is not None and node._vnode is not None and depth < 1000:
+        seen: set[int] = set()
+        while node is not None and node._vnode is not None and depth < 256:
+            node_id = id(node)
+            if node_id in seen:
+                break
+            seen.add(node_id)
             depth += 1
             nodes.append(node._vnode)
             node = node._parent

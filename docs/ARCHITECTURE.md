@@ -339,5 +339,24 @@ All syntax query modules in `src/pkg/parser/_syntax_queries/` use the `Traversal
 | `resolve_assignment_target` (`shapes.py`) | `@guarded_traversal` | 32 | `None` |
 | `evaluate_constant_expression` (`expressions.py`) | `@guarded_traversal` | 16 | `None` |
 | `simple_expression_width_and_signed` (`expressions.py`) | `@guarded_traversal` (`node_arg="expr"`) | 32 | `(None, None)` |
+| `_unconditional_assignment_targets` (`no_latch_in_always_comb.py`) | `@guarded_traversal` | 64 | `set()` |
+| `_analyze_statement_latch` (`no_latch_in_always_comb.py`) | `@guarded_traversal` | 64 | `(False, set())` |
+| `_check_selects` (`no_assignment_width_mismatch.py`) | `@guarded_traversal` | 64 | `None` |
+
+### D. System-Wide Depth Bounding & Cycle Detection
+
+Beyond CST/AST query functions, all graph algorithms and context traversals across the codebase enforce strict depth ceilings and cycle immunity:
+
+1. **Context Stack Ancestor Traversal (`walk/context.py`)**:
+   - `Context.stack` traverses parent pointers on demand, tracks `seen: set[int]` to break on cyclic parent references, and bounds depth to `depth < 256` (matching the `Walker` depth ceiling).
+2. **Combinational Feedback Loop Graph DFS (`rules/combinational_logic/combinational_loop.py`)**:
+   - Tarjan DFS cycle search traverses signal dependencies with `depth: int = 0`, enforcing an explicit ceiling `if depth >= 256: return` to prevent call-stack overflows on deep pipeline chains.
+3. **Circular Module Instantiation DFS (`rules/connectivity_and_hierarchy/circular_module_instantiation.py`)**:
+   - DFS cycle detector on the module instantiation graph bounds recursion to `depth < 256`.
+4. **Branch Exclusivity Collapse (`rules/combinational_logic/read_before_write_rule.py`)**:
+   - `_collapse_exhaustive_branches` while loop includes an explicit iteration cap `while changed and iteration < 64:` to prevent runaway iteration on malformed signatures.
+5. **Instance Record Deserialization (`semantic/models/instance_record.py`)**:
+   - `_to_tuple` recursive list-to-tuple converter enforces `depth < 32` against self-referential or deeply nested signature structures.
+
 
 

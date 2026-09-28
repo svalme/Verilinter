@@ -24,14 +24,16 @@ class CircularModuleInstantiationRule(BaseSymbolRule):
         path: list[str] = []
         reported: set[frozenset[str]] = set()
 
-        def visit(node: str) -> None:
+        def visit(node: str, depth: int = 0) -> None:
+            if depth >= 256:
+                return
             color[node] = _GRAY
             path.append(node)
 
             for neighbor, loc in graph.get(node, []):
                 state = color.get(neighbor, _WHITE)
                 if state == _WHITE:
-                    visit(neighbor)
+                    visit(neighbor, depth + 1)
                 elif state == _GRAY:
                     cycle_start = path.index(neighbor)
                     cycle_nodes = path[cycle_start:] + [neighbor]

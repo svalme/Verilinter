@@ -124,7 +124,9 @@ class ReadBeforeWriteRule(BaseSymbolRule):
             return
 
         changed = True
-        while changed:
+        iteration = 0
+        while changed and iteration < 64:
+            iteration += 1
             changed = False
             branches_by_construct_and_parent: dict[tuple[str, tuple[tuple[str, int], ...]], set[int]] = {}
             for sig in list(written_sigs):

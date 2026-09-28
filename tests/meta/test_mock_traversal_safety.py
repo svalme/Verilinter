@@ -171,4 +171,4 @@ def test_context_stack_cyclic_safety() -> None:
     t0 = time.perf_counter()
     stack = ctx.stack
     assert time.perf_counter() - t0 < 0.1
-    assert len(stack) == 1000
+    assert len(stack) == 1

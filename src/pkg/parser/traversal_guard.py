@@ -150,6 +150,14 @@ def _make_node_extractor(func: Callable[..., Any], node_arg: int | str) -> Calla
     return extract_by_index
 
 
+def _copy_default(val: Any) -> Any:
+    if isinstance(val, (set, list, dict)):
+        return val.copy()
+    if isinstance(val, tuple):
+        return tuple(_copy_default(x) for x in val)
+    return val
+
+
 def guarded_traversal(
     max_depth: int = 64,
     default: Any = None,
@@ -170,7 +178,7 @@ def guarded_traversal(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             node = extract_node(args, kwargs)
             if node is None:
-                return default
+                return _copy_default(default)
 
             path = cv_path.get(None)
             if path is None:
@@ -185,11 +193,11 @@ def guarded_traversal(
                     cv_path.reset(tok)
 
             if len(path) >= max_depth:
-                return default
+                return _copy_default(default)
 
             nid = id(getattr(node, "raw", node))
             if nid in path:
-                return default
+                return _copy_default(default)
 
             path.add(nid)
             try:

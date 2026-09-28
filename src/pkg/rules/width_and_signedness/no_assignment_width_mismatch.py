@@ -7,6 +7,8 @@ from ...parser.syntax import (
     resolve_assignment_target_and_rhs,
     simple_expression_width_and_signed,
 )
+from ...parser.traversal_guard import guarded_traversal
+from ...parser.types import SyntaxNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -57,6 +59,43 @@ def _check_index_selector_width_mismatch(
     return None
 
 
+def _check_target_selectors(target: object, ctx: "Context", tree: object, depth: int = 0) -> tuple[int, int] | None:
+    if depth >= 64:
+        return None
+    if getattr(target, "is_concatenated", False):
+        for elem in getattr(target, "elements", []):
+            mismatch = _check_target_selectors(elem, ctx, tree, depth + 1)
+            if mismatch is not None:
+                return mismatch
+        return None
+    lhs_sels = getattr(target, "selectors", None)
+    base_sym = getattr(target, "base_symbol", None)
+    if lhs_sels and base_sym:
+        return _check_index_selector_width_mismatch(lhs_sels, base_sym, ctx, tree)
+    return None
+
+
+@guarded_traversal(max_depth=64, default=None)
+def _check_selects(node: object, scope: object, ctx: "Context", tree: object) -> tuple[int, int] | None:
+    if node is None:
+        return None
+    name, selectors = extract_assignment_target_and_selectors(node)
+    if name and selectors:
+        lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
+        sym = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+        if sym is not None:
+            mismatch = _check_index_selector_width_mismatch(selectors, sym, ctx, tree)
+            if mismatch is not None:
+                return mismatch
+    if isinstance(node, SyntaxNode):
+        for child in node:
+            if isinstance(child, SyntaxNode):
+                res = _check_selects(child, scope, ctx, tree)
+                if res is not None:
+                    return res
+    return None
+
+
 def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
     """Return `(lhs_width, rhs_width)` when a simple assignment's recoverable
     right-hand-side width is known and differs from its target's declared
@@ -76,44 +115,11 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
     # Check for index selector width mismatch in indexed array expressions
     scope = getattr(ctx, "scope", lambda: None)()
     if scope is not None:
-        def _check_target_selectors(target: object) -> tuple[int, int] | None:
-            if getattr(target, "is_concatenated", False):
-                for elem in getattr(target, "elements", []):
-                    mismatch = _check_target_selectors(elem)
-                    if mismatch is not None:
-                        return mismatch
-                return None
-            lhs_sels = getattr(target, "selectors", None)
-            base_sym = getattr(target, "base_symbol", None)
-            if lhs_sels and base_sym:
-                return _check_index_selector_width_mismatch(lhs_sels, base_sym, ctx, vnode.tree)
-            return None
-
-        lhs_mismatch = _check_target_selectors(lhs_symbol)
+        lhs_mismatch = _check_target_selectors(lhs_symbol, ctx, vnode.tree)
         if lhs_mismatch is not None:
             return lhs_mismatch
 
-        def _check_selects(node: object) -> tuple[int, int] | None:
-            if node is None:
-                return None
-            name, selectors = extract_assignment_target_and_selectors(node)
-            if name and selectors:
-                lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
-                sym = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
-                if sym is not None:
-                    mismatch = _check_index_selector_width_mismatch(selectors, sym, ctx, vnode.tree)
-                    if mismatch is not None:
-                        return mismatch
-            from ...parser.types import SyntaxNode
-            if isinstance(node, SyntaxNode):
-                for child in node:
-                    if isinstance(child, SyntaxNode):
-                        res = _check_selects(child)
-                        if res is not None:
-                            return res
-            return None
-
-        rhs_mismatch = _check_selects(right)
+        rhs_mismatch = _check_selects(right, scope, ctx, vnode.tree)
         if rhs_mismatch is not None:
             return rhs_mismatch
 

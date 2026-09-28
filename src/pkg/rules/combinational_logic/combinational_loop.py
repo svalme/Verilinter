@@ -65,7 +65,9 @@ class CombinationalLoopRule(BaseSymbolRule):
         path: list[tuple[str, frozenset[str]]] = []
         reported: set[frozenset[str]] = set()
 
-        def visit(node: str, incoming_loop_ids: frozenset[str]) -> None:
+        def visit(node: str, incoming_loop_ids: frozenset[str], depth: int = 0) -> None:
+            if depth >= 256:
+                return
             color[node] = _GRAY
             path.append((node, incoming_loop_ids))
 
@@ -73,7 +75,7 @@ class CombinationalLoopRule(BaseSymbolRule):
                 state = color.get(neighbor, _WHITE)
                 edge_loop_ids = frozenset(loop_ids)
                 if state == _WHITE:
-                    visit(neighbor, edge_loop_ids)
+                    visit(neighbor, edge_loop_ids, depth + 1)
                 elif state == _GRAY:
                     cycle_start = next(i for i, (n, _) in enumerate(path) if n == neighbor)
                     cycle_entries = path[cycle_start:] + [(neighbor, edge_loop_ids)]

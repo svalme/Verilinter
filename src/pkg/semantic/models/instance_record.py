@@ -72,9 +72,11 @@ class InstanceRecord(Mapping[str, Any]):
         raw_sig = data.get("generate_branch_signature", ())
         if isinstance(raw_sig, (list, tuple)):
             # Deep convert lists to tuples if needed
-            def _to_tuple(item: Any) -> Any:
+            def _to_tuple(item: Any, depth: int = 0) -> Any:
+                if depth >= 32:
+                    return ()
                 if isinstance(item, (list, tuple)):
-                    return tuple(_to_tuple(x) for x in item)
+                    return tuple(_to_tuple(x, depth + 1) for x in item)
                 return item
 
             sig = tuple(_to_tuple(x) for x in raw_sig)
