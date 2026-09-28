@@ -28,7 +28,7 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `tests/walk/`: the `Walker`/`Context` mechanics, plus `print_tree_test.py`'s AST snapshot tests (see Golden files below).
 - `tests/vnodes/`: `vnode_factory` registration and vnode-specific logic.
 - `tests/semantic/`: the `SymbolTable` in isolation.
-- `tests/unit/`: `test_sv_adapter.py` for SystemVerilog AST adapter extraction.
+- `tests/unit/`: `test_sv_adapter.py` for SystemVerilog AST adapter extraction, `test_expression_engine.py` for constant folding and width evaluation, and `test_traversal_guard.py` for active-path cycle immunity, recursion bounding, and PyBind11 address recycling.
 
 **Integration tests** (`tests/integration/`):
 - `test_multi_file_lint.py`: multi-file / cross-file linting.
