@@ -1,0 +1,339 @@
+"""Cyclical graph and loop immunity stress tests across all AST query functions.
+
+Validates that:
+1. Every exported syntax query function safely terminates without hanging,
+   infinite loops, or raising RecursionError when subjected to self-referential
+   cycles (A -> A) and multi-node cyclic graph topologies (A -> B -> A, A -> B -> C -> A).
+2. Traversal generators (e.g. iter_identifier_reads, iter_assignment_nodes) do not
+   recurse infinitely when consumed on cyclic child graphs.
+3. Expression folding, selector extraction, target resolution, and descendant
+   containment queries execute with complete loop immunity.
+"""
+from __future__ import annotations
+
+import inspect
+import time
+from unittest.mock import Mock
+
+import pytest
+import pyslang as sl
+
+import src.pkg.parser.syntax_queries as sq
+from src.pkg.parser.syntax_kinds import (
+    ADD_EXPRESSION_KIND,
+    BINARY_AND_EXPRESSION_KIND,
+    CONCATENATION_EXPRESSION_KIND,
+    DIVIDE_EXPRESSION_KIND,
+    ELEMENT_SELECT_EXPRESSION_KIND,
+    EQUALITY_EXPRESSION_KIND,
+    LOGICAL_SHIFT_LEFT_EXPRESSION_KIND,
+    MULTIPLE_CONCATENATION_EXPRESSION_KIND,
+    MULTIPLY_EXPRESSION_KIND,
+    PARENTHESIZED_EXPRESSION_KIND,
+    SUBTRACT_EXPRESSION_KIND,
+    UNARY_MINUS_EXPRESSION_KIND,
+    UNARY_PLUS_EXPRESSION_KIND,
+)
+from src.pkg.semantic.symbol_table import SymbolTable
+from src.pkg.walk.context import Context
+
+
+pytestmark = pytest.mark.stress
+
+
+def _build_cyclic_node(kind: int = 999999) -> Mock:
+    """Build a mock SyntaxNode that forms a direct self-referential cycle on all fields."""
+    node = Mock(spec=sl.SyntaxNode)
+    node.parent = node
+    node.left = node
+    node.right = node
+    node.select = node
+    node.expr = node
+    node.operand = node
+    node.expression = node
+    node.concatenation = node
+    node.predicate = node
+    node.statement = node
+    node.clause = node
+    node.elseClause = node
+    node.block = node
+    node.header = node
+    node.name = node
+    node.type = node
+    node.initializer = node
+    node.assignments = [node]
+    node.expressions = [node]
+    node.instances = [node]
+    node.parameters = [node]
+    node.connections = [node]
+    node.items = [node]
+    node.members = [node]
+    node.conditions = [node]
+    node.decls = [node]
+    node.kind = kind
+    node.__iter__ = lambda self: iter([node])
+    return node
+
+
+def _build_cyclic_ring(length: int = 3, kind: int = 999999) -> list[Mock]:
+    """Build a ring of mock SyntaxNodes where each node references the next."""
+    nodes = [Mock(spec=sl.SyntaxNode) for _ in range(length)]
+    for i, node in enumerate(nodes):
+        nxt = nodes[(i + 1) % length]
+        node.parent = nxt
+        node.left = nxt
+        node.right = nxt
+        node.select = nxt
+        node.expr = nxt
+        node.operand = nxt
+        node.expression = nxt
+        node.concatenation = nxt
+        node.predicate = nxt
+        node.statement = nxt
+        node.clause = nxt
+        node.elseClause = nxt
+        node.block = nxt
+        node.header = nxt
+        node.name = nxt
+        node.type = nxt
+        node.initializer = nxt
+        node.assignments = [nxt]
+        node.expressions = [nxt]
+        node.instances = [nxt]
+        node.parameters = [nxt]
+        node.connections = [nxt]
+        node.items = [nxt]
+        node.members = [nxt]
+        node.conditions = [nxt]
+        node.decls = [nxt]
+        node.kind = kind
+        node.__iter__ = (lambda target: lambda self: iter([target]))(nxt)
+    return nodes
+
+
+def _get_exported_query_functions() -> list[tuple[str, object]]:
+    """Retrieve all exported public callable queries from syntax_queries."""
+    funcs = []
+    for name in sorted(dir(sq)):
+        if name.startswith("_"):
+            continue
+        obj = getattr(sq, name)
+        if callable(obj):
+            funcs.append((name, obj))
+    return funcs
+
+
+ALL_QUERY_FUNCTIONS = _get_exported_query_functions()
+
+
+@pytest.mark.parametrize("name,func", ALL_QUERY_FUNCTIONS, ids=[f[0] for f in ALL_QUERY_FUNCTIONS])
+def test_syntax_query_single_node_cycle_immunity(name: str, func: object) -> None:
+    """Stress tests every individual syntax query with a self-referential node cycle."""
+    cyclic = _build_cyclic_node()
+
+    mock_ctx = Mock()
+    mock_ctx.stack = [Mock(raw=cyclic, location={"file": "test.sv", "line": 1, "col": 1})]
+    mock_ctx.scope = Mock(return_value=None)
+    mock_symtab = Mock()
+    mock_tree = Mock(spec=sl.SyntaxTree)
+    mock_tree.sourceManager = None
+    mock_tree.root = cyclic
+
+    sig = inspect.signature(func)
+    args = []
+    for param in sig.parameters.values():
+        pname = param.name.lower()
+        if "ctx" in pname:
+            args.append(mock_ctx)
+        elif "symbol_table" in pname or "symtab" in pname:
+            args.append(mock_symtab)
+        elif "scope" in pname:
+            args.append(cyclic)
+        elif "tree" in pname:
+            args.append(mock_tree)
+        elif param.default is not inspect.Parameter.empty:
+            continue
+        else:
+            args.append(cyclic)
+
+    t0 = time.perf_counter()
+    try:
+        res = func(*args)
+        if inspect.isgenerator(res):
+            for _ in zip(range(100), res):
+                pass
+    except (TypeError, AttributeError, ValueError):
+        # Graceful type/attribute errors from synthetic mock structure are expected
+        pass
+    elapsed = time.perf_counter() - t0
+
+    assert elapsed < 0.2, f"Query {name} exceeded runtime threshold on single-node cycle ({elapsed:.4f}s)"
+
+
+@pytest.mark.parametrize("name,func", ALL_QUERY_FUNCTIONS, ids=[f[0] for f in ALL_QUERY_FUNCTIONS])
+def test_syntax_query_multi_node_cycle_immunity(name: str, func: object) -> None:
+    """Stress tests every individual syntax query with a multi-node cyclical ring (A -> B -> C -> A)."""
+    ring = _build_cyclic_ring(length=3)
+    entry_node = ring[0]
+
+    mock_ctx = Mock()
+    mock_ctx.stack = [Mock(raw=entry_node, location={"file": "test.sv", "line": 1, "col": 1})]
+    mock_ctx.scope = Mock(return_value=None)
+    mock_symtab = Mock()
+    mock_tree = Mock(spec=sl.SyntaxTree)
+    mock_tree.sourceManager = None
+    mock_tree.root = entry_node
+
+    sig = inspect.signature(func)
+    args = []
+    for param in sig.parameters.values():
+        pname = param.name.lower()
+        if "ctx" in pname:
+            args.append(mock_ctx)
+        elif "symbol_table" in pname or "symtab" in pname:
+            args.append(mock_symtab)
+        elif "scope" in pname:
+            args.append(entry_node)
+        elif "tree" in pname:
+            args.append(mock_tree)
+        elif param.default is not inspect.Parameter.empty:
+            continue
+        else:
+            args.append(entry_node)
+
+    t0 = time.perf_counter()
+    try:
+        res = func(*args)
+        if inspect.isgenerator(res):
+            for _ in zip(range(100), res):
+                pass
+    except (TypeError, AttributeError, ValueError):
+        pass
+    elapsed = time.perf_counter() - t0
+
+    assert elapsed < 0.2, f"Query {name} exceeded runtime threshold on multi-node cycle ({elapsed:.4f}s)"
+
+
+def test_evaluate_constant_expression_binary_cycles() -> None:
+    """Verifies constant folding terminates immediately on cyclic binary operations."""
+    for binary_kind in (
+        ADD_EXPRESSION_KIND,
+        SUBTRACT_EXPRESSION_KIND,
+        MULTIPLY_EXPRESSION_KIND,
+        DIVIDE_EXPRESSION_KIND,
+        LOGICAL_SHIFT_LEFT_EXPRESSION_KIND,
+        BINARY_AND_EXPRESSION_KIND,
+        EQUALITY_EXPRESSION_KIND,
+    ):
+        node = Mock(spec=sl.SyntaxNode)
+        node.kind = binary_kind
+        node.left = node
+        node.right = node
+
+        t0 = time.perf_counter()
+        val = sq.evaluate_constant_expression(node)
+        assert val is None
+        assert time.perf_counter() - t0 < 0.05
+
+
+def test_evaluate_constant_expression_unary_cycles() -> None:
+    """Verifies constant folding terminates on cyclic unary operations."""
+    for unary_kind in (UNARY_PLUS_EXPRESSION_KIND, UNARY_MINUS_EXPRESSION_KIND):
+        node = Mock(spec=sl.SyntaxNode)
+        node.kind = unary_kind
+        node.operand = node
+
+        t0 = time.perf_counter()
+        val = sq.evaluate_constant_expression(node)
+        assert val is None
+        assert time.perf_counter() - t0 < 0.05
+
+
+def test_unwrap_parentheses_cycle() -> None:
+    """Verifies unwrap_parentheses breaks cycle immediately when parenthesized expression points to self."""
+    node = Mock(spec=sl.SyntaxNode)
+    node.kind = PARENTHESIZED_EXPRESSION_KIND
+    node.expression = node
+
+    t0 = time.perf_counter()
+    res = sq.unwrap_parentheses(node)
+    assert res is node
+    assert time.perf_counter() - t0 < 0.05
+
+
+def test_contains_descendant_child_cycle() -> None:
+    """Verifies contains_descendant terminates without RecursionError on cyclic child graphs."""
+    cyclic = _build_cyclic_node()
+    target = Mock(spec=sl.SyntaxNode)
+
+    t0 = time.perf_counter()
+    assert sq.contains_descendant(cyclic, target) is False
+    assert time.perf_counter() - t0 < 0.05
+
+
+def test_generator_traversals_on_child_cycle() -> None:
+    """Verifies generator queries pull items safely without hanging when child graph is cyclic."""
+    cyclic = _build_cyclic_node()
+
+    # 1. iter_identifier_reads
+    t0 = time.perf_counter()
+    reads = list(sq.iter_identifier_reads(cyclic))
+    assert isinstance(reads, list)
+    assert time.perf_counter() - t0 < 0.05
+
+    # 2. iter_assignment_nodes
+    t0 = time.perf_counter()
+    assigns = list(sq.iter_assignment_nodes(cyclic))
+    assert isinstance(assigns, list)
+    assert time.perf_counter() - t0 < 0.05
+
+    # 3. iter_statement_nodes
+    t0 = time.perf_counter()
+    stmts = list(sq.iter_statement_nodes(cyclic))
+    assert isinstance(stmts, list)
+    assert time.perf_counter() - t0 < 0.05
+
+
+def test_assignment_target_resolution_cyclical_shapes() -> None:
+    """Verifies resolve_assignment_target handles cyclical concats and element selects without recursion error."""
+    # 1. Cyclical ElementSelectExpression
+    elem_select = Mock(spec=sl.SyntaxNode)
+    elem_select.kind = ELEMENT_SELECT_EXPRESSION_KIND
+    elem_select.select = elem_select
+    elem_select.left = elem_select
+
+    base_name, selectors = sq.extract_assignment_target_and_selectors(elem_select)
+    assert base_name is None
+    assert isinstance(selectors, list)
+
+    # 2. Cyclical ConcatenationExpression
+    concat_node = Mock(spec=sl.SyntaxNode)
+    concat_node.kind = CONCATENATION_EXPRESSION_KIND
+    concat_node.expressions = [concat_node]
+
+    scope = Mock()
+    scope.lookup = Mock(return_value=None)
+    scope.lookup_hierarchical = Mock(return_value=None)
+
+    target = sq.resolve_assignment_target(concat_node, scope)
+    assert target is None
+
+    # 3. Cyclical MultipleConcatenationExpression
+    mult_concat = Mock(spec=sl.SyntaxNode)
+    mult_concat.kind = MULTIPLE_CONCATENATION_EXPRESSION_KIND
+    mult_concat.expression = mult_concat
+    mult_concat.concatenation = mult_concat
+
+    target_mult = sq.resolve_assignment_target(mult_concat, scope)
+    assert target_mult is None
+
+
+def test_state_register_reset_covered_cycle_immunity() -> None:
+    """Verifies is_state_register_reset_covered terminates when block children form a cycle."""
+    block = _build_cyclic_node()
+    block.kind = 999999
+
+    t0 = time.perf_counter()
+    covered = sq.is_state_register_reset_covered(block, "state_reg")
+    assert covered is False
+    assert time.perf_counter() - t0 < 0.05

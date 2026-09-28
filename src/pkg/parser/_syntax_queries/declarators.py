@@ -137,15 +137,28 @@ def _ansi_port_list_items(list_node: object) -> list[object]:
     items, looking through the intermediate separated-list wrapper pyslang puts
     between the list and its items."""
     items: list[object] = []
+    visited: set[int] = set()
 
-    def _walk(node: object) -> None:
-        for child in node:
+    def _walk(node: object, depth: int = 0) -> None:
+        if depth >= 64 or node is None:
+            return
+        nid = id(node)
+        if nid in visited:
+            return
+        visited.add(nid)
+
+        try:
+            children = iter(node)
+        except TypeError:
+            return
+
+        for child in children:
             if not isinstance(child, SyntaxNode):
                 continue
             if getattr(child, "kind", None) in ANSI_PORT_KINDS:
                 items.append(child)
             else:
-                _walk(child)
+                _walk(child, depth + 1)
 
     _walk(list_node)
     return items

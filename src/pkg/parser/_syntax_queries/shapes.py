@@ -64,12 +64,23 @@ def element_select_index_or_range(
     return None
 
 
-def extract_assignment_target_and_selectors(raw: object) -> tuple[str | None, list[SyntaxNode]]:
+def extract_assignment_target_and_selectors(
+    raw: object,
+    _depth: int = 0,
+    _visited: set[int] | None = None,
+) -> tuple[str | None, list[SyntaxNode]]:
     """Extract `(base_name, selectors)` from an assignment target node.
     Handles `IdentifierName`, `IdentifierSelectName`, and `ElementSelectExpression`.
     """
-    if raw is None:
+    if raw is None or _depth >= 64:
         return None, []
+    if _visited is None:
+        _visited = set()
+    rid = id(raw)
+    if rid in _visited:
+        return None, []
+    _visited.add(rid)
+
     from ..syntax_kinds import (
         ELEMENT_SELECT_EXPRESSION_KIND,
         IDENTIFIER_NAME_KIND,
@@ -91,26 +102,47 @@ def extract_assignment_target_and_selectors(raw: object) -> tuple[str | None, li
         nested_selectors: list[SyntaxNode] = []
         curr = raw
         depth = 0
+        seen_curr: set[int] = set()
         while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
+            cid = id(curr)
+            if cid in seen_curr:
+                break
+            seen_curr.add(cid)
             depth += 1
             sel = getattr(curr, "select", None)
             if isinstance(sel, SyntaxNode):
                 nested_selectors.append(sel)
             curr = getattr(curr, "left", None)
-        base_name, base_selectors = extract_assignment_target_and_selectors(curr)
+        base_name, base_selectors = extract_assignment_target_and_selectors(curr, _depth + 1, _visited)
         return base_name, base_selectors + list(reversed(nested_selectors))
     name = identifier_name(raw)
     return (name if isinstance(name, str) and name else None), []
 
 
 def resolve_assignment_target(
-    target_node: object, scope: object, tree: object = None
+    target_node: object,
+    scope: object,
+    tree: object = None,
+    _depth: int = 0,
+    _visited: set[int] | None = None,
 ) -> object:
     """Recursively resolve an assignment target expression (single identifier,
     indexed/sliced target, or concatenated target) into an `AssignmentTarget`.
     Returns `None` if the target cannot be resolved or any component has an
     unresolved width.
     """
+    if _depth >= 32:
+        return None
+    raw = getattr(target_node, "raw", target_node)
+    if raw is None or scope is None:
+        return None
+    if _visited is None:
+        _visited = set()
+    rid = id(raw)
+    if rid in _visited:
+        return None
+    _visited.add(rid)
+
     from ...semantic.models.assignment_target import AssignmentTarget
     from ..syntax_kinds import (
         CONCATENATION_EXPRESSION_KIND,
@@ -121,10 +153,6 @@ def resolve_assignment_target(
         evaluate_constant_expression,
         unwrap_parentheses,
     )
-
-    raw = getattr(target_node, "raw", target_node)
-    if raw is None or scope is None:
-        return None
 
     raw = unwrap_parentheses(raw)
     kind = getattr(raw, "kind", None)
@@ -139,7 +167,7 @@ def resolve_assignment_target(
         elements: list[AssignmentTarget] = []
         total_w = 0
         for m in members:
-            elem_target = resolve_assignment_target(m, scope, tree)
+            elem_target = resolve_assignment_target(m, scope, tree, _depth + 1, _visited)
             if elem_target is None or not isinstance(getattr(elem_target, "bit_width", None), int):
                 return None
             elements.append(elem_target)
@@ -156,7 +184,7 @@ def resolve_assignment_target(
         count = evaluate_constant_expression(count_node, scope=scope)
         if count is None or not isinstance(count, int) or count <= 0 or concat_node is None:
             return None
-        inner_target = resolve_assignment_target(concat_node, scope, tree)
+        inner_target = resolve_assignment_target(concat_node, scope, tree, _depth + 1, _visited)
         if inner_target is None or not isinstance(getattr(inner_target, "bit_width", None), int):
             return None
         return AssignmentTarget(

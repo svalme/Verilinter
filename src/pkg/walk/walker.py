@@ -28,16 +28,28 @@ class Walker:
         symbol_table: SymbolTable,
         on_node: Callable[[BaseVNode, Context], None] | None = None,
     ) -> None:
-        def _walk(node: RawNode | BaseVNode, ctx: Context) -> None:
-            vnode = node if isinstance(node, BaseVNode) else self._vnode_factory.create(node, tree)
-            handler = self._dispatch.get(vnode)
-            ctx = handler.update_context(ctx, vnode, symbol_table)
-            if on_node is not None:
-                on_node(vnode, ctx)
-            else:
-                self._results.append((vnode, ctx))
-            for child in handler.children(vnode):
-                _walk(child, ctx)
-            handler.on_exit(ctx, vnode, symbol_table)
+        visited: set[int] = set()
+
+        def _walk(node: RawNode | BaseVNode, ctx: Context, depth: int = 0) -> None:
+            if depth >= 256:
+                return
+            raw = getattr(node, "raw", node)
+            nid = id(raw)
+            if nid in visited:
+                return
+            visited.add(nid)
+            try:
+                vnode = node if isinstance(node, BaseVNode) else self._vnode_factory.create(node, tree)
+                handler = self._dispatch.get(vnode)
+                ctx = handler.update_context(ctx, vnode, symbol_table)
+                if on_node is not None:
+                    on_node(vnode, ctx)
+                else:
+                    self._results.append((vnode, ctx))
+                for child in handler.children(vnode):
+                    _walk(child, ctx, depth + 1)
+                handler.on_exit(ctx, vnode, symbol_table)
+            finally:
+                visited.remove(nid)
 
         _walk(raw_node, ctx)

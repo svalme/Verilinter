@@ -201,13 +201,23 @@ class SymbolTable:
 
     def lookup_global(self, name: str) -> Symbol | None:
         """DFS from global scope through the entire scope tree."""
+        visited: set[int] = set()
 
-        def _search(scope: Scope) -> Symbol | None:
-            found = scope.lookup(name)
-            if found:
-                return found
-            for child in scope.children:
-                found = _search(child)
+        def _search(scope: Scope, depth: int = 0) -> Symbol | None:
+            if scope is None or depth >= 64:
+                return None
+            sid = id(scope)
+            if sid in visited:
+                return None
+            visited.add(sid)
+
+            lookup_fn = getattr(scope, "lookup", None)
+            if callable(lookup_fn):
+                found = lookup_fn(name)
+                if found:
+                    return found
+            for child in getattr(scope, "children", ()):
+                found = _search(child, depth + 1)
                 if found:
                     return found
             return None

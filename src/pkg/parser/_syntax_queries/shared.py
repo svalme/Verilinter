@@ -30,7 +30,10 @@ def syntax_node_snippet(raw: object) -> str:
 def raw_node_children(raw: object) -> list[RawNode]:
     if isinstance(raw, Token):
         return []
-    return [child for child in raw if isinstance(child, (SyntaxNode, Token))]
+    try:
+        return [child for child in raw if isinstance(child, (SyntaxNode, Token))]
+    except TypeError:
+        return []
 
 
 def simple_identifier_text(expr_text: str | None) -> str | None:

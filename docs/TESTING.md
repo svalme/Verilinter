@@ -49,6 +49,10 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `test_fixture_usage_doc.py`: keeps `FIXTURE_USAGE.md` in sync with actual fixture references.
 - `test_rule_registration.py` & `test_registration_files.py`: rule and handler manifest registration consistency.
 
+**Stress & loop immunity tests** (`tests/stress/`):
+- `test_ast_cyclical_stress.py`: runs cyclical graph stress tests across all exported syntax query functions (single-node self-loops, multi-node cyclic rings, cyclic expressions, and cyclic generators) to verify complete loop immunity and sub-second termination without `RecursionError` or hangs.
+- `test_ast_malformed_stress.py`: malformed AST stress tests covering pathological parser error recovery trees, deep nesting beyond traversal limits, broken node attributes, cyclic scope hierarchies, cyclic context chains, and walker resilience.
+
 ## Pytest markers
 
 Markers registered in `pyproject.toml`:
@@ -60,6 +64,7 @@ Markers registered in `pyproject.toml`:
 - `storage`: caching, analysis store, and SQLite persistence.
 - `integration`: multi-file, representative RTL, and end-to-end linting.
 - `meta`: fixture validity, registration manifest checks, and doc sync.
+- `stress`: malformed AST, cyclical graph, and loop immunity stress tests.
 
 ## Parsing patterns
 

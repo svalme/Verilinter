@@ -9,11 +9,30 @@ from ..types import ProceduralBlockNode, SyntaxNode
 from .expressions import simple_expression_width_and_signed
 
 
-def contains_descendant(root: SyntaxNode, target: SyntaxNode) -> bool:
+def contains_descendant(
+    root: SyntaxNode,
+    target: SyntaxNode,
+    _depth: int = 0,
+    _visited: set[int] | None = None,
+) -> bool:
     if root is target:
         return True
-    for child in root:
-        if isinstance(child, SyntaxNode) and contains_descendant(child, target):
+    if _depth >= 64 or not isinstance(root, SyntaxNode):
+        return False
+    if _visited is None:
+        _visited = set()
+    rid = id(root)
+    if rid in _visited:
+        return False
+    _visited.add(rid)
+
+    try:
+        children = iter(root)
+    except TypeError:
+        return False
+
+    for child in children:
+        if isinstance(child, SyntaxNode) and contains_descendant(child, target, _depth + 1, _visited):
             return True
     return False
 
@@ -47,9 +66,20 @@ def unary_write_operand(raw: object) -> SyntaxNode | None:
     return operand if isinstance(operand, SyntaxNode) else None
 
 
-def _selectors_containing_identifier(raw: object, raw_identifier: SyntaxNode) -> bool:
-    if not isinstance(raw, SyntaxNode):
+def _selectors_containing_identifier(
+    raw: object,
+    raw_identifier: SyntaxNode,
+    _depth: int = 0,
+    _visited: set[int] | None = None,
+) -> bool:
+    if not isinstance(raw, SyntaxNode) or _depth >= 64:
         return False
+    if _visited is None:
+        _visited = set()
+    rid = id(raw)
+    if rid in _visited:
+        return False
+    _visited.add(rid)
 
     selectors = getattr(raw, "selectors", None)
     if selectors is not None:
@@ -64,9 +94,14 @@ def _selectors_containing_identifier(raw: object, raw_identifier: SyntaxNode) ->
     if getattr(raw, "kind", None) == ELEMENT_SELECT_KIND:
         return contains_descendant(raw, raw_identifier)
 
-    for child in raw:
+    try:
+        children = iter(raw)
+    except TypeError:
+        return False
+
+    for child in children:
         if isinstance(child, SyntaxNode) and contains_descendant(child, raw_identifier):
-            if _selectors_containing_identifier(child, raw_identifier):
+            if _selectors_containing_identifier(child, raw_identifier, _depth + 1, _visited):
                 return True
 
     return False
@@ -275,20 +310,38 @@ def is_within_async_reset_conditional(ctx: "Context") -> bool:
     return False
 
 
-def _statement_assigns_register(raw: object, register_name: str) -> bool:
+def _statement_assigns_register(
+    raw: object,
+    register_name: str,
+    _depth: int = 0,
+    _visited: set[int] | None = None,
+) -> bool:
     from ..syntax_queries import assignment_target_identifier_name, is_assignment_expression
 
-    if raw is None:
+    if raw is None or _depth >= 64:
         return False
+    if _visited is None:
+        _visited = set()
+    rid = id(raw)
+    if rid in _visited:
+        return False
+    _visited.add(rid)
+
     if (
         is_assignment_expression(raw)
         and getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
         and assignment_target_identifier_name(raw) == register_name
     ):
         return True
-    for child in raw:
+
+    try:
+        children = iter(raw)
+    except TypeError:
+        return False
+
+    for child in children:
         if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
-            if _statement_assigns_register(child, register_name):
+            if _statement_assigns_register(child, register_name, _depth + 1, _visited):
                 return True
     return False
 
@@ -329,18 +382,30 @@ def is_state_register_reset_covered(block_raw: object, register_name: str) -> bo
         return False
 
     found = False
+    visited: set[int] = set()
 
-    def _walk(node: object) -> None:
+    def _walk(node: object, depth: int = 0) -> None:
         nonlocal found
-        if found:
+        if found or node is None or depth >= 64:
             return
+        nid = id(node)
+        if nid in visited:
+            return
+        visited.add(nid)
+
         if is_conditional_statement(node) and _conditional_references_any_name(node, reset_names):
             if _statement_assigns_register(getattr(node, "statement", None), register_name):
                 found = True
                 return
-        for child in node:
+
+        try:
+            children = iter(node)
+        except TypeError:
+            return
+
+        for child in children:
             if isinstance(child, SyntaxNode) and not isinstance(child, ProceduralBlockNode):
-                _walk(child)
+                _walk(child, depth + 1)
 
     _walk(block_raw)
     return found

@@ -41,4 +41,5 @@ markers = [
     "storage: Caching, analysis store, and SQLite persistence",
     "integration: Multi-file, representative RTL, and end-to-end linting",
     "meta: Fixture validity, registration manifest checks, and doc sync",
+    "stress: Malformed AST, cyclical graph, and loop immunity stress tests",
 ]

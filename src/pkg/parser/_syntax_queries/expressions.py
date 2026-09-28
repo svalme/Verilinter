@@ -57,11 +57,45 @@ from .shapes import element_select_index_or_range
 from .shared import identifier_name
 
 
+_EVALUATABLE_BINARY_KINDS = (
+    ADD_EXPRESSION_KIND,
+    SUBTRACT_EXPRESSION_KIND,
+    MULTIPLY_EXPRESSION_KIND,
+    DIVIDE_EXPRESSION_KIND,
+    MOD_EXPRESSION_KIND,
+    POWER_EXPRESSION_KIND,
+    LOGICAL_SHIFT_LEFT_EXPRESSION_KIND,
+    ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND,
+    LOGICAL_SHIFT_RIGHT_EXPRESSION_KIND,
+    ARITHMETIC_SHIFT_RIGHT_EXPRESSION_KIND,
+    BINARY_AND_EXPRESSION_KIND,
+    BINARY_OR_EXPRESSION_KIND,
+    BINARY_XOR_EXPRESSION_KIND,
+    EQUALITY_EXPRESSION_KIND,
+    CASE_EQUALITY_EXPRESSION_KIND,
+    WILDCARD_EQUALITY_EXPRESSION_KIND,
+    INEQUALITY_EXPRESSION_KIND,
+    CASE_INEQUALITY_EXPRESSION_KIND,
+    WILDCARD_INEQUALITY_EXPRESSION_KIND,
+    LESS_THAN_EXPRESSION_KIND,
+    LESS_THAN_EQUAL_EXPRESSION_KIND,
+    GREATER_THAN_EXPRESSION_KIND,
+    GREATER_THAN_EQUAL_EXPRESSION_KIND,
+    LOGICAL_AND_EXPRESSION_KIND,
+    LOGICAL_OR_EXPRESSION_KIND,
+)
+
+
 def unwrap_parentheses(expr: object) -> object:
     """Recursively strip `ParenthesizedExpressionSyntax`, `SimplePropertyExprSyntax`,
     and `SimpleSequenceExprSyntax` wrappers down to the underlying expression."""
     depth = 0
+    seen: set[int] = set()
     while expr is not None and depth < 64:
+        eid = id(expr)
+        if eid in seen:
+            break
+        seen.add(eid)
         depth += 1
         kind = getattr(expr, "kind", None)
         if kind == PARENTHESIZED_EXPRESSION_KIND:
@@ -95,7 +129,12 @@ def _resolve_symbol_in_scope(scope: object, name: str) -> object:
         return lookup_hierarchical(name)
     current = scope
     depth = 0
+    seen: set[int] = set()
     while current is not None and depth < 64:
+        cid = id(current)
+        if cid in seen:
+            break
+        seen.add(cid)
         depth += 1
         symbol = getattr(current, "lookup", lambda _name: None)(name)
         if symbol is not None:
@@ -108,6 +147,7 @@ def evaluate_constant_expression(
     expr: object,
     scope: object = None,
     _visited: set[str] | None = None,
+    _visited_nodes: set[int] | None = None,
     _depth: int = 0,
 ) -> int | None:
     """Recursively constant-fold a compile-time constant expression to an integer,
@@ -123,10 +163,17 @@ def evaluate_constant_expression(
     - Bitwise logic: &, |, ^
     - System function: $clog2(...)
     - Parentheses unwrapping
-    - Cycle detection on identifier lookups to prevent infinite recursion
+    - Cycle detection on identifier lookups and AST nodes to prevent infinite recursion
     """
-    if expr is None or _depth > 32 or not isinstance(expr, SyntaxNode):
+    if expr is None or _depth > 16 or not isinstance(expr, SyntaxNode):
         return None
+
+    if _visited_nodes is None:
+        _visited_nodes = set()
+    expr_id = id(expr)
+    if expr_id in _visited_nodes:
+        return None
+    _visited_nodes.add(expr_id)
 
     expr = unwrap_parentheses(expr)
     kind = getattr(expr, "kind", None)
@@ -164,21 +211,21 @@ def evaluate_constant_expression(
     # 3. Unary expressions
     if kind == UNARY_PLUS_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        return evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
+        return evaluate_constant_expression(op, scope=scope, _visited=_visited, _visited_nodes=_visited_nodes, _depth=_depth + 1)
 
     if kind == UNARY_MINUS_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _visited_nodes=_visited_nodes, _depth=_depth + 1)
         return -val if val is not None else None
 
     if kind == UNARY_BITWISE_NOT_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _visited_nodes=_visited_nodes, _depth=_depth + 1)
         return ~val if val is not None else None
 
     if kind == UNARY_LOGICAL_NOT_EXPRESSION_KIND:
         op = getattr(expr, "operand", None) or getattr(expr, "expression", None)
-        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _depth=_depth + 1)
+        val = evaluate_constant_expression(op, scope=scope, _visited=_visited, _visited_nodes=_visited_nodes, _depth=_depth + 1)
         return (1 if val == 0 else 0) if val is not None else None
 
     # 4. Invocations ($clog2)
@@ -192,69 +239,70 @@ def evaluate_constant_expression(
             if params and len(params) == 1:
                 arg = params[0]
                 arg_expr = getattr(arg, "expr", getattr(arg, "expression", None))
-                arg_val = evaluate_constant_expression(arg_expr, scope=scope, _visited=_visited, _depth=_depth + 1)
+                arg_val = evaluate_constant_expression(arg_expr, scope=scope, _visited=_visited, _visited_nodes=_visited_nodes, _depth=_depth + 1)
                 if arg_val is not None:
                     return (arg_val - 1).bit_length() if arg_val > 0 else 0
         return None
 
-    # 5. Binary expressions
-    left = getattr(expr, "left", None)
-    right = getattr(expr, "right", None)
-    if left is not None and right is not None:
-        l_val = evaluate_constant_expression(left, scope=scope, _visited=_visited, _depth=_depth + 1)
-        r_val = evaluate_constant_expression(right, scope=scope, _visited=_visited, _depth=_depth + 1)
-        if l_val is not None and r_val is not None:
-            if kind == ADD_EXPRESSION_KIND:
-                return l_val + r_val
-            elif kind == SUBTRACT_EXPRESSION_KIND:
-                return l_val - r_val
-            elif kind == MULTIPLY_EXPRESSION_KIND:
-                return l_val * r_val
-            elif kind == DIVIDE_EXPRESSION_KIND:
-                if r_val == 0:
-                    return None
-                return l_val // r_val
-            elif kind == MOD_EXPRESSION_KIND:
-                if r_val == 0:
-                    return None
-                return l_val % r_val
-            elif kind == POWER_EXPRESSION_KIND:
-                if 0 <= r_val <= 64:
-                    try:
-                        return l_val ** r_val
-                    except (OverflowError, ValueError):
+    # 5. Binary expressions (strictly gated by kind to avoid exponential branching on non-binary nodes)
+    if kind in _EVALUATABLE_BINARY_KINDS:
+        left = getattr(expr, "left", None)
+        right = getattr(expr, "right", None)
+        if left is not None and right is not None:
+            l_val = evaluate_constant_expression(left, scope=scope, _visited=_visited, _visited_nodes=_visited_nodes, _depth=_depth + 1)
+            r_val = evaluate_constant_expression(right, scope=scope, _visited=_visited, _visited_nodes=_visited_nodes, _depth=_depth + 1)
+            if l_val is not None and r_val is not None:
+                if kind == ADD_EXPRESSION_KIND:
+                    return l_val + r_val
+                elif kind == SUBTRACT_EXPRESSION_KIND:
+                    return l_val - r_val
+                elif kind == MULTIPLY_EXPRESSION_KIND:
+                    return l_val * r_val
+                elif kind == DIVIDE_EXPRESSION_KIND:
+                    if r_val == 0:
                         return None
-                return None
-            elif kind in (LOGICAL_SHIFT_LEFT_EXPRESSION_KIND, ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND):
-                if 0 <= r_val <= 128:
-                    return l_val << r_val
-                return None
-            elif kind in (LOGICAL_SHIFT_RIGHT_EXPRESSION_KIND, ARITHMETIC_SHIFT_RIGHT_EXPRESSION_KIND):
-                if r_val >= 0:
-                    return l_val >> r_val
-                return None
-            elif kind == BINARY_AND_EXPRESSION_KIND:
-                return l_val & r_val
-            elif kind == BINARY_OR_EXPRESSION_KIND:
-                return l_val | r_val
-            elif kind == BINARY_XOR_EXPRESSION_KIND:
-                return l_val ^ r_val
-            elif kind in (EQUALITY_EXPRESSION_KIND, CASE_EQUALITY_EXPRESSION_KIND, WILDCARD_EQUALITY_EXPRESSION_KIND):
-                return int(l_val == r_val)
-            elif kind in (INEQUALITY_EXPRESSION_KIND, CASE_INEQUALITY_EXPRESSION_KIND, WILDCARD_INEQUALITY_EXPRESSION_KIND):
-                return int(l_val != r_val)
-            elif kind == LESS_THAN_EXPRESSION_KIND:
-                return int(l_val < r_val)
-            elif kind == LESS_THAN_EQUAL_EXPRESSION_KIND:
-                return int(l_val <= r_val)
-            elif kind == GREATER_THAN_EXPRESSION_KIND:
-                return int(l_val > r_val)
-            elif kind == GREATER_THAN_EQUAL_EXPRESSION_KIND:
-                return int(l_val >= r_val)
-            elif kind == LOGICAL_AND_EXPRESSION_KIND:
-                return int(bool(l_val) and bool(r_val))
-            elif kind == LOGICAL_OR_EXPRESSION_KIND:
-                return int(bool(l_val) or bool(r_val))
+                    return l_val // r_val
+                elif kind == MOD_EXPRESSION_KIND:
+                    if r_val == 0:
+                        return None
+                    return l_val % r_val
+                elif kind == POWER_EXPRESSION_KIND:
+                    if 0 <= r_val <= 64:
+                        try:
+                            return l_val ** r_val
+                        except (OverflowError, ValueError):
+                            return None
+                    return None
+                elif kind in (LOGICAL_SHIFT_LEFT_EXPRESSION_KIND, ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND):
+                    if 0 <= r_val <= 128:
+                        return l_val << r_val
+                    return None
+                elif kind in (LOGICAL_SHIFT_RIGHT_EXPRESSION_KIND, ARITHMETIC_SHIFT_RIGHT_EXPRESSION_KIND):
+                    if r_val >= 0:
+                        return l_val >> r_val
+                    return None
+                elif kind == BINARY_AND_EXPRESSION_KIND:
+                    return l_val & r_val
+                elif kind == BINARY_OR_EXPRESSION_KIND:
+                    return l_val | r_val
+                elif kind == BINARY_XOR_EXPRESSION_KIND:
+                    return l_val ^ r_val
+                elif kind in (EQUALITY_EXPRESSION_KIND, CASE_EQUALITY_EXPRESSION_KIND, WILDCARD_EQUALITY_EXPRESSION_KIND):
+                    return int(l_val == r_val)
+                elif kind in (INEQUALITY_EXPRESSION_KIND, CASE_INEQUALITY_EXPRESSION_KIND, WILDCARD_INEQUALITY_EXPRESSION_KIND):
+                    return int(l_val != r_val)
+                elif kind == LESS_THAN_EXPRESSION_KIND:
+                    return int(l_val < r_val)
+                elif kind == LESS_THAN_EQUAL_EXPRESSION_KIND:
+                    return int(l_val <= r_val)
+                elif kind == GREATER_THAN_EXPRESSION_KIND:
+                    return int(l_val > r_val)
+                elif kind == GREATER_THAN_EQUAL_EXPRESSION_KIND:
+                    return int(l_val >= r_val)
+                elif kind == LOGICAL_AND_EXPRESSION_KIND:
+                    return int(bool(l_val) and bool(r_val))
+                elif kind == LOGICAL_OR_EXPRESSION_KIND:
+                    return int(bool(l_val) or bool(r_val))
 
     return None
 
@@ -470,7 +518,11 @@ def compute_sliced_width(
 
 
 def simple_expression_width_and_signed(
-    scope: object, expr: SyntaxNode, tree: SyntaxTree | None = None
+    scope: object,
+    expr: SyntaxNode,
+    tree: SyntaxTree | None = None,
+    _depth: int = 0,
+    _visited: set[int] | None = None,
 ) -> tuple[int | None, bool | None]:
     """Recover the declared or literal bit width and signedness of a simple
     expression -- an identifier, a sized or unsized literal, a bit- or
@@ -488,6 +540,15 @@ def simple_expression_width_and_signed(
     overflow/truncation; see `natural_expression_width_and_signed` for the
     self-determined arithmetic evaluator.
     """
+    if not isinstance(expr, SyntaxNode) or _depth > 32:
+        return None, None
+    if _visited is None:
+        _visited = set()
+    eid = id(expr)
+    if eid in _visited:
+        return None, None
+    _visited.add(eid)
+
     expr = unwrap_parentheses(expr)
     kind = getattr(expr, "kind", None)
 
@@ -530,7 +591,12 @@ def simple_expression_width_and_signed(
         nested_selectors: list[SyntaxNode] = []
         curr = expr
         depth = 0
+        seen_curr: set[int] = set()
         while getattr(curr, "kind", None) == ELEMENT_SELECT_EXPRESSION_KIND and depth < 64:
+            cid = id(curr)
+            if cid in seen_curr:
+                break
+            seen_curr.add(cid)
             depth += 1
             sel = getattr(curr, "select", None)
             if isinstance(sel, SyntaxNode):
@@ -555,7 +621,9 @@ def simple_expression_width_and_signed(
                 if getattr(unwrapped_member, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
                     total += 32
                 else:
-                    m_width, _ = simple_expression_width_and_signed(scope, unwrapped_member, tree)
+                    m_width, _ = simple_expression_width_and_signed(
+                        scope, unwrapped_member, tree, _depth + 1, _visited
+                    )
                     if m_width is None:
                         return None, None
                     total += m_width
@@ -570,7 +638,9 @@ def simple_expression_width_and_signed(
             if getattr(concat_node, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
                 inner_width = 32
             else:
-                inner_width, _ = simple_expression_width_and_signed(scope, concat_node, tree)
+                inner_width, _ = simple_expression_width_and_signed(
+                    scope, concat_node, tree, _depth + 1, _visited
+                )
             if inner_width is not None:
                 return count * inner_width, False
         return None, None
@@ -578,14 +648,18 @@ def simple_expression_width_and_signed(
     if kind in SHIFT_EXPRESSION_KINDS:
         left = getattr(expr, "left", None)
         if left is not None:
-            return simple_expression_width_and_signed(scope, left, tree)
+            return simple_expression_width_and_signed(scope, left, tree, _depth + 1, _visited)
         return None, None
 
     return None, None
 
 
 def natural_expression_width_and_signed(
-    scope: object, expr: SyntaxNode, tree: SyntaxTree | None = None
+    scope: object,
+    expr: SyntaxNode,
+    tree: SyntaxTree | None = None,
+    _depth: int = 0,
+    _visited: set[int] | None = None,
 ) -> tuple[int | None, bool | None]:
     """Return the natural (self-determined) result width and signedness of
     `expr`, extending `simple_expression_width_and_signed` to cover binary
@@ -596,6 +670,15 @@ def natural_expression_width_and_signed(
     - Multiply: `left_width + right_width`.
     - Signedness: signed only when both operands are signed.
     """
+    if not isinstance(expr, SyntaxNode) or _depth > 32:
+        return None, None
+    if _visited is None:
+        _visited = set()
+    eid = id(expr)
+    if eid in _visited:
+        return None, None
+    _visited.add(eid)
+
     expr = unwrap_parentheses(expr)
     kind = getattr(expr, "kind", None)
 
@@ -603,8 +686,8 @@ def natural_expression_width_and_signed(
         left = getattr(expr, "left", None)
         right = getattr(expr, "right", None)
         if left is not None and right is not None:
-            l_w, l_s = simple_expression_width_and_signed(scope, left, tree)
-            r_w, r_s = simple_expression_width_and_signed(scope, right, tree)
+            l_w, l_s = simple_expression_width_and_signed(scope, left, tree, _depth + 1, _visited)
+            r_w, r_s = simple_expression_width_and_signed(scope, right, tree, _depth + 1, _visited)
             if isinstance(l_w, int) and isinstance(r_w, int):
                 return max(l_w, r_w), bool(l_s and r_s)
         return None, None
@@ -613,13 +696,13 @@ def natural_expression_width_and_signed(
         left = getattr(expr, "left", None)
         right = getattr(expr, "right", None)
         if left is not None and right is not None:
-            l_w, l_s = simple_expression_width_and_signed(scope, left, tree)
-            r_w, r_s = simple_expression_width_and_signed(scope, right, tree)
+            l_w, l_s = simple_expression_width_and_signed(scope, left, tree, _depth + 1, _visited)
+            r_w, r_s = simple_expression_width_and_signed(scope, right, tree, _depth + 1, _visited)
             if isinstance(l_w, int) and isinstance(r_w, int):
                 return l_w + r_w, bool(l_s and r_s)
         return None, None
 
-    return simple_expression_width_and_signed(scope, expr, tree)
+    return simple_expression_width_and_signed(scope, expr, tree, _depth, _visited)
 
 
 def evaluate_constant_text_expression(expr_text: str | None, scope: object = None) -> int | None:
