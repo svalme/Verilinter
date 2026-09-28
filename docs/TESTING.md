@@ -48,6 +48,8 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `test_fixture_validity.py`: every file in `tests/data/` must parse with pyslang without error-level diagnostics. A fixture that intentionally exercises parser recovery belongs in that file's `INTENTIONAL_PARSE_ERROR_FIXTURES` allowlist with an explanatory comment.
 - `test_fixture_usage_doc.py`: keeps `FIXTURE_USAGE.md` in sync with actual fixture references.
 - `test_rule_registration.py` & `test_registration_files.py`: rule and handler manifest registration consistency.
+- `test_mock_traversal_safety.py`: verifies exported query functions and context stack terminate on synthetic cyclic mocks.
+- `test_recursion_and_depth_hygiene.py`: static AST analysis verifying that every recursive function across `src/pkg/` is guarded by `@guarded_traversal`/`@guarded_generator` or an explicit bounded depth check, and that all AST traversal `while` loops enforce bounded iteration or depth ceilings.
 
 **Stress & loop immunity tests** (`tests/stress/`):
 - `test_ast_cyclical_stress.py`: runs cyclical graph stress tests across all exported syntax query functions, rule-level statement latch analyzers, combinational loop DFS, and circular module instantiation DFS (single-node self-loops, multi-node cyclic rings, cyclic expressions, 500-node graph chains, and cyclic generators) to verify complete loop immunity and sub-second termination without `RecursionError` or hangs.

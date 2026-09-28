@@ -150,11 +150,13 @@ def _make_node_extractor(func: Callable[..., Any], node_arg: int | str) -> Calla
     return extract_by_index
 
 
-def _copy_default(val: Any) -> Any:
+def _copy_default(val: Any, depth: int = 0) -> Any:
+    if depth >= 32:
+        return val
     if isinstance(val, (set, list, dict)):
         return val.copy()
     if isinstance(val, tuple):
-        return tuple(_copy_default(x) for x in val)
+        return tuple(_copy_default(x, depth + 1) for x in val)
     return val
 
 
