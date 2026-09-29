@@ -8,6 +8,17 @@ def is_generate_block_node(raw: object) -> bool:
     return getattr(raw, "kind", None) == GENERATE_BLOCK_KIND
 
 
+def loop_generate_genvar_name(raw: object) -> str | None:
+    """Name of the genvar declared inline in a generate-for header
+    (`for (genvar i = 0; ...)`), or None when the loop reuses an outer genvar.
+
+    The inline genvar name is a bare token, not a `DeclaratorSyntax`.
+    """
+    if not str(getattr(raw, "genvar", "")).strip():
+        return None
+    return getattr(getattr(raw, "identifier", None), "value", None)
+
+
 def is_unlabeled_generate_block(raw: object) -> bool:
     """True if `raw` is a `GenerateBlockSyntax` (the `begin ... end` body of an
     if/loop/case-generate branch, or a bare nested block directly inside a

@@ -1,28 +1,12 @@
 from ...parser.syntax import (
     enclosing_combinational_style_always_block,
     is_blocking_assignment_token,
+    is_in_for_loop_header,
 )
-from ...parser.syntax_kinds import FOR_LOOP_STATEMENT_KIND
 from ...vnodes.base_vnode import BaseVNode
 from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
-
-def _is_in_for_loop_header(raw: object, ctx: Context) -> bool:
-    for ancestor in reversed(ctx.stack):
-        raw_anc = ancestor.raw
-        if getattr(raw_anc, "kind", None) == FOR_LOOP_STATEMENT_KIND:
-            statement = getattr(raw_anc, "statement", None)
-            if statement is not None:
-                s_range = getattr(statement, "sourceRange", None) or getattr(statement, "range", None)
-                n_range = getattr(raw, "range", None) or getattr(raw, "sourceRange", None)
-                if s_range and n_range:
-                    if n_range.start.offset >= s_range.start.offset and n_range.end.offset <= s_range.end.offset:
-                        return False
-                    return True
-            return False
-    return False
-
 
 @rule_runner.register
 class NoBlockingAssignmentInSequentialRule(Rule):
@@ -36,7 +20,7 @@ class NoBlockingAssignmentInSequentialRule(Rule):
             return False
         if not ctx.has(ContextFlag.ALWAYS):
             return False
-        if _is_in_for_loop_header(vnode.raw, ctx):
+        if is_in_for_loop_header(vnode.raw, ctx):
             return False
         # ContextFlag.ALWAYS is set for every plain `always` block, edge-triggered or
         # not -- a combinational-style block (`always @*`, `always @(*)`, or a

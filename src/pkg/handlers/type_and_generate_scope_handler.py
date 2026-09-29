@@ -1,4 +1,5 @@
 """Keep aggregate fields and generate-loop locals out of enclosing namespaces."""
+from ..parser.syntax import loop_generate_genvar_name
 from ..parser.types import StructUnionTypeNode, LoopGenerateNode
 from ..semantic.symbol import Symbol
 from ..walk.dispatch import dispatch
@@ -19,9 +20,9 @@ class StructUnionTypeHandler(SyntaxNodeHandler):
 class LoopGenerateHandler(SyntaxNodeHandler):
     def update_context(self, ctx, vnode, symbol_table):
         scope = symbol_table.new_scope(kind="generate_for", location=vnode.location)
-        if str(vnode.raw.genvar).strip():
-            # The inline genvar name is a token, not a DeclaratorSyntax.
-            symbol = Symbol(name=vnode.raw.identifier.value, kind="genvar")
+        genvar_name = loop_generate_genvar_name(vnode.raw)
+        if genvar_name:
+            symbol = Symbol(name=genvar_name, kind="genvar")
             symbol.add_declaration(vnode.location)
             scope.define(symbol)
         return ctx.push(vnode).with_scope(scope)

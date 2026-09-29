@@ -23,6 +23,8 @@ from ._syntax_queries.access import (
     enclosing_procedural_block,
     enclosing_subroutine_declaration,
     identifier_access_modes,
+    is_in_for_loop_header,
+    is_nonblocking_assignment_node,
     identifier_is_assignment_lhs,
     is_combinational_driver_block,
     is_initial_driver_block,
@@ -123,6 +125,7 @@ from ._syntax_queries.conditional_shapes import (
 from ._syntax_queries.generate_blocks import (
     duplicate_generate_branch_label,
     is_unlabeled_generate_block,
+    loop_generate_genvar_name,
 )
 from ._syntax_queries.instantiation import (
     hierarchical_instance_list,
@@ -290,7 +293,9 @@ from ._syntax_queries.system_tasks import (
     system_task_name,
 )
 from ._syntax_queries.subroutines import (
+    function_returns_value,
     subroutine_formal_direction,
+    subroutine_name,
 )
 
 __all__ = [
@@ -343,6 +348,11 @@ __all__ = [
     "enclosing_conditional_statement",
     "enclosing_continuous_assign",
     "enclosing_for_loop_ids",
+    "function_returns_value",
+    "is_in_for_loop_header",
+    "is_nonblocking_assignment_node",
+    "loop_generate_genvar_name",
+    "subroutine_name",
     "enclosing_port_connection",
     "enclosing_primitive_instantiation",
     "enclosing_procedural_block",

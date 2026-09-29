@@ -37,6 +37,17 @@ _SELECTOR_KINDS = (
 )
 
 
+def subroutine_name(raw: object) -> str | None:
+    """Name of a function/task declaration, or None if it has no plain name."""
+    return identifier_name(getattr(getattr(raw, "prototype", None), "name", None))
+
+
+def function_returns_value(raw: object) -> bool:
+    """True if `raw` is a function declaration with a non-`void` return type."""
+    return_type = getattr(getattr(raw, "prototype", None), "returnType", None)
+    return str(return_type).strip() != "void"
+
+
 def extract_formals_from_subroutine_syntax(node: object) -> list[tuple[str, str]]:
     """Extract (formal_name, direction) list from a TaskDeclaration or FunctionDeclaration node,
     preserving declaration order and inherited port directions."""

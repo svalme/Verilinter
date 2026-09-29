@@ -1,6 +1,6 @@
 from ..walk.dispatch import dispatch
 from ..walk.context import Context
-from ..parser.syntax import identifier_name, is_task_declaration_node
+from ..parser.syntax import function_returns_value, is_task_declaration_node, subroutine_name
 from ..semantic.symbol_table import SymbolTable
 from ..semantic.symbol import Symbol
 from ..vnodes.syntax_vnode import SyntaxVNode
@@ -24,9 +24,9 @@ class FunctionDeclarationHandler(SyntaxNodeHandler):
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         kind = "task" if is_task_declaration_node(vnode.raw) else "function"
-        name = identifier_name(getattr(vnode.raw.prototype, "name", None)) or "<anonymous>"
+        name = subroutine_name(vnode.raw) or "<anonymous>"
         scope = symbol_table.new_scope(kind=kind, name=name, location=vnode.location)
-        if kind == "function" and str(vnode.raw.prototype.returnType).strip() != "void":
+        if kind == "function" and function_returns_value(vnode.raw):
             # A non-void function has a local result variable bearing its name.
             result = Symbol(name=name, kind="variable")
             result.is_function_return = True

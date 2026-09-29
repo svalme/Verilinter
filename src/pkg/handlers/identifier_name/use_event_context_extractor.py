@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from ...parser.syntax import (
-    NONBLOCKING_ASSIGNMENT_KIND,
     branch_exclusivity_signature,
     enclosing_assignment_expression,
     enclosing_continuous_assign,
@@ -15,6 +14,7 @@ from ...parser.syntax import (
     is_combinational_driver_block,
     is_continuous_assign,
     is_initial_driver_block,
+    is_nonblocking_assignment_node,
     is_sequential_driver_block,
     is_system_task_output_argument,
     is_tristate_continuous_assign,
@@ -119,7 +119,7 @@ class UseEventContextExtractor:
         is_nonblocking_write = (
             is_write
             and assignment_node is not None
-            and assignment_node.raw.kind == NONBLOCKING_ASSIGNMENT_KIND
+            and is_nonblocking_assignment_node(assignment_node.raw)
         )
 
         loop_ids = enclosing_for_loop_ids(ctx)

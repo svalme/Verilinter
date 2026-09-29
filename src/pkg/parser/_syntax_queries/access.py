@@ -182,6 +182,30 @@ def enclosing_for_loop_ids(ctx: "Context") -> tuple[str, ...]:
     return tuple(ids)
 
 
+def is_nonblocking_assignment_node(raw: object) -> bool:
+    return getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
+
+
+def is_in_for_loop_header(raw: object, ctx: "Context") -> bool:
+    """True if `raw` sits in the init/stop/iteration clauses of its nearest
+    enclosing `for` loop, not in the loop's body statement."""
+    for ancestor in reversed(ctx.stack):
+        if getattr(ancestor.raw, "kind", None) != FOR_LOOP_STATEMENT_KIND:
+            continue
+        statement = getattr(ancestor.raw, "statement", None)
+        if statement is None:
+            return False
+        s_range = getattr(statement, "sourceRange", None) or getattr(statement, "range", None)
+        n_range = getattr(raw, "range", None) or getattr(raw, "sourceRange", None)
+        if not (s_range and n_range):
+            return False
+        return not (
+            n_range.start.offset >= s_range.start.offset
+            and n_range.end.offset <= s_range.end.offset
+        )
+    return False
+
+
 def enclosing_assignment_expression(ctx: "Context") -> "BaseVNode | None":
     """Return the nearest ancestor that is itself an assignment expression
     (`a = b`, `a <= b`, or a compound form like `a += b`) -- the single
