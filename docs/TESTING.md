@@ -93,6 +93,15 @@ one), and centralizes the parser-boundary logic in one place. Bespoke setup
 remains reasonable for a narrow unit test of one rule's `applies()`/`report()`
 methods where a full walk isn't needed.
 
+For those narrow tests, build syntax ancestors with `tests/support/fakes.py`
+(`FakeNode`, `FakeVNode`, `fake_vnode`) or the shared builders in
+`tests/support/syntax_context_builders.py`, not `Mock`. A `FakeNode` raises
+`AttributeError` for a field the test did not set, so `getattr(raw, "field", None)`
+in a parser helper yields `None` as it does on a real pyslang node; a bare `Mock`
+returns a truthy child `Mock` there. Fakes are not `pyslang` instances, so
+`raw_node_children` does not walk them; use a parsed snippet for tests that
+need real children.
+
 Neither path currently rejects parser errors before walking -- a fixture or
 inline snippet with a real syntax error can still produce *some* AST via
 pyslang's error recovery, and an assertion can pass for reasons unrelated to
