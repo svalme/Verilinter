@@ -49,6 +49,68 @@ def test_deterministic_construct_identity_across_independent_trees() -> None:
     assert sig1[0][1] == 0
 
 
+_MACRO_SOURCE = """
+`define SEL(a, b) if (c) a = 1; else b = 1;
+module m(input c, output reg x, y, z, w);
+  always @* begin
+    `SEL(x, y) `SEL(z, w)
+  end
+endmodule
+"""
+
+
+def _signatures_by_name(tree: sl.SyntaxTree, names: tuple[str, ...]) -> dict[str, tuple]:
+    found: dict[str, tuple] = {}
+
+    def visit(node: sl.SyntaxNode) -> None:
+        if node.kind == sl.SyntaxKind.IdentifierName and str(node).strip() in names:
+            found[str(node).strip()] = branch_exclusivity_signature(node, tree)
+        for child in node:
+            if isinstance(child, sl.SyntaxNode):
+                visit(child)
+
+    visit(tree.root)
+    return found
+
+
+def test_macro_expansions_on_one_line_get_distinct_construct_identities() -> None:
+    """Two expansions of one macro on the same source line are separate constructs,
+    so a branch taken in one is not mutually exclusive with a branch taken in the other."""
+    sigs = _signatures_by_name(sl.SyntaxTree.fromText(_MACRO_SOURCE), ("x", "y", "z", "w"))
+
+    assert is_mutually_exclusive_branch_pair(sigs["x"], sigs["y"])
+    assert is_mutually_exclusive_branch_pair(sigs["z"], sigs["w"])
+    assert not is_mutually_exclusive_branch_pair(sigs["x"], sigs["w"])
+    assert not is_mutually_exclusive_branch_pair(sigs["y"], sigs["z"])
+    assert sigs["x"][0][0] != sigs["z"][0][0]
+
+
+def test_macro_construct_identity_is_deterministic_across_independent_trees() -> None:
+    names = ("x", "y", "z", "w")
+    first = _signatures_by_name(sl.SyntaxTree.fromText(_MACRO_SOURCE), names)
+    second = _signatures_by_name(sl.SyntaxTree.fromText(_MACRO_SOURCE), names)
+
+    assert first == second
+
+
+def test_construct_identity_without_a_tree_does_not_collide_across_constructs() -> None:
+    """With no tree there is no file to key on, so two constructs at the same buffer
+    offset in different files must still get different identities."""
+    source = """
+    module m;
+      initial begin
+        if (a) x = 1; else x = 2;
+      end
+    endmodule
+    """
+    first = sl.SyntaxTree.fromText(source)
+    second = sl.SyntaxTree.fromText(source)
+    node1 = first.root.members[0].statement.items[0].statement.expr.left
+    node2 = second.root.members[0].statement.items[0].statement.expr.left
+
+    assert branch_exclusivity_signature(node1) != branch_exclusivity_signature(node2)
+
+
 def test_procedural_case_branches_are_mutually_exclusive() -> None:
     """Verifies Action Item 2.5: distinct branches of a procedural case statement
     have mutually exclusive branch signatures."""

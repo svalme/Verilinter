@@ -721,22 +721,29 @@ BranchSignature = tuple[tuple[str, int], ...]
 def _construct_identity(construct: object, tree: SyntaxTree | None = None) -> str:
     """Return a deterministic string identity for an enclosing branching construct.
 
-    Uses `file:line:col` via the syntax tree's sourceManager when available,
-    falling back to buffer offset or object id if location cannot be resolved.
+    Uses `file:line:col` via the syntax tree's sourceManager when available. A
+    construct produced by a macro expansion reports line and column 0 of a
+    per-expansion buffer, so it is identified by its outermost expansion site
+    in the real file plus its offset inside the macro body: two expansions of
+    one macro, even on the same line, get different identities. Without a
+    resolvable location the object id is used, which cannot collide within the
+    one process a tree-less caller runs in.
     """
     source_range = getattr(construct, "sourceRange", None)
     start = getattr(source_range, "start", None)
     if start is not None and tree is not None and getattr(tree, "sourceManager", None) is not None:
         sm = tree.sourceManager
         try:
-            file_name = sm.getFileName(start)
-            line = sm.getLineNumber(start)
-            col = sm.getColumnNumber(start)
-            return f"{file_name}:{line}:{col}"
+            if sm.isMacroLoc(start):
+                expanded = sm.getFullyExpandedLoc(start)
+                original = sm.getFullyOriginalLoc(start)
+                return (
+                    f"{sm.getFileName(expanded)}:{sm.getLineNumber(expanded)}:"
+                    f"{sm.getColumnNumber(expanded)}@{expanded.offset}+{original.offset}"
+                )
+            return f"{sm.getFileName(start)}:{sm.getLineNumber(start)}:{sm.getColumnNumber(start)}"
         except Exception:
             pass
-    if start is not None and hasattr(start, "offset"):
-        return f"offset:{start.offset}"
     return f"id:{id(construct)}"
 
 
