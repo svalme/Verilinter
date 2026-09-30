@@ -14,10 +14,12 @@ from src.pkg.handlers.identifier_name_handler import (
     IdentifierNameHandler,
     _is_structural_name_reference,
 )
+from src.pkg.parser.syntax_kinds import IDENTIFIER_NAME_KIND
 from src.pkg.semantic.symbol import Symbol
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.vnodes.identifier_vnode import IdentifierNameVNode
 from src.pkg.walk.context import Context
+from tests.support.fakes import FakeNode
 
 
 class TestStructuralReferenceFilter:
@@ -51,7 +53,7 @@ class TestSymbolResolver:
         ctx.scope().define(existing_symbol)
 
         vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
 
         resolver = SymbolResolver()
         resolved = resolver.resolve_or_create("clk", vnode, ctx, table)
@@ -63,7 +65,7 @@ class TestSymbolResolver:
         ctx = Context(scope=table.global_scope)
 
         vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
 
         resolver = SymbolResolver()
         symbol = resolver.resolve_or_create("my_net", vnode, ctx, table)
@@ -80,7 +82,7 @@ class TestSymbolResolver:
         ctx = Context(scope=table.global_scope)
 
         vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
 
         resolver = SymbolResolver()
         symbol = resolver.resolve_or_create("my_var", vnode, ctx, table)
@@ -102,7 +104,7 @@ class TestSymbolResolver:
         table.register_package("my_pkg", pkg_scope)
 
         vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
 
         # Case 1: Injected qualifier finds registered package with matching symbol
         resolver = SymbolResolver(qualifier_fn=lambda raw: "my_pkg")
@@ -161,7 +163,7 @@ class TestIdentifierNameHandlerOrchestration:
 
         vnode = Mock(spec=IdentifierNameVNode)
         vnode.identifier_name = ""
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
 
         ctx = Context(scope=SymbolTable().global_scope)
         table = SymbolTable()
@@ -186,7 +188,7 @@ class TestIdentifierNameHandlerOrchestration:
 
         vnode = Mock(spec=IdentifierNameVNode)
         vnode.identifier_name = "data_t"
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
 
         ctx = Context(scope=SymbolTable().global_scope)
         table = SymbolTable()
@@ -211,7 +213,7 @@ class TestIdentifierNameHandlerOrchestration:
 
         vnode = Mock(spec=IdentifierNameVNode)
         vnode.identifier_name = "pkg_item"
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
 
         ctx = Context(scope=SymbolTable().global_scope)
         table = SymbolTable()
@@ -250,7 +252,7 @@ class TestIdentifierNameHandlerOrchestration:
 
         vnode = Mock(spec=IdentifierNameVNode)
         vnode.identifier_name = "valid_sig"
-        vnode.raw = Mock()
+        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
         vnode.location = {"file": "test.sv", "line": 5, "col": 10}
 
         ctx = Context(scope=SymbolTable().global_scope)
