@@ -14,7 +14,6 @@ These tests verify that:
 from __future__ import annotations
 
 import inspect
-import time
 from unittest.mock import Mock
 
 import pytest
@@ -24,6 +23,7 @@ from src.pkg.parser.parse import tree_uses_default_nettype_none
 from src.pkg.semantic.scope import Scope, enclosing_module_scope
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
+from tests.support.termination import terminates_within
 
 
 def test_exported_syntax_queries_mock_safety() -> None:
@@ -79,16 +79,14 @@ def test_exported_syntax_queries_mock_safety() -> None:
                 else:
                     args.append(target_mock)
 
-            # Ensure execution completes in under 0.1 seconds without hang or recursion error
-            t0 = time.perf_counter()
-            try:
-                obj(*args, **kwargs)
-            except (TypeError, AttributeError, ValueError):
-                # Expected when mock doesn't fulfill expected structural interface;
-                # the goal is preventing infinite loops (RecursionError / hang).
-                pass
-            elapsed = time.perf_counter() - t0
-            assert elapsed < 0.1, f"Function {name} took {elapsed:.4f}s on mock input (possible loop!)"
+            # Ensure execution returns promptly, without hang or recursion error
+            with terminates_within(f"{name}"):
+                try:
+                    obj(*args, **kwargs)
+                except (TypeError, AttributeError, ValueError):
+                    # Expected when mock doesn't fulfill expected structural interface;
+                    # the goal is preventing infinite loops (RecursionError / hang).
+                    pass
 
 
 def test_specific_parent_traversal_cyclic_safety() -> None:
@@ -132,9 +130,8 @@ def test_tree_uses_default_nettype_none_mock_safety() -> None:
     mock_tree.root = mock_root
 
     # Must return False without looping
-    t0 = time.perf_counter()
-    assert tree_uses_default_nettype_none(mock_tree) is False
-    assert time.perf_counter() - t0 < 0.1
+    with terminates_within():
+        assert tree_uses_default_nettype_none(mock_tree) is False
 
 
 def test_semantic_scope_cyclic_safety() -> None:
@@ -144,9 +141,8 @@ def test_semantic_scope_cyclic_safety() -> None:
     mock_scope.lookup.return_value = None
     mock_scope.kind = "block"
 
-    t0 = time.perf_counter()
-    assert enclosing_module_scope(mock_scope) is None
-    assert time.perf_counter() - t0 < 0.1
+    with terminates_within():
+        assert enclosing_module_scope(mock_scope) is None
 
 
 def test_symbol_table_resolve_cyclic_safety() -> None:
@@ -157,9 +153,8 @@ def test_symbol_table_resolve_cyclic_safety() -> None:
     mock_scope.lookup.return_value = None
     mock_scope.imports = []
 
-    t0 = time.perf_counter()
-    assert symtab.lookup_from_scope("foo", mock_scope) is None
-    assert time.perf_counter() - t0 < 0.1
+    with terminates_within():
+        assert symtab.lookup_from_scope("foo", mock_scope) is None
 
 
 def test_context_stack_cyclic_safety() -> None:
@@ -168,7 +163,6 @@ def test_context_stack_cyclic_safety() -> None:
     ctx._parent = ctx
     ctx._vnode = Mock()
 
-    t0 = time.perf_counter()
-    stack = ctx.stack
-    assert time.perf_counter() - t0 < 0.1
+    with terminates_within():
+        stack = ctx.stack
     assert len(stack) == 1

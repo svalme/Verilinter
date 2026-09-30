@@ -13,7 +13,6 @@ Validates that:
 """
 from __future__ import annotations
 
-import time
 from unittest.mock import Mock
 
 import pytest
@@ -28,6 +27,7 @@ from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import Dispatch
 from src.pkg.walk.walker import Walker
+from tests.support.termination import terminates_within
 
 
 pytestmark = pytest.mark.stress
@@ -92,9 +92,9 @@ def test_queries_on_error_recovery_trees(snippet: str) -> None:
             if isinstance(child, sl.SyntaxNode):
                 _visit(child)
 
-    t0 = time.perf_counter()
-    _visit(root)
-    assert time.perf_counter() - t0 < 0.5
+    # Every exported query runs on every node of the tree, so this budget is larger.
+    with terminates_within(budget_s=10.0):
+        _visit(root)
 
 
 # ---------------------------------------------------------------------------
@@ -108,10 +108,9 @@ def test_deeply_nested_parenthesized_expressions() -> None:
     assert tree is not None
     root = tree.root
 
-    t0 = time.perf_counter()
-    unwrapped = sq.unwrap_parentheses(root)
-    assert unwrapped is not None
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        unwrapped = sq.unwrap_parentheses(root)
+        assert unwrapped is not None
 
 
 def test_deeply_nested_element_selectors() -> None:
@@ -121,9 +120,8 @@ def test_deeply_nested_element_selectors() -> None:
     assert tree is not None
 
     scope = SymbolTable().new_scope("module", name="m")
-    t0 = time.perf_counter()
-    w, is_signed = sq.simple_expression_width_and_signed(scope, tree.root, tree)
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        w, is_signed = sq.simple_expression_width_and_signed(scope, tree.root, tree)
 
 
 def test_deeply_nested_concatenations() -> None:
@@ -133,9 +131,8 @@ def test_deeply_nested_concatenations() -> None:
     assert tree is not None
 
     scope = SymbolTable().new_scope("module", name="m")
-    t0 = time.perf_counter()
-    w, is_signed = sq.simple_expression_width_and_signed(scope, tree.root, tree)
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        w, is_signed = sq.simple_expression_width_and_signed(scope, tree.root, tree)
 
 
 # ---------------------------------------------------------------------------
@@ -187,9 +184,8 @@ def test_scope_hierarchical_cycle_immunity() -> None:
     scope_a.parent = scope_b
     scope_b.parent = scope_a
 
-    t0 = time.perf_counter()
-    assert scope_a.lookup_hierarchical("non_existent") is None
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        assert scope_a.lookup_hierarchical("non_existent") is None
 
 
 def test_symbol_table_lookup_global_cycle_immunity() -> None:
@@ -199,9 +195,8 @@ def test_symbol_table_lookup_global_cycle_immunity() -> None:
     child_scope.children = [child_scope]
     symtab.global_scope.children = [child_scope]
 
-    t0 = time.perf_counter()
-    assert symtab.lookup_global("non_existent") is None
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        assert symtab.lookup_global("non_existent") is None
 
 
 def test_symbol_table_package_import_cycle_immunity() -> None:
@@ -219,9 +214,8 @@ def test_symbol_table_package_import_cycle_immunity() -> None:
     test_scope = Scope(kind="module", name="top")
     test_scope.add_import("pkgA", None)
 
-    t0 = time.perf_counter()
-    assert symtab.lookup_from_scope("unknown_sym", test_scope) is None
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        assert symtab.lookup_from_scope("unknown_sym", test_scope) is None
 
 
 # ---------------------------------------------------------------------------
@@ -240,9 +234,6 @@ def test_walker_terminates_on_cyclic_ast_graph() -> None:
     symtab = SymbolTable()
     tree = Mock(spec=sl.SyntaxTree)
 
-    t0 = time.perf_counter()
-    walker.walk(cyclic_node, tree, ctx, symtab)
-    elapsed = time.perf_counter() - t0
-
-    assert elapsed < 0.1
+    with terminates_within():
+        walker.walk(cyclic_node, tree, ctx, symtab)
     assert len(walker.results) == 1

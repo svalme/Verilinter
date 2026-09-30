@@ -12,7 +12,6 @@ Validates that:
 from __future__ import annotations
 
 import inspect
-import time
 from unittest.mock import Mock
 
 import pytest
@@ -36,6 +35,7 @@ from src.pkg.parser.syntax_kinds import (
 )
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
+from tests.support.termination import terminates_within
 
 
 pytestmark = pytest.mark.stress
@@ -156,18 +156,15 @@ def test_syntax_query_single_node_cycle_immunity(name: str, func: object) -> Non
         else:
             args.append(cyclic)
 
-    t0 = time.perf_counter()
-    try:
-        res = func(*args)
-        if inspect.isgenerator(res):
-            for _ in zip(range(100), res):
-                pass
-    except (TypeError, AttributeError, ValueError):
-        # Graceful type/attribute errors from synthetic mock structure are expected
-        pass
-    elapsed = time.perf_counter() - t0
-
-    assert elapsed < 0.2, f"Query {name} exceeded runtime threshold on single-node cycle ({elapsed:.4f}s)"
+    with terminates_within(f"{name}"):
+        try:
+            res = func(*args)
+            if inspect.isgenerator(res):
+                for _ in zip(range(100), res):
+                    pass
+        except (TypeError, AttributeError, ValueError):
+            # Graceful type/attribute errors from synthetic mock structure are expected
+            pass
 
 
 @pytest.mark.parametrize("name,func", ALL_QUERY_FUNCTIONS, ids=[f[0] for f in ALL_QUERY_FUNCTIONS])
@@ -201,17 +198,14 @@ def test_syntax_query_multi_node_cycle_immunity(name: str, func: object) -> None
         else:
             args.append(entry_node)
 
-    t0 = time.perf_counter()
-    try:
-        res = func(*args)
-        if inspect.isgenerator(res):
-            for _ in zip(range(100), res):
-                pass
-    except (TypeError, AttributeError, ValueError):
-        pass
-    elapsed = time.perf_counter() - t0
-
-    assert elapsed < 0.2, f"Query {name} exceeded runtime threshold on multi-node cycle ({elapsed:.4f}s)"
+    with terminates_within(f"{name}"):
+        try:
+            res = func(*args)
+            if inspect.isgenerator(res):
+                for _ in zip(range(100), res):
+                    pass
+        except (TypeError, AttributeError, ValueError):
+            pass
 
 
 def test_evaluate_constant_expression_binary_cycles() -> None:
@@ -230,10 +224,9 @@ def test_evaluate_constant_expression_binary_cycles() -> None:
         node.left = node
         node.right = node
 
-        t0 = time.perf_counter()
-        val = sq.evaluate_constant_expression(node)
-        assert val is None
-        assert time.perf_counter() - t0 < 0.05
+        with terminates_within():
+            val = sq.evaluate_constant_expression(node)
+            assert val is None
 
 
 def test_evaluate_constant_expression_unary_cycles() -> None:
@@ -243,10 +236,9 @@ def test_evaluate_constant_expression_unary_cycles() -> None:
         node.kind = unary_kind
         node.operand = node
 
-        t0 = time.perf_counter()
-        val = sq.evaluate_constant_expression(node)
-        assert val is None
-        assert time.perf_counter() - t0 < 0.05
+        with terminates_within():
+            val = sq.evaluate_constant_expression(node)
+            assert val is None
 
 
 def test_unwrap_parentheses_cycle() -> None:
@@ -255,10 +247,9 @@ def test_unwrap_parentheses_cycle() -> None:
     node.kind = PARENTHESIZED_EXPRESSION_KIND
     node.expression = node
 
-    t0 = time.perf_counter()
-    res = sq.unwrap_parentheses(node)
-    assert res is node
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        res = sq.unwrap_parentheses(node)
+        assert res is node
 
 
 def test_contains_descendant_child_cycle() -> None:
@@ -266,9 +257,8 @@ def test_contains_descendant_child_cycle() -> None:
     cyclic = _build_cyclic_node()
     target = Mock(spec=sl.SyntaxNode)
 
-    t0 = time.perf_counter()
-    assert sq.contains_descendant(cyclic, target) is False
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        assert sq.contains_descendant(cyclic, target) is False
 
 
 def test_generator_traversals_on_child_cycle() -> None:
@@ -276,22 +266,19 @@ def test_generator_traversals_on_child_cycle() -> None:
     cyclic = _build_cyclic_node()
 
     # 1. iter_identifier_reads
-    t0 = time.perf_counter()
-    reads = list(sq.iter_identifier_reads(cyclic))
-    assert isinstance(reads, list)
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        reads = list(sq.iter_identifier_reads(cyclic))
+        assert isinstance(reads, list)
 
     # 2. iter_assignment_nodes
-    t0 = time.perf_counter()
-    assigns = list(sq.iter_assignment_nodes(cyclic))
-    assert isinstance(assigns, list)
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        assigns = list(sq.iter_assignment_nodes(cyclic))
+        assert isinstance(assigns, list)
 
     # 3. iter_statement_nodes
-    t0 = time.perf_counter()
-    stmts = list(sq.iter_statement_nodes(cyclic))
-    assert isinstance(stmts, list)
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        stmts = list(sq.iter_statement_nodes(cyclic))
+        assert isinstance(stmts, list)
 
 
 def test_assignment_target_resolution_cyclical_shapes() -> None:
@@ -333,10 +320,9 @@ def test_state_register_reset_covered_cycle_immunity() -> None:
     block = _build_cyclic_node()
     block.kind = 999999
 
-    t0 = time.perf_counter()
-    covered = sq.is_state_register_reset_covered(block, "state_reg")
-    assert covered is False
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        covered = sq.is_state_register_reset_covered(block, "state_reg")
+        assert covered is False
 
 
 def test_has_latch_pattern_deep_and_cyclic_immunity() -> None:
@@ -345,12 +331,11 @@ def test_has_latch_pattern_deep_and_cyclic_immunity() -> None:
 
     # 1. Direct cyclic node
     cyclic = _build_cyclic_node()
-    t0 = time.perf_counter()
-    has_latch, assigned = _analyze_statement_latch(cyclic, set())
-    assert has_latch is False
-    assert isinstance(assigned, set)
-    assert has_latch_pattern(cyclic) is False
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        has_latch, assigned = _analyze_statement_latch(cyclic, set())
+        assert has_latch is False
+        assert isinstance(assigned, set)
+        assert has_latch_pattern(cyclic) is False
 
     # 2. Deeply nested block of 300 levels
     from src.pkg.parser.syntax_kinds import BLOCK_STATEMENT_KINDS
@@ -364,10 +349,9 @@ def test_has_latch_pattern_deep_and_cyclic_immunity() -> None:
         parent.statements = (curr,)
         curr = parent
 
-    t0 = time.perf_counter()
-    has_latch, _ = _analyze_statement_latch(curr, set())
-    assert has_latch is False
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        has_latch, _ = _analyze_statement_latch(curr, set())
+        assert has_latch is False
 
 
 def test_combinational_loop_deep_signal_graph_immunity() -> None:
@@ -381,10 +365,9 @@ def test_combinational_loop_deep_signal_graph_immunity() -> None:
         graph[f"sig_{i}"] = [(f"sig_{i+1}", {"line": 1, "col": 1}, ())]
     graph["sig_500"] = []
 
-    t0 = time.perf_counter()
-    diagnostics = rule._find_cycles(graph)
-    assert diagnostics == []
-    assert time.perf_counter() - t0 < 0.1
+    with terminates_within():
+        diagnostics = rule._find_cycles(graph)
+        assert diagnostics == []
 
 
 def test_circular_module_instantiation_deep_chain_immunity() -> None:
@@ -397,10 +380,9 @@ def test_circular_module_instantiation_deep_chain_immunity() -> None:
     for i in range(500):
         symtab.instantiation_edges.append((f"mod_{i}", f"mod_{i+1}", {"line": 1, "col": 1}))
 
-    t0 = time.perf_counter()
-    diagnostics = rule.run(symtab)
-    assert diagnostics == []
-    assert time.perf_counter() - t0 < 0.1
+    with terminates_within():
+        diagnostics = rule.run(symtab)
+        assert diagnostics == []
 
 
 def test_no_assignment_width_mismatch_deep_rhs_selects_immunity() -> None:
@@ -413,10 +395,9 @@ def test_no_assignment_width_mismatch_deep_rhs_selects_immunity() -> None:
     mock_scope.lookup = Mock(return_value=None)
     mock_scope.lookup_hierarchical = Mock(return_value=None)
 
-    t0 = time.perf_counter()
-    mismatch = _check_selects(cyclic, mock_scope, mock_ctx, None)
-    assert mismatch is None
-    assert time.perf_counter() - t0 < 0.05
+    with terminates_within():
+        mismatch = _check_selects(cyclic, mock_scope, mock_ctx, None)
+        assert mismatch is None
 
 
 def test_instance_record_cyclic_generate_signature_immunity() -> None:

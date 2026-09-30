@@ -51,6 +51,7 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `test_mock_traversal_safety.py`: verifies exported query functions and context stack terminate on synthetic cyclic mocks.
 - `test_recursion_and_depth_hygiene.py`: static AST analysis verifying that every recursive function across `src/pkg/` is guarded by `@guarded_traversal`/`@guarded_generator` or an explicit bounded depth check, and that all AST traversal `while` loops enforce bounded iteration or depth ceilings.
 - `test_parser_boundary.py`: static AST analysis verifying that `pyslang` is imported only inside `src/pkg/parser/`, that no code outside the parser reads `<vnode>.raw.<field>` other than `.kind`, and that `run_lint.py` imports parsing entry points only from `pkg.parser.parse`.
+- `test_timing_assertion_hygiene.py`: verifies that no test reads the wall clock directly; time budgets go through `terminates_within` (see below).
 
 **Stress & loop immunity tests** (`tests/stress/`):
 - `test_ast_cyclical_stress.py`: runs cyclical graph stress tests across all exported syntax query functions, rule-level statement latch analyzers, combinational loop DFS, and circular module instantiation DFS (single-node self-loops, multi-node cyclic rings, cyclic expressions, 500-node graph chains, and cyclic generators) to verify complete loop immunity and sub-second termination without `RecursionError` or hangs.
@@ -109,6 +110,27 @@ the RTL it's supposed to demonstrate. For checked-in fixtures,
 `test_fixture_validity.py` closes this gap independently of which harness a
 test uses. For inline snippets (`sl.SyntaxTree.fromText(...)` written directly
 in a test body), no equivalent check exists yet.
+
+## Termination and time budgets
+
+Stress and traversal-safety tests check that code returns on cyclic or deeply
+nested input. Use `terminates_within` from `tests/support/termination.py` for
+that check, not a hand-written stopwatch:
+
+```python
+with terminates_within():          # label defaults to the running test id
+    assert unwrap_parentheses(cyclic) is cyclic
+```
+
+- A real non-termination bug hangs or raises `RecursionError`; an exception
+  inside the block propagates unchanged and is never reported as a timing failure.
+- Exceeding the budget raises `TerminationBudgetExceeded`, whose message says the
+  code returned (slowness, not a loop) and how to tell load from a regression:
+  rerun the test alone.
+- `DEFAULT_BUDGET_S` is a generous ceiling for the small synthetic inputs in
+  stress tests. Pass `budget_s=` for a test that does more work.
+- Set `VERILINTER_TEST_TIME_SCALE` (for example `3`) to scale every budget on a
+  loaded machine or slow CI runner.
 
 ## Golden files
 
