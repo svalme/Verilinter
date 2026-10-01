@@ -85,6 +85,7 @@ from ._syntax_queries.shapes import (
     resolve_assignment_target_and_rhs,
 )
 from ._syntax_queries.declarators import (
+    clocking_declaration_event,
     clocking_declaration_signals,
     declarator_bit_width,
     declarator_has_initializer,
@@ -103,6 +104,7 @@ from ._syntax_queries.declarators import (
     declarator_port_direction,
     declarator_unpacked_dimension_texts,
     declarator_unpacked_dimension_widths,
+    typedef_declaration_name_and_location,
 )
 from ._syntax_queries.conditional_shapes import (
     conditional_statement_body,
@@ -135,7 +137,9 @@ from ._syntax_queries.instantiation import (
     is_ordered_parameter_override,
     is_port_connection_node,
     named_parameter_override_name,
+    named_port_connection_has_parentheses,
     named_port_connection_name,
+    parameter_override_expression,
     parameter_override_list,
     port_connection_expression,
     port_connection_list,
@@ -217,6 +221,7 @@ from ._syntax_queries.structural_name_predicates import (
     is_subroutine_prototype_name,
 )
 from ._syntax_queries.keywords_and_tokens import (
+    case_item_clause,
     case_item_expressions,
     case_statement_items,
     case_statement_unique_or_priority,
@@ -308,10 +313,12 @@ __all__ = [
     "async_reset_signal_names",
     "binary_operands",
     "branch_exclusivity_signature",
+    "case_item_clause",
     "case_statement_selector_name",
     "case_statement_unique_or_priority",
     "classify_reset_style",
     "construct_branch_metadata",
+    "clocking_declaration_event",
     "clocking_declaration_signals",
     "comparison_operands",
     "compute_sliced_width",
@@ -522,7 +529,9 @@ __all__ = [
     "module_async_reset_signals",
     "is_module_filename_mismatch",
     "named_parameter_override_name",
+    "named_port_connection_has_parentheses",
     "package_import_items",
+    "parameter_override_expression",
     "parameter_override_list",
     "primitive_declaration_name",
     "procedural_block_async_reset_signals",
@@ -539,5 +548,6 @@ __all__ = [
     "subroutine_formal_direction",
     "sync_clock_signal_name",
     "system_task_name",
+    "typedef_declaration_name_and_location",
     "unary_write_operand",
 ]

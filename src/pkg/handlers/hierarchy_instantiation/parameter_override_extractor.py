@@ -8,6 +8,7 @@ from ...parser.syntax import (
     is_ordered_parameter_override,
     named_parameter_override_name,
     node_location,
+    parameter_override_expression,
     parameter_override_list,
     source_text_for_node,
 )
@@ -36,7 +37,7 @@ class ParameterOverrideExtractor:
         parameter_override_kinds: set[str] = set()
 
         for param in parameter_override_list(raw_node):
-            expr = getattr(param, "expr", None)
+            expr = parameter_override_expression(param)
             expr_text = source_text_for_node(expr, tree) if expr is not None else None
             expr_value = self.evaluator(expr, scope=scope) if expr is not None else None
 

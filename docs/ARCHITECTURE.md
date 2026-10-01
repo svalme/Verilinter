@@ -358,5 +358,62 @@ Beyond CST/AST query functions, all graph algorithms and context traversals acro
 5. **Instance Record Deserialization (`semantic/models/instance_record.py`)**:
    - `_to_tuple` recursive list-to-tuple converter enforces `depth < 32` against self-referential or deeply nested signature structures.
 
+---
+
+## 5. MVP Supported RTL Subset, Semantic Capabilities & Known Limitations
+
+Verilinter focuses on everyday synthesizable RTL correctness across Verilog-2001 and SystemVerilog (IEEE 1364-2001 and IEEE 1800-2017). This section defines the supported constructs, semantic analysis boundaries, and explicitly deferred post-MVP capabilities.
+
+### A. Supported RTL Subset
+1. **Modules & Hierarchy**:
+   - ANSI and non-ANSI port declarations (`input`, `output`, `inout`, `ref`).
+   - Sized, packed, and unpacked port lists with inheritance across comma-separated lists.
+   - Positional and named module instantiations (`.port(net)`, `.*`).
+   - Parameterized instantiations with named (`#(.WIDTH(16))`) and ordered (`#(16)`) overrides.
+   - Circular instantiation graph analysis (`CIRCULAR_MODULE_INSTANTIATION`).
+2. **Declarations & Types**:
+   - Synthesizable 4-state and 2-state nets and variables: `wire`, `tri`, `reg`, `logic`, `bit`, `int`, `integer`.
+   - Packages (`package ... endpackage`), package imports (`import pkg::*;`, `import pkg::item;`), and explicit scope qualifiers (`pkg::item`).
+   - Subroutines: tasks and functions with formal port direction tracking (`input`, `output`, `inout`, `ref`) propagating write semantics to actual call arguments.
+   - Distinct child scopes for functions, tasks, `for` loops, generate blocks, and aggregate typedefs (`typedef struct/union`).
+3. **Procedural Logic**:
+   - Synthesizable procedural blocks: `always`, `always_comb`, `always_ff`, `always_latch`.
+   - Continuous assignments (`assign`) and procedural blocking (`=`) vs. non-blocking (`<=`) assignments.
+   - Generate constructs: `if generate`, `case generate`, and `for generate` with named blocks and label checking.
+
+### B. Expression & Width Inference Boundaries ("Known vs. Known")
+To prevent false alarms without requiring a full SystemVerilog elaboration simulator, Verilinter's expression engine operates under a strict "known vs. known" philosophy:
+- **Evaluated Shapes**:
+  - Direct identifiers, sized vector literals (`4'b1010`, `8'hFF`), unsized integer literals (`0`, `15`), and unbased unsized literals (`'0`, `'1`).
+  - Bit-selects (`vec[idx]`), constant part-selects (`vec[7:0]`), and indexed part-selects (`vec[i*4 +: 4]`, `vec[i*4 -: 4]`).
+  - Replications (`{4{a}}`) and multi-member concatenations (`{a, b, 4'd0}`).
+  - Binary arithmetic expressions (`+`, `-`, `*`) with carry-out and bit-growth modeling.
+  - Sliced and multidimensional packed/unpacked array targets (`AssignmentTarget`).
+  - Relational and equality comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`, `===`, `!==`, `==?`, `!=?`).
+- **Safe Skips**:
+  - Complex runtime subroutine return expressions, dynamic user-defined type conversions, and deeply nested unsupported operators are safely skipped when widths cannot be statically established, rather than guessing or fabricating widths.
+
+### C. FSM & Sequential Analysis Boundaries
+1. **One-Process Synthesizable FSMs**:
+   - Verilinter recognizes state machines adhering to the standard one-process style (an edge-triggered block where the `case` selector is a state register updated via non-blocking assignments).
+   - Validates missing defaults (`MISSING_DEFAULT_ON_STATE_CASE`), async reset coverage (`MISSING_STATE_REGISTER_RESET`), and one-hot encoding consistency (`ONE_HOT_ENCODING_VIOLATION`).
+2. **Clock & Reset Safety**:
+   - Edge-qualified sensitivity list analysis (`MULTI_CLOCK_PROCEDURAL_BLOCK` flags multiple clocks or duplicate edges).
+   - Datapath vs. reset isolation (`ASYNC_RESET_AS_DATA` flags async resets sampled in datapath logic).
+   - Reset style consistency (`NO_MIXED_RESET_STYLE` flags mixed async/sync resets across a module).
+   - Async reset value deterministic safety (`ASYNC_RESET_XZ_VALUE` flags X/Z values in reset branches).
+
+### D. Explicitly Deferred Capabilities (Post-MVP Scope)
+The following capabilities require deeper whole-chip elaboration, clock-tree synthesis, or formal equivalence engines and are intentionally deferred beyond the MVP:
+1. **Clock Domain Crossing (CDC)**:
+   - Synchronizer flop chain depth analysis, domain propagation across hierarchy, and metastability settling logic.
+2. **Two-Process FSM Transition Graphs**:
+   - Correlating separate combinational `next_state` logic with sequential `state <= next_state` assignments, unreachable state detection, and deadlock/trap state graph traversal.
+3. **General Active-Low Polarity Inference**:
+   - Inferring intended active-low polarity purely from datapath boolean usage outside edge-qualified sensitivity lists.
+4. **Dynamic Verification & Simulation Scheduling**:
+   - Evaluating concurrent assertions (`assert property`), randomize calls, covergroups, and simulation event scheduling races (these constructs are flagged or banned by RTL-subset rules rather than evaluated).
+
+
 
 

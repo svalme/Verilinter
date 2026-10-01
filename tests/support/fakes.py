@@ -31,15 +31,24 @@ class FakeNode:
 class FakeVNode(BaseVNode):
     """A real `BaseVNode`, so `isinstance` checks and `Context.push` behave normally."""
 
-    def __init__(self, raw: FakeNode, tree: object = None) -> None:
+    def __init__(self, raw: object, tree: object = None, location: object = None) -> None:
         super().__init__(raw, tree)  # type: ignore[arg-type]
+        self._location = location
 
     def snippet(self) -> str:
         return ""
 
+    @property
+    def location(self) -> object:
+        return self._location
 
-def fake_vnode(kind: object, **fields: object) -> FakeVNode:
-    return FakeVNode(FakeNode(kind, **fields))
+    @location.setter
+    def location(self, value: object) -> None:
+        self._location = value
+
+
+def fake_vnode(kind: object, location: object = None, **fields: object) -> FakeVNode:
+    return FakeVNode(FakeNode(kind, **fields), location=location)
 
 
 __all__ = ["FakeNode", "FakeVNode", "fake_vnode"]

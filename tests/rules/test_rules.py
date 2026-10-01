@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import Mock
 import pyslang as sl
 from pathlib import Path
 
@@ -83,7 +82,7 @@ from src.pkg.rules.arrays_and_indexing.no_dynamic_array import NoDynamicArrayRul
 from src.pkg.rules.arrays_and_indexing.no_associative_array import NoAssociativeArrayRule
 from src.pkg.rules.conditional_and_case_statements.no_unique0_if import NoUnique0IfRule
 from src.pkg.rules.combinational_logic.no_switch_primitive import NoSwitchPrimitiveRule
-from tests.support.fakes import FakeNode, fake_vnode
+from tests.support.fakes import FakeNode, FakeVNode, fake_vnode
 from tests.support.parse_diagnostics import assert_no_parse_errors
 from tests.support.syntax_context_builders import (
     case_context,
@@ -102,11 +101,11 @@ DATA = Path(__file__).parent.parent / "data"
 
 
 @pytest.fixture
-def mock_vnode() -> Mock:
+def mock_vnode() -> BaseVNode:
     """Fixture for a mock vnode."""
-    mock = Mock(spec=BaseVNode)
-    mock.location = {"line": 42, "col": 10}
-    return mock
+    node = fake_vnode(None)
+    node.location = {"line": 42, "col": 10}
+    return node
 
 
 class TestDefaultCaseRule:
@@ -157,7 +156,7 @@ class TestDefaultCaseRule:
 
         assert rule.applies(mock_vnode, context) is False
 
-    def test_report_returns_correct_format(self, rule: DefaultCaseRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: DefaultCaseRule, mock_vnode: BaseVNode) -> None:
         """Test that report() returns the correct diagnostic format."""
         result = rule.report(mock_vnode)
 
@@ -230,10 +229,8 @@ class TestNoBlockingAssignmentInSequentialRule:
         )
         assert block_raw is not None and token_raw is not None
 
-        block_vnode = Mock(spec=BaseVNode)
-        block_vnode.raw = block_raw
-        token_vnode_ = Mock(spec=BaseVNode)
-        token_vnode_.raw = token_raw
+        block_vnode = FakeVNode(block_raw)
+        token_vnode_ = FakeVNode(token_raw)
 
         context = Context().with_flag(ContextFlag.ALWAYS).push(block_vnode)
 
@@ -255,10 +252,8 @@ class TestNoBlockingAssignmentInSequentialRule:
         )
         assert block_raw is not None and token_raw is not None
 
-        block_vnode = Mock(spec=BaseVNode)
-        block_vnode.raw = block_raw
-        token_vnode_ = Mock(spec=BaseVNode)
-        token_vnode_.raw = token_raw
+        block_vnode = FakeVNode(block_raw)
+        token_vnode_ = FakeVNode(token_raw)
 
         context = Context().with_flag(ContextFlag.ALWAYS).push(block_vnode)
 
@@ -278,16 +273,14 @@ class TestNoBlockingAssignmentInSequentialRule:
         )
         assert block_raw is not None and token_raw is not None
 
-        block_vnode = Mock(spec=BaseVNode)
-        block_vnode.raw = block_raw
-        token_vnode_ = Mock(spec=BaseVNode)
-        token_vnode_.raw = token_raw
+        block_vnode = FakeVNode(block_raw)
+        token_vnode_ = FakeVNode(token_raw)
 
         context = Context().with_flag(ContextFlag.ALWAYS).push(block_vnode)
 
         assert rule.applies(token_vnode_, context) is True
 
-    def test_report_returns_correct_format(self, rule: NoBlockingAssignmentInSequentialRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoBlockingAssignmentInSequentialRule, mock_vnode: BaseVNode) -> None:
         """Test that report() returns the correct diagnostic format."""
         mock_vnode.location = {"line": 15, "col": 8}
         result = rule.report(mock_vnode)
@@ -388,10 +381,8 @@ class TestNoNonBlockingAssignmentInCombRule:
         )
         assert block_raw is not None and token_raw is not None
 
-        block_vnode = Mock(spec=BaseVNode)
-        block_vnode.raw = block_raw
-        token_vnode_ = Mock(spec=BaseVNode)
-        token_vnode_.raw = token_raw
+        block_vnode = FakeVNode(block_raw)
+        token_vnode_ = FakeVNode(token_raw)
 
         context = Context().push(block_vnode)
 
@@ -413,10 +404,8 @@ class TestNoNonBlockingAssignmentInCombRule:
         )
         assert block_raw is not None and token_raw is not None
 
-        block_vnode = Mock(spec=BaseVNode)
-        block_vnode.raw = block_raw
-        token_vnode_ = Mock(spec=BaseVNode)
-        token_vnode_.raw = token_raw
+        block_vnode = FakeVNode(block_raw)
+        token_vnode_ = FakeVNode(token_raw)
 
         context = Context().push(block_vnode)
 
@@ -436,16 +425,14 @@ class TestNoNonBlockingAssignmentInCombRule:
         )
         assert block_raw is not None and token_raw is not None
 
-        block_vnode = Mock(spec=BaseVNode)
-        block_vnode.raw = block_raw
-        token_vnode_ = Mock(spec=BaseVNode)
-        token_vnode_.raw = token_raw
+        block_vnode = FakeVNode(block_raw)
+        token_vnode_ = FakeVNode(token_raw)
 
         context = Context().push(block_vnode)
 
         assert rule.applies(token_vnode_, context) is False
 
-    def test_report_returns_correct_format(self, rule: NoNonBlockingAssignmentInCombRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoNonBlockingAssignmentInCombRule, mock_vnode: BaseVNode) -> None:
         """Test that report() returns the correct diagnostic format."""
         mock_vnode.location = {"line": 25, "col": 12}
         result = rule.report(mock_vnode)
@@ -478,7 +465,7 @@ class TestNoInitialBlockRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoInitialBlockRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoInitialBlockRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 6, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -508,7 +495,7 @@ class TestNoFinalBlockRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoFinalBlockRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoFinalBlockRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 11, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -538,7 +525,7 @@ class TestNoAlwaysLatchRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoAlwaysLatchRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoAlwaysLatchRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 14, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -568,7 +555,7 @@ class TestNoAlwaysFFRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoAlwaysFFRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoAlwaysFFRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 10, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -604,8 +591,7 @@ class TestNoCaseGenerateRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -614,7 +600,7 @@ class TestNoCaseGenerateRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoCaseGenerateRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoCaseGenerateRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -658,7 +644,7 @@ class TestNoFullParallelCaseRule:
 
         assert rule.applies(vnode, Context()) is True
 
-    def test_report_returns_correct_format(self, rule: NoFullParallelCaseRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoFullParallelCaseRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 9, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -718,11 +704,11 @@ class TestNoCaseInsideRule:
         # An ordinary `inside` operator nested in a case item's expression is a
         # different token from the enclosing case statement's own
         # `matchesOrInside` field, even though a CaseStatement ancestor exists.
-        ctx = case_inside_context(Mock())
+        ctx = case_inside_context(fake_vnode(None))
 
         assert rule.applies(vnode, ctx) is False
 
-    def test_report_returns_correct_format(self, rule: NoCaseInsideRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoCaseInsideRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 10}
         result = rule.report(mock_vnode)
 
@@ -752,7 +738,7 @@ class TestNoForeverLoopRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoForeverLoopRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoForeverLoopRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -782,7 +768,7 @@ class TestNoWaitStatementRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoWaitStatementRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoWaitStatementRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -812,7 +798,7 @@ class TestNoRepeatLoopRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoRepeatLoopRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoRepeatLoopRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -849,7 +835,7 @@ class TestNoWhileLoopRule:
 
         assert rule.applies(mock_vnode, context) is False
 
-    def test_report_returns_correct_format(self, rule: NoWhileLoopRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoWhileLoopRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -879,7 +865,7 @@ class TestNoForeachLoopRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoForeachLoopRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoForeachLoopRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -909,7 +895,7 @@ class TestNoDoWhileLoopRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoDoWhileLoopRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoDoWhileLoopRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -946,7 +932,7 @@ class TestNoForLoopRule:
 
         assert rule.applies(mock_vnode, context) is False
 
-    def test_report_returns_correct_format(self, rule: NoForLoopRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoForLoopRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -982,8 +968,7 @@ class TestNoGenerateForRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -992,7 +977,7 @@ class TestNoGenerateForRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoGenerateForRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoGenerateForRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1028,8 +1013,7 @@ class TestNoIfGenerateRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -1038,7 +1022,7 @@ class TestNoIfGenerateRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoIfGenerateRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoIfGenerateRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1074,8 +1058,7 @@ class TestNoTaskDeclarationRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -1084,7 +1067,7 @@ class TestNoTaskDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoTaskDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoTaskDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -1114,7 +1097,7 @@ class TestNoProgramDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoProgramDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoProgramDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 1, "col": 1}
         result = rule.report(mock_vnode)
 
@@ -1144,7 +1127,7 @@ class TestNoClockingDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoClockingDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoClockingDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -1174,7 +1157,7 @@ class TestNoCheckerDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoCheckerDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoCheckerDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -1204,7 +1187,7 @@ class TestNoInterfaceDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoInterfaceDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoInterfaceDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 1, "col": 1}
         result = rule.report(mock_vnode)
 
@@ -1234,7 +1217,7 @@ class TestNoModportDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoModportDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoModportDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 1, "col": 1}
         result = rule.report(mock_vnode)
 
@@ -1264,7 +1247,7 @@ class TestNoPackageDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoPackageDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoPackageDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 1, "col": 1}
         result = rule.report(mock_vnode)
 
@@ -1305,7 +1288,7 @@ class TestNoDisableStatementRule:
 
         assert rule.applies(mock_vnode, ctx) is False
 
-    def test_report_returns_correct_format(self, rule: NoDisableStatementRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoDisableStatementRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 11}
         result = rule.report(mock_vnode)
 
@@ -1349,7 +1332,7 @@ class TestNoEventTriggerRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoEventTriggerRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoEventTriggerRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1379,7 +1362,7 @@ class TestNoForkJoinRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoForkJoinRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoForkJoinRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -1426,7 +1409,7 @@ class TestNoInsideOperatorRule:
 
         assert rule.applies(mock_vnode, ctx) is False
 
-    def test_report_returns_correct_format(self, rule: NoInsideOperatorRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoInsideOperatorRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 20}
         result = rule.report(mock_vnode)
 
@@ -1469,7 +1452,7 @@ class TestNoUniquePriorityCaseRule:
 
         assert rule.applies(mock_vnode, context) is False
 
-    def test_report_returns_correct_format(self, rule: NoUniquePriorityCaseRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoUniquePriorityCaseRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1500,7 +1483,7 @@ class TestNoUnique0CaseRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoUnique0CaseRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoUnique0CaseRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1532,7 +1515,7 @@ class TestNoUniqueIfRule:
 
         assert rule.applies(mock_vnode, context) is False
 
-    def test_report_returns_correct_format(self, rule: NoUniqueIfRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoUniqueIfRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 5, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1570,7 +1553,7 @@ class TestNoUnique0IfRule:
 
         assert rule.applies(mock_vnode, context) is False
 
-    def test_report_returns_correct_format(self, rule: NoUnique0IfRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoUnique0IfRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 5, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1602,7 +1585,7 @@ class TestNoPriorityIfRule:
 
         assert rule.applies(mock_vnode, context) is False
 
-    def test_report_returns_correct_format(self, rule: NoPriorityIfRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoPriorityIfRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 6, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1638,8 +1621,7 @@ class TestNoInternalInoutRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -1660,12 +1642,11 @@ class TestNoInternalInoutRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoInternalInoutRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoInternalInoutRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -1710,8 +1691,7 @@ class TestNoLatchInAlwaysCombRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -1741,8 +1721,7 @@ class TestNoLatchInAlwaysCombRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1772,8 +1751,7 @@ class TestNoLatchInAlwaysCombRule:
         raw_node = walk(tree.root)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1782,7 +1760,7 @@ class TestNoLatchInAlwaysCombRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoLatchInAlwaysCombRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoLatchInAlwaysCombRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 5, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -1812,7 +1790,7 @@ class TestNoDefparamRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoDefparamRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoDefparamRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 6, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1847,7 +1825,7 @@ class TestNoForceReleaseRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoForceReleaseRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoForceReleaseRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 5, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -1887,7 +1865,7 @@ class TestNoAssignDeassignRule:
 
         assert rule.applies(mock_vnode, continuous_assign_context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoAssignDeassignRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoAssignDeassignRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 5, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -1922,7 +1900,7 @@ class TestNoWandWorRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoWandWorRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoWandWorRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 12}
         result = rule.report(mock_vnode)
 
@@ -1952,7 +1930,7 @@ class TestNoTriregRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoTriregRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoTriregRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -1987,7 +1965,7 @@ class TestNoSupply0Supply1Rule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoSupply0Supply1Rule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoSupply0Supply1Rule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 12}
         result = rule.report(mock_vnode)
 
@@ -2022,7 +2000,7 @@ class TestNoTranRtranRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoTranRtranRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoTranRtranRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 6, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -2057,7 +2035,7 @@ class TestNoTranifRtranifRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoTranifRtranifRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoTranifRtranifRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 10, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -2087,7 +2065,7 @@ class TestNoSpecifyBlockRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoSpecifyBlockRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoSpecifyBlockRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -2117,7 +2095,7 @@ class TestNoPrimitiveDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoPrimitiveDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoPrimitiveDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 1, "col": 1}
         result = rule.report(mock_vnode)
 
@@ -2165,7 +2143,7 @@ class TestNoGatePrimitiveRule:
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
-    def test_report_returns_correct_format(self, rule: NoGatePrimitiveRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoGatePrimitiveRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -2211,7 +2189,7 @@ class TestNoSwitchPrimitiveRule:
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoSwitchPrimitiveRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoSwitchPrimitiveRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -2241,7 +2219,7 @@ class TestNoAliasStatementRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoAliasStatementRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoAliasStatementRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -2271,7 +2249,7 @@ class TestNoBindDirectiveRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoBindDirectiveRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoBindDirectiveRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 5, "col": 1}
         result = rule.report(mock_vnode)
 
@@ -2306,7 +2284,7 @@ class TestNoDelayControlRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoDelayControlRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoDelayControlRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 12}
         result = rule.report(mock_vnode)
 
@@ -2341,7 +2319,7 @@ class TestNoImmediateAssertionRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoImmediateAssertionRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoImmediateAssertionRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 3, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -2376,7 +2354,7 @@ class TestNoConcurrentAssertionRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoConcurrentAssertionRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoConcurrentAssertionRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 5}
         result = rule.report(mock_vnode)
 
@@ -2385,13 +2363,22 @@ class TestNoConcurrentAssertionRule:
         assert result["message"] == "Use of concurrent assertions (assert/assume/cover property) is discouraged in synthesizable RTL; assertions belong in verification, not design"
 
 
-def _system_name_vnode(name: str) -> Mock:
-    # spec=SystemNameSyntax so the `isinstance(raw, SystemNameNode)` check in
-    # `system_task_name` passes; a FakeNode is not a pyslang instance.
-    mock_vnode = Mock(spec=BaseVNode)
-    mock_vnode.raw = Mock(spec=sl.SystemNameSyntax)
-    mock_vnode.raw.systemIdentifier = FakeNode(sl.TokenKind.SystemIdentifier, valueText=name)
-    return mock_vnode
+def _system_name_vnode(name: str) -> BaseVNode:
+    tree = sl.SyntaxTree.fromText(f"module top; initial {name}(); endmodule")
+
+    def walk(node):
+        if isinstance(node, sl.SystemNameSyntax):
+            return node
+        if hasattr(node, "__iter__"):
+            for child in node:
+                found = walk(child)
+                if found is not None:
+                    return found
+        return None
+
+    raw_node = walk(tree.root)
+    assert raw_node is not None
+    return FakeVNode(raw_node)
 
 
 class TestNoDisplaySystemTaskRule:
@@ -2419,7 +2406,7 @@ class TestNoDisplaySystemTaskRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoDisplaySystemTaskRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoDisplaySystemTaskRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -2453,7 +2440,7 @@ class TestNoSimulationControlTaskRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoSimulationControlTaskRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoSimulationControlTaskRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 7, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -2483,7 +2470,7 @@ class TestNoClassDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoClassDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoClassDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 1, "col": 1}
         result = rule.report(mock_vnode)
 
@@ -2513,7 +2500,7 @@ class TestNoCovergroupDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoCovergroupDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoCovergroupDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2543,7 +2530,7 @@ class TestNoSequenceDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoSequenceDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoSequenceDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2578,7 +2565,7 @@ class TestNoPropertyDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoPropertyDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoPropertyDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2608,7 +2595,7 @@ class TestNoFunctionDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoFunctionDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoFunctionDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2638,7 +2625,7 @@ class TestNoUwireRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoUwireRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoUwireRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2668,7 +2655,7 @@ class TestNoLetDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoLetDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoLetDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2698,7 +2685,7 @@ class TestNoConfigDeclarationRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoConfigDeclarationRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoConfigDeclarationRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2728,7 +2715,7 @@ class TestNoRandsequenceRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoRandsequenceRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoRandsequenceRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2763,7 +2750,7 @@ class TestNoExpectRestrictPropertyRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoExpectRestrictPropertyRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoExpectRestrictPropertyRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2793,7 +2780,7 @@ class TestNoVirtualInterfaceRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoVirtualInterfaceRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoVirtualInterfaceRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2828,7 +2815,7 @@ class TestNoDpiImportExportRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoDpiImportExportRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoDpiImportExportRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2868,7 +2855,7 @@ class TestNoRealTypeRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoRealTypeRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoRealTypeRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2898,7 +2885,7 @@ class TestNoStringTypeRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoStringTypeRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoStringTypeRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2928,7 +2915,7 @@ class TestNoChandleTypeRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoChandleTypeRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoChandleTypeRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -2962,7 +2949,7 @@ class TestNoRandomSystemFunctionRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoRandomSystemFunctionRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoRandomSystemFunctionRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -2996,7 +2983,7 @@ class TestNoTimeSystemFunctionRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoTimeSystemFunctionRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoTimeSystemFunctionRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -3030,7 +3017,7 @@ class TestNoVcdDumpTaskRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoVcdDumpTaskRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoVcdDumpTaskRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -3065,7 +3052,7 @@ class TestNoFileIoSystemTaskRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoFileIoSystemTaskRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoFileIoSystemTaskRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -3099,7 +3086,7 @@ class TestNoPlusargsSystemFunctionRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoPlusargsSystemFunctionRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoPlusargsSystemFunctionRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -3133,7 +3120,7 @@ class TestNoAssertionControlTaskRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoAssertionControlTaskRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoAssertionControlTaskRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 4, "col": 9}
         result = rule.report(mock_vnode)
 
@@ -3180,7 +3167,7 @@ class TestNoQueueRule:
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoQueueRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoQueueRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -3204,8 +3191,7 @@ class TestNoDynamicArrayRule:
         raw_node = _find_first_node_of_kind("module top; int arr[]; endmodule", sl.SyntaxKind.VariableDimension)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -3215,8 +3201,7 @@ class TestNoDynamicArrayRule:
         raw_node = _find_first_node_of_kind("module top; int arr[4]; endmodule", sl.SyntaxKind.VariableDimension)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3224,12 +3209,11 @@ class TestNoDynamicArrayRule:
         raw_node = _find_first_node_of_kind("module top; int arr[$]; endmodule", sl.SyntaxKind.VariableDimension)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoDynamicArrayRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoDynamicArrayRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 
@@ -3258,8 +3242,7 @@ class TestNoAssociativeArrayRule:
         raw_node = _find_first_node_of_kind("module top; int aa[string]; endmodule", sl.SyntaxKind.RangeDimensionSpecifier)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -3267,8 +3250,7 @@ class TestNoAssociativeArrayRule:
         raw_node = _find_first_node_of_kind("module top; int aa[int]; endmodule", sl.SyntaxKind.RangeDimensionSpecifier)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is True
 
@@ -3281,8 +3263,7 @@ class TestNoAssociativeArrayRule:
         )
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3290,12 +3271,11 @@ class TestNoAssociativeArrayRule:
         raw_node = _find_first_node_of_kind("module top; int arr[3:0]; endmodule", sl.SyntaxKind.RangeDimensionSpecifier)
         assert raw_node is not None
 
-        mock_vnode = Mock(spec=BaseVNode)
-        mock_vnode.raw = raw_node
+        mock_vnode = FakeVNode(raw_node)
 
         assert rule.applies(mock_vnode, Context()) is False
 
-    def test_report_returns_correct_format(self, rule: NoAssociativeArrayRule, mock_vnode: Mock) -> None:
+    def test_report_returns_correct_format(self, rule: NoAssociativeArrayRule, mock_vnode: BaseVNode) -> None:
         mock_vnode.location = {"line": 2, "col": 3}
         result = rule.report(mock_vnode)
 

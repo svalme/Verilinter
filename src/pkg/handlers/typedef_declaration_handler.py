@@ -1,4 +1,4 @@
-from ..parser.syntax import token_location
+from ..parser.syntax import typedef_declaration_name_and_location
 from ..parser.types import ForwardTypedefDeclarationNode, TypedefDeclarationNode
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
@@ -20,15 +20,13 @@ class TypedefDeclarationHandler(SyntaxNodeHandler):
     """
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
-        name_token = getattr(vnode.raw, "name", None)
-        if name_token is not None:
-            name = str(getattr(name_token, "value", "") or name_token).strip()
-            if name:
-                symbol = Symbol(name=name, kind="typedef")
-                loc = token_location(name_token, vnode.tree) or vnode.location
-                if loc is not None:
-                    symbol.add_declaration(loc)
-                ctx.scope().define(symbol)
+        name, loc = typedef_declaration_name_and_location(vnode.raw, vnode.tree)
+        if name:
+            symbol = Symbol(name=name, kind="typedef")
+            decl_loc = loc or vnode.location
+            if decl_loc is not None:
+                symbol.add_declaration(decl_loc)
+            ctx.scope().define(symbol)
         return ctx.push(vnode)
 
     def __str__(self) -> str:

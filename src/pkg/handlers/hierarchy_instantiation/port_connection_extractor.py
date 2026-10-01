@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable
 
 from ...parser.syntax import (
+    named_port_connection_has_parentheses,
     named_port_connection_name,
     node_location,
     port_connection_expression,
@@ -48,7 +49,7 @@ class PortConnectionExtractor:
             if conn_kind == NAMED_PORT_CONNECTION_KIND:
                 port_name = named_port_connection_name(conn)
                 expr = port_connection_expression(conn)
-                has_open_paren = bool(getattr(conn, "openParen", None))
+                has_open_paren = named_port_connection_has_parentheses(conn)
                 is_shorthand = expr is None and not has_open_paren
                 if expr is not None:
                     expr_text = source_text_for_node(expr, tree)

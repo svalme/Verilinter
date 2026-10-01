@@ -43,24 +43,71 @@ def test_pyslang_is_imported_only_inside_parser_package() -> None:
     assert not violations, "pyslang imported outside src/pkg/parser/:\n" + "\n".join(violations)
 
 
+def _find_raw_field_violations(tree: ast.AST, path_label: str) -> list[str]:
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Attribute)
+            and node.value.attr == "raw"
+            and node.attr not in ALLOWED_RAW_ATTRIBUTES
+        ):
+            violations.append(f"{path_label}:{node.lineno}: .raw.{node.attr}")
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "getattr"
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and isinstance(node.args[1].value, str)
+        ):
+            target = node.args[0]
+            attr_name = node.args[1].value
+            if (
+                isinstance(target, ast.Attribute)
+                and target.attr == "raw"
+                and attr_name not in ALLOWED_RAW_ATTRIBUTES
+            ):
+                violations.append(f"{path_label}:{node.lineno}: getattr(.raw, {attr_name!r})")
+            elif (
+                isinstance(target, ast.Name)
+                and target.id in ("raw", "raw_node")
+                and attr_name not in ALLOWED_RAW_ATTRIBUTES
+            ):
+                violations.append(f"{path_label}:{node.lineno}: getattr({target.id}, {attr_name!r})")
+    return violations
+
+
 def test_no_raw_field_walks_outside_parser_package() -> None:
     """`<vnode>.raw.<field>` outside the parser reaches into a pyslang node."""
     violations: list[str] = []
     for path in _modules_outside_parser():
         if any(wrapper in path.parents for wrapper in RAW_WRAPPER_DIRS):
             continue
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if (
-                isinstance(node, ast.Attribute)
-                and isinstance(node.value, ast.Attribute)
-                and node.value.attr == "raw"
-                and node.attr not in ALLOWED_RAW_ATTRIBUTES
-            ):
-                violations.append(f"{_rel(path)}:{node.lineno}: .raw.{node.attr}")
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        violations.extend(_find_raw_field_violations(tree, _rel(path)))
     assert not violations, (
         "Raw pyslang field access outside src/pkg/parser/; add a parser helper instead:\n"
         + "\n".join(violations)
     )
+
+
+def test_raw_field_walker_rejects_raw_getattr_patterns() -> None:
+    code = """
+def sample_handler(vnode, raw):
+    _a = vnode.raw.event
+    _b = getattr(vnode.raw, "event", None)
+    _c = getattr(raw, "name", None)
+    _d = vnode.raw.kind
+    _e = getattr(vnode.raw, "kind", None)
+"""
+    violations = _find_raw_field_violations(ast.parse(code), "sample.py")
+    assert len(violations) == 3
+    assert any(".raw.event" in v for v in violations)
+    assert any("getattr(.raw, 'event')" in v for v in violations)
+    assert any("getattr(raw, 'name')" in v for v in violations)
+    assert not any("kind" in v for v in violations)
+
 
 
 def test_run_lint_parses_only_through_parser_parse_module() -> None:

@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
     assignment_target_identifier_name,
+    case_item_clause,
+    case_statement_items,
     conditional_statement_body,
     conditional_statement_else_body,
     conditional_statement_has_else,
@@ -103,11 +105,11 @@ def _analyze_statement_latch(statement: SyntaxNode, assigned_before: set[str]) -
         return False, (always_then & always_else)
 
     if is_case_statement(statement):
-        items = getattr(statement, "items", [])
+        items = case_statement_items(statement)
         has_default = has_default_case_item(statement)
         if not has_default:
             for it in items:
-                clause = getattr(it, "clause", None)
+                clause = case_item_clause(it)
                 if clause is not None:
                     targets = _conditional_assignment_targets(clause)
                     if any(name not in assigned_before for name in targets):
@@ -120,7 +122,7 @@ def _analyze_statement_latch(statement: SyntaxNode, assigned_before: set[str]) -
         item_always = []
         item_targets_list = []
         for it in items:
-            clause = getattr(it, "clause", None)
+            clause = case_item_clause(it)
             if clause is None:
                 continue
             has_latch, always = _analyze_statement_latch(clause, assigned_before)

@@ -44,6 +44,17 @@ def port_connection_expression(raw: object) -> SyntaxNode | None:
     return expr if isinstance(expr, SyntaxNode) else None
 
 
+def named_port_connection_has_parentheses(raw: object) -> bool:
+    """Return True if a named port connection node explicitly includes parentheses."""
+    return bool(getattr(raw, "openParen", None))
+
+
+def parameter_override_expression(raw: object) -> SyntaxNode | None:
+    """Return the expression syntax node for a parameter override, or None."""
+    expr = getattr(raw, "expr", None)
+    return expr if isinstance(expr, SyntaxNode) else None
+
+
 def parameter_override_list(raw: object) -> list[SyntaxNode]:
     """Return the individual parameter-override syntax nodes from a
     `HierarchyInstantiationSyntax.parameters` field (`#(...)`), or `[]` if the

@@ -23,7 +23,7 @@ from ..syntax_kinds import (
 )
 from ..traversal_guard import guarded_generator
 from ..types import SyntaxNode, SyntaxTree
-from .shared import identifier_name, node_location, raw_node_children, source_text_for_node
+from .shared import identifier_name, node_location, raw_node_children, source_text_for_node, token_location
 
 
 def declarator_name(raw: object) -> str | None:
@@ -502,3 +502,25 @@ def clocking_declaration_signals(
             results.append((name, is_input, is_output, loc))
 
     return results
+
+
+def clocking_declaration_event(raw: object) -> object | None:
+    """Return the event control node for a clocking declaration, if present."""
+    if getattr(raw, "kind", None) != CLOCKING_DECLARATION_KIND:
+        return None
+    return getattr(raw, "event", None)
+
+
+def typedef_declaration_name_and_location(
+    raw: object, tree: SyntaxTree | None = None
+) -> tuple[str | None, dict[str, object] | None]:
+    """Return (name, location) for a typedef or forward typedef declaration node."""
+    name_token = getattr(raw, "name", None)
+    if name_token is None:
+        return None, None
+    name = str(getattr(name_token, "value", "") or name_token).strip()
+    if not name:
+        return None, None
+    loc = token_location(name_token, tree)
+    return name, loc
+

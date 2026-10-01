@@ -1,8 +1,8 @@
 import pytest
-from unittest.mock import Mock
 
 from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
+from tests.support.fakes import fake_vnode
 
 
 @pytest.fixture
@@ -12,9 +12,9 @@ def context() -> Context:
 
 
 @pytest.fixture
-def mock_vnode() -> Mock:
+def mock_vnode() -> BaseVNode:
     """Fixture for a mock vnode."""
-    return Mock(spec=BaseVNode)
+    return fake_vnode(None)
 
 
 class TestContext:
@@ -35,16 +35,16 @@ class TestContext:
         
         assert context.flags == flags
 
-    def test_push_adds_vnode_to_stack(self, context: Context, mock_vnode: Mock) -> None:
+    def test_push_adds_vnode_to_stack(self, context: Context, mock_vnode: BaseVNode) -> None:
         """Test that push() adds a vnode to the stack."""
         new_context = context.push(mock_vnode)
         
         assert new_context.stack == [mock_vnode]
 
-    def test_push_preserves_existing_stack(self, context: Context, mock_vnode: Mock) -> None:
+    def test_push_preserves_existing_stack(self, context: Context, mock_vnode: BaseVNode) -> None:
         """Test that push() preserves existing stack items."""
-        mock_vnode1 = Mock(spec=BaseVNode)
-        mock_vnode2 = Mock(spec=BaseVNode)
+        mock_vnode1 = fake_vnode(None)
+        mock_vnode2 = fake_vnode(None)
         
         ctx = context.push(mock_vnode1)
         new_context = ctx.push(mock_vnode2)
@@ -53,14 +53,14 @@ class TestContext:
         assert new_context.stack[0] == mock_vnode1
         assert new_context.stack[1] == mock_vnode2
 
-    def test_push_preserves_flags(self, context: Context, mock_vnode: Mock) -> None:
+    def test_push_preserves_flags(self, context: Context, mock_vnode: BaseVNode) -> None:
         """Test that push() preserves flags."""
         ctx = context.with_flag(ContextFlag.ALWAYS)
         new_context = ctx.push(mock_vnode)
         
         assert ContextFlag.ALWAYS in new_context.flags
 
-    def test_push_returns_new_context(self, context: Context, mock_vnode: Mock) -> None:
+    def test_push_returns_new_context(self, context: Context, mock_vnode: BaseVNode) -> None:
         """Test that push() returns a new Context instance."""
         new_context = context.push(mock_vnode)
         
@@ -81,7 +81,7 @@ class TestContext:
         assert ContextFlag.ALWAYS in new_context.flags
         assert ContextFlag.POSEDGE in new_context.flags
 
-    def test_with_flag_preserves_stack(self, context: Context, mock_vnode: Mock) -> None:
+    def test_with_flag_preserves_stack(self, context: Context, mock_vnode: BaseVNode) -> None:
         """Test that with_flag() preserves the stack."""
         ctx = context.push(mock_vnode)
         new_context = ctx.with_flag(ContextFlag.ALWAYS)
@@ -140,13 +140,13 @@ class TestContext:
         assert new_context is not context
         assert context.data == {}
 
-    def test_push_preserves_data(self, context: Context, mock_vnode: Mock) -> None:
+    def test_push_preserves_data(self, context: Context, mock_vnode: BaseVNode) -> None:
         ctx = context.with_data("a", 1)
         new_context = ctx.push(mock_vnode)
 
         assert new_context.data == {"a": 1}
 
-    def test_data_set_after_push_does_not_leak_back_to_parent(self, context: Context, mock_vnode: Mock) -> None:
+    def test_data_set_after_push_does_not_leak_back_to_parent(self, context: Context, mock_vnode: BaseVNode) -> None:
         """Sibling-isolation guard: data set on a context derived from a push()
         must not be visible on the context it was pushed from, mirroring how the
         walker never lets a child's context updates leak into later siblings."""
@@ -162,10 +162,10 @@ class TestContext:
 
         assert new_context.data == {"a": 1}
 
-    def test_context_chaining(self, context: Context, mock_vnode: Mock) -> None:
+    def test_context_chaining(self, context: Context, mock_vnode: BaseVNode) -> None:
         """Test that context operations can be chained."""
-        mock_vnode1 = Mock(spec=BaseVNode)
-        mock_vnode2 = Mock(spec=BaseVNode)
+        mock_vnode1 = fake_vnode(None)
+        mock_vnode2 = fake_vnode(None)
         
         ctx = context \
             .push(mock_vnode1) \

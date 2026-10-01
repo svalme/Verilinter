@@ -79,6 +79,12 @@ def case_item_expressions(raw: object) -> list[SyntaxNode]:
     return [item for item in items if isinstance(item, SyntaxNode)]
 
 
+def case_item_clause(raw: object) -> SyntaxNode | None:
+    """Return the statement or clause body under a case item, or None."""
+    clause = getattr(raw, "clause", None)
+    return clause if isinstance(clause, SyntaxNode) else None
+
+
 def is_internal_inout_port_declaration(raw: object) -> bool:
     if not isinstance(raw, PortDeclarationNode):
         return False

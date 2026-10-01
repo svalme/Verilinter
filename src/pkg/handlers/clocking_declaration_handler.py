@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..parser.syntax import clocking_declaration_signals
+from ..parser.syntax import clocking_declaration_event, clocking_declaration_signals
 from ..parser.types import ClockingDeclarationNode
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_table import SymbolTable
@@ -48,7 +48,7 @@ class ClockingDeclarationHandler(SyntaxNodeHandler):
         return ctx.push(vnode)
 
     def children(self, vnode: SyntaxVNode) -> list[BaseVNode]:
-        event_node = getattr(vnode.raw, "event", None)
+        event_node = clocking_declaration_event(vnode.raw)
         if event_node is not None:
             return [vnode_factory.create(event_node, vnode.tree)]
         return []
