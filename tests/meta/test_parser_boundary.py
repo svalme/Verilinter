@@ -43,6 +43,20 @@ def test_pyslang_is_imported_only_inside_parser_package() -> None:
     assert not violations, "pyslang imported outside src/pkg/parser/:\n" + "\n".join(violations)
 
 
+def test_syntax_kinds_is_imported_only_inside_parser_package() -> None:
+    violations: list[str] = []
+    for path in _modules_outside_parser():
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                if any("syntax_kinds" in alias.name.split(".") for alias in node.names):
+                    violations.append(f"{_rel(path)}:{node.lineno}")
+            elif isinstance(node, ast.ImportFrom):
+                module_parts = (node.module or "").split(".")
+                if "syntax_kinds" in module_parts or any(alias.name == "syntax_kinds" for alias in node.names):
+                    violations.append(f"{_rel(path)}:{node.lineno}")
+    assert not violations, "syntax_kinds imported outside src/pkg/parser/:\n" + "\n".join(violations)
+
+
 def _find_raw_field_violations(tree: ast.AST, path_label: str) -> list[str]:
     violations: list[str] = []
     for node in ast.walk(tree):

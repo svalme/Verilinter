@@ -13,8 +13,8 @@ from .parser.parse import (
     extract_parse_diagnostics,
     file_uses_default_nettype_none,
     parse_file,
+    tree_has_package_declaration,
 )
-from .parser.syntax_kinds import PACKAGE_DECLARATION_KIND
 from .rules.register_rules import *
 from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
 from .rules.rule_selection import RuleSelection
@@ -180,9 +180,7 @@ def _scan_packages(
         tree = _call_parse_file(_parse_file, str(path), include_dirs=include_dirs, defines=defines)
         if extract_parse_diagnostics(tree, str(path)):
             continue
-        root = getattr(tree, "root", None)
-        members = getattr(root, "members", None)
-        if not members or not any(getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND for m in members):
+        if not tree_has_package_declaration(tree):
             continue
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)

@@ -2,6 +2,7 @@
 and parameter overrides (named and ordered)."""
 
 from ..syntax_kinds import (
+    EMPTY_PORT_CONNECTION_KIND,
     NAMED_PARAM_ASSIGNMENT_KIND,
     NAMED_PORT_CONNECTION_KIND,
     ORDERED_PARAM_ASSIGNMENT_KIND,
@@ -102,6 +103,10 @@ def is_ordered_port_connection(raw: object) -> bool:
 
 def is_wildcard_port_connection(raw: object) -> bool:
     return getattr(raw, "kind", None) == WILDCARD_PORT_CONNECTION_KIND
+
+
+def is_empty_port_connection(raw: object) -> bool:
+    return getattr(raw, "kind", None) == EMPTY_PORT_CONNECTION_KIND
 
 
 def is_named_parameter_override(raw: object) -> bool:

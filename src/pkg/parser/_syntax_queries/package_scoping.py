@@ -2,6 +2,7 @@ from ..syntax_kinds import (
     ASSIGNMENT_PATTERN_ITEM_KIND,
     DOT_TOKEN_KIND,
     DOUBLE_COLON_TOKEN_KIND,
+    PACKAGE_DECLARATION_KIND,
     PACKAGE_IMPORT_DECLARATION_KIND,
     SCOPED_NAME_KIND,
     STAR_TOKEN_KIND,
@@ -98,3 +99,12 @@ def package_import_items(raw: object) -> list[tuple[str, str | None]]:
         if item_name:
             items.append((package_name, item_name))
     return items
+
+
+def tree_has_package_declaration(tree: object) -> bool:
+    """True if the syntax tree's compilation unit contains at least one package declaration."""
+    root = getattr(tree, "root", None)
+    members = getattr(root, "members", None)
+    if not members:
+        return False
+    return any(getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND for m in members)

@@ -6,6 +6,7 @@ import pyslang as sl
 
 from .syntax_kinds import DEFAULT_NETTYPE_DIRECTIVE_KIND
 from .types import SyntaxNode, SyntaxTree
+from ._syntax_queries.package_scoping import tree_has_package_declaration
 
 
 def parse_file(

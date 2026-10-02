@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable
 
 from ...parser.syntax import (
+    is_empty_port_connection,
+    is_named_port_connection,
+    is_ordered_port_connection,
+    is_wildcard_port_connection,
     named_port_connection_has_parentheses,
     named_port_connection_name,
     node_location,
@@ -11,12 +15,6 @@ from ...parser.syntax import (
     simple_expression_width_and_signed,
     simple_identifier_text,
     source_text_for_node,
-)
-from ...parser.syntax_kinds import (
-    EMPTY_PORT_CONNECTION_KIND,
-    NAMED_PORT_CONNECTION_KIND,
-    ORDERED_PORT_CONNECTION_KIND,
-    WILDCARD_PORT_CONNECTION_KIND,
 )
 from ...semantic.models import PortConnection
 
@@ -45,8 +43,7 @@ class PortConnectionExtractor:
         connection_kinds: set[str] = set()
 
         for conn in port_connection_list(item):
-            conn_kind = getattr(conn, "kind", None)
-            if conn_kind == NAMED_PORT_CONNECTION_KIND:
+            if is_named_port_connection(conn):
                 port_name = named_port_connection_name(conn)
                 expr = port_connection_expression(conn)
                 has_open_paren = named_port_connection_has_parentheses(conn)
@@ -80,7 +77,7 @@ class PortConnectionExtractor:
                     )
                 )
                 connection_kinds.add("named")
-            elif conn_kind == ORDERED_PORT_CONNECTION_KIND:
+            elif is_ordered_port_connection(conn):
                 expr = port_connection_expression(conn)
                 expr_text = source_text_for_node(expr, tree) if expr is not None else None
                 expr_width, expr_signed = (
@@ -99,7 +96,7 @@ class PortConnectionExtractor:
                     )
                 )
                 connection_kinds.add("ordered")
-            elif conn_kind == WILDCARD_PORT_CONNECTION_KIND:
+            elif is_wildcard_port_connection(conn):
                 connections.append(
                     PortConnection(
                         kind="wildcard",
@@ -107,7 +104,7 @@ class PortConnectionExtractor:
                     )
                 )
                 connection_kinds.add("wildcard")
-            elif conn_kind == EMPTY_PORT_CONNECTION_KIND:
+            elif is_empty_port_connection(conn):
                 connections.append(
                     PortConnection(
                         kind="empty",
