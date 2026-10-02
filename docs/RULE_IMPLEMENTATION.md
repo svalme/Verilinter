@@ -111,6 +111,7 @@ re-exports them from `src/pkg/parser/_syntax_queries/`, split by theme:
   the group `_STRUCTURAL_NAME_PREDICATES` in `identifier_name_handler.py` draws from
 - `keywords_and_tokens.py`: keyword/operator token-kind checks (loop
   keywords, case/casex/casez, unique/priority, legacy net-type keywords)
+- `package_scoping.py`: package imports, scoped package qualifiers, member selectors, and compilation unit package declaration queries
 - `module_file.py`: file-scoped module-identity helpers, plus module-position
   and timescale-directive checks
 - `system_tasks.py`: system task/function name-set checks
@@ -125,6 +126,37 @@ lazy, function-body-scoped `from ..syntax_queries import name` pattern already
 used throughout `access.py`/`procedural.py` -- a top-level import back into the
 barrel module would be circular, since `syntax_queries.py` imports every
 submodule at its own module-load time.
+
+### Parser helper coding standards & style guidelines
+
+All parser query helpers in `src/pkg/parser/_syntax_queries/` must adhere to the style and safety conventions defined in [CONTRIBUTING.md](CONTRIBUTING.md#code-style-for-parser-helpers--syntax-queries):
+
+1. **Defensive Typing**:
+   - The primary AST node parameter must be typed as `raw: object` (or `tree: object`) so that it can safely accept real CST nodes, test doubles (`FakeNode`), mock nodes, or `None`.
+   - Predicates return `bool`.
+   - Name/identifier extractors return `str | None` (empty strings normalize to `None`).
+   - Single-node extractors return `SyntaxNode | None`.
+   - Collections return `list[...]` or `set[...]` and **must return `[]` or `set()` (never `None`)** when missing or empty.
+
+2. **Attribute Access via `getattr`**:
+   - Inside `_syntax_queries/`, always use `getattr(raw, "field", None)` rather than raw dot-attribute access (`raw.field`) to guard against missing attributes on tokens or mismatched node kinds.
+   - Never let an unhandled `AttributeError` escape from a query helper.
+
+3. **Strict Isolation of `syntax_kinds`**:
+   - Check CST kinds against constants imported from `..syntax_kinds` (e.g. `PACKAGE_DECLARATION_KIND`, `NAMED_PORT_CONNECTION_KIND`).
+   - Never inspect kinds using string representations (`str(node.kind) == "..."` is banned).
+   - Never import `syntax_kinds` or inspect `node.kind` outside `src/pkg/parser/`. External consumers (handlers, rules, engine) must always invoke a clean query helper predicate (enforced statically by `tests/meta/test_parser_boundary.py`).
+
+4. **Consistent Naming Conventions**:
+   - `is_*` / `has_*`: Boolean predicates (`is_empty_port_connection`, `has_default_case_item`).
+   - `*_name`: String identifiers (`hierarchical_instance_name`, `instantiation_type_name`).
+   - `*_list` / `*_items`: Node lists (`port_connection_list`, `case_statement_items`).
+   - `iter_*`: Generators yielding nodes/pairs (`iter_identifier_reads`, `iter_assignment_nodes`).
+   - `enclosing_*`: Ancestor-climbing context queries (`enclosing_procedural_block`, `enclosing_case_statement`).
+
+5. **Cycle & Recursion Bounding (`traversal_guard`)**:
+   - Recursive descents or walks must be wrapped with `@guarded_traversal(max_depth=..., default=...)` or `@guarded_generator(max_depth=...)` from `src.pkg.traversal_guard`.
+   - Never use a flat, persistent visited set across calls due to PyBind11 C++ address recycling hazards.
 
 ### Layering standard
 

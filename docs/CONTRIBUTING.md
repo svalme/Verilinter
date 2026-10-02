@@ -77,6 +77,79 @@ queries, and semantic models. Regexes should only be used as a targeted last res
 `message` string; `NoIncompleteSensitivityListRule` does this. Don't invent a second diagnostic-shaping
 mechanism alongside `BaseDiagnostic` for that case.
 
+## Code Style for Parser Helpers & Syntax Queries
+
+All CST/AST syntax node inspection, shape normalization, and attribute extraction must be implemented as clean, reusable functions in `src/pkg/parser/_syntax_queries/` and re-exported via `src/pkg/parser/syntax_queries.py`. Handlers, rules, and engine components must **never** inspect raw CST node attributes or import `pyslang` or `syntax_kinds` directly.
+
+When writing or modifying syntax query helpers, adhere to the following coding standards:
+
+### 1. Function Signatures & Typing Conventions
+
+- **Parameter Typing**: The primary AST node parameter must be annotated as `raw: object` (or `tree: object` for whole-tree queries). This ensures helpers gracefully accept real `pyslang` syntax nodes, token nodes, test doubles (`FakeNode`), mock objects, or `None` without triggering type errors. When traversal context is required, annotate `ctx: "Context"` or `ctx: Context`.
+- **Predicate Return Types**: Functions checking whether a node matches a condition must return `bool` (never `bool | None`).
+- **Name / String Extractors**: Functions extracting identifiers, labels, or names must return `str | None`. Empty strings must normalize to `None`.
+- **Syntax Node Extractors**: Functions returning a single child node must return `SyntaxNode | None` (or `object | None`).
+- **Collection Extractors**: Functions returning multiple nodes or items must return `list[SyntaxNode]`, `list[str]`, or `set[str]`. **Always return an empty collection (`[]` or `set()`)** when nodes are absent or malformed; never return `None`.
+
+```python
+# Predicate: always returns bool
+def is_named_port_connection(raw: object) -> bool:
+    return getattr(raw, "kind", None) == NAMED_PORT_CONNECTION_KIND
+
+# Name extractor: returns str | None
+def named_port_connection_name(raw: object) -> str | None:
+    name = getattr(raw, "name", None)
+    value = getattr(name, "value", None)
+    return value if isinstance(value, str) and value else None
+
+# Collection extractor: always returns list (never None)
+def port_connection_list(raw: object) -> list[SyntaxNode]:
+    items = getattr(raw, "connections", None)
+    if items is None:
+        return []
+    return [item for item in items if isinstance(item, SyntaxNode)]
+```
+
+### 2. Defensive Attribute Access (`getattr` Encapsulation)
+
+- Always access attributes using `getattr(raw, "attr_name", None)` inside query helpers. Because `raw` can be an unexpected syntax node kind, a token, or `None`, direct attribute access (`raw.attr_name`) can raise `AttributeError`.
+- Never let an unhandled `AttributeError` escape from a query helper.
+- Verify child types with `isinstance(child, SyntaxNode)` or `isinstance(value, str)` before returning them.
+
+### 3. SyntaxKind Isolation
+
+- Inside `src/pkg/parser/`, compare node kinds strictly using constants imported from `..syntax_kinds` (e.g., `NAMED_PORT_CONNECTION_KIND`).
+- **Never compare kinds via strings** (e.g. `str(node.kind) == "NamedPortConnection"` is strictly prohibited).
+- **Never export or import `syntax_kinds` outside `src/pkg/parser/`**: callers in `src/pkg/handlers/`, `src/pkg/rules/`, or `src/pkg/engine.py` must never import `syntax_kinds` or inspect `raw.kind`. Instead, provide a clean predicate helper (e.g., `is_empty_port_connection(raw)`). This is enforced statically by `tests/meta/test_parser_boundary.py`.
+
+### 4. Standard Naming Conventions
+
+Follow these prefix and suffix conventions for helper functions:
+
+| Helper Category | Naming Pattern | Return Type | Examples |
+| :--- | :--- | :--- | :--- |
+| **Node Predicates** | `is_<construct>(raw)` | `bool` | `is_named_port_connection`, `is_blocking_assignment`, `is_unwrapped_if_body` |
+| **State / Property Predicates** | `has_<property>(raw)` | `bool` | `has_default_case_item`, `named_port_connection_has_parentheses` |
+| **Identifier / Name Extractors** | `<construct>_name(raw)` | `str | None` | `module_declaration_name`, `instantiation_type_name`, `declarator_name` |
+| **Child Node Extractors** | `<construct>_<part>(raw)` | `SyntaxNode | None` | `port_connection_expression`, `declarator_initializer` |
+| **Collection Extractors** | `<construct>_list(raw)` or `*_items` | `list[SyntaxNode]` | `port_connection_list`, `hierarchical_instance_list`, `case_statement_items` |
+| **Generators / Iterators** | `iter_<items>(raw)` | `Iterator[...]` | `iter_identifier_reads`, `iter_assignment_nodes` |
+| **Context / Ancestor Walks** | `enclosing_<construct>(raw, ctx)` | `SyntaxNode | None` | `enclosing_procedural_block`, `enclosing_case_statement`, `enclosing_module_scope` |
+
+### 5. Recursion & Cycle Safety (`traversal_guard`)
+
+- Any helper performing recursive AST descent, ancestor tree climbing, or deep graph traversal **must** use the `TraversalGuard` subsystem from `src.pkg.traversal_guard`:
+  - Use `@guarded_traversal(max_depth=..., default=...)` for recursive value functions.
+  - Use `@guarded_generator(max_depth=...)` for recursive generator functions.
+  - Use `ast_descendants_iter(root, stop_at=..., max_depth=...)` for iterative subtree walks.
+- **Never maintain a flat, persistent visited set** (`visited: set[int] = set()`) across sibling loops or distinct traversals. Due to PyBind11 C++ wrapper object lifecycle, Python memory addresses are recycled dynamically (`pymalloc`), which causes false cycle detections on sibling nodes. Only active path nodes (anchored in call-stack frames) are cycle-immune.
+
+### 6. Dependency & Import Hygiene
+
+- Helpers belong in thematic submodules under `src/pkg/parser/_syntax_queries/` (`instantiation.py`, `package_scoping.py`, `shapes.py`, `expressions.py`, `access.py`, `procedural.py`, etc.).
+- Always re-export public helpers in `src/pkg/parser/syntax_queries.py` and register them in `__all__`.
+- When a helper submodule needs a function defined in another submodule that is re-exported by `syntax_queries.py`, use a **lazy, function-body-scoped import** (`from ..syntax_queries import other_helper`) to prevent circular import loops at module load time.
+
 ## Rule Policy Metadata
 
 `BaseDiagnostic` also exposes lightweight policy metadata:
