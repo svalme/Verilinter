@@ -82,8 +82,21 @@ from ._syntax_queries.shapes import (
     element_select_index_or_range,
     extract_assignment_target_and_selectors,
     identifier_select_base_and_selectors,
+    indexed_part_select_width_expression,
+    is_ascending_range_select,
+    is_descending_range_select,
+    is_illegal_indexed_part_select_width,
+    is_indexed_part_select,
+    is_reversed_indexed_part_select,
     resolve_assignment_target,
     resolve_assignment_target_and_rhs,
+)
+from ._syntax_queries.loops import (
+    has_loop_exit_or_timing_control,
+    is_infinite_loop,
+    is_loop_condition_constantly_true,
+    is_loop_statement,
+    loop_statement_body,
 )
 from ._syntax_queries.declarators import (
     clocking_declaration_event,
@@ -560,4 +573,15 @@ __all__ = [
     "tree_has_package_declaration",
     "typedef_declaration_name_and_location",
     "unary_write_operand",
+    "is_ascending_range_select",
+    "is_descending_range_select",
+    "is_indexed_part_select",
+    "indexed_part_select_width_expression",
+    "is_reversed_indexed_part_select",
+    "is_illegal_indexed_part_select_width",
+    "has_loop_exit_or_timing_control",
+    "is_infinite_loop",
+    "is_loop_condition_constantly_true",
+    "is_loop_statement",
+    "loop_statement_body",
 ]

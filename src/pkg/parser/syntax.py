@@ -306,6 +306,17 @@ from .syntax_queries import (
     typedef_declaration_name_and_location,
     unary_write_operand,
     unwrap_parentheses,
+    is_ascending_range_select,
+    is_descending_range_select,
+    is_indexed_part_select,
+    indexed_part_select_width_expression,
+    is_reversed_indexed_part_select,
+    is_illegal_indexed_part_select_width,
+    has_loop_exit_or_timing_control,
+    is_infinite_loop,
+    is_loop_condition_constantly_true,
+    is_loop_statement,
+    loop_statement_body,
 )
 
 __all__ = [
@@ -614,4 +625,15 @@ __all__ = [
     "typedef_declaration_name_and_location",
     "unary_write_operand",
     "unwrap_parentheses",
+    "is_ascending_range_select",
+    "is_descending_range_select",
+    "is_indexed_part_select",
+    "indexed_part_select_width_expression",
+    "is_reversed_indexed_part_select",
+    "is_illegal_indexed_part_select_width",
+    "has_loop_exit_or_timing_control",
+    "is_infinite_loop",
+    "is_loop_condition_constantly_true",
+    "is_loop_statement",
+    "loop_statement_body",
 ]

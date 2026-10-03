@@ -641,6 +641,20 @@ MINUS_ARROW_TOKEN_KIND = _token_kind("MinusArrow")
 MINUS_DOUBLE_ARROW_TOKEN_KIND = _token_kind("MinusDoubleArrow")
 RETURN_KEYWORD_TOKEN_KIND = _token_kind("ReturnKeyword")
 SEQUENTIAL_BLOCK_STATEMENT_KIND = _syntax_kind("SequentialBlockStatement")
+BREAK_KEYWORD_TOKEN_KIND = _token_kind("BreakKeyword")
+CONTINUE_KEYWORD_TOKEN_KIND = _token_kind("ContinueKeyword")
+COLON_TOKEN_KIND = _token_kind("Colon")
+PLUS_COLON_TOKEN_KIND = _token_kind("PlusColon")
+MINUS_COLON_TOKEN_KIND = _token_kind("MinusColon")
+PLUS_TOKEN_KIND = _token_kind("Plus")
+MINUS_TOKEN_KIND = _token_kind("Minus")
+LOOP_STATEMENT_KIND = _syntax_kind("LoopStatement")
+JUMP_STATEMENT_KIND = _syntax_kind("JumpStatement")
+RETURN_STATEMENT_KIND = _syntax_kind("ReturnStatement")
+WAIT_STATEMENT_KIND = _syntax_kind("WaitStatement")
+WAIT_FORK_STATEMENT_KIND = _syntax_kind("WaitForkStatement")
+WAIT_ORDER_STATEMENT_KIND = _syntax_kind("WaitOrderStatement")
+EVENT_TRIGGER_STATEMENT_KIND = _syntax_kind("EventTriggerStatement")
 
 
 __all__ = [
@@ -909,4 +923,18 @@ __all__ = [
     "MINUS_DOUBLE_ARROW_TOKEN_KIND",
     "RETURN_KEYWORD_TOKEN_KIND",
     "SEQUENTIAL_BLOCK_STATEMENT_KIND",
+    "BREAK_KEYWORD_TOKEN_KIND",
+    "CONTINUE_KEYWORD_TOKEN_KIND",
+    "COLON_TOKEN_KIND",
+    "PLUS_COLON_TOKEN_KIND",
+    "MINUS_COLON_TOKEN_KIND",
+    "PLUS_TOKEN_KIND",
+    "MINUS_TOKEN_KIND",
+    "LOOP_STATEMENT_KIND",
+    "JUMP_STATEMENT_KIND",
+    "RETURN_STATEMENT_KIND",
+    "WAIT_STATEMENT_KIND",
+    "WAIT_FORK_STATEMENT_KIND",
+    "WAIT_ORDER_STATEMENT_KIND",
+    "EVENT_TRIGGER_STATEMENT_KIND",
 ]

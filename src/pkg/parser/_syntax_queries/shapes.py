@@ -8,6 +8,8 @@ from ..syntax_kinds import (
     DESCENDING_RANGE_SELECT_KIND,
     RANGE_SELECT_KINDS,
     SIMPLE_RANGE_SELECT_KIND,
+    UNARY_MINUS_EXPRESSION_KIND,
+    UNARY_PLUS_EXPRESSION_KIND,
 )
 from ..traversal_guard import guarded_traversal
 from ..types import IdentifierSelectNameNode, SyntaxNode
@@ -63,6 +65,91 @@ def element_select_index_or_range(
             shape = None
         return (shape, (left, right)) if shape is not None else None
     return None
+
+
+def is_ascending_range_select(raw: object) -> bool:
+    return getattr(raw, "kind", None) == ASCENDING_RANGE_SELECT_KIND
+
+
+def is_descending_range_select(raw: object) -> bool:
+    return getattr(raw, "kind", None) == DESCENDING_RANGE_SELECT_KIND
+
+
+def is_indexed_part_select(raw: object) -> bool:
+    return getattr(raw, "kind", None) in (ASCENDING_RANGE_SELECT_KIND, DESCENDING_RANGE_SELECT_KIND)
+
+
+def indexed_part_select_width_expression(raw: object) -> SyntaxNode | None:
+    if not is_indexed_part_select(raw):
+        return None
+    width_node = getattr(raw, "right", None)
+    return width_node if isinstance(width_node, SyntaxNode) else None
+
+
+def is_reversed_indexed_part_select(raw: object) -> bool:
+    """True if `raw` is a SimpleRangeSelect syntax node where `: +` or `: -`
+    was typed with `: ` immediately followed by `+` or `-` without intervening whitespace
+    (e.g. `r[2 :+ 1]` or `r[2 :- 1]`), which is almost certainly a typo for
+    `+:` or `-:`."""
+    if getattr(raw, "kind", None) != SIMPLE_RANGE_SELECT_KIND:
+        return False
+    right = getattr(raw, "right", None)
+    if right is None:
+        return False
+    rk = getattr(right, "kind", None)
+    if rk not in (UNARY_PLUS_EXPRESSION_KIND, UNARY_MINUS_EXPRESSION_KIND):
+        return False
+    colon_tok = getattr(raw, "range", None)
+    op_tok = getattr(right, "operatorToken", None)
+    if colon_tok is None or op_tok is None:
+        return False
+    colon_range = getattr(colon_tok, "range", None)
+    op_range = getattr(op_tok, "range", None)
+    if colon_range is None or op_range is None:
+        return False
+    return getattr(colon_range, "end", None) == getattr(op_range, "start", None)
+
+
+def is_illegal_indexed_part_select_width(raw: object, scope: object = None) -> bool:
+    """True if `raw` is an indexed part-select (`+:` or `-:`) whose width
+    expression violates IEEE 1800-2017 §11.5.1:
+    - Width expression must evaluate to a positive constant integer expression (> 0).
+    - Width expression cannot be non-constant (variable, wire, reg, logic, etc.)."""
+    if not is_indexed_part_select(raw):
+        return False
+    width_node = getattr(raw, "right", None)
+    if width_node is None:
+        return True
+
+    from .expressions import evaluate_constant_expression
+    from .procedural import _iter_identifier_nodes
+
+    val = evaluate_constant_expression(width_node, scope=scope)
+    if val is not None:
+        return val <= 0
+
+    idents = list(_iter_identifier_nodes(width_node))
+    if not idents:
+        return True
+
+    if scope is not None:
+        for name, _ident_node in idents:
+            if not name:
+                continue
+            sym = scope.lookup_hierarchical(name)
+            if sym is not None:
+                is_const = (
+                    getattr(sym, "is_constant", False)
+                    or getattr(sym, "is_localparam", False)
+                    or getattr(sym, "kind", "") == "parameter"
+                )
+                if not is_const:
+                    return True
+            else:
+                return True
+    else:
+        return True
+    return False
 
 
 @guarded_traversal(max_depth=64, default=(None, []))

@@ -22,6 +22,13 @@ PackageImportDeclarationNode: TypeAlias = sl.PackageImportDeclarationSyntax
 # ModuleDeclarationNode covering module/package/interface/program.
 FunctionDeclarationNode: TypeAlias = sl.FunctionDeclarationSyntax
 ForLoopStatementNode: TypeAlias = sl.ForLoopStatementSyntax
+ForeverStatementNode: TypeAlias = sl.ForeverStatementSyntax
+LoopStatementNode: TypeAlias = sl.LoopStatementSyntax
+DoWhileStatementNode: TypeAlias = sl.DoWhileStatementSyntax
+JumpStatementNode: TypeAlias = sl.JumpStatementSyntax
+ReturnStatementNode: TypeAlias = sl.ReturnStatementSyntax
+WaitStatementNode: TypeAlias = sl.WaitStatementSyntax
+RangeSelectNode: TypeAlias = sl.RangeSelectSyntax
 StructUnionTypeNode: TypeAlias = sl.StructUnionTypeSyntax
 LoopGenerateNode: TypeAlias = sl.LoopGenerateSyntax
 TypedefDeclarationNode: TypeAlias = sl.TypedefDeclarationSyntax
@@ -69,6 +76,13 @@ __all__ = [
     "DeclaratorNode",
     "DefaultCaseItemNode",
     "ForLoopStatementNode",
+    "ForeverStatementNode",
+    "LoopStatementNode",
+    "DoWhileStatementNode",
+    "JumpStatementNode",
+    "ReturnStatementNode",
+    "WaitStatementNode",
+    "RangeSelectNode",
     "ForwardTypedefDeclarationNode",
     "FunctionDeclarationNode",
     "FunctionPortNode",
