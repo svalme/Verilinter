@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 import pytest
-import pyslang as sl
+
+from src.pkg.parser.parse import parse_text
 
 from src.pkg.engine import (
     LintPipeline,
@@ -29,8 +30,8 @@ class TestLintPipeline:
     def test_pipeline_isolates_worker_scopes(self) -> None:
         """Verify that per-file workers run in completely isolated SymbolTables."""
         file_inputs = [
-            ("file_a.sv", sl.SyntaxTree.fromText("module mod_a;\n  logic [7:0] sig_a;\nendmodule\n")),
-            ("file_b.sv", sl.SyntaxTree.fromText("module mod_b;\n  logic [7:0] sig_b;\nendmodule\n")),
+            ("file_a.sv", parse_text("module mod_a;\n  logic [7:0] sig_a;\nendmodule\n")),
+            ("file_b.sv", parse_text("module mod_b;\n  logic [7:0] sig_b;\nendmodule\n")),
         ]
         pipeline = LintPipeline()
         result = pipeline.analyze_trees(file_inputs)
@@ -53,13 +54,13 @@ class TestLintPipeline:
         file_inputs = [
             (
                 "pkg.sv",
-                sl.SyntaxTree.fromText(
+                parse_text(
                     "package common_pkg;\n  parameter int DATA_WIDTH = 16;\nendpackage\n"
                 ),
             ),
             (
                 "top.sv",
-                sl.SyntaxTree.fromText(
+                parse_text(
                     "module top;\n  import common_pkg::*;\n  logic [DATA_WIDTH-1:0] bus;\nendmodule\n"
                 ),
             ),
@@ -73,8 +74,8 @@ class TestLintPipeline:
     def test_pipeline_cross_file_module_rules_execution(self) -> None:
         """Phase 4 & 5 executes module rules (such as DUPLICATE_MODULE) across files."""
         file_inputs = [
-            ("a.sv", sl.SyntaxTree.fromText("module duplicate_mod;\nendmodule\n")),
-            ("b.sv", sl.SyntaxTree.fromText("module duplicate_mod;\nendmodule\n")),
+            ("a.sv", parse_text("module duplicate_mod;\nendmodule\n")),
+            ("b.sv", parse_text("module duplicate_mod;\nendmodule\n")),
         ]
         pipeline = LintPipeline()
         result = pipeline.analyze_trees(file_inputs)
@@ -216,7 +217,7 @@ class TestLintPipeline:
         )
 
         file_inputs = [
-            ("test.sv", sl.SyntaxTree.fromText("module test;\n  logic flag_me;\n  assign flag_me = 1'b0;\nendmodule\n")),
+            ("test.sv", parse_text("module test;\n  logic flag_me;\n  assign flag_me = 1'b0;\nendmodule\n")),
         ]
         result = pipeline.analyze_trees(file_inputs)
 

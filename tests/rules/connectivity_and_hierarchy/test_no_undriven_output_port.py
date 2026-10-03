@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -100,7 +100,7 @@ class TestNoUndrivenOutputPortRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNDRIVEN_OUTPUT_CODE)
+        tree = parse_text(UNDRIVEN_OUTPUT_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_output_port.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -115,7 +115,7 @@ class TestNoUndrivenOutputPortRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(DRIVEN_OUTPUT_CODE)
+        tree = parse_text(DRIVEN_OUTPUT_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_output_port.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -127,7 +127,7 @@ class TestNoUndrivenOutputPortRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNUSED_OUTPUT_CODE)
+        tree = parse_text(UNUSED_OUTPUT_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_output_port.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 

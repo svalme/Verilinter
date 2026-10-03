@@ -586,6 +586,62 @@ BLOCK_ITEM_SKIP_KINDS = {
     if kind is not None
 }
 
+DEFPARAM_KEYWORD_TOKEN_KIND = _token_kind("DefParamKeyword")
+PARAMETER_KEYWORD_TOKEN_KIND = _token_kind("ParameterKeyword")
+FORCE_KEYWORD_TOKEN_KIND = _token_kind("ForceKeyword")
+RELEASE_KEYWORD_TOKEN_KIND = _token_kind("ReleaseKeyword")
+INITIAL_KEYWORD_TOKEN_KIND = _token_kind("InitialKeyword")
+ASSIGN_KEYWORD_TOKEN_KIND = _token_kind("AssignKeyword")
+DEASSIGN_KEYWORD_TOKEN_KIND = _token_kind("DeassignKeyword")
+WAND_KEYWORD_TOKEN_KIND = _token_kind("WAndKeyword")
+WOR_KEYWORD_TOKEN_KIND = _token_kind("WOrKeyword")
+LOGIC_KEYWORD_TOKEN_KIND = _token_kind("LogicKeyword")
+TRIREG_KEYWORD_TOKEN_KIND = _token_kind("TriRegKeyword")
+WIRE_KEYWORD_TOKEN_KIND = _token_kind("WireKeyword")
+SUPPLY0_KEYWORD_TOKEN_KIND = _token_kind("Supply0Keyword")
+SUPPLY1_KEYWORD_TOKEN_KIND = _token_kind("Supply1Keyword")
+TRAN_KEYWORD_TOKEN_KIND = _token_kind("TranKeyword")
+RTRAN_KEYWORD_TOKEN_KIND = _token_kind("RtranKeyword")
+TRANIF1_KEYWORD_TOKEN_KIND = _token_kind("TranIf1Keyword")
+RTRANIF0_KEYWORD_TOKEN_KIND = _token_kind("RtranIf0Keyword")
+UDP_DECLARATION_KIND = _syntax_kind("UdpDeclaration")
+AND_KEYWORD_TOKEN_KIND = _token_kind("AndKeyword")
+BUFIF0_KEYWORD_TOKEN_KIND = _token_kind("BufIf0Keyword")
+OR_KEYWORD_TOKEN_KIND = _token_kind("OrKeyword")
+CMOS_KEYWORD_TOKEN_KIND = _token_kind("CmosKeyword")
+PULLUP_KEYWORD_TOKEN_KIND = _token_kind("PullUpKeyword")
+NET_ALIAS_KIND = _syntax_kind("NetAlias")
+DELAY_CONTROL_KIND = _syntax_kind("DelayControl")
+DELAY3_KIND = _syntax_kind("Delay3")
+IMMEDIATE_ASSERT_STATEMENT_KIND = _syntax_kind("ImmediateAssertStatement")
+IMMEDIATE_COVER_STATEMENT_KIND = _syntax_kind("ImmediateCoverStatement")
+ASSERT_PROPERTY_STATEMENT_KIND = _syntax_kind("AssertPropertyStatement")
+COVER_PROPERTY_STATEMENT_KIND = _syntax_kind("CoverPropertyStatement")
+UWIRE_KEYWORD_TOKEN_KIND = _token_kind("UWireKeyword")
+RAND_SEQUENCE_STATEMENT_KIND = _syntax_kind("RandSequenceStatement")
+FOREVER_STATEMENT_KIND = _syntax_kind("ForeverStatement")
+EXPECT_PROPERTY_STATEMENT_KIND = _syntax_kind("ExpectPropertyStatement")
+RESTRICT_PROPERTY_STATEMENT_KIND = _syntax_kind("RestrictPropertyStatement")
+DPI_IMPORT_KIND = _syntax_kind("DPIImport")
+DPI_EXPORT_KIND = _syntax_kind("DPIExport")
+REAL_TYPE_KIND = _syntax_kind("RealType")
+SHORT_REAL_TYPE_KIND = _syntax_kind("ShortRealType")
+REAL_TIME_TYPE_KIND = _syntax_kind("RealTimeType")
+ALWAYS_TOKEN_KIND = _token_kind("AlwaysKeyword")
+ALWAYS_KEYWORD_TOKEN_KIND = ALWAYS_TOKEN_KIND
+DISABLE_KEYWORD_TOKEN_KIND = _token_kind("DisableKeyword")
+DO_KEYWORD_TOKEN_KIND = _token_kind("DoKeyword")
+FOR_KEYWORD_TOKEN_KIND = _token_kind("ForKeyword")
+FOREACH_KEYWORD_TOKEN_KIND = _token_kind("ForeachKeyword")
+FOREVER_KEYWORD_TOKEN_KIND = _token_kind("ForeverKeyword")
+GREATER_THAN_TOKEN_KIND = _token_kind("GreaterThan")
+IDENTIFIER_TOKEN_KIND = _token_kind("Identifier")
+INSIDE_KEYWORD_TOKEN_KIND = _token_kind("InsideKeyword")
+MINUS_ARROW_TOKEN_KIND = _token_kind("MinusArrow")
+MINUS_DOUBLE_ARROW_TOKEN_KIND = _token_kind("MinusDoubleArrow")
+RETURN_KEYWORD_TOKEN_KIND = _token_kind("ReturnKeyword")
+SEQUENTIAL_BLOCK_STATEMENT_KIND = _syntax_kind("SequentialBlockStatement")
+
 
 __all__ = [
     "ADD_EXPRESSION_KIND",
@@ -798,4 +854,59 @@ __all__ = [
     "WILDCARD_EQUALITY_EXPRESSION_KIND",
     "WILDCARD_INEQUALITY_EXPRESSION_KIND",
     "WILDCARD_PORT_CONNECTION_KIND",
+    "DEFPARAM_KEYWORD_TOKEN_KIND",
+    "PARAMETER_KEYWORD_TOKEN_KIND",
+    "FORCE_KEYWORD_TOKEN_KIND",
+    "RELEASE_KEYWORD_TOKEN_KIND",
+    "INITIAL_KEYWORD_TOKEN_KIND",
+    "ASSIGN_KEYWORD_TOKEN_KIND",
+    "DEASSIGN_KEYWORD_TOKEN_KIND",
+    "WAND_KEYWORD_TOKEN_KIND",
+    "WOR_KEYWORD_TOKEN_KIND",
+    "LOGIC_KEYWORD_TOKEN_KIND",
+    "TRIREG_KEYWORD_TOKEN_KIND",
+    "WIRE_KEYWORD_TOKEN_KIND",
+    "SUPPLY0_KEYWORD_TOKEN_KIND",
+    "SUPPLY1_KEYWORD_TOKEN_KIND",
+    "TRAN_KEYWORD_TOKEN_KIND",
+    "RTRAN_KEYWORD_TOKEN_KIND",
+    "TRANIF1_KEYWORD_TOKEN_KIND",
+    "RTRANIF0_KEYWORD_TOKEN_KIND",
+    "UDP_DECLARATION_KIND",
+    "AND_KEYWORD_TOKEN_KIND",
+    "BUFIF0_KEYWORD_TOKEN_KIND",
+    "OR_KEYWORD_TOKEN_KIND",
+    "CMOS_KEYWORD_TOKEN_KIND",
+    "PULLUP_KEYWORD_TOKEN_KIND",
+    "NET_ALIAS_KIND",
+    "DELAY_CONTROL_KIND",
+    "DELAY3_KIND",
+    "IMMEDIATE_ASSERT_STATEMENT_KIND",
+    "IMMEDIATE_COVER_STATEMENT_KIND",
+    "ASSERT_PROPERTY_STATEMENT_KIND",
+    "COVER_PROPERTY_STATEMENT_KIND",
+    "UWIRE_KEYWORD_TOKEN_KIND",
+    "RAND_SEQUENCE_STATEMENT_KIND",
+    "FOREVER_STATEMENT_KIND",
+    "EXPECT_PROPERTY_STATEMENT_KIND",
+    "RESTRICT_PROPERTY_STATEMENT_KIND",
+    "DPI_IMPORT_KIND",
+    "DPI_EXPORT_KIND",
+    "REAL_TYPE_KIND",
+    "SHORT_REAL_TYPE_KIND",
+    "REAL_TIME_TYPE_KIND",
+    "ALWAYS_TOKEN_KIND",
+    "ALWAYS_KEYWORD_TOKEN_KIND",
+    "DISABLE_KEYWORD_TOKEN_KIND",
+    "DO_KEYWORD_TOKEN_KIND",
+    "FOR_KEYWORD_TOKEN_KIND",
+    "FOREACH_KEYWORD_TOKEN_KIND",
+    "FOREVER_KEYWORD_TOKEN_KIND",
+    "GREATER_THAN_TOKEN_KIND",
+    "IDENTIFIER_TOKEN_KIND",
+    "INSIDE_KEYWORD_TOKEN_KIND",
+    "MINUS_ARROW_TOKEN_KIND",
+    "MINUS_DOUBLE_ARROW_TOKEN_KIND",
+    "RETURN_KEYWORD_TOKEN_KIND",
+    "SEQUENTIAL_BLOCK_STATEMENT_KIND",
 ]

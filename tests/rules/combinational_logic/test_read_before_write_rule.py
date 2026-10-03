@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -182,7 +182,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(READ_BEFORE_WRITE_CODE)
+        tree = parse_text(READ_BEFORE_WRITE_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -197,7 +197,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(WRITE_BEFORE_READ_CODE)
+        tree = parse_text(WRITE_BEFORE_READ_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -208,7 +208,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(COMPOUND_ASSIGN_BEFORE_WRITE_CODE)
+        tree = parse_text(COMPOUND_ASSIGN_BEFORE_WRITE_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -223,7 +223,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(INCREMENT_BEFORE_WRITE_CODE)
+        tree = parse_text(INCREMENT_BEFORE_WRITE_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -238,7 +238,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(COMPLEX_LVALUE_CODE)
+        tree = parse_text(COMPLEX_LVALUE_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -253,7 +253,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(DECLARATION_INITIALIZER_BEFORE_READ_CODE)
+        tree = parse_text(DECLARATION_INITIALIZER_BEFORE_READ_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -264,7 +264,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(DECLARATION_WITHOUT_INITIALIZER_BEFORE_READ_CODE)
+        tree = parse_text(DECLARATION_WITHOUT_INITIALIZER_BEFORE_READ_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -319,7 +319,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(INPUT_PORT_READ_CODE)
+        tree = parse_text(INPUT_PORT_READ_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -330,7 +330,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(OUTPUT_PORT_READ_BEFORE_WRITE_CODE)
+        tree = parse_text(OUTPUT_PORT_READ_BEFORE_WRITE_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -348,7 +348,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(CROSS_CONSTRUCT_READ_CODE)
+        tree = parse_text(CROSS_CONSTRUCT_READ_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -366,7 +366,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(REGISTER_FEEDBACK_CODE)
+        tree = parse_text(REGISTER_FEEDBACK_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -380,7 +380,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(SAME_BLOCK_BLOCKING_ORDER_CODE)
+        tree = parse_text(SAME_BLOCK_BLOCKING_ORDER_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -400,7 +400,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(FOR_LOOP_OWN_INDUCTION_VARIABLE_CODE)
+        tree = parse_text(FOR_LOOP_OWN_INDUCTION_VARIABLE_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -430,7 +430,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -460,7 +460,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -488,7 +488,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -514,7 +514,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -538,7 +538,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -571,7 +571,7 @@ class TestReadBeforeWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("tests/rules/combinational_logic/test_read_before_write_rule.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 

@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -84,7 +84,7 @@ class TestRedeclaredVariableRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(REDECLARED_CODE)
+        tree = parse_text(REDECLARED_CODE)
         assert_no_parse_errors("tests/rules/declarations_and_types/test_redeclared_variable.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -104,7 +104,7 @@ class TestRedeclaredVariableRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module m;
               function automatic int f1(input int x); f1 = x + 1; endfunction

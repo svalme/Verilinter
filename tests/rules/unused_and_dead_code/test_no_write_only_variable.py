@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.handlers.register_handlers import *
@@ -109,7 +109,7 @@ class TestNoWriteOnlyVariableRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(WRITE_ONLY_VARIABLE_CODE)
+        tree = parse_text(WRITE_ONLY_VARIABLE_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -123,7 +123,7 @@ class TestNoWriteOnlyVariableRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(READ_AND_WRITTEN_VARIABLE_CODE)
+        tree = parse_text(READ_AND_WRITTEN_VARIABLE_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -133,7 +133,7 @@ class TestNoWriteOnlyVariableRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNUSED_VARIABLE_CODE)
+        tree = parse_text(UNUSED_VARIABLE_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

@@ -34,15 +34,41 @@ def parse_file(
     return SyntaxTree.fromFile(str(path), source_manager, options=bag)
 
 
-def parse_text(text: str, defines: list[str] | None = None) -> SyntaxTree:
-    if defines:
+def parse_text(
+    text: str,
+    defines: list[str] | None = None,
+    name: str = "",
+) -> SyntaxTree:
+    if defines or name:
         bag = sl.Bag()
-        pp = sl.PreprocessorOptions()
-        pp.predefines = list(defines)
-        bag.preprocessorOptions = pp
+        if defines:
+            pp = sl.PreprocessorOptions()
+            pp.predefines = list(defines)
+            bag.preprocessorOptions = pp
         source_manager = sl.SourceManager()
+        if name:
+            return SyntaxTree.fromText(text, source_manager, name=name, options=bag)
         return SyntaxTree.fromText(text, source_manager, options=bag)
     return SyntaxTree.fromText(text)
+
+
+def format_syntax_tree_diagnostics(tree: SyntaxTree) -> str:
+    """Format all diagnostics from a SyntaxTree into human-readable text."""
+    source_manager = getattr(tree, "sourceManager", None)
+    if source_manager is None:
+        return ""
+    engine = sl.DiagnosticEngine(source_manager)
+    client = sl.TextDiagnosticClient()
+    engine.addClient(client)
+    for diagnostic in getattr(tree, "diagnostics", []):
+        engine.issue(diagnostic)
+    return client.getString()
+
+
+def syntax_tree_errors(tree: SyntaxTree) -> list[object]:
+    """Return the subset of `tree.diagnostics` that are real errors (not warnings)."""
+    return [d for d in getattr(tree, "diagnostics", []) if getattr(d, "isError", lambda: False)()]
+
 
 
 def extract_header_dependencies(tree: SyntaxTree) -> list[dict[str, str]]:

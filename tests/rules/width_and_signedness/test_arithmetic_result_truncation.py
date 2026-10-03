@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -18,7 +18,7 @@ def _diagnostics(code: str) -> list[dict]:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(code)
+    tree = parse_text(code)
     assert_no_parse_errors("tests/rules/width_and_signedness/test_arithmetic_result_truncation.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 

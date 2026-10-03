@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.handlers.register_handlers import *
@@ -16,7 +16,7 @@ def _diagnostics(code: str) -> list[dict]:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(code)
+    tree = parse_text(code)
     assert_no_parse_errors("tests/rules/clock_and_reset/test_async_reset_as_data.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 

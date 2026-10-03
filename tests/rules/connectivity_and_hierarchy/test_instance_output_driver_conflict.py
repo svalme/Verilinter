@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -85,7 +85,7 @@ def _run(code: str) -> list[dict]:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(code)
+    tree = parse_text(code)
     assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_instance_output_driver_conflict.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 

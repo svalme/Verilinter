@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.handlers.register_handlers import *
@@ -90,7 +90,7 @@ class TestNoInputPortWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(WRITE_INPUT_CODE)
+        tree = parse_text(WRITE_INPUT_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_input_port_write.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -105,7 +105,7 @@ class TestNoInputPortWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(READ_INPUT_ONLY_CODE)
+        tree = parse_text(READ_INPUT_ONLY_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_input_port_write.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -116,7 +116,7 @@ class TestNoInputPortWriteRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(READ_AND_WRITE_INPUT_CODE)
+        tree = parse_text(READ_AND_WRITE_INPUT_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_input_port_write.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 

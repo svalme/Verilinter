@@ -16,7 +16,7 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-import pyslang as sl
+from src.pkg.parser.types import SyntaxNode, SyntaxTree
 
 import src.pkg.parser.syntax_queries as sq
 from src.pkg.parser.parse import parse_text
@@ -69,7 +69,7 @@ def test_queries_on_error_recovery_trees(snippet: str) -> None:
 
     # Walk all descendant nodes in the malformed tree and execute core queries
     def _visit(node: object) -> None:
-        if not isinstance(node, sl.SyntaxNode):
+        if not isinstance(node, SyntaxNode):
             return
 
         # Core queries should run without raising unexpected exceptions or looping
@@ -89,7 +89,7 @@ def test_queries_on_error_recovery_trees(snippet: str) -> None:
         _ = list(sq.iter_identifier_reads(node))
 
         for child in node:
-            if isinstance(child, sl.SyntaxNode):
+            if isinstance(child, SyntaxNode):
                 _visit(child)
 
     # Every exported query runs on every node of the tree, so this budget is larger.
@@ -224,7 +224,7 @@ def test_symbol_table_package_import_cycle_immunity() -> None:
 
 def test_walker_terminates_on_cyclic_ast_graph() -> None:
     """Verifies Walker.walk terminates and recovers gracefully on cyclical AST graphs."""
-    cyclic_node = Mock(spec=sl.SyntaxNode)
+    cyclic_node = Mock(spec=SyntaxNode)
     cyclic_node.kind = 999999
     cyclic_node.__iter__ = lambda self: iter([cyclic_node])
 
@@ -232,7 +232,7 @@ def test_walker_terminates_on_cyclic_ast_graph() -> None:
     walker = Walker(dispatch)
     ctx = Context()
     symtab = SymbolTable()
-    tree = Mock(spec=sl.SyntaxTree)
+    tree = Mock(spec=SyntaxTree)
 
     with terminates_within():
         walker.walk(cyclic_node, tree, ctx, symtab)

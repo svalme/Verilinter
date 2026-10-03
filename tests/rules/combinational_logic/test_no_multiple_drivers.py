@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -127,7 +127,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(DECLARATION_AND_SINGLE_BLOCK_CODE)
+        tree = parse_text(DECLARATION_AND_SINGLE_BLOCK_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -138,7 +138,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(MULTIPLE_DRIVERS_CODE)
+        tree = parse_text(MULTIPLE_DRIVERS_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -153,7 +153,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(SINGLE_DRIVER_CODE)
+        tree = parse_text(SINGLE_DRIVER_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -164,7 +164,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(MULTIPLE_CONTINUOUS_ASSIGN_DRIVERS_CODE)
+        tree = parse_text(MULTIPLE_CONTINUOUS_ASSIGN_DRIVERS_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -179,7 +179,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(MIXED_ASSIGN_AND_PROCEDURAL_DRIVERS_CODE)
+        tree = parse_text(MIXED_ASSIGN_AND_PROCEDURAL_DRIVERS_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -194,7 +194,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(SINGLE_CONTINUOUS_ASSIGN_DRIVER_CODE)
+        tree = parse_text(SINGLE_CONTINUOUS_ASSIGN_DRIVER_CODE)
         assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -209,7 +209,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top #(parameter TWO_CYCLE = 1) (input logic clk, input logic a, input logic b);
               logic x;
@@ -239,7 +239,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top #(parameter FAST = 0, parameter EN = 0) (input logic a, input logic b);
               logic x;
@@ -267,7 +267,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top #(parameter EN = 1) (input logic a, input logic b);
               logic x;
@@ -296,7 +296,7 @@ class TestNoMultipleDriversRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top;
               wire a, b, c;

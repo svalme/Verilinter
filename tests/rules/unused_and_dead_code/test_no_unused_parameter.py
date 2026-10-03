@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.handlers.register_handlers import *
@@ -85,7 +85,7 @@ class TestNoUnusedParameterRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNUSED_PARAMETER_CODE)
+        tree = parse_text(UNUSED_PARAMETER_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -99,7 +99,7 @@ class TestNoUnusedParameterRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(USED_PARAMETER_CODE)
+        tree = parse_text(USED_PARAMETER_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -109,7 +109,7 @@ class TestNoUnusedParameterRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNUSED_LOCALPARAM_CODE)
+        tree = parse_text(UNUSED_LOCALPARAM_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -125,7 +125,7 @@ class TestNoUnusedParameterRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNUSED_ORDINARY_VARIABLE_CODE)
+        tree = parse_text(UNUSED_ORDINARY_VARIABLE_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

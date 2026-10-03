@@ -54,6 +54,7 @@ NamedArgumentNode: TypeAlias = sl.NamedArgumentSyntax
 HierarchyInstantiationNode: TypeAlias = sl.HierarchyInstantiationSyntax
 HierarchicalInstanceNode: TypeAlias = sl.HierarchicalInstanceSyntax
 PortDeclarationNode: TypeAlias = sl.PortDeclarationSyntax
+ImplicitAnsiPortNode: TypeAlias = sl.ImplicitAnsiPortSyntax
 PrimitiveDeclarationNode: TypeAlias = sl.UdpDeclarationSyntax
 SystemNameNode: TypeAlias = sl.SystemNameSyntax
 ClockingDeclarationNode: TypeAlias = sl.ClockingDeclarationSyntax
@@ -79,6 +80,7 @@ __all__ = [
     "IdentifierNameNode",
     "IdentifierSelectNameNode",
     "IfGenerateNode",
+    "ImplicitAnsiPortNode",
     "ImplicitEventControlNode",
     "ModuleDeclarationNode",
     "NamedArgumentNode",

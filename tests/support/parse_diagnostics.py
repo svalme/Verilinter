@@ -10,24 +10,20 @@ first.
 
 from __future__ import annotations
 
-import pyslang as sl
+from src.pkg.parser.parse import format_syntax_tree_diagnostics, syntax_tree_errors
+from src.pkg.parser.types import SyntaxTree
 
 
-def render_diagnostics(tree: sl.SyntaxTree) -> str:
-    engine = sl.DiagnosticEngine(tree.sourceManager)
-    client = sl.TextDiagnosticClient()
-    engine.addClient(client)
-    for diagnostic in tree.diagnostics:
-        engine.issue(diagnostic)
-    return client.getString()
+def render_diagnostics(tree: SyntaxTree) -> str:
+    return format_syntax_tree_diagnostics(tree)
 
 
-def parse_errors(tree: sl.SyntaxTree) -> list[object]:
+def parse_errors(tree: SyntaxTree) -> list[object]:
     """Return the subset of `tree.diagnostics` that are real errors (not warnings)."""
-    return [d for d in tree.diagnostics if d.isError()]
+    return syntax_tree_errors(tree)
 
 
-def assert_no_parse_errors(label: str, tree: sl.SyntaxTree) -> None:
+def assert_no_parse_errors(label: str, tree: SyntaxTree) -> None:
     """Raise with a rendered diagnostic dump if `tree` has real parser errors.
 
     `label` identifies the source to the failing test -- a file path for a

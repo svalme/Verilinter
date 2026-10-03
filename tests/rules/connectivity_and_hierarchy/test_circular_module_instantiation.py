@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -123,7 +123,7 @@ class TestCircularModuleInstantiationRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(SELF_INSTANTIATION_CODE)
+        tree = parse_text(SELF_INSTANTIATION_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_circular_module_instantiation.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -137,7 +137,7 @@ class TestCircularModuleInstantiationRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(TWO_MODULE_CYCLE_CODE)
+        tree = parse_text(TWO_MODULE_CYCLE_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_circular_module_instantiation.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -152,7 +152,7 @@ class TestCircularModuleInstantiationRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(THREE_MODULE_CYCLE_CODE)
+        tree = parse_text(THREE_MODULE_CYCLE_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_circular_module_instantiation.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -167,7 +167,7 @@ class TestCircularModuleInstantiationRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(NO_CYCLE_CODE)
+        tree = parse_text(NO_CYCLE_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_circular_module_instantiation.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -178,7 +178,7 @@ class TestCircularModuleInstantiationRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(DIAMOND_NO_CYCLE_CODE)
+        tree = parse_text(DIAMOND_NO_CYCLE_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_circular_module_instantiation.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 

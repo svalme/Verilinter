@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -71,7 +71,7 @@ class TestUndefinedModuleRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(CODE)
+        tree = parse_text(CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_undefined_module.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -87,7 +87,7 @@ class TestUndefinedModuleRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_undefined_module.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 

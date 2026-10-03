@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -99,7 +99,7 @@ class TestNoUndrivenSignalRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(INITIALIZED_SIGNAL_CODE)
+        tree = parse_text(INITIALIZED_SIGNAL_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -110,7 +110,7 @@ class TestNoUndrivenSignalRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNDRIVEN_SIGNAL_CODE)
+        tree = parse_text(UNDRIVEN_SIGNAL_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -125,7 +125,7 @@ class TestNoUndrivenSignalRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(DRIVEN_SIGNAL_CODE)
+        tree = parse_text(DRIVEN_SIGNAL_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -141,7 +141,7 @@ class TestNoUndrivenSignalRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(READMEMH_POPULATED_MEMORY_CODE)
+        tree = parse_text(READMEMH_POPULATED_MEMORY_CODE)
         assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_no_undriven_signal.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
 

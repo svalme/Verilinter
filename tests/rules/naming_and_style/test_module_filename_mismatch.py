@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import pyslang as sl
+from src.pkg.parser.parse import parse_file
 import pytest
 
 from src.pkg.walk.context import Context
@@ -20,7 +20,7 @@ def _diagnostics(path: Path) -> list[dict]:
     walker = Walker(dispatch)
 
     symbol_table.set_current_file(str(path))
-    tree = sl.SyntaxTree.fromFile(str(path))
+    tree = parse_file(str(path))
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     return [d for d in rule_runner.run(walker.results) if d["code"] == "MODULE_FILENAME_MISMATCH"]

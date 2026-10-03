@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import Mock
 
-import pyslang as sl
 import pytest
 
 from src.pkg.parser.types import DeclaratorNode, HierarchicalInstanceNode, ModuleDeclarationNode

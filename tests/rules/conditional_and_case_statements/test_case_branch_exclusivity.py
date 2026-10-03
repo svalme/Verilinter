@@ -1,8 +1,14 @@
-import pyslang as sl
 import pytest
 
 from src.pkg.handlers.register_handlers import *
-from src.pkg.parser.syntax import branch_exclusivity_signature, is_mutually_exclusive_branch_pair
+from src.pkg.parser.parse import parse_text
+from src.pkg.parser.syntax import (
+    branch_exclusivity_signature,
+    identifier_name,
+    is_mutually_exclusive_branch_pair,
+)
+from src.pkg.parser.syntax_kinds import IDENTIFIER_NAME_KIND
+from src.pkg.parser.types import SyntaxNode, SyntaxTree
 from src.pkg.rules.combinational_logic.no_multiple_drivers import NoMultipleDriversRule
 from src.pkg.rules.connectivity_and_hierarchy.instance_output_driver_conflict import (
     InstanceOutputDriverConflictRule,
@@ -30,8 +36,8 @@ def test_deterministic_construct_identity_across_independent_trees() -> None:
       end
     endmodule
     """
-    tree1 = sl.SyntaxTree.fromText(source)
-    tree2 = sl.SyntaxTree.fromText(source)
+    tree1 = parse_text(source)
+    tree2 = parse_text(source)
 
     case1 = tree1.root.members[0].statement.items[0]
     case2 = tree2.root.members[0].statement.items[0]
@@ -59,14 +65,15 @@ endmodule
 """
 
 
-def _signatures_by_name(tree: sl.SyntaxTree, names: tuple[str, ...]) -> dict[str, tuple]:
+def _signatures_by_name(tree: SyntaxTree, names: tuple[str, ...]) -> dict[str, tuple]:
     found: dict[str, tuple] = {}
 
-    def visit(node: sl.SyntaxNode) -> None:
-        if node.kind == sl.SyntaxKind.IdentifierName and str(node).strip() in names:
-            found[str(node).strip()] = branch_exclusivity_signature(node, tree)
+    def visit(node: SyntaxNode) -> None:
+        name = identifier_name(node)
+        if getattr(node, "kind", None) == IDENTIFIER_NAME_KIND and name in names:
+            found[name] = branch_exclusivity_signature(node, tree)
         for child in node:
-            if isinstance(child, sl.SyntaxNode):
+            if isinstance(child, SyntaxNode):
                 visit(child)
 
     visit(tree.root)
@@ -76,7 +83,7 @@ def _signatures_by_name(tree: sl.SyntaxTree, names: tuple[str, ...]) -> dict[str
 def test_macro_expansions_on_one_line_get_distinct_construct_identities() -> None:
     """Two expansions of one macro on the same source line are separate constructs,
     so a branch taken in one is not mutually exclusive with a branch taken in the other."""
-    sigs = _signatures_by_name(sl.SyntaxTree.fromText(_MACRO_SOURCE), ("x", "y", "z", "w"))
+    sigs = _signatures_by_name(parse_text(_MACRO_SOURCE), ("x", "y", "z", "w"))
 
     assert is_mutually_exclusive_branch_pair(sigs["x"], sigs["y"])
     assert is_mutually_exclusive_branch_pair(sigs["z"], sigs["w"])
@@ -87,8 +94,8 @@ def test_macro_expansions_on_one_line_get_distinct_construct_identities() -> Non
 
 def test_macro_construct_identity_is_deterministic_across_independent_trees() -> None:
     names = ("x", "y", "z", "w")
-    first = _signatures_by_name(sl.SyntaxTree.fromText(_MACRO_SOURCE), names)
-    second = _signatures_by_name(sl.SyntaxTree.fromText(_MACRO_SOURCE), names)
+    first = _signatures_by_name(parse_text(_MACRO_SOURCE), names)
+    second = _signatures_by_name(parse_text(_MACRO_SOURCE), names)
 
     assert first == second
 
@@ -103,8 +110,8 @@ def test_construct_identity_without_a_tree_does_not_collide_across_constructs() 
       end
     endmodule
     """
-    first = sl.SyntaxTree.fromText(source)
-    second = sl.SyntaxTree.fromText(source)
+    first = parse_text(source)
+    second = parse_text(source)
     node1 = first.root.members[0].statement.items[0].statement.expr.left
     node2 = second.root.members[0].statement.items[0].statement.expr.left
 
@@ -125,7 +132,7 @@ def test_procedural_case_branches_are_mutually_exclusive() -> None:
       end
     endmodule
     """
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     case_stmt = tree.root.members[0].statement.items[0]
 
     a0 = case_stmt.items[0].clause.expr.left
@@ -164,7 +171,7 @@ def test_generate_case_different_branches_do_not_flag_multiple_drivers() -> None
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_different_branches_do_not_flag_multiple_drivers", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -193,7 +200,7 @@ def test_generate_case_same_branch_flags_multiple_drivers() -> None:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_same_branch_flags_multiple_drivers", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -226,7 +233,7 @@ def test_generate_case_instance_driver_conflict_suppressed() -> None:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_instance_driver_conflict_suppressed", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -259,7 +266,7 @@ def test_generate_case_instance_driver_conflict_same_branch_flags() -> None:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_instance_driver_conflict_same_branch_flags", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
@@ -286,7 +293,7 @@ def test_nested_if_and_case_branch_exclusivity() -> None:
       end
     endmodule
     """
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     if_stmt = tree.root.members[0].statement.items[0]
     case_stmt = if_stmt.statement.items[0]
 

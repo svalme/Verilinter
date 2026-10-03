@@ -1,5 +1,118 @@
 import pytest
-import pyslang as sl
+from src.pkg.parser.parse import parse_file, parse_text
+from src.pkg.parser.types import (
+    CaseGenerateNode,
+    IfGenerateNode,
+    ImplicitAnsiPortNode,
+    LoopGenerateNode,
+    PortDeclarationNode,
+    ProceduralBlockNode,
+    SystemNameNode,
+    Token,
+)
+from src.pkg.parser.syntax_kinds import (
+    ALWAYS_BLOCK_KIND,
+    ALWAYS_COMB_BLOCK_KIND,
+    ALWAYS_FF_BLOCK_KIND,
+    ALWAYS_LATCH_BLOCK_KIND,
+    FINAL_BLOCK_KIND,
+    INITIAL_BLOCK_KIND,
+    WHILE_TOKEN_KIND,
+    WAIT_TOKEN_KIND,
+    UNIQUE0_TOKEN_KIND,
+    UNIQUE_KEYWORD_TOKEN_KIND,
+    SEQUENTIAL_BLOCK_STATEMENT_KIND,
+    RETURN_KEYWORD_TOKEN_KIND,
+    REPEAT_TOKEN_KIND,
+    PRIORITY_KEYWORD_TOKEN_KIND,
+    PARALLEL_BLOCK_STATEMENT_KIND,
+    MODULE_DECLARATION_KIND,
+    MODPORT_DECLARATION_KIND,
+    MINUS_DOUBLE_ARROW_TOKEN_KIND,
+    MINUS_ARROW_TOKEN_KIND,
+    LOOP_GENERATE_KIND,
+    LESS_THAN_EQUALS_TOKEN_KIND,
+    INSIDE_KEYWORD_TOKEN_KIND,
+    IDENTIFIER_TOKEN_KIND,
+    GREATER_THAN_TOKEN_KIND,
+    FOREVER_KEYWORD_TOKEN_KIND,
+    FOREACH_KEYWORD_TOKEN_KIND,
+    FOR_LOOP_STATEMENT_KIND,
+    FOR_KEYWORD_TOKEN_KIND,
+    EQUALS_TOKEN_KIND,
+    ENDCASE_KEYWORD_TOKEN_KIND,
+    DO_WHILE_STATEMENT_KIND,
+    DO_KEYWORD_TOKEN_KIND,
+    DISABLE_KEYWORD_TOKEN_KIND,
+    DISABLE_IFF_KIND,
+    CONDITIONAL_STATEMENT_KIND,
+    CLOCKING_DECLARATION_KIND,
+    CHECKER_DECLARATION_KIND,
+    CASE_KEYWORD_TOKEN_KIND,
+    ALWAYS_TOKEN_KIND,
+    AND_KEYWORD_TOKEN_KIND,
+    ASSERT_PROPERTY_STATEMENT_KIND,
+    ASSIGN_KEYWORD_TOKEN_KIND,
+    BIND_DIRECTIVE_KIND,
+    BUFIF0_KEYWORD_TOKEN_KIND,
+    CHANDLE_TYPE_KIND,
+    CLASS_DECLARATION_KIND,
+    CMOS_KEYWORD_TOKEN_KIND,
+    CONFIG_DECLARATION_KIND,
+    CONTINUOUS_ASSIGN_KIND,
+    COVERGROUP_DECLARATION_KIND,
+    COVER_PROPERTY_STATEMENT_KIND,
+    DEASSIGN_KEYWORD_TOKEN_KIND,
+    DEFPARAM_KEYWORD_TOKEN_KIND,
+    DELAY3_KIND,
+    DELAY_CONTROL_KIND,
+    DPI_EXPORT_KIND,
+    DPI_IMPORT_KIND,
+    EXPECT_PROPERTY_STATEMENT_KIND,
+    FORCE_KEYWORD_TOKEN_KIND,
+    FOREVER_STATEMENT_KIND,
+    FUNCTION_DECLARATION_KIND,
+    IMMEDIATE_ASSERT_STATEMENT_KIND,
+    IMMEDIATE_COVER_STATEMENT_KIND,
+    INITIAL_KEYWORD_TOKEN_KIND,
+    INTERFACE_DECLARATION_KIND,
+    LET_DECLARATION_KIND,
+    LOGIC_KEYWORD_TOKEN_KIND,
+    NET_ALIAS_KIND,
+    OR_KEYWORD_TOKEN_KIND,
+    PACKAGE_DECLARATION_KIND,
+    PARAMETER_KEYWORD_TOKEN_KIND,
+    PROGRAM_DECLARATION_KIND,
+    PROPERTY_DECLARATION_KIND,
+    PULLUP_KEYWORD_TOKEN_KIND,
+    QUEUE_DIMENSION_SPECIFIER_KIND,
+    RAND_SEQUENCE_STATEMENT_KIND,
+    RANGE_DIMENSION_SPECIFIER_KIND,
+    REAL_TIME_TYPE_KIND,
+    REAL_TYPE_KIND,
+    RELEASE_KEYWORD_TOKEN_KIND,
+    RESTRICT_PROPERTY_STATEMENT_KIND,
+    RTRANIF0_KEYWORD_TOKEN_KIND,
+    RTRAN_KEYWORD_TOKEN_KIND,
+    SEQUENCE_DECLARATION_KIND,
+    SHORT_REAL_TYPE_KIND,
+    SPECIFY_BLOCK_KIND,
+    STRING_TYPE_KIND,
+    SUPPLY0_KEYWORD_TOKEN_KIND,
+    SUPPLY1_KEYWORD_TOKEN_KIND,
+    TASK_DECLARATION_KIND,
+    TRANIF1_KEYWORD_TOKEN_KIND,
+    TRAN_KEYWORD_TOKEN_KIND,
+    TRIREG_KEYWORD_TOKEN_KIND,
+    UDP_DECLARATION_KIND,
+    UWIRE_KEYWORD_TOKEN_KIND,
+    VARIABLE_DIMENSION_KIND,
+    VIRTUAL_INTERFACE_TYPE_KIND,
+    WILDCARD_DIMENSION_SPECIFIER_KIND,
+    WAND_KEYWORD_TOKEN_KIND,
+    WIRE_KEYWORD_TOKEN_KIND,
+    WOR_KEYWORD_TOKEN_KIND,
+)
 from pathlib import Path
 
 from src.pkg.rules.conditional_and_case_statements.default_case import DefaultCaseRule
@@ -126,7 +239,7 @@ class TestDefaultCaseRule:
 
     def test_applies_returns_true_for_endcase_without_default(self, rule: DefaultCaseRule) -> None:
         """Test that applies() returns True for EndCaseKeyword without DEFAULT flag."""
-        mock_vnode = fake_vnode(sl.TokenKind.EndCaseKeyword)
+        mock_vnode = fake_vnode(ENDCASE_KEYWORD_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.CASE_GENERATE)
 
@@ -134,7 +247,7 @@ class TestDefaultCaseRule:
 
     def test_applies_returns_false_without_endcase_keyword(self, rule: DefaultCaseRule) -> None:
         """Test that applies() returns False if vnode is not EndCaseKeyword."""
-        mock_vnode = fake_vnode(sl.TokenKind.AlwaysKeyword)
+        mock_vnode = fake_vnode(ALWAYS_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.CASE_GENERATE)
 
@@ -142,7 +255,7 @@ class TestDefaultCaseRule:
 
     def test_applies_returns_false_without_case_generate_flag(self, rule: DefaultCaseRule) -> None:
         """Test that applies() returns False without CASE_GENERATE flag."""
-        mock_vnode = fake_vnode(sl.TokenKind.EndCaseKeyword)
+        mock_vnode = fake_vnode(ENDCASE_KEYWORD_TOKEN_KIND)
 
         context = Context()
 
@@ -150,7 +263,7 @@ class TestDefaultCaseRule:
 
     def test_applies_returns_false_with_default_flag(self, rule: DefaultCaseRule) -> None:
         """Test that applies() returns False if DEFAULT flag is set."""
-        mock_vnode = fake_vnode(sl.TokenKind.EndCaseKeyword)
+        mock_vnode = fake_vnode(ENDCASE_KEYWORD_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.CASE_GENERATE).with_flag(ContextFlag.DEFAULT)
 
@@ -183,7 +296,7 @@ class TestNoBlockingAssignmentInSequentialRule:
 
     def test_applies_returns_true_for_equals_in_always(self, rule: NoBlockingAssignmentInSequentialRule) -> None:
         """Test that applies() returns True for '=' (Equals) inside always block."""
-        mock_vnode = fake_vnode(sl.TokenKind.Equals)
+        mock_vnode = fake_vnode(EQUALS_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.ALWAYS)
 
@@ -191,7 +304,7 @@ class TestNoBlockingAssignmentInSequentialRule:
 
     def test_applies_returns_false_without_equals_token(self, rule: NoBlockingAssignmentInSequentialRule) -> None:
         """Test that applies() returns False if vnode is not Equals token."""
-        mock_vnode = fake_vnode(sl.TokenKind.LessThanEquals)
+        mock_vnode = fake_vnode(LESS_THAN_EQUALS_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.ALWAYS)
 
@@ -199,7 +312,7 @@ class TestNoBlockingAssignmentInSequentialRule:
 
     def test_applies_returns_false_without_always_flag(self, rule: NoBlockingAssignmentInSequentialRule) -> None:
         """Test that applies() returns False without ALWAYS flag."""
-        mock_vnode = fake_vnode(sl.TokenKind.Equals)
+        mock_vnode = fake_vnode(EQUALS_TOKEN_KIND)
 
         context = Context()
 
@@ -207,7 +320,7 @@ class TestNoBlockingAssignmentInSequentialRule:
 
     def test_applies_returns_false_in_combinational_logic(self, rule: NoBlockingAssignmentInSequentialRule) -> None:
         """Test that applies() returns False in always_comb."""
-        mock_vnode = fake_vnode(sl.TokenKind.Equals)
+        mock_vnode = fake_vnode(EQUALS_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.ALWAYS_COMB)
 
@@ -292,16 +405,16 @@ class TestNoBlockingAssignmentInSequentialRule:
 
 def _always_block_and_token(src: str, token_kind: object) -> tuple[object, object]:
     """Parse `src` and return (first AlwaysBlock raw node, first raw token of `token_kind`)."""
-    tree = sl.SyntaxTree.fromText(src)
+    tree = parse_text(src)
     assert_no_parse_errors(src, tree)
     block: object = None
     token: object = None
 
     def walk(node: object) -> None:
         nonlocal block, token
-        if block is None and getattr(node, "kind", None) == sl.SyntaxKind.AlwaysBlock:
+        if block is None and getattr(node, "kind", None) == ALWAYS_BLOCK_KIND:
             block = node
-        if token is None and isinstance(node, sl.Token) and node.kind == token_kind:
+        if token is None and isinstance(node, Token) and node.kind == token_kind:
             token = node
         if hasattr(node, "__iter__"):
             for child in node:
@@ -312,11 +425,11 @@ def _always_block_and_token(src: str, token_kind: object) -> tuple[object, objec
 
 
 def _always_block_and_nonblocking_token(src: str) -> tuple[object, object]:
-    return _always_block_and_token(src, sl.TokenKind.LessThanEquals)
+    return _always_block_and_token(src, LESS_THAN_EQUALS_TOKEN_KIND)
 
 
 def _always_block_and_blocking_token(src: str) -> tuple[object, object]:
-    return _always_block_and_token(src, sl.TokenKind.Equals)
+    return _always_block_and_token(src, EQUALS_TOKEN_KIND)
 
 
 class TestNoNonBlockingAssignmentInCombRule:
@@ -337,7 +450,7 @@ class TestNoNonBlockingAssignmentInCombRule:
 
     def test_applies_returns_true_for_nonblocking_in_always_comb(self, rule: NoNonBlockingAssignmentInCombRule) -> None:
         """Test that applies() returns True for '<=' inside always_comb."""
-        mock_vnode = fake_vnode(sl.TokenKind.LessThanEquals)
+        mock_vnode = fake_vnode(LESS_THAN_EQUALS_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.ALWAYS_COMB)
 
@@ -345,7 +458,7 @@ class TestNoNonBlockingAssignmentInCombRule:
 
     def test_applies_returns_false_without_lessthanequals_token(self, rule: NoNonBlockingAssignmentInCombRule) -> None:
         """Test that applies() returns False if vnode is not LessThanEquals token."""
-        mock_vnode = fake_vnode(sl.TokenKind.Equals)
+        mock_vnode = fake_vnode(EQUALS_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.ALWAYS_COMB)
 
@@ -353,7 +466,7 @@ class TestNoNonBlockingAssignmentInCombRule:
 
     def test_applies_returns_false_without_always_comb_flag(self, rule: NoNonBlockingAssignmentInCombRule) -> None:
         """Test that applies() returns False without ALWAYS_COMB flag."""
-        mock_vnode = fake_vnode(sl.TokenKind.LessThanEquals)
+        mock_vnode = fake_vnode(LESS_THAN_EQUALS_TOKEN_KIND)
 
         context = Context()
 
@@ -361,7 +474,7 @@ class TestNoNonBlockingAssignmentInCombRule:
 
     def test_applies_returns_false_in_sequential_logic(self, rule: NoNonBlockingAssignmentInCombRule) -> None:
         """Test that applies() returns False in always @(posedge)."""
-        mock_vnode = fake_vnode(sl.TokenKind.LessThanEquals)
+        mock_vnode = fake_vnode(LESS_THAN_EQUALS_TOKEN_KIND)
 
         context = Context().with_flag(ContextFlag.ALWAYS)
 
@@ -456,12 +569,12 @@ class TestNoInitialBlockRule:
         assert rule.message == "Use of initial blocks can be unsafe in synthesizable RTL"
 
     def test_applies_returns_true_for_initial_block(self, rule: NoInitialBlockRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.InitialBlock)
+        mock_vnode = fake_vnode(INITIAL_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_procedural_block(self, rule: NoInitialBlockRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysBlock)
+        mock_vnode = fake_vnode(ALWAYS_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -486,12 +599,12 @@ class TestNoFinalBlockRule:
         assert rule.message == "Use of final blocks is usually not appropriate in synthesizable RTL"
 
     def test_applies_returns_true_for_final_block(self, rule: NoFinalBlockRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.FinalBlock)
+        mock_vnode = fake_vnode(FINAL_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_procedural_block(self, rule: NoFinalBlockRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysBlock)
+        mock_vnode = fake_vnode(ALWAYS_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -516,12 +629,12 @@ class TestNoAlwaysLatchRule:
         assert rule.message == "Use of always_latch can hide unintended latch-oriented design choices"
 
     def test_applies_returns_true_for_always_latch_block(self, rule: NoAlwaysLatchRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysLatchBlock)
+        mock_vnode = fake_vnode(ALWAYS_LATCH_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_procedural_block(self, rule: NoAlwaysLatchRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysCombBlock)
+        mock_vnode = fake_vnode(ALWAYS_COMB_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -546,12 +659,12 @@ class TestNoAlwaysFFRule:
         assert rule.message == "Use of always_ff is discouraged in this RTL subset"
 
     def test_applies_returns_true_for_always_ff_block(self, rule: NoAlwaysFFRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysFFBlock)
+        mock_vnode = fake_vnode(ALWAYS_FF_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_procedural_block(self, rule: NoAlwaysFFRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysLatchBlock)
+        mock_vnode = fake_vnode(ALWAYS_LATCH_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -576,10 +689,10 @@ class TestNoCaseGenerateRule:
         assert rule.message == "Use of case generate can make structural intent harder to follow"
 
     def test_applies_returns_true_for_case_generate_node(self, rule: NoCaseGenerateRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "case_generate.v"))
+        tree = parse_file(str(DATA / "case_generate.v"))
 
         def walk(node):
-            if isinstance(node, sl.CaseGenerateSyntax):
+            if isinstance(node, CaseGenerateNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -596,7 +709,7 @@ class TestNoCaseGenerateRule:
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_syntax_node(self, rule: NoCaseGenerateRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysCombBlock)
+        mock_vnode = fake_vnode(ALWAYS_COMB_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -621,15 +734,15 @@ class TestNoFullParallelCaseRule:
         assert rule.message == "Use of full_case / parallel_case pragmas can hide real case coverage issues"
 
     def test_applies_returns_false_for_non_case_token(self, rule: NoFullParallelCaseRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.Identifier)
+        mock_vnode = fake_vnode(IDENTIFIER_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_true_for_case_with_preceding_pragma_comment(self, rule: NoFullParallelCaseRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "full_parallel_case.v"))
+        tree = parse_file(str(DATA / "full_parallel_case.v"))
 
         def walk(node):
-            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.CaseKeyword:
+            if isinstance(node, Token) and node.kind == CASE_KEYWORD_TOKEN_KIND:
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -667,13 +780,13 @@ class TestNoCaseInsideRule:
     def test_applies_returns_true_for_case_inside_keyword(self, rule: NoCaseInsideRule) -> None:
         """`case (expr) inside ... endcase` exposes `inside` as the case
         statement's own `matchesOrInside` token (IEEE 1800-2017 SS12.5.4)."""
-        mock_vnode = token_vnode(sl.TokenKind.InsideKeyword)
+        mock_vnode = token_vnode(INSIDE_KEYWORD_TOKEN_KIND)
         ctx = case_inside_context(mock_vnode.raw)
 
         assert rule.applies(mock_vnode, ctx) is True
 
     def test_applies_returns_false_for_inside_operator(self, rule: NoCaseInsideRule) -> None:
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top(input logic [1:0] sel, output logic y);
                 always_comb begin
@@ -688,7 +801,7 @@ class TestNoCaseInsideRule:
         assert_no_parse_errors("test_applies_returns_false_for_inside_operator", tree)
 
         def walk(node):
-            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
+            if isinstance(node, Token) and node.kind == INSIDE_KEYWORD_TOKEN_KIND:
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -729,12 +842,12 @@ class TestNoForeverLoopRule:
         assert rule.message == "Use of forever loops is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_forever_keyword(self, rule: NoForeverLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.ForeverKeyword)
+        mock_vnode = token_vnode(FOREVER_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_repeat_keyword(self, rule: NoForeverLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.RepeatKeyword)
+        mock_vnode = token_vnode(REPEAT_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -759,12 +872,12 @@ class TestNoWaitStatementRule:
         assert rule.message == "Use of wait statements is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_wait_keyword(self, rule: NoWaitStatementRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.WaitKeyword)
+        mock_vnode = token_vnode(WAIT_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_while_keyword(self, rule: NoWaitStatementRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+        mock_vnode = token_vnode(WHILE_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -789,12 +902,12 @@ class TestNoRepeatLoopRule:
         assert rule.message == "Use of repeat loops is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_repeat_keyword(self, rule: NoRepeatLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.RepeatKeyword)
+        mock_vnode = token_vnode(REPEAT_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_while_keyword(self, rule: NoRepeatLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+        mock_vnode = token_vnode(WHILE_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -819,18 +932,18 @@ class TestNoWhileLoopRule:
         assert rule.message == "Use of while loops is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_while_keyword(self, rule: NoWhileLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+        mock_vnode = token_vnode(WHILE_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_wait_keyword(self, rule: NoWhileLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.WaitKeyword)
+        mock_vnode = token_vnode(WAIT_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_do_while_trailing_while(self, rule: NoWhileLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
-        do_while_vnode = fake_vnode(sl.SyntaxKind.DoWhileStatement)
+        mock_vnode = token_vnode(WHILE_TOKEN_KIND)
+        do_while_vnode = fake_vnode(DO_WHILE_STATEMENT_KIND)
         context = Context().push(do_while_vnode)
 
         assert rule.applies(mock_vnode, context) is False
@@ -856,12 +969,12 @@ class TestNoForeachLoopRule:
         assert rule.message == "Use of foreach loops is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_foreach_keyword(self, rule: NoForeachLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.ForeachKeyword)
+        mock_vnode = token_vnode(FOREACH_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_for_keyword(self, rule: NoForeachLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.ForKeyword)
+        mock_vnode = token_vnode(FOR_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -886,12 +999,12 @@ class TestNoDoWhileLoopRule:
         assert rule.message == "Use of do-while loops is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_do_keyword(self, rule: NoDoWhileLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.DoKeyword)
+        mock_vnode = token_vnode(DO_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_while_keyword(self, rule: NoDoWhileLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.WhileKeyword)
+        mock_vnode = token_vnode(WHILE_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -916,18 +1029,18 @@ class TestNoForLoopRule:
         assert rule.message == "Use of for loops is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_for_keyword(self, rule: NoForLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.ForKeyword)
+        mock_vnode = token_vnode(FOR_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_foreach_keyword(self, rule: NoForLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.ForeachKeyword)
+        mock_vnode = token_vnode(FOREACH_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_generate_for_token(self, rule: NoForLoopRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.ForKeyword)
-        loop_generate_vnode = fake_vnode(sl.SyntaxKind.LoopGenerate)
+        mock_vnode = token_vnode(FOR_KEYWORD_TOKEN_KIND)
+        loop_generate_vnode = fake_vnode(LOOP_GENERATE_KIND)
         context = Context().push(loop_generate_vnode)
 
         assert rule.applies(mock_vnode, context) is False
@@ -953,10 +1066,10 @@ class TestNoGenerateForRule:
         assert rule.message == "Use of generate-for loops can make structural intent harder to follow"
 
     def test_applies_returns_true_for_loop_generate_node(self, rule: NoGenerateForRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "generate_for.v"))
+        tree = parse_file(str(DATA / "generate_for.v"))
 
         def walk(node):
-            if isinstance(node, sl.LoopGenerateSyntax):
+            if isinstance(node, LoopGenerateNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -973,7 +1086,7 @@ class TestNoGenerateForRule:
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_procedural_for_statement(self, rule: NoGenerateForRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ForLoopStatement)
+        mock_vnode = fake_vnode(FOR_LOOP_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -998,10 +1111,10 @@ class TestNoIfGenerateRule:
         assert rule.message == "Use of if-generate can make structural intent harder to follow"
 
     def test_applies_returns_true_for_if_generate_node(self, rule: NoIfGenerateRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "if_generate.v"))
+        tree = parse_file(str(DATA / "if_generate.v"))
 
         def walk(node):
-            if isinstance(node, sl.IfGenerateSyntax):
+            if isinstance(node, IfGenerateNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1018,7 +1131,7 @@ class TestNoIfGenerateRule:
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_procedural_if_statement(self, rule: NoIfGenerateRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ConditionalStatement)
+        mock_vnode = fake_vnode(CONDITIONAL_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1043,10 +1156,10 @@ class TestNoTaskDeclarationRule:
         assert rule.message == "Use of task declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_task_declaration_node(self, rule: NoTaskDeclarationRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "task_declaration.v"))
+        tree = parse_file(str(DATA / "task_declaration.v"))
 
         def walk(node):
-            if getattr(node, "kind", None) == sl.SyntaxKind.TaskDeclaration:
+            if getattr(node, "kind", None) == TASK_DECLARATION_KIND:
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1063,7 +1176,7 @@ class TestNoTaskDeclarationRule:
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_function_declaration_node(self, rule: NoTaskDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.FunctionDeclaration)
+        mock_vnode = fake_vnode(FUNCTION_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1088,12 +1201,12 @@ class TestNoProgramDeclarationRule:
         assert rule.message == "Use of program declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_program_declaration_node(self, rule: NoProgramDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_module_declaration_node(self, rule: NoProgramDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ModuleDeclaration)
+        mock_vnode = fake_vnode(MODULE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1118,12 +1231,12 @@ class TestNoClockingDeclarationRule:
         assert rule.message == "Use of clocking declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_clocking_declaration_node(self, rule: NoClockingDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ClockingDeclaration)
+        mock_vnode = fake_vnode(CLOCKING_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_program_declaration_node(self, rule: NoClockingDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1148,12 +1261,12 @@ class TestNoCheckerDeclarationRule:
         assert rule.message == "Use of checker declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_checker_declaration_node(self, rule: NoCheckerDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.CheckerDeclaration)
+        mock_vnode = fake_vnode(CHECKER_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_clocking_declaration_node(self, rule: NoCheckerDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ClockingDeclaration)
+        mock_vnode = fake_vnode(CLOCKING_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1178,12 +1291,12 @@ class TestNoInterfaceDeclarationRule:
         assert rule.message == "Use of interface declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_interface_declaration_node(self, rule: NoInterfaceDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.InterfaceDeclaration)
+        mock_vnode = fake_vnode(INTERFACE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_program_declaration_node(self, rule: NoInterfaceDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1208,12 +1321,12 @@ class TestNoModportDeclarationRule:
         assert rule.message == "Use of modport declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_modport_declaration_node(self, rule: NoModportDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ModportDeclaration)
+        mock_vnode = fake_vnode(MODPORT_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_interface_declaration_node(self, rule: NoModportDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.InterfaceDeclaration)
+        mock_vnode = fake_vnode(INTERFACE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1238,12 +1351,12 @@ class TestNoPackageDeclarationRule:
         assert rule.message == "Use of package declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_package_declaration_node(self, rule: NoPackageDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.PackageDeclaration)
+        mock_vnode = fake_vnode(PACKAGE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_program_declaration_node(self, rule: NoPackageDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1268,12 +1381,12 @@ class TestNoDisableStatementRule:
         assert rule.message == "Use of disable statements is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_disable_keyword(self, rule: NoDisableStatementRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.DisableKeyword)
+        mock_vnode = token_vnode(DISABLE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_return_keyword(self, rule: NoDisableStatementRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.ReturnKeyword)
+        mock_vnode = token_vnode(RETURN_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1282,8 +1395,8 @@ class TestNoDisableStatementRule:
         DisableKeyword token as an ordinary `disable <label>;` statement, but is a
         different grammatical construct (DisableIffSyntax) and not a disable
         statement at all."""
-        mock_vnode = token_vnode(sl.TokenKind.DisableKeyword)
-        ancestor = fake_vnode(sl.SyntaxKind.DisableIff)
+        mock_vnode = token_vnode(DISABLE_KEYWORD_TOKEN_KIND)
+        ancestor = fake_vnode(DISABLE_IFF_KIND)
         ctx = Context().push(ancestor)
 
         assert rule.applies(mock_vnode, ctx) is False
@@ -1309,17 +1422,17 @@ class TestNoEventTriggerRule:
         assert rule.message == "Use of event trigger statements is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_blocking_event_trigger(self, rule: NoEventTriggerRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.MinusArrow)
+        mock_vnode = token_vnode(MINUS_ARROW_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, event_trigger_statement_context()) is True
 
     def test_applies_returns_true_for_nonblocking_event_trigger(self, rule: NoEventTriggerRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.MinusDoubleArrow)
+        mock_vnode = token_vnode(MINUS_DOUBLE_ARROW_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, event_trigger_statement_context(nonblocking=True)) is True
 
     def test_applies_returns_false_for_greater_than(self, rule: NoEventTriggerRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.GreaterThan)
+        mock_vnode = token_vnode(GREATER_THAN_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, event_trigger_statement_context()) is False
 
@@ -1328,7 +1441,7 @@ class TestNoEventTriggerRule:
         (`a -> b`), not just an event-trigger statement (`-> done;`). Outside a
         BlockingEventTriggerStatement/NonblockingEventTriggerStatement ancestor, it
         must not be flagged."""
-        mock_vnode = token_vnode(sl.TokenKind.MinusArrow)
+        mock_vnode = token_vnode(MINUS_ARROW_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1353,12 +1466,12 @@ class TestNoForkJoinRule:
         assert rule.message == "Use of fork/join style parallel blocks is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_parallel_block(self, rule: NoForkJoinRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ParallelBlockStatement)
+        mock_vnode = fake_vnode(PARALLEL_BLOCK_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_sequential_block(self, rule: NoForkJoinRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.SequentialBlockStatement)
+        mock_vnode = fake_vnode(SEQUENTIAL_BLOCK_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1383,10 +1496,10 @@ class TestNoInsideOperatorRule:
         assert rule.message == "Use of the inside operator is discouraged in this RTL subset"
 
     def test_applies_returns_true_for_inside_operator(self, rule: NoInsideOperatorRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "inside_operator.v"))
+        tree = parse_file(str(DATA / "inside_operator.v"))
 
         def walk(node):
-            if isinstance(node, sl.Token) and node.kind == sl.TokenKind.InsideKeyword:
+            if isinstance(node, Token) and node.kind == INSIDE_KEYWORD_TOKEN_KIND:
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1404,7 +1517,7 @@ class TestNoInsideOperatorRule:
     def test_applies_returns_false_for_case_inside_keyword(self, rule: NoInsideOperatorRule) -> None:
         """`case (expr) inside ... endcase` exposes `inside` as the case
         statement's own `matchesOrInside` token, not an ordinary operator use."""
-        mock_vnode = token_vnode(sl.TokenKind.InsideKeyword)
+        mock_vnode = token_vnode(INSIDE_KEYWORD_TOKEN_KIND)
         ctx = case_inside_context(mock_vnode.raw)
 
         assert rule.applies(mock_vnode, ctx) is False
@@ -1430,24 +1543,24 @@ class TestNoUniquePriorityCaseRule:
         assert rule.message == "Use of unique/priority case can overstate case completeness or exclusivity"
 
     def test_applies_returns_true_for_unique_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.UniqueKeyword)
+        mock_vnode = token_vnode(UNIQUE_KEYWORD_TOKEN_KIND)
         context = case_context(unique_or_priority="unique")
 
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_true_for_priority_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.PriorityKeyword)
+        mock_vnode = token_vnode(PRIORITY_KEYWORD_TOKEN_KIND)
         context = case_context(unique_or_priority="priority")
 
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_for_plain_case_keyword(self, rule: NoUniquePriorityCaseRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.CaseKeyword)
+        mock_vnode = token_vnode(CASE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_unique_if(self, rule: NoUniquePriorityCaseRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.UniqueKeyword)
+        mock_vnode = token_vnode(UNIQUE_KEYWORD_TOKEN_KIND)
         context = conditional_context(unique_or_priority="unique")
 
         assert rule.applies(mock_vnode, context) is False
@@ -1473,13 +1586,13 @@ class TestNoUnique0CaseRule:
         assert rule.message == "Use of unique0 case can overstate case coverage assumptions"
 
     def test_applies_returns_true_for_unique0_keyword(self, rule: NoUnique0CaseRule) -> None:
-        mock_vnode = token_vnode(getattr(sl.TokenKind, "Unique0Keyword", None))
+        mock_vnode = token_vnode(UNIQUE0_TOKEN_KIND)
         context = case_context(unique_or_priority="unique0")
 
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_for_unique_keyword(self, rule: NoUnique0CaseRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.UniqueKeyword)
+        mock_vnode = token_vnode(UNIQUE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1504,13 +1617,13 @@ class TestNoUniqueIfRule:
         assert rule.message == "Use of unique if can overstate branch exclusivity assumptions"
 
     def test_applies_returns_true_for_unique_if(self, rule: NoUniqueIfRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.UniqueKeyword)
+        mock_vnode = token_vnode(UNIQUE_KEYWORD_TOKEN_KIND)
         context = conditional_context(unique_or_priority="unique")
 
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_for_unique_case(self, rule: NoUniqueIfRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.UniqueKeyword)
+        mock_vnode = token_vnode(UNIQUE_KEYWORD_TOKEN_KIND)
         context = case_context(unique_or_priority="unique")
 
         assert rule.applies(mock_vnode, context) is False
@@ -1536,19 +1649,19 @@ class TestNoUnique0IfRule:
         assert rule.message == "Use of unique0 if can overstate branch exclusivity assumptions"
 
     def test_applies_returns_true_for_unique0_if(self, rule: NoUnique0IfRule) -> None:
-        mock_vnode = token_vnode(getattr(sl.TokenKind, "Unique0Keyword", None))
+        mock_vnode = token_vnode(UNIQUE0_TOKEN_KIND)
         context = conditional_context(unique_or_priority="unique0")
 
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_for_unique0_case(self, rule: NoUnique0IfRule) -> None:
-        mock_vnode = token_vnode(getattr(sl.TokenKind, "Unique0Keyword", None))
+        mock_vnode = token_vnode(UNIQUE0_TOKEN_KIND)
         context = case_context(unique_or_priority="unique0")
 
         assert rule.applies(mock_vnode, context) is False
 
     def test_applies_returns_false_for_unique_if(self, rule: NoUnique0IfRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.UniqueKeyword)
+        mock_vnode = token_vnode(UNIQUE_KEYWORD_TOKEN_KIND)
         context = conditional_context(unique_or_priority="unique")
 
         assert rule.applies(mock_vnode, context) is False
@@ -1574,13 +1687,13 @@ class TestNoPriorityIfRule:
         assert rule.message == "Use of priority if can overstate branch ordering assumptions"
 
     def test_applies_returns_true_for_priority_if(self, rule: NoPriorityIfRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.PriorityKeyword)
+        mock_vnode = token_vnode(PRIORITY_KEYWORD_TOKEN_KIND)
         context = conditional_context(unique_or_priority="priority")
 
         assert rule.applies(mock_vnode, context) is True
 
     def test_applies_returns_false_for_priority_case(self, rule: NoPriorityIfRule) -> None:
-        mock_vnode = token_vnode(sl.TokenKind.PriorityKeyword)
+        mock_vnode = token_vnode(PRIORITY_KEYWORD_TOKEN_KIND)
         context = case_context(unique_or_priority="priority")
 
         assert rule.applies(mock_vnode, context) is False
@@ -1606,10 +1719,10 @@ class TestNoInternalInoutRule:
         assert rule.message == "Internal inout declarations are not allowed"
 
     def test_applies_returns_true_for_internal_inout_port_declaration(self, rule: NoInternalInoutRule) -> None:
-        tree = sl.SyntaxTree.fromFile(str(DATA / "internal_inout.v"))
+        tree = parse_file(str(DATA / "internal_inout.v"))
 
         def walk(node):
-            if isinstance(node, sl.PortDeclarationSyntax):
+            if isinstance(node, PortDeclarationNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1626,11 +1739,11 @@ class TestNoInternalInoutRule:
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_ansi_inout_module_port(self, rule: NoInternalInoutRule) -> None:
-        tree = sl.SyntaxTree.fromText("module top(inout wire io); endmodule")
+        tree = parse_text("module top(inout wire io); endmodule")
         assert_no_parse_errors("test_applies_returns_false_for_ansi_inout_module_port", tree)
 
         def walk(node):
-            if isinstance(node, sl.ImplicitAnsiPortSyntax):
+            if isinstance(node, ImplicitAnsiPortNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1667,7 +1780,7 @@ class TestNoLatchInAlwaysCombRule:
         assert rule.message == "always_comb block contains a conditional-only assignment that can infer latch-like storage"
 
     def test_applies_returns_true_for_missing_default_assignment(self, rule: NoLatchInAlwaysCombRule) -> None:
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top(input logic a, b, output logic y);
                 always_comb begin
@@ -1679,7 +1792,7 @@ class TestNoLatchInAlwaysCombRule:
         assert_no_parse_errors("test_applies_returns_true_for_missing_default_assignment", tree)
 
         def walk(node):
-            if isinstance(node, sl.ProceduralBlockSyntax):
+            if isinstance(node, ProceduralBlockNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1696,7 +1809,7 @@ class TestNoLatchInAlwaysCombRule:
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_with_prior_default_assignment(self, rule: NoLatchInAlwaysCombRule) -> None:
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top(input logic a, b, output logic y);
                 always_comb begin
@@ -1709,7 +1822,7 @@ class TestNoLatchInAlwaysCombRule:
         assert_no_parse_errors("test_applies_returns_false_with_prior_default_assignment", tree)
 
         def walk(node):
-            if isinstance(node, sl.ProceduralBlockSyntax):
+            if isinstance(node, ProceduralBlockNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1726,7 +1839,7 @@ class TestNoLatchInAlwaysCombRule:
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_with_explicit_else(self, rule: NoLatchInAlwaysCombRule) -> None:
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module top(input logic a, b, c, output logic y);
                 always_comb begin
@@ -1739,7 +1852,7 @@ class TestNoLatchInAlwaysCombRule:
         assert_no_parse_errors("test_applies_returns_false_with_explicit_else", tree)
 
         def walk(node):
-            if isinstance(node, sl.ProceduralBlockSyntax):
+            if isinstance(node, ProceduralBlockNode):
                 return node
             if hasattr(node, "__iter__"):
                 for child in node:
@@ -1756,7 +1869,7 @@ class TestNoLatchInAlwaysCombRule:
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_non_always_comb_block(self, rule: NoLatchInAlwaysCombRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AlwaysBlock)
+        mock_vnode = fake_vnode(ALWAYS_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1781,12 +1894,12 @@ class TestNoDefparamRule:
         assert rule.message == "Use of defparam is discouraged; prefer explicit parameter overrides at instantiation"
 
     def test_applies_returns_true_for_defparam_token(self, rule: NoDefparamRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.DefParamKeyword)
+        mock_vnode = fake_vnode(DEFPARAM_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoDefparamRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.ParameterKeyword)
+        mock_vnode = fake_vnode(PARAMETER_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1811,17 +1924,17 @@ class TestNoForceReleaseRule:
         assert rule.message == "Use of force/release is discouraged in RTL; prefer explicit structural or procedural intent"
 
     def test_applies_returns_true_for_force_keyword(self, rule: NoForceReleaseRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.ForceKeyword)
+        mock_vnode = fake_vnode(FORCE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_release_keyword(self, rule: NoForceReleaseRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.ReleaseKeyword)
+        mock_vnode = fake_vnode(RELEASE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoForceReleaseRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.InitialKeyword)
+        mock_vnode = fake_vnode(INITIAL_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1846,22 +1959,22 @@ class TestNoAssignDeassignRule:
         assert rule.message == "Use of assign/deassign is discouraged in RTL; prefer explicit continuous or procedural intent"
 
     def test_applies_returns_true_for_assign_keyword(self, rule: NoAssignDeassignRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.AssignKeyword)
+        mock_vnode = fake_vnode(ASSIGN_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_deassign_keyword(self, rule: NoAssignDeassignRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.DeassignKeyword)
+        mock_vnode = fake_vnode(DEASSIGN_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoAssignDeassignRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.ParameterKeyword)
+        mock_vnode = fake_vnode(PARAMETER_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_assign_keyword_inside_continuous_assign(self, rule: NoAssignDeassignRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.AssignKeyword)
+        mock_vnode = fake_vnode(ASSIGN_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, continuous_assign_context()) is False
 
@@ -1886,17 +1999,17 @@ class TestNoWandWorRule:
         assert rule.message == "Use of wand/wor is discouraged in RTL; prefer explicit logic composition instead"
 
     def test_applies_returns_true_for_wand_keyword(self, rule: NoWandWorRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.WAndKeyword)
+        mock_vnode = fake_vnode(WAND_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_wor_keyword(self, rule: NoWandWorRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.WOrKeyword)
+        mock_vnode = fake_vnode(WOR_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoWandWorRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.LogicKeyword)
+        mock_vnode = fake_vnode(LOGIC_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1921,12 +2034,12 @@ class TestNoTriregRule:
         assert rule.message == "Use of trireg is discouraged in RTL; prefer explicit storage and connectivity modeling instead"
 
     def test_applies_returns_true_for_trireg_keyword(self, rule: NoTriregRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.TriRegKeyword)
+        mock_vnode = fake_vnode(TRIREG_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoTriregRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.WireKeyword)
+        mock_vnode = fake_vnode(WIRE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1951,17 +2064,17 @@ class TestNoSupply0Supply1Rule:
         assert rule.message == "Use of supply0/supply1 is discouraged in RTL; prefer explicit constant-driving intent instead"
 
     def test_applies_returns_true_for_supply0_keyword(self, rule: NoSupply0Supply1Rule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.Supply0Keyword)
+        mock_vnode = fake_vnode(SUPPLY0_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_supply1_keyword(self, rule: NoSupply0Supply1Rule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.Supply1Keyword)
+        mock_vnode = fake_vnode(SUPPLY1_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoSupply0Supply1Rule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.WireKeyword)
+        mock_vnode = fake_vnode(WIRE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -1986,17 +2099,17 @@ class TestNoTranRtranRule:
         assert rule.message == "Use of tran/rtran is discouraged in RTL; prefer explicit connectivity modeling instead"
 
     def test_applies_returns_true_for_tran_keyword(self, rule: NoTranRtranRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.TranKeyword)
+        mock_vnode = fake_vnode(TRAN_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_rtran_keyword(self, rule: NoTranRtranRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.RtranKeyword)
+        mock_vnode = fake_vnode(RTRAN_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_tranif_keyword(self, rule: NoTranRtranRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.TranIf1Keyword)
+        mock_vnode = fake_vnode(TRANIF1_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2021,17 +2134,17 @@ class TestNoTranifRtranifRule:
         assert rule.message == "Use of tranif/rtranif is discouraged in RTL; prefer explicit connectivity modeling instead"
 
     def test_applies_returns_true_for_tranif1_keyword(self, rule: NoTranifRtranifRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.TranIf1Keyword)
+        mock_vnode = fake_vnode(TRANIF1_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_rtranif0_keyword(self, rule: NoTranifRtranifRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.RtranIf0Keyword)
+        mock_vnode = fake_vnode(RTRANIF0_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_tran_keyword(self, rule: NoTranifRtranifRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.TranKeyword)
+        mock_vnode = fake_vnode(TRAN_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2056,12 +2169,12 @@ class TestNoSpecifyBlockRule:
         assert rule.message == "Use of specify blocks is discouraged in synthesizable RTL; pin-to-pin timing modeling is not synthesizable"
 
     def test_applies_returns_true_for_specify_block_node(self, rule: NoSpecifyBlockRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.SpecifyBlock)
+        mock_vnode = fake_vnode(SPECIFY_BLOCK_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoSpecifyBlockRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2086,12 +2199,12 @@ class TestNoPrimitiveDeclarationRule:
         assert rule.message == "Use of user-defined primitive (UDP) declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_udp_declaration_node(self, rule: NoPrimitiveDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.UdpDeclaration)
+        mock_vnode = fake_vnode(UDP_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoPrimitiveDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.TaskDeclaration)
+        mock_vnode = fake_vnode(TASK_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2116,30 +2229,30 @@ class TestNoGatePrimitiveRule:
         assert rule.message == "Use of gate-level primitives is discouraged in RTL; prefer behavioral or operator-level modeling"
 
     def test_applies_returns_true_for_and_keyword_inside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.AndKeyword)
+        mock_vnode = fake_vnode(AND_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
     def test_applies_returns_true_for_bufif0_keyword_inside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.BufIf0Keyword)
+        mock_vnode = fake_vnode(BUFIF0_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoGatePrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.InitialKeyword)
+        mock_vnode = fake_vnode(INITIAL_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is False
 
     def test_applies_returns_false_for_or_keyword_outside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
         """`or` is also the separator in classic event/sensitivity lists
-        (`@(posedge clk or negedge rst_n)`), which shares the same TokenKind.OrKeyword
+        (`@(posedge clk or negedge rst_n)`), which shares the same OR_KEYWORD_TOKEN_KIND
         as the `or` gate-primitive keyword but is not a gate instantiation at all."""
-        mock_vnode = fake_vnode(sl.TokenKind.OrKeyword)
+        mock_vnode = fake_vnode(OR_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_true_for_or_keyword_inside_primitive_instantiation(self, rule: NoGatePrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.OrKeyword)
+        mock_vnode = fake_vnode(OR_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
@@ -2164,28 +2277,28 @@ class TestNoSwitchPrimitiveRule:
         assert rule.message == "Use of switch-level primitives is discouraged in RTL; prefer behavioral or operator-level modeling"
 
     def test_applies_returns_true_for_cmos_keyword_inside_primitive_instantiation(self, rule: NoSwitchPrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.CmosKeyword)
+        mock_vnode = fake_vnode(CMOS_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
     def test_applies_returns_true_for_pullup_keyword_inside_primitive_instantiation(self, rule: NoSwitchPrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.PullUpKeyword)
+        mock_vnode = fake_vnode(PULLUP_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is True
 
     def test_applies_returns_false_for_other_token(self, rule: NoSwitchPrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.InitialKeyword)
+        mock_vnode = fake_vnode(INITIAL_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is False
 
     def test_applies_returns_false_for_cmos_keyword_outside_primitive_instantiation(self, rule: NoSwitchPrimitiveRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.CmosKeyword)
+        mock_vnode = fake_vnode(CMOS_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_gate_primitive_token(self, rule: NoSwitchPrimitiveRule) -> None:
         """A gate-level `and`/`or`/... keyword is `NO_GATE_PRIMITIVE`'s concern, not this rule's."""
-        mock_vnode = fake_vnode(sl.TokenKind.AndKeyword)
+        mock_vnode = fake_vnode(AND_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, primitive_instantiation_context()) is False
 
@@ -2210,12 +2323,12 @@ class TestNoAliasStatementRule:
         assert rule.message == "Use of alias statements is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_net_alias_node(self, rule: NoAliasStatementRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.NetAlias)
+        mock_vnode = fake_vnode(NET_ALIAS_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoAliasStatementRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.BindDirective)
+        mock_vnode = fake_vnode(BIND_DIRECTIVE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2240,12 +2353,12 @@ class TestNoBindDirectiveRule:
         assert rule.message == "Use of bind directives is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_bind_directive_node(self, rule: NoBindDirectiveRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.BindDirective)
+        mock_vnode = fake_vnode(BIND_DIRECTIVE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoBindDirectiveRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.NetAlias)
+        mock_vnode = fake_vnode(NET_ALIAS_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2270,17 +2383,17 @@ class TestNoDelayControlRule:
         assert rule.message == "Use of delay controls (#delay) is discouraged in synthesizable RTL; delays are simulation-only timing"
 
     def test_applies_returns_true_for_delay_control_node(self, rule: NoDelayControlRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.DelayControl)
+        mock_vnode = fake_vnode(DELAY_CONTROL_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_delay3_node(self, rule: NoDelayControlRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.Delay3)
+        mock_vnode = fake_vnode(DELAY3_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoDelayControlRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ContinuousAssign)
+        mock_vnode = fake_vnode(CONTINUOUS_ASSIGN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2305,17 +2418,17 @@ class TestNoImmediateAssertionRule:
         assert rule.message == "Use of immediate assertions (assert/assume/cover) is discouraged in synthesizable RTL; assertions belong in verification, not design"
 
     def test_applies_returns_true_for_immediate_assert_statement(self, rule: NoImmediateAssertionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ImmediateAssertStatement)
+        mock_vnode = fake_vnode(IMMEDIATE_ASSERT_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_immediate_cover_statement(self, rule: NoImmediateAssertionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ImmediateCoverStatement)
+        mock_vnode = fake_vnode(IMMEDIATE_COVER_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_concurrent_assertion(self, rule: NoImmediateAssertionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AssertPropertyStatement)
+        mock_vnode = fake_vnode(ASSERT_PROPERTY_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2340,17 +2453,17 @@ class TestNoConcurrentAssertionRule:
         assert rule.message == "Use of concurrent assertions (assert/assume/cover property) is discouraged in synthesizable RTL; assertions belong in verification, not design"
 
     def test_applies_returns_true_for_assert_property_statement(self, rule: NoConcurrentAssertionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AssertPropertyStatement)
+        mock_vnode = fake_vnode(ASSERT_PROPERTY_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_cover_property_statement(self, rule: NoConcurrentAssertionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.CoverPropertyStatement)
+        mock_vnode = fake_vnode(COVER_PROPERTY_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_immediate_assertion(self, rule: NoConcurrentAssertionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ImmediateAssertStatement)
+        mock_vnode = fake_vnode(IMMEDIATE_ASSERT_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2364,10 +2477,10 @@ class TestNoConcurrentAssertionRule:
 
 
 def _system_name_vnode(name: str) -> BaseVNode:
-    tree = sl.SyntaxTree.fromText(f"module top; initial {name}(); endmodule")
+    tree = parse_text(f"module top; initial {name}(); endmodule")
 
     def walk(node):
-        if isinstance(node, sl.SystemNameSyntax):
+        if isinstance(node, SystemNameNode):
             return node
         if hasattr(node, "__iter__"):
             for child in node:
@@ -2402,7 +2515,7 @@ class TestNoDisplaySystemTaskRule:
         assert rule.applies(_system_name_vnode("$finish"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoDisplaySystemTaskRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2436,7 +2549,7 @@ class TestNoSimulationControlTaskRule:
         assert rule.applies(_system_name_vnode("$display"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoSimulationControlTaskRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2461,12 +2574,12 @@ class TestNoClassDeclarationRule:
         assert rule.message == "Use of class declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_class_declaration_node(self, rule: NoClassDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ClassDeclaration)
+        mock_vnode = fake_vnode(CLASS_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoClassDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.InterfaceDeclaration)
+        mock_vnode = fake_vnode(INTERFACE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2491,12 +2604,12 @@ class TestNoCovergroupDeclarationRule:
         assert rule.message == "Use of covergroup declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_covergroup_declaration_node(self, rule: NoCovergroupDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.CovergroupDeclaration)
+        mock_vnode = fake_vnode(COVERGROUP_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoCovergroupDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ClassDeclaration)
+        mock_vnode = fake_vnode(CLASS_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2521,12 +2634,12 @@ class TestNoSequenceDeclarationRule:
         assert rule.message == "Use of sequence declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_sequence_declaration_node(self, rule: NoSequenceDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.SequenceDeclaration)
+        mock_vnode = fake_vnode(SEQUENCE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_property_declaration_node(self, rule: NoSequenceDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.PropertyDeclaration)
+        mock_vnode = fake_vnode(PROPERTY_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2551,17 +2664,17 @@ class TestNoPropertyDeclarationRule:
         assert rule.message == "Use of property declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_property_declaration_node(self, rule: NoPropertyDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.PropertyDeclaration)
+        mock_vnode = fake_vnode(PROPERTY_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_sequence_declaration_node(self, rule: NoPropertyDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.SequenceDeclaration)
+        mock_vnode = fake_vnode(SEQUENCE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_assert_property_statement(self, rule: NoPropertyDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AssertPropertyStatement)
+        mock_vnode = fake_vnode(ASSERT_PROPERTY_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2586,12 +2699,12 @@ class TestNoFunctionDeclarationRule:
         assert rule.message == "Use of function declarations is discouraged in this restricted RTL subset"
 
     def test_applies_returns_true_for_function_declaration_node(self, rule: NoFunctionDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.FunctionDeclaration)
+        mock_vnode = fake_vnode(FUNCTION_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_task_declaration_node(self, rule: NoFunctionDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.TaskDeclaration)
+        mock_vnode = fake_vnode(TASK_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2616,12 +2729,12 @@ class TestNoUwireRule:
         assert rule.message == "Use of uwire is discouraged in RTL; prefer explicit wire/tri declarations"
 
     def test_applies_returns_true_for_uwire_keyword(self, rule: NoUwireRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.UWireKeyword)
+        mock_vnode = fake_vnode(UWIRE_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_wand_keyword(self, rule: NoUwireRule) -> None:
-        mock_vnode = fake_vnode(sl.TokenKind.WAndKeyword)
+        mock_vnode = fake_vnode(WAND_KEYWORD_TOKEN_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2646,12 +2759,12 @@ class TestNoLetDeclarationRule:
         assert rule.message == "Use of let declarations is discouraged in synthesizable RTL"
 
     def test_applies_returns_true_for_let_declaration_node(self, rule: NoLetDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.LetDeclaration)
+        mock_vnode = fake_vnode(LET_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoLetDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.FunctionDeclaration)
+        mock_vnode = fake_vnode(FUNCTION_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2676,12 +2789,12 @@ class TestNoConfigDeclarationRule:
         assert rule.message == "Use of config declarations is discouraged in synthesizable RTL; library/config binding is a compilation-flow concern, not design intent"
 
     def test_applies_returns_true_for_config_declaration_node(self, rule: NoConfigDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ConfigDeclaration)
+        mock_vnode = fake_vnode(CONFIG_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoConfigDeclarationRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.PackageDeclaration)
+        mock_vnode = fake_vnode(PACKAGE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2706,12 +2819,12 @@ class TestNoRandsequenceRule:
         assert rule.message == "Use of randsequence blocks is discouraged in synthesizable RTL; randsequence is a verification-oriented control construct"
 
     def test_applies_returns_true_for_randsequence_statement_node(self, rule: NoRandsequenceRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.RandSequenceStatement)
+        mock_vnode = fake_vnode(RAND_SEQUENCE_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoRandsequenceRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ForeverStatement)
+        mock_vnode = fake_vnode(FOREVER_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2736,17 +2849,17 @@ class TestNoExpectRestrictPropertyRule:
         assert rule.message == "Use of expect/restrict property statements is discouraged in synthesizable RTL; assertions belong in verification, not design"
 
     def test_applies_returns_true_for_expect_property_statement(self, rule: NoExpectRestrictPropertyRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ExpectPropertyStatement)
+        mock_vnode = fake_vnode(EXPECT_PROPERTY_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_restrict_property_statement(self, rule: NoExpectRestrictPropertyRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.RestrictPropertyStatement)
+        mock_vnode = fake_vnode(RESTRICT_PROPERTY_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_assert_property_statement(self, rule: NoExpectRestrictPropertyRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.AssertPropertyStatement)
+        mock_vnode = fake_vnode(ASSERT_PROPERTY_STATEMENT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2771,12 +2884,12 @@ class TestNoVirtualInterfaceRule:
         assert rule.message == "Use of virtual interface declarations is discouraged in synthesizable RTL; virtual interfaces are a testbench-only construct"
 
     def test_applies_returns_true_for_virtual_interface_type_node(self, rule: NoVirtualInterfaceRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.VirtualInterfaceType)
+        mock_vnode = fake_vnode(VIRTUAL_INTERFACE_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_interface_declaration_node(self, rule: NoVirtualInterfaceRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.InterfaceDeclaration)
+        mock_vnode = fake_vnode(INTERFACE_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2801,17 +2914,17 @@ class TestNoDpiImportExportRule:
         assert rule.message == "Use of DPI import/export declarations is discouraged in synthesizable RTL; DPI is a simulation/foreign-code bridge"
 
     def test_applies_returns_true_for_dpi_import_node(self, rule: NoDpiImportExportRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.DPIImport)
+        mock_vnode = fake_vnode(DPI_IMPORT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_dpi_export_node(self, rule: NoDpiImportExportRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.DPIExport)
+        mock_vnode = fake_vnode(DPI_EXPORT_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoDpiImportExportRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.FunctionDeclaration)
+        mock_vnode = fake_vnode(FUNCTION_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2836,22 +2949,22 @@ class TestNoRealTypeRule:
         assert rule.message == "Use of real/shortreal/realtime types is discouraged in synthesizable RTL; floating-point types are not synthesizable"
 
     def test_applies_returns_true_for_real_type_node(self, rule: NoRealTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.RealType)
+        mock_vnode = fake_vnode(REAL_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_shortreal_type_node(self, rule: NoRealTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ShortRealType)
+        mock_vnode = fake_vnode(SHORT_REAL_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_realtime_type_node(self, rule: NoRealTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.RealTimeType)
+        mock_vnode = fake_vnode(REAL_TIME_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_string_type_node(self, rule: NoRealTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.StringType)
+        mock_vnode = fake_vnode(STRING_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2876,12 +2989,12 @@ class TestNoStringTypeRule:
         assert rule.message == "Use of string type is discouraged in synthesizable RTL; string is a simulation-only data type"
 
     def test_applies_returns_true_for_string_type_node(self, rule: NoStringTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.StringType)
+        mock_vnode = fake_vnode(STRING_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_real_type_node(self, rule: NoStringTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.RealType)
+        mock_vnode = fake_vnode(REAL_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2906,12 +3019,12 @@ class TestNoChandleTypeRule:
         assert rule.message == "Use of chandle type is discouraged in synthesizable RTL; chandle is a DPI-only handle type"
 
     def test_applies_returns_true_for_chandle_type_node(self, rule: NoChandleTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.CHandleType)
+        mock_vnode = fake_vnode(CHANDLE_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_string_type_node(self, rule: NoChandleTypeRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.StringType)
+        mock_vnode = fake_vnode(STRING_TYPE_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2945,7 +3058,7 @@ class TestNoRandomSystemFunctionRule:
         assert rule.applies(_system_name_vnode("$time"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoRandomSystemFunctionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -2979,7 +3092,7 @@ class TestNoTimeSystemFunctionRule:
         assert rule.applies(_system_name_vnode("$random"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoTimeSystemFunctionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3013,7 +3126,7 @@ class TestNoVcdDumpTaskRule:
         assert rule.applies(_system_name_vnode("$display"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoVcdDumpTaskRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3048,7 +3161,7 @@ class TestNoFileIoSystemTaskRule:
         assert rule.applies(_system_name_vnode("$display"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoFileIoSystemTaskRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3082,7 +3195,7 @@ class TestNoPlusargsSystemFunctionRule:
         assert rule.applies(_system_name_vnode("$random"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoPlusargsSystemFunctionRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3116,7 +3229,7 @@ class TestNoAssertionControlTaskRule:
         assert rule.applies(_system_name_vnode("$display"), Context()) is False
 
     def test_applies_returns_false_for_non_system_name_node(self, rule: NoAssertionControlTaskRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.ProgramDeclaration)
+        mock_vnode = fake_vnode(PROGRAM_DECLARATION_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3130,7 +3243,7 @@ class TestNoAssertionControlTaskRule:
 
 
 def _find_first_node_of_kind(src: str, kind: object) -> object:
-    tree = sl.SyntaxTree.fromText(src)
+    tree = parse_text(src)
     assert_no_parse_errors(src, tree)
     found: object = None
 
@@ -3158,12 +3271,12 @@ class TestNoQueueRule:
         assert rule.message == "Use of queue declarations (arr[$]) is discouraged in synthesizable RTL; queues are a dynamic, software-oriented SystemVerilog construct"
 
     def test_applies_returns_true_for_queue_dimension_node(self, rule: NoQueueRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.QueueDimensionSpecifier)
+        mock_vnode = fake_vnode(QUEUE_DIMENSION_SPECIFIER_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_false_for_other_node(self, rule: NoQueueRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.WildcardDimensionSpecifier)
+        mock_vnode = fake_vnode(WILDCARD_DIMENSION_SPECIFIER_KIND)
 
         assert rule.applies(mock_vnode, Context()) is False
 
@@ -3188,7 +3301,7 @@ class TestNoDynamicArrayRule:
         assert rule.message == "Use of dynamic array declarations (arr[]) is discouraged in synthesizable RTL; dynamic arrays are a software-oriented SystemVerilog construct"
 
     def test_applies_returns_true_for_bare_brackets(self, rule: NoDynamicArrayRule) -> None:
-        raw_node = _find_first_node_of_kind("module top; int arr[]; endmodule", sl.SyntaxKind.VariableDimension)
+        raw_node = _find_first_node_of_kind("module top; int arr[]; endmodule", VARIABLE_DIMENSION_KIND)
         assert raw_node is not None
 
         mock_vnode = FakeVNode(raw_node)
@@ -3198,7 +3311,7 @@ class TestNoDynamicArrayRule:
     def test_applies_returns_false_for_fixed_size_dimension(self, rule: NoDynamicArrayRule) -> None:
         """`arr[4]` has a real `specifier` (a BitSelect around the size literal), so
         it must not be mistaken for a dynamic array's bare `[]`."""
-        raw_node = _find_first_node_of_kind("module top; int arr[4]; endmodule", sl.SyntaxKind.VariableDimension)
+        raw_node = _find_first_node_of_kind("module top; int arr[4]; endmodule", VARIABLE_DIMENSION_KIND)
         assert raw_node is not None
 
         mock_vnode = FakeVNode(raw_node)
@@ -3206,7 +3319,7 @@ class TestNoDynamicArrayRule:
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_queue_dimension(self, rule: NoDynamicArrayRule) -> None:
-        raw_node = _find_first_node_of_kind("module top; int arr[$]; endmodule", sl.SyntaxKind.VariableDimension)
+        raw_node = _find_first_node_of_kind("module top; int arr[$]; endmodule", VARIABLE_DIMENSION_KIND)
         assert raw_node is not None
 
         mock_vnode = FakeVNode(raw_node)
@@ -3234,12 +3347,12 @@ class TestNoAssociativeArrayRule:
         assert rule.message == "Use of associative array declarations (arr[*], arr[string], arr[int], etc.) is discouraged in synthesizable RTL; associative arrays are a software-oriented SystemVerilog construct"
 
     def test_applies_returns_true_for_wildcard_index(self, rule: NoAssociativeArrayRule) -> None:
-        mock_vnode = fake_vnode(sl.SyntaxKind.WildcardDimensionSpecifier)
+        mock_vnode = fake_vnode(WILDCARD_DIMENSION_SPECIFIER_KIND)
 
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_string_index(self, rule: NoAssociativeArrayRule) -> None:
-        raw_node = _find_first_node_of_kind("module top; int aa[string]; endmodule", sl.SyntaxKind.RangeDimensionSpecifier)
+        raw_node = _find_first_node_of_kind("module top; int aa[string]; endmodule", RANGE_DIMENSION_SPECIFIER_KIND)
         assert raw_node is not None
 
         mock_vnode = FakeVNode(raw_node)
@@ -3247,7 +3360,7 @@ class TestNoAssociativeArrayRule:
         assert rule.applies(mock_vnode, Context()) is True
 
     def test_applies_returns_true_for_int_index(self, rule: NoAssociativeArrayRule) -> None:
-        raw_node = _find_first_node_of_kind("module top; int aa[int]; endmodule", sl.SyntaxKind.RangeDimensionSpecifier)
+        raw_node = _find_first_node_of_kind("module top; int aa[int]; endmodule", RANGE_DIMENSION_SPECIFIER_KIND)
         assert raw_node is not None
 
         mock_vnode = FakeVNode(raw_node)
@@ -3259,7 +3372,7 @@ class TestNoAssociativeArrayRule:
         indistinguishable from a user-defined-type associative-array index without
         symbol resolution, so it must not be guessed at."""
         raw_node = _find_first_node_of_kind(
-            "module top; parameter WIDTH = 4; int arr[WIDTH]; endmodule", sl.SyntaxKind.RangeDimensionSpecifier
+            "module top; parameter WIDTH = 4; int arr[WIDTH]; endmodule", RANGE_DIMENSION_SPECIFIER_KIND
         )
         assert raw_node is not None
 
@@ -3268,7 +3381,7 @@ class TestNoAssociativeArrayRule:
         assert rule.applies(mock_vnode, Context()) is False
 
     def test_applies_returns_false_for_fixed_range(self, rule: NoAssociativeArrayRule) -> None:
-        raw_node = _find_first_node_of_kind("module top; int arr[3:0]; endmodule", sl.SyntaxKind.RangeDimensionSpecifier)
+        raw_node = _find_first_node_of_kind("module top; int arr[3:0]; endmodule", RANGE_DIMENSION_SPECIFIER_KIND)
         assert raw_node is not None
 
         mock_vnode = FakeVNode(raw_node)

@@ -15,7 +15,7 @@ import inspect
 from unittest.mock import Mock
 
 import pytest
-import pyslang as sl
+from src.pkg.parser.types import SyntaxNode, SyntaxTree
 
 import src.pkg.parser.syntax_queries as sq
 from src.pkg.parser.syntax_kinds import (
@@ -43,7 +43,7 @@ pytestmark = pytest.mark.stress
 
 def _build_cyclic_node(kind: int = 999999) -> Mock:
     """Build a mock SyntaxNode that forms a direct self-referential cycle on all fields."""
-    node = Mock(spec=sl.SyntaxNode)
+    node = Mock(spec=SyntaxNode)
     node.parent = node
     node.left = node
     node.right = node
@@ -77,7 +77,7 @@ def _build_cyclic_node(kind: int = 999999) -> Mock:
 
 def _build_cyclic_ring(length: int = 3, kind: int = 999999) -> list[Mock]:
     """Build a ring of mock SyntaxNodes where each node references the next."""
-    nodes = [Mock(spec=sl.SyntaxNode) for _ in range(length)]
+    nodes = [Mock(spec=SyntaxNode) for _ in range(length)]
     for i, node in enumerate(nodes):
         nxt = nodes[(i + 1) % length]
         node.parent = nxt
@@ -135,7 +135,7 @@ def test_syntax_query_single_node_cycle_immunity(name: str, func: object) -> Non
     mock_ctx.stack = [Mock(raw=cyclic, location={"file": "test.sv", "line": 1, "col": 1})]
     mock_ctx.scope = Mock(return_value=None)
     mock_symtab = Mock()
-    mock_tree = Mock(spec=sl.SyntaxTree)
+    mock_tree = Mock(spec=SyntaxTree)
     mock_tree.sourceManager = None
     mock_tree.root = cyclic
 
@@ -177,7 +177,7 @@ def test_syntax_query_multi_node_cycle_immunity(name: str, func: object) -> None
     mock_ctx.stack = [Mock(raw=entry_node, location={"file": "test.sv", "line": 1, "col": 1})]
     mock_ctx.scope = Mock(return_value=None)
     mock_symtab = Mock()
-    mock_tree = Mock(spec=sl.SyntaxTree)
+    mock_tree = Mock(spec=SyntaxTree)
     mock_tree.sourceManager = None
     mock_tree.root = entry_node
 
@@ -219,7 +219,7 @@ def test_evaluate_constant_expression_binary_cycles() -> None:
         BINARY_AND_EXPRESSION_KIND,
         EQUALITY_EXPRESSION_KIND,
     ):
-        node = Mock(spec=sl.SyntaxNode)
+        node = Mock(spec=SyntaxNode)
         node.kind = binary_kind
         node.left = node
         node.right = node
@@ -232,7 +232,7 @@ def test_evaluate_constant_expression_binary_cycles() -> None:
 def test_evaluate_constant_expression_unary_cycles() -> None:
     """Verifies constant folding terminates on cyclic unary operations."""
     for unary_kind in (UNARY_PLUS_EXPRESSION_KIND, UNARY_MINUS_EXPRESSION_KIND):
-        node = Mock(spec=sl.SyntaxNode)
+        node = Mock(spec=SyntaxNode)
         node.kind = unary_kind
         node.operand = node
 
@@ -243,7 +243,7 @@ def test_evaluate_constant_expression_unary_cycles() -> None:
 
 def test_unwrap_parentheses_cycle() -> None:
     """Verifies unwrap_parentheses breaks cycle immediately when parenthesized expression points to self."""
-    node = Mock(spec=sl.SyntaxNode)
+    node = Mock(spec=SyntaxNode)
     node.kind = PARENTHESIZED_EXPRESSION_KIND
     node.expression = node
 
@@ -255,7 +255,7 @@ def test_unwrap_parentheses_cycle() -> None:
 def test_contains_descendant_child_cycle() -> None:
     """Verifies contains_descendant terminates without RecursionError on cyclic child graphs."""
     cyclic = _build_cyclic_node()
-    target = Mock(spec=sl.SyntaxNode)
+    target = Mock(spec=SyntaxNode)
 
     with terminates_within():
         assert sq.contains_descendant(cyclic, target) is False
@@ -284,7 +284,7 @@ def test_generator_traversals_on_child_cycle() -> None:
 def test_assignment_target_resolution_cyclical_shapes() -> None:
     """Verifies resolve_assignment_target handles cyclical concats and element selects without recursion error."""
     # 1. Cyclical ElementSelectExpression
-    elem_select = Mock(spec=sl.SyntaxNode)
+    elem_select = Mock(spec=SyntaxNode)
     elem_select.kind = ELEMENT_SELECT_EXPRESSION_KIND
     elem_select.select = elem_select
     elem_select.left = elem_select
@@ -294,7 +294,7 @@ def test_assignment_target_resolution_cyclical_shapes() -> None:
     assert isinstance(selectors, list)
 
     # 2. Cyclical ConcatenationExpression
-    concat_node = Mock(spec=sl.SyntaxNode)
+    concat_node = Mock(spec=SyntaxNode)
     concat_node.kind = CONCATENATION_EXPRESSION_KIND
     concat_node.expressions = [concat_node]
 
@@ -306,7 +306,7 @@ def test_assignment_target_resolution_cyclical_shapes() -> None:
     assert target is None
 
     # 3. Cyclical MultipleConcatenationExpression
-    mult_concat = Mock(spec=sl.SyntaxNode)
+    mult_concat = Mock(spec=SyntaxNode)
     mult_concat.kind = MULTIPLE_CONCATENATION_EXPRESSION_KIND
     mult_concat.expression = mult_concat
     mult_concat.concatenation = mult_concat
@@ -340,11 +340,11 @@ def test_has_latch_pattern_deep_and_cyclic_immunity() -> None:
     # 2. Deeply nested block of 300 levels
     from src.pkg.parser.syntax_kinds import BLOCK_STATEMENT_KINDS
     block_kind = next(iter(BLOCK_STATEMENT_KINDS))
-    curr = Mock(spec=sl.SyntaxNode)
+    curr = Mock(spec=SyntaxNode)
     curr.kind = block_kind
     curr.statements = ()
     for _ in range(300):
-        parent = Mock(spec=sl.SyntaxNode)
+        parent = Mock(spec=SyntaxNode)
         parent.kind = block_kind
         parent.statements = (curr,)
         curr = parent

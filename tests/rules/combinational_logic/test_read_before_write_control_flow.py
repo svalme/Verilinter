@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -19,7 +19,7 @@ class TestReadBeforeWriteControlFlow:
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         assert_no_parse_errors("test_read_before_write_control_flow.py", tree)
         walker.walk(tree.root, tree, ctx, symbol_table)
         return rule.run(symbol_table)

@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -107,7 +107,7 @@ class TestNoWriteOnlyInputPortRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(WRITE_ONLY_INPUT_CODE)
+        tree = parse_text(WRITE_ONLY_INPUT_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -121,7 +121,7 @@ class TestNoWriteOnlyInputPortRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(READ_INPUT_CODE)
+        tree = parse_text(READ_INPUT_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -131,7 +131,7 @@ class TestNoWriteOnlyInputPortRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(READ_AND_WRITTEN_INPUT_CODE)
+        tree = parse_text(READ_AND_WRITTEN_INPUT_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
@@ -142,7 +142,7 @@ class TestNoWriteOnlyInputPortRule:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(UNUSED_INPUT_CODE)
+        tree = parse_text(UNUSED_INPUT_CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

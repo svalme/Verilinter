@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import pyslang as sl
+from src.pkg.parser.parse import parse_file, parse_text
+from src.pkg.parser.types import SyntaxTree
 
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
@@ -84,7 +85,7 @@ from src.pkg.engine import LintPipeline
 
 
 def _run_walked_files(
-    file_inputs: list[tuple[str, sl.SyntaxTree]],
+    file_inputs: list[tuple[str, SyntaxTree]],
     *,
     default_nettype_none_by_file: dict[str, bool] | None = None,
     jobs: int = 1,
@@ -129,7 +130,7 @@ def run_inline_lint_case(
     file_inputs = [
         (
             str(relative_path),
-            sl.SyntaxTree.fromText(
+            parse_text(
                 contents.strip() + "\n",
                 name=str(relative_path),
             ),
@@ -152,7 +153,7 @@ def run_inline_lint_case_spec(
     file_inputs = [
         (
             str(relative_path),
-            sl.SyntaxTree.fromText(
+            parse_text(
                 file.contents.strip() + "\n",
                 name=str(relative_path),
             ),
@@ -180,7 +181,7 @@ def run_file_lint_case(
 ) -> LintCaseResult:
     """Run real checked-in files through the parser boundary and full file path flow."""
     file_inputs = [
-        (str(path), sl.SyntaxTree.fromFile(str(path)))
+        (str(path), parse_file(path))
         for path in paths
     ]
     return _run_walked_files(
