@@ -1,5 +1,3 @@
-import pyslang as sl
-
 from src.pkg.parser.parse import parse_text
 from src.pkg.parser.syntax import (
     assignment_left,
@@ -8,10 +6,21 @@ from src.pkg.parser.syntax import (
     hierarchical_instance_name,
     identifier_access_modes,
     identifier_is_assignment_lhs,
+    identifier_name,
     instantiation_type_name,
     is_assignment_expression,
     module_declaration_name,
     procedural_block_sensitivity_names,
+)
+from src.pkg.parser.types import (
+    DeclaratorNode,
+    HierarchicalInstanceNode,
+    HierarchyInstantiationNode,
+    IdentifierNameNode,
+    IdentifierSelectNameNode,
+    ModuleDeclarationNode,
+    ProceduralBlockNode,
+    SyntaxNode,
 )
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
@@ -35,7 +44,7 @@ def _find_first(node, predicate):
 
     if hasattr(node, "__iter__"):
         for child in node:
-            if isinstance(child, sl.SyntaxNode):
+            if isinstance(child, SyntaxNode):
                 found = _find_first(child, predicate)
                 if found is not None:
                     return found
@@ -54,10 +63,10 @@ class TestSvAdapter:
             """
         )
 
-        module_node = _find_first(tree.root, lambda node: isinstance(node, sl.ModuleDeclarationSyntax))
-        declarator_node = _find_first(tree.root, lambda node: isinstance(node, sl.DeclaratorSyntax))
-        instantiation_node = _find_first(tree.root, lambda node: isinstance(node, sl.HierarchyInstantiationSyntax))
-        instance_node = _find_first(tree.root, lambda node: isinstance(node, sl.HierarchicalInstanceSyntax))
+        module_node = _find_first(tree.root, lambda node: isinstance(node, ModuleDeclarationNode))
+        declarator_node = _find_first(tree.root, lambda node: isinstance(node, DeclaratorNode))
+        instantiation_node = _find_first(tree.root, lambda node: isinstance(node, HierarchyInstantiationNode))
+        instance_node = _find_first(tree.root, lambda node: isinstance(node, HierarchicalInstanceNode))
 
         assert module_node is not None
         assert declarator_node is not None
@@ -78,10 +87,7 @@ class TestSvAdapter:
             endmodule
             """
         )
-        assign = _find_first(
-            tree.root,
-            lambda node: isinstance(node, sl.BinaryExpressionSyntax) and is_assignment_expression(node),
-        )
+        assign = _find_first(tree.root, is_assignment_expression)
         assert assign is not None
         assert assignment_left(assign) is assign.left
 
@@ -94,13 +100,10 @@ class TestSvAdapter:
             endmodule
             """
         )
-        assign = _find_first(
-            tree.root,
-            lambda node: isinstance(node, sl.BinaryExpressionSyntax) and is_assignment_expression(node),
-        )
+        assign = _find_first(tree.root, is_assignment_expression)
         target = _find_first(
             tree.root,
-            lambda node: isinstance(node, sl.IdentifierSelectNameSyntax) and str(node).strip() == "a[0]",
+            lambda node: isinstance(node, IdentifierSelectNameNode) and identifier_name(node) == "a",
         )
         left = assign.left if assign is not None else None
         assert assign is not None and left is not None and target is not None
@@ -117,16 +120,16 @@ class TestSvAdapter:
         )
 
         lhs_identifier = next(
-            vnode for vnode, ctx in results if isinstance(vnode.raw, sl.IdentifierSelectNameSyntax) and str(vnode.raw).strip() == "a[0]"
+            vnode for vnode, ctx in results if isinstance(vnode.raw, IdentifierSelectNameNode) and identifier_name(vnode.raw) == "a"
         )
         lhs_ctx = next(
-            ctx for vnode, ctx in results if isinstance(vnode.raw, sl.IdentifierSelectNameSyntax) and str(vnode.raw).strip() == "a[0]"
+            ctx for vnode, ctx in results if isinstance(vnode.raw, IdentifierSelectNameNode) and identifier_name(vnode.raw) == "a"
         )
         rhs_identifier = next(
-            vnode for vnode, ctx in results if isinstance(vnode.raw, sl.IdentifierSelectNameSyntax) and str(vnode.raw).strip() == "b[0]"
+            vnode for vnode, ctx in results if isinstance(vnode.raw, IdentifierSelectNameNode) and identifier_name(vnode.raw) == "b"
         )
         rhs_ctx = next(
-            ctx for vnode, ctx in results if isinstance(vnode.raw, sl.IdentifierSelectNameSyntax) and str(vnode.raw).strip() == "b[0]"
+            ctx for vnode, ctx in results if isinstance(vnode.raw, IdentifierSelectNameNode) and identifier_name(vnode.raw) == "b"
         )
 
         assert identifier_is_assignment_lhs(lhs_ctx, lhs_identifier.raw) is True
@@ -145,7 +148,7 @@ class TestSvAdapter:
         identifier_vnode, identifier_ctx = next(
             (vnode, ctx)
             for vnode, ctx in results
-            if isinstance(vnode.raw, sl.IdentifierNameSyntax) and str(vnode.raw).strip() == "x"
+            if isinstance(vnode.raw, IdentifierNameNode) and identifier_name(vnode.raw) == "x"
         )
 
         assert identifier_access_modes(identifier_ctx, identifier_vnode.raw) == (True, True)
@@ -163,7 +166,7 @@ class TestSvAdapter:
         identifier_vnode, identifier_ctx = next(
             (vnode, ctx)
             for vnode, ctx in results
-            if isinstance(vnode.raw, sl.IdentifierNameSyntax) and str(vnode.raw).strip() == "x"
+            if isinstance(vnode.raw, IdentifierNameNode) and identifier_name(vnode.raw) == "x"
         )
 
         assert identifier_access_modes(identifier_ctx, identifier_vnode.raw) == (True, True)
@@ -183,7 +186,7 @@ class TestSvAdapter:
         identifier_vnode, identifier_ctx = next(
             (vnode, ctx)
             for vnode, ctx in results
-            if isinstance(vnode.raw, sl.IdentifierNameSyntax) and str(vnode.raw).strip() == "b"
+            if isinstance(vnode.raw, IdentifierNameNode) and identifier_name(vnode.raw) == "b"
         )
 
         assert identifier_access_modes(identifier_ctx, identifier_vnode.raw) == (True, False)
@@ -199,7 +202,7 @@ class TestSvAdapter:
             """
         )
 
-        always_block = _find_first(tree.root, lambda node: isinstance(node, sl.ProceduralBlockSyntax))
+        always_block = _find_first(tree.root, lambda node: isinstance(node, ProceduralBlockNode))
 
         assert always_block is not None
         assert procedural_block_sensitivity_names(always_block) == {"a", "sel"}

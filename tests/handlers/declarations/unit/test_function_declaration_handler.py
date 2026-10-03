@@ -1,5 +1,5 @@
-import pyslang as sl
-
+from src.pkg.parser.parse import parse_text
+from src.pkg.parser.types import FunctionDeclarationNode
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
@@ -12,14 +12,14 @@ class TestFunctionDeclarationHandler:
     from the enclosing module scope."""
 
     def test_function_registers_is_registered_with_dispatch(self) -> None:
-        assert sl.FunctionDeclarationSyntax in dispatch._registry
+        assert FunctionDeclarationNode in dispatch._registry
 
     def test_function_gets_its_own_scope(self) -> None:
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             "module m; function automatic int add1(input int a); add1 = a + 1; endfunction endmodule"
         )
         walker.walk(tree.root, tree, ctx, symbol_table)
@@ -38,7 +38,7 @@ class TestFunctionDeclarationHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             "module m; task automatic do_thing(input int x); x = x; endtask endmodule"
         )
         walker.walk(tree.root, tree, ctx, symbol_table)
@@ -60,11 +60,11 @@ class TestFunctionDeclarationHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module m;
-              function automatic int f1(input int x); f1 = x + 1; endfunction
-              function automatic int f2(input int x); f2 = x + 2; endfunction
+               function automatic int f1(input int x); f1 = x + 1; endfunction
+               function automatic int f2(input int x); f2 = x + 2; endfunction
             endmodule
             """
         )
@@ -82,7 +82,7 @@ class TestFunctionDeclarationHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module m;
               reg [7:0] counter;

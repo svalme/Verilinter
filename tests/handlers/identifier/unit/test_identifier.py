@@ -1,5 +1,6 @@
 from pathlib import Path
-import pyslang as sl
+
+from src.pkg.parser.parse import parse_file
 
 # force handler registration
 from src.pkg.handlers.register_handlers import *
@@ -14,7 +15,7 @@ DATA = Path(__file__).resolve().parents[3] / "data"
 
 def test_identifier_debug():
 
-    tree = sl.SyntaxTree.fromFile(str(DATA / "simple.v"))
+    tree = parse_file(DATA / "simple.v")
 
     symbol_table = SymbolTable()
     walker = Walker(dispatch)

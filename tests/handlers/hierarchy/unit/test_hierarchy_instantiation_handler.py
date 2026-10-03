@@ -1,4 +1,4 @@
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.walk.context import Context
@@ -22,7 +22,7 @@ def walked() -> tuple[Walker, SymbolTable]:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(CODE)
+    tree = parse_text(CODE)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     return walker, symbol_table
@@ -96,7 +96,7 @@ class TestParameterOverrideExtractor:
         from unittest.mock import Mock
         from src.pkg.handlers.hierarchy_instantiation import ParameterOverrideExtractor
 
-        tree = sl.SyntaxTree.fromText("module top; child #(.PARAM(1 + 2)) u_inst(); endmodule\n")
+        tree = parse_text("module top; child #(.PARAM(1 + 2)) u_inst(); endmodule\n")
         inst_node = tree.root.members[0]
 
         mock_eval = Mock(return_value=999)
@@ -115,7 +115,7 @@ class TestPortConnectionExtractor:
         from unittest.mock import Mock
         from src.pkg.handlers.hierarchy_instantiation import PortConnectionExtractor
 
-        tree = sl.SyntaxTree.fromText("module top; child u_inst(.clk(sys_clk)); endmodule\n")
+        tree = parse_text("module top; child u_inst(.clk(sys_clk)); endmodule\n")
         inst_node = tree.root.members[0]
         item = inst_node.instances[0]
 
@@ -158,7 +158,7 @@ class TestHierarchyInstantiationHandlerInjection:
             connection_extractor=mock_conn_extractor,
         )
 
-        tree = sl.SyntaxTree.fromText("module top; child u_inst(); endmodule\n")
+        tree = parse_text("module top; child u_inst(); endmodule\n")
         inst_node = tree.root.members[0]
         vnode = SyntaxVNode(inst_node, tree)
 

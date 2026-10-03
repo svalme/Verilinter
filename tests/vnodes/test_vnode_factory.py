@@ -1,9 +1,7 @@
-"""Test suite for VNodeFactory."""
-
 import pytest
 from unittest.mock import Mock, MagicMock, patch
-import pyslang as sl
 
+from src.pkg.parser.types import SyntaxNode, SyntaxTree, Token
 from src.pkg.vnodes.vnode_factory import VNodeFactory, vnode_factory
 from src.pkg.vnodes.base_vnode import BaseVNode
 from src.pkg.vnodes.token_vnode import TokenVNode
@@ -38,8 +36,8 @@ class TestVNodeFactory:
     def test_create_returns_registered_vnode_for_token(self) -> None:
         """Test that create returns the registered vnode class for a Token."""
         # Create mock objects
-        mock_token = Mock(spec=sl.Token)
-        mock_tree = Mock(spec=sl.SyntaxTree)
+        mock_token = Mock(spec=Token)
+        mock_tree = Mock(spec=SyntaxTree)
         
         # Create a mock vnode class
         mock_vnode_class = Mock()
@@ -59,8 +57,8 @@ class TestVNodeFactory:
     def test_create_returns_default_token_vnode_for_unregistered_token(self) -> None:
         """Test that create returns TokenVNode for unregistered Token types."""
         # Create mock objects
-        mock_token = Mock(spec=sl.Token)
-        mock_tree = Mock(spec=sl.SyntaxTree)
+        mock_token = Mock(spec=Token)
+        mock_tree = Mock(spec=SyntaxTree)
         
         # Ensure the token type is not in the registry
         VNodeFactory._node_map.pop(type(mock_token), None)
@@ -76,8 +74,8 @@ class TestVNodeFactory:
     def test_create_returns_default_syntax_vnode_for_unregistered_syntax_node(self) -> None:
         """Test that create returns SyntaxVNode for unregistered SyntaxNode types."""
         # Create mock objects
-        mock_syntax_node = Mock(spec=sl.SyntaxNode)
-        mock_tree = Mock(spec=sl.SyntaxTree)
+        mock_syntax_node = Mock(spec=SyntaxNode)
+        mock_tree = Mock(spec=SyntaxTree)
         
         # Ensure the syntax node type is not in the registry
         VNodeFactory._node_map.pop(type(mock_syntax_node), None)
@@ -93,8 +91,8 @@ class TestVNodeFactory:
     def test_create_with_registered_syntax_node_type(self) -> None:
         """Test create with a registered SyntaxNode type."""
         # Create mock objects
-        mock_syntax_node = Mock(spec=sl.SyntaxNode)
-        mock_tree = Mock(spec=sl.SyntaxTree)
+        mock_syntax_node = Mock(spec=SyntaxNode)
+        mock_tree = Mock(spec=SyntaxTree)
         
         # Create a custom vnode class
         class CustomSyntaxVNode(SyntaxVNode):
@@ -116,8 +114,8 @@ class TestVNodeFactory:
         original_map = VNodeFactory._node_map.copy()
         VNodeFactory._node_map.clear()
 
-        mock_token = Mock(spec=sl.Token)
-        mock_tree = Mock(spec=sl.SyntaxTree)
+        mock_token = Mock(spec=Token)
+        mock_tree = Mock(spec=SyntaxTree)
         result = VNodeFactory.create(mock_token, mock_tree)
 
         assert isinstance(result, TokenVNode)

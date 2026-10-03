@@ -1,5 +1,4 @@
-"""Regression tests for ANSI grouped port declaration direction inheritance and rule application."""
-import pyslang as sl
+from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.handlers.register_handlers import *
@@ -12,7 +11,7 @@ from tests.support.lint_harness import run_inline_lint_case
 
 
 def walk(source: str) -> SymbolTable:
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     assert_no_parse_errors("ansi port regression", tree)
     table = SymbolTable()
     Walker(dispatch).walk(tree.root, tree, Context(scope=table.global_scope), table)

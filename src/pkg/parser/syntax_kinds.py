@@ -17,6 +17,7 @@ INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
 CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
 GENERATE_BLOCK_KIND = sl.SyntaxKind.GenerateBlock
+GENVAR_KEYWORD_KIND = _token_kind("GenVarKeyword")
 CLOCKING_DECLARATION_KIND = _syntax_kind("ClockingDeclaration")
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
 CONDITIONAL_EXPRESSION_KIND = _syntax_kind("ConditionalExpression")
@@ -24,6 +25,7 @@ ELSE_CLAUSE_KIND = _syntax_kind("ElseClause")
 MODULE_DECLARATION_KIND = _syntax_kind("ModuleDeclaration")
 EVENT_TYPE_KIND = _syntax_kind("EventType")
 ENUM_TYPE_KIND = _syntax_kind("EnumType")
+VOID_TYPE_KIND = _syntax_kind("VoidType")
 COMPILATION_UNIT_KIND = _syntax_kind("CompilationUnit")
 INTEGER_LITERAL_EXPRESSION_KIND = _syntax_kind("IntegerLiteralExpression")
 INTEGER_VECTOR_EXPRESSION_KIND = _syntax_kind("IntegerVectorExpression")
@@ -226,10 +228,11 @@ CASE_TOKEN_KINDS = {
 LOCALPARAM_TOKEN_KIND = sl.TokenKind.LocalParamKeyword
 PARAMETER_TOKEN_KIND = sl.TokenKind.ParameterKeyword
 
-NONBLOCKING_ASSIGNMENT_KIND = sl.SyntaxKind.NonblockingAssignmentExpression
+ASSIGNMENT_EXPRESSION_KIND = _syntax_kind("AssignmentExpression")
+NONBLOCKING_ASSIGNMENT_KIND = _syntax_kind("NonblockingAssignmentExpression")
 
 SIMPLE_ASSIGNMENT_KINDS = {
-    sl.SyntaxKind.AssignmentExpression,
+    ASSIGNMENT_EXPRESSION_KIND,
     NONBLOCKING_ASSIGNMENT_KIND,
 }
 
@@ -597,6 +600,7 @@ __all__ = [
     "ALL_PORT_DECLARATION_KINDS",
     "ANSI_PORT_KINDS",
     "ASCENDING_RANGE_SELECT_KIND",
+    "ASSIGNMENT_EXPRESSION_KIND",
     "ASSIGNMENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
     "ASSIGNMENT_PATTERN_ITEM_KIND",
@@ -680,6 +684,7 @@ __all__ = [
     "FUNCTION_PROTOTYPE_KIND",
     "GATE_PRIMITIVE_TOKEN_KINDS",
     "GENERATE_BLOCK_KIND",
+    "GENVAR_KEYWORD_KIND",
     "GREATER_THAN_EQUAL_EXPRESSION_KIND",
     "GREATER_THAN_EXPRESSION_KIND",
     "IDENTIFIER_NAME_KIND",
@@ -785,6 +790,7 @@ __all__ = [
     "UWIRE_TOKEN_KIND",
     "VARIABLE_DIMENSION_KIND",
     "VIRTUAL_INTERFACE_TYPE_KIND",
+    "VOID_TYPE_KIND",
     "WAIT_TOKEN_KIND",
     "WHILE_TOKEN_KIND",
     "WAND_WOR_TOKEN_KINDS",

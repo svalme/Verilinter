@@ -550,7 +550,7 @@ def simple_expression_width_and_signed(
         size_node = getattr(expr, "size", None)
         size_val = getattr(size_node, "value", None)
         base_node = getattr(expr, "base", None)
-        base_text = str(getattr(base_node, "rawText", base_node) or "").lower()
+        base_text = (getattr(base_node, "rawText", None) or "").lower()
         if size_val is not None:
             try:
                 size = int(size_val)

@@ -12,9 +12,9 @@ not silently passing this check.
 
 from pathlib import Path
 
-import pyslang as sl
 import pytest
 
+from src.pkg.parser.parse import parse_file
 from tests.support.parse_diagnostics import parse_errors, render_diagnostics
 
 DATA = Path(__file__).resolve().parents[1] / "data"
@@ -34,7 +34,7 @@ def test_fixture_parses_without_errors(path: Path) -> None:
     if path.name in INTENTIONAL_PARSE_ERROR_FIXTURES:
         pytest.skip(f"{path.name} intentionally exercises parser recovery")
 
-    tree = sl.SyntaxTree.fromFile(str(path))
+    tree = parse_file(path)
     errors = parse_errors(tree)
 
     assert not errors, (

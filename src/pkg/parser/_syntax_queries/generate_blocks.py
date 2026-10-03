@@ -1,7 +1,7 @@
 """Generate-block shape queries: labeled/unlabeled `begin...end` bodies of
 if/loop/case-generate branches, and duplicate branch-label detection."""
 
-from ..syntax_kinds import GENERATE_BLOCK_KIND
+from ..syntax_kinds import GENERATE_BLOCK_KIND, GENVAR_KEYWORD_KIND
 
 
 def is_generate_block_node(raw: object) -> bool:
@@ -14,9 +14,12 @@ def loop_generate_genvar_name(raw: object) -> str | None:
 
     The inline genvar name is a bare token, not a `DeclaratorSyntax`.
     """
-    if not str(getattr(raw, "genvar", "")).strip():
+    genvar_token = getattr(raw, "genvar", None)
+    if getattr(genvar_token, "kind", None) != GENVAR_KEYWORD_KIND:
         return None
-    return getattr(getattr(raw, "identifier", None), "value", None)
+    ident = getattr(raw, "identifier", None)
+    val = getattr(ident, "value", None)
+    return val if isinstance(val, str) and val else None
 
 
 def is_unlabeled_generate_block(raw: object) -> bool:

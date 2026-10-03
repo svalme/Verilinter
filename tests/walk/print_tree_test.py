@@ -1,8 +1,9 @@
 from pathlib import Path
 import difflib
 import os
-import pyslang as sl
 
+from src.pkg.parser.parse import parse_file
+from src.pkg.parser.types import SyntaxTree
 from src.pkg.handlers.register_handlers import *
 from src.pkg.walk.dispatch import dispatch
 
@@ -17,7 +18,7 @@ EXPECTED = ROOT / "expected"
 ARTIFACTS = ROOT / "artifacts"  # generated diff output, not source -- gitignored
 
 
-def print_walk(tree: sl.SyntaxTree) -> str:
+def print_walk(tree: SyntaxTree) -> str:
     root = SyntaxVNode(tree.root, tree)
     walker = Walker(dispatch)
     symbol_table = SymbolTable()
@@ -26,7 +27,7 @@ def print_walk(tree: sl.SyntaxTree) -> str:
     return "\n".join(repr(vnode) for vnode, _ in walker._results)
 
 
-def print_snippets(tree: sl.SyntaxTree) -> str:
+def print_snippets(tree: SyntaxTree) -> str:
     root = SyntaxVNode(tree.root, tree)
     walker = Walker(dispatch)
     symbol_table = SymbolTable()
@@ -97,6 +98,6 @@ def assert_matches_expected(name: str, actual: str):
 
 
 def test_simple_v():
-    tree = sl.SyntaxTree.fromFile(str(DATA / "simple.v"))
+    tree = parse_file(DATA / "simple.v")
     assert_matches_expected("simple.v.walk.txt", print_walk(tree))
     assert_matches_expected("simple.v.snippets.txt", print_snippets(tree))

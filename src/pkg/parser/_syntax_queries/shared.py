@@ -88,5 +88,14 @@ def token_raw_text(raw: object) -> str:
 
 def identifier_name(raw: object) -> str | None:
     identifier = getattr(raw, "identifier", None)
-    value = getattr(identifier, "value", None)
-    return value if isinstance(value, str) and value else None
+    if identifier is not None:
+        value = getattr(identifier, "value", None)
+        if isinstance(value, str) and value:
+            return value
+    value = getattr(raw, "value", None)
+    if isinstance(value, str) and value:
+        return value
+    raw_text = getattr(raw, "rawText", None)
+    if isinstance(raw_text, str) and raw_text.strip():
+        return raw_text.strip()
+    return None

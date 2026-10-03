@@ -1,7 +1,6 @@
-"""Scope regressions need both legal reuse and genuinely invalid-use controls."""
 import pytest
-import pyslang as sl
 
+from src.pkg.parser.parse import parse_text
 from src.pkg.handlers.register_handlers import *
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
@@ -12,7 +11,7 @@ from tests.support.lint_harness import run_inline_lint_case
 
 
 def walk(source):
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     assert_no_parse_errors("scope regression", tree)
     table = SymbolTable()
     Walker(dispatch).walk(tree.root, tree, Context(scope=table.global_scope), table)
@@ -256,13 +255,15 @@ def test_local_struct_variable_name_shadows_imported_package_name():
 
 
 def test_is_scoped_name_qualifier_rejects_dot_separator():
-    import pyslang as sl
     from src.pkg.parser._syntax_queries.package_scoping import is_scoped_name_qualifier
-    tree = sl.SyntaxTree.fromText("module m; int y; assign y = a.b; endmodule")
+    from src.pkg.parser.syntax_kinds import SCOPED_NAME_KIND
+    from src.pkg.parser.types import SyntaxNode
+
+    tree = parse_text("module m; int y; assign y = a.b; endmodule")
     def find_scoped(node):
-        if getattr(node, "kind", None) == sl.SyntaxKind.ScopedName:
+        if getattr(node, "kind", None) == SCOPED_NAME_KIND:
             return node
-        if isinstance(node, sl.SyntaxNode):
+        if isinstance(node, SyntaxNode):
             for child in node:
                 found = find_scoped(child)
                 if found is not None:

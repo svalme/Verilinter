@@ -1,13 +1,13 @@
-"""Hermetic unit tests for the expression width and signedness evaluation engine."""
-import pyslang as sl
 import pytest
 
+from src.pkg.parser.parse import parse_text
 from src.pkg.parser.syntax import (
     evaluate_constant_expression,
     natural_expression_width_and_signed,
     simple_expression_width_and_signed,
     unwrap_parentheses,
 )
+from src.pkg.parser.syntax_kinds import IDENTIFIER_NAME_KIND
 from src.pkg.semantic.symbol import Symbol
 from src.pkg.semantic.symbol_table import SymbolTable
 
@@ -47,7 +47,7 @@ def test_scope():
 
 
 def _get_rhs(code: str, index: int = 0):
-    tree = sl.SyntaxTree.fromText(f"module top;\n{code}\nendmodule")
+    tree = parse_text(f"module top;\n{code}\nendmodule")
     members = [m for m in tree.root.members if hasattr(m, "assignments")]
     return members[index].assignments[0].right, tree
 
@@ -56,7 +56,7 @@ class TestExpressionEngine:
     def test_unwrap_parentheses(self):
         rhs, _ = _get_rhs("assign w = (((a)));")
         unwrapped = unwrap_parentheses(rhs)
-        assert unwrapped.kind == sl.SyntaxKind.IdentifierName
+        assert unwrapped.kind == IDENTIFIER_NAME_KIND
 
     def test_identifier_lookup(self, test_scope):
         rhs, tree = _get_rhs("assign w = a;")

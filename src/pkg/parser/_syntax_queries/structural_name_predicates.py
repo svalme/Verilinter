@@ -156,9 +156,12 @@ def is_type_query_argument(raw: object) -> bool:
         depth += 1
         if getattr(node, "kind", None) == INVOCATION_EXPRESSION_KIND:
             left = getattr(node, "left", None)
-            callee_name = getattr(getattr(left, "name", None), "value", None)
+            sys_ident = getattr(left, "systemIdentifier", None)
+            callee_name = getattr(sys_ident, "valueText", None)
             if not callee_name:
-                callee_name = str(left).strip()
+                from .shared import identifier_name
+
+                callee_name = identifier_name(left)
             return callee_name in TYPE_QUERY_SYSTEM_FUNCTIONS
         node = getattr(node, "parent", None)
     return False

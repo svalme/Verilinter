@@ -15,10 +15,12 @@ from ..syntax_kinds import (
     NAMED_ARGUMENT_KIND,
     ORDERED_ARGUMENT_KIND,
     PACKAGE_DECLARATION_KIND,
+    PORT_DIRECTION_TOKEN_KINDS,
     SCOPED_NAME_KIND,
     SIMPLE_RANGE_SELECT_KIND,
     SYSTEM_NAME_KIND,
     TASK_DECLARATION_KIND,
+    VOID_TYPE_KIND,
 )
 from ..types import SyntaxNode
 from .package_scoping import scoped_name_package_qualifier
@@ -45,7 +47,9 @@ def subroutine_name(raw: object) -> str | None:
 def function_returns_value(raw: object) -> bool:
     """True if `raw` is a function declaration with a non-`void` return type."""
     return_type = getattr(getattr(raw, "prototype", None), "returnType", None)
-    return str(return_type).strip() != "void"
+    if return_type is None:
+        return True
+    return getattr(return_type, "kind", None) != VOID_TYPE_KIND
 
 
 def extract_formals_from_subroutine_syntax(node: object) -> list[tuple[str, str]]:
@@ -66,13 +70,14 @@ def extract_formals_from_subroutine_syntax(node: object) -> list[tuple[str, str]
     for p in ports:
         if getattr(p, "kind", None) == FUNCTION_PORT_KIND:
             d_token = getattr(p, "direction", None)
-            d_str = str(d_token).strip() if d_token is not None else ""
-            if d_str in ("input", "output", "inout", "ref"):
+            d_str = PORT_DIRECTION_TOKEN_KINDS.get(getattr(d_token, "kind", None))
+            if d_str is not None:
                 direction = d_str
             decl = getattr(p, "declarator", None)
             name_token = getattr(decl, "name", None)
-            name = str(getattr(name_token, "value", "") or name_token).strip()
-            result.append((name, direction))
+            name = identifier_name(name_token)
+            if name:
+                result.append((name, direction))
     return result
 
 
@@ -80,7 +85,7 @@ def _find_subroutine_in_container_syntax(container: object, callee_name: str) ->
     for m in getattr(container, "members", ()):
         if getattr(m, "kind", None) in (TASK_DECLARATION_KIND, FUNCTION_DECLARATION_KIND):
             proto = getattr(m, "prototype", None)
-            name = identifier_name(getattr(proto, "name", None)) or str(getattr(proto, "name", "")).strip()
+            name = identifier_name(getattr(proto, "name", None))
             if name == callee_name:
                 return m
     return None
@@ -132,12 +137,12 @@ def subroutine_formal_direction(
 
     # Determine callee name and optional package qualifier
     package_qualifier: str | None = None
-    callee_name: str
+    callee_name: str | None
     if getattr(callee, "kind", None) == SCOPED_NAME_KIND:
         package_qualifier = scoped_name_package_qualifier(callee) or identifier_name(getattr(callee, "left", None))
-        callee_name = identifier_name(getattr(callee, "right", None)) or str(callee.right).strip()
+        callee_name = identifier_name(getattr(callee, "right", None))
     else:
-        callee_name = identifier_name(callee) or str(callee).strip()
+        callee_name = identifier_name(callee)
 
     if not callee_name:
         return None
@@ -201,7 +206,7 @@ def subroutine_formal_direction(
             for m in getattr(root, "members", ()):
                 if getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND:
                     header = getattr(m, "header", None)
-                    pkg_name = identifier_name(getattr(header, "name", None)) or str(getattr(header, "name", "")).strip()
+                    pkg_name = identifier_name(getattr(header, "name", None))
                     if pkg_name == package_qualifier:
                         sub = _find_subroutine_in_container_syntax(m, callee_name)
                         if sub is not None:
@@ -239,7 +244,7 @@ def subroutine_formal_direction(
                         for m in getattr(root, "members", ()):
                             if getattr(m, "kind", None) == PACKAGE_DECLARATION_KIND:
                                 header = getattr(m, "header", None)
-                                p_name = identifier_name(getattr(header, "name", None)) or str(getattr(header, "name", "")).strip()
+                                p_name = identifier_name(getattr(header, "name", None))
                                 if p_name == pkg_name:
                                     sub = _find_subroutine_in_container_syntax(m, callee_name)
                                     if sub is not None:
@@ -260,7 +265,7 @@ def subroutine_formal_direction(
             if idx < len(formals):
                 return formals[idx][1]
     elif getattr(arg_node, "kind", None) == NAMED_ARGUMENT_KIND:
-        arg_name = str(getattr(getattr(arg_node, "name", None), "value", "") or getattr(arg_node, "name", "")).strip()
+        arg_name = identifier_name(getattr(arg_node, "name", None))
         for f_name, f_dir in formals:
             if f_name == arg_name:
                 return f_dir

@@ -1,6 +1,7 @@
-import pyslang as sl
 import pytest
 
+from src.pkg.parser.parse import parse_text
+from src.pkg.parser.syntax_kinds import ENDCASE_KEYWORD_TOKEN_KIND
 from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
@@ -42,11 +43,11 @@ def _endcase_node(code: str) -> tuple[BaseVNode, Context]:
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
 
-    tree = sl.SyntaxTree.fromText(code)
+    tree = parse_text(code)
     walker.walk(tree.root, tree, ctx, symbol_table)
 
     for vnode, node_ctx in walker.results:
-        if vnode.raw.kind == sl.TokenKind.EndCaseKeyword:
+        if getattr(vnode.raw, "kind", None) == ENDCASE_KEYWORD_TOKEN_KIND:
             return vnode, node_ctx
 
     raise AssertionError("no EndCaseKeyword token found in walk results")

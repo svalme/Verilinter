@@ -1,8 +1,8 @@
 from pathlib import Path
 
-import pyslang as sl
 import pytest
 
+from src.pkg.parser.parse import parse_file
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
@@ -62,7 +62,7 @@ class TestNoImplicitNetRule:
 
         path = DATA / "simple.v"
         symbol_table.set_current_file(str(path))
-        tree = sl.SyntaxTree.fromFile(str(path))
+        tree = parse_file(path)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         diagnostics = rule.run(symbol_table)
@@ -78,7 +78,7 @@ class TestNoImplicitNetRule:
         path = DATA / "default_nettype_none.v"
         symbol_table.set_current_file(str(path))
         symbol_table.set_current_file_default_nettype_none(True)
-        tree = sl.SyntaxTree.fromFile(str(path))
+        tree = parse_file(path)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []

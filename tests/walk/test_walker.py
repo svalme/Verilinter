@@ -1,9 +1,7 @@
-"""Test suite for Walker."""
-
 import pytest
 from unittest.mock import Mock, MagicMock, call, patch
-import pyslang as sl
 
+from src.pkg.parser.types import SyntaxNode, SyntaxTree, Token
 from src.pkg.walk.walker import Walker
 from src.pkg.walk.dispatch import Dispatch
 from src.pkg.walk.context import Context, ContextFlag
@@ -38,12 +36,12 @@ class TestWalker:
     @pytest.fixture
     def mock_syntax_node(self) -> Mock:
         """Fixture for a mock SyntaxNode."""
-        return Mock(spec=sl.SyntaxNode)
+        return Mock(spec=SyntaxNode)
 
     @pytest.fixture
     def mock_tree(self) -> Mock:
         """Fixture for a mock SyntaxTree."""
-        return Mock(spec=sl.SyntaxTree)
+        return Mock(spec=SyntaxTree)
 
     @pytest.fixture
     def context(self) -> Context:
@@ -200,7 +198,7 @@ class TestWalker:
         mock_parent_vnode.raw = mock_syntax_node
         
         # Create child nodes
-        mock_child_node = Mock(spec=sl.SyntaxNode)
+        mock_child_node = Mock(spec=SyntaxNode)
         mock_child_vnode = Mock(spec=BaseVNode)
         mock_child_vnode.raw = mock_child_node
         
@@ -244,7 +242,7 @@ class TestWalker:
         symbol_table: SymbolTable
     ) -> None:
         """Test walk with a Token node."""
-        mock_token = Mock(spec=sl.Token)
+        mock_token = Mock(spec=Token)
         mock_vnode = Mock(spec=BaseVNode)
         mock_vnode.raw = mock_token
         
@@ -268,19 +266,19 @@ class TestWalker:
     ) -> None:
         """Test walk with deeply nested tree structure."""
         # Create a chain of vnodes: root -> child1 -> child2 -> child3
-        root_node = Mock(spec=sl.SyntaxNode)
+        root_node = Mock(spec=SyntaxNode)
         root_vnode = Mock(spec=BaseVNode)
         root_vnode.raw = root_node
         
-        child1_node = Mock(spec=sl.SyntaxNode)
+        child1_node = Mock(spec=SyntaxNode)
         child1_vnode = Mock(spec=BaseVNode)
         child1_vnode.raw = child1_node
         
-        child2_node = Mock(spec=sl.SyntaxNode)
+        child2_node = Mock(spec=SyntaxNode)
         child2_vnode = Mock(spec=BaseVNode)
         child2_vnode.raw = child2_node
         
-        child3_node = Mock(spec=sl.SyntaxNode)
+        child3_node = Mock(spec=SyntaxNode)
         child3_vnode = Mock(spec=BaseVNode)
         child3_vnode.raw = child3_node
         
@@ -346,7 +344,7 @@ class TestWalker:
         mock_dispatch.get.side_effect = get_handler
         
         with patch('src.pkg.walk.walker.vnode_factory.create', return_value=root_vnode):
-            walker.walk(Mock(spec=sl.SyntaxNode), mock_tree, context, symbol_table)
+            walker.walk(Mock(spec=SyntaxNode), mock_tree, context, symbol_table)
         
         # Verify root handler was called with original context
         root_handler.update_context.assert_called_with(context, root_vnode, symbol_table)
@@ -370,10 +368,10 @@ class TestWalker:
         
         with patch('src.pkg.walk.walker.vnode_factory.create') as mock_create:
             mock_create.return_value = mock_vnode1
-            walker.walk(Mock(spec=sl.SyntaxNode), mock_tree, context, symbol_table)
+            walker.walk(Mock(spec=SyntaxNode), mock_tree, context, symbol_table)
             
             mock_create.return_value = mock_vnode2
-            walker.walk(Mock(spec=sl.SyntaxNode), mock_tree, context, symbol_table)
+            walker.walk(Mock(spec=SyntaxNode), mock_tree, context, symbol_table)
         
         # Verify both results are accumulated
         assert len(walker._results) == 2

@@ -1,5 +1,4 @@
-import pyslang as sl
-
+from src.pkg.parser.parse import parse_text
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
@@ -26,7 +25,7 @@ class TestPrimitiveDeclarationHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(CODE)
+        tree = parse_text(CODE)
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert "my_udp" in symbol_table.primitives
@@ -36,7 +35,7 @@ class TestPrimitiveDeclarationHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText("module top; endmodule")
+        tree = parse_text("module top; endmodule")
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert symbol_table.primitives == set()

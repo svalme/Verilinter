@@ -208,7 +208,8 @@ class TestAstDescendantsIter:
         assert allowed in descendants
 
     def test_real_pyslang_tree_traversal(self) -> None:
-        import pyslang as sl
+        from src.pkg.parser.parse import parse_text
+        from src.pkg.parser.syntax_kinds import ASSIGNMENT_EXPRESSION_KIND
 
         code = """
         module top;
@@ -219,21 +220,21 @@ class TestAstDescendantsIter:
           end
         endmodule
         """
-        tree = sl.SyntaxTree.fromText(code)
+        tree = parse_text(code)
         descendants = list(ast_descendants_iter(tree.root))
         assert len(descendants) > 0
 
         # Guarded generator on real tree
         @guarded_generator(max_depth=64)
         def find_assigns(node: object) -> Iterator[object]:
-            if getattr(node, "kind", None) == sl.SyntaxKind.AssignmentExpression:
+            if getattr(node, "kind", None) == ASSIGNMENT_EXPRESSION_KIND:
                 yield node
             try:
                 children = iter(node)
             except TypeError:
                 children = ()
             for c in children:
-                if isinstance(c, sl.SyntaxNode):
+                if isinstance(c, SyntaxNode):
                     yield from find_assigns(c)
 
         assigns = list(find_assigns(tree.root))

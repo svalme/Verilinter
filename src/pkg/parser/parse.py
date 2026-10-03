@@ -10,7 +10,7 @@ from ._syntax_queries.package_scoping import tree_has_package_declaration
 
 
 def parse_file(
-    path: str,
+    path: str | Path,
     include_dirs: list[str] | None = None,
     defines: list[str] | None = None,
 ) -> SyntaxTree:
@@ -31,7 +31,7 @@ def parse_file(
         pp.predefines = list(defines)
         bag.preprocessorOptions = pp
 
-    return SyntaxTree.fromFile(path, source_manager, options=bag)
+    return SyntaxTree.fromFile(str(path), source_manager, options=bag)
 
 
 def parse_text(text: str, defines: list[str] | None = None) -> SyntaxTree:

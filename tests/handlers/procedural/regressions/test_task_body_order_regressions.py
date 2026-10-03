@@ -1,7 +1,7 @@
 """Regression tests for task body contexts, driver assignments, and formal argument directions."""
 import pytest
-import pyslang as sl
 
+from src.pkg.parser.parse import parse_text
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
@@ -18,7 +18,7 @@ def _analyze_source(source: str):
     symbol_table = SymbolTable()
     ctx = Context(scope=symbol_table.global_scope)
     walker = Walker(dispatch)
-    tree = sl.SyntaxTree.fromText(source)
+    tree = parse_text(source)
     walker.walk(tree.root, tree, ctx, symbol_table)
     return tree, symbol_table
 

@@ -1,9 +1,7 @@
-"""Test suite for IdentifierNameVNode."""
-
 import pytest
 from unittest.mock import Mock
-import pyslang as sl
 
+from src.pkg.parser.types import IdentifierNameNode, SyntaxTree
 from src.pkg.vnodes.identifier_vnode import IdentifierNameVNode
 from src.pkg.vnodes.syntax_vnode import SyntaxVNode
 from src.pkg.vnodes.vnode_factory import vnode_factory
@@ -15,7 +13,7 @@ class TestIdentifierNameVNode:
     @pytest.fixture
     def mock_syntax_node(self) -> Mock:
         """Fixture for a mock SyntaxNode (IdentifierNameSyntax)."""
-        node = Mock(spec=sl.IdentifierNameSyntax)
+        node = Mock(spec=IdentifierNameNode)
         mock_identifier = Mock()
         mock_identifier.value = "my_signal"
         node.identifier = mock_identifier
@@ -25,7 +23,7 @@ class TestIdentifierNameVNode:
     @pytest.fixture
     def mock_tree(self) -> Mock:
         """Fixture for a mock SyntaxTree."""
-        return Mock(spec=sl.SyntaxTree)
+        return Mock(spec=SyntaxTree)
 
     @pytest.fixture
     def vnode(self, mock_syntax_node: Mock, mock_tree: Mock) -> IdentifierNameVNode:
@@ -51,9 +49,9 @@ class TestIdentifierNameVNode:
 
     def test_vnode_registered_in_factory(self) -> None:
         """Test that IdentifierNameVNode is registered in vnode_factory."""
-        # Check if sl.IdentifierNameSyntax is in the registry
-        assert sl.IdentifierNameSyntax in vnode_factory._node_map
-        assert vnode_factory._node_map[sl.IdentifierNameSyntax] is IdentifierNameVNode
+        # Check if IdentifierNameNode is in the registry
+        assert IdentifierNameNode in vnode_factory._node_map
+        assert vnode_factory._node_map[IdentifierNameNode] is IdentifierNameVNode
 
     def test_identifier_name_with_different_names(self, mock_syntax_node: Mock, mock_tree: Mock) -> None:
         """Test identifier_name with different identifier names."""
@@ -101,12 +99,12 @@ class TestIdentifierNameVNode:
     ) -> None:
         """Test that multiple IdentifierNameVNode instances are independent."""
         # Create first vnode
-        vnode1_node = Mock(spec=sl.IdentifierNameSyntax)
+        vnode1_node = Mock(spec=IdentifierNameNode)
         vnode1_node.identifier = Mock(value="signal1")
         vnode1 = IdentifierNameVNode(vnode1_node, mock_tree)
         
         # Create second vnode
-        vnode2_node = Mock(spec=sl.IdentifierNameSyntax)
+        vnode2_node = Mock(spec=IdentifierNameNode)
         vnode2_node.identifier = Mock(value="signal2")
         vnode2 = IdentifierNameVNode(vnode2_node, mock_tree)
         

@@ -2,7 +2,6 @@
 
 import pytest
 from unittest.mock import Mock, MagicMock
-import pyslang as sl
 
 from src.pkg.handlers.base_handler import BaseHandler, VNodeType
 from src.pkg.vnodes.base_vnode import BaseVNode

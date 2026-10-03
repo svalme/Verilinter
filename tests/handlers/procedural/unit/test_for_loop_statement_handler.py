@@ -1,5 +1,5 @@
-import pyslang as sl
-
+from src.pkg.parser.parse import parse_text
+from src.pkg.parser.types import ForLoopStatementNode
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
@@ -12,14 +12,14 @@ class TestForLoopStatementHandler:
     nested scope, distinct from the enclosing block/module scope."""
 
     def test_for_loop_is_registered_with_dispatch(self) -> None:
-        assert sl.ForLoopStatementSyntax in dispatch._registry
+        assert ForLoopStatementNode in dispatch._registry
 
     def test_inline_loop_variable_gets_its_own_scope(self) -> None:
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             "module m; initial begin for (int i = 0; i < 4; i = i + 1) begin end end endmodule"
         )
         walker.walk(tree.root, tree, ctx, symbol_table)
@@ -36,7 +36,7 @@ class TestForLoopStatementHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module m;
               initial begin
@@ -58,7 +58,7 @@ class TestForLoopStatementHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             """
             module m;
               reg [7:0] counter;

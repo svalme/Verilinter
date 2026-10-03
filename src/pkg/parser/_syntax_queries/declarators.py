@@ -518,7 +518,7 @@ def typedef_declaration_name_and_location(
     name_token = getattr(raw, "name", None)
     if name_token is None:
         return None, None
-    name = str(getattr(name_token, "value", "") or name_token).strip()
+    name = identifier_name(name_token)
     if not name:
         return None, None
     loc = token_location(name_token, tree)

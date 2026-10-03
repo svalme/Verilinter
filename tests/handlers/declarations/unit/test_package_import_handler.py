@@ -1,5 +1,5 @@
-import pyslang as sl
-
+from src.pkg.parser.parse import parse_text
+from src.pkg.parser.types import PackageImportDeclarationNode
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
@@ -17,7 +17,7 @@ class TestPackageDeclarationRegistration:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText("package my_pkg; parameter int FOO = 1; endpackage")
+        tree = parse_text("package my_pkg; parameter int FOO = 1; endpackage")
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         package_scope = symbol_table.lookup_package("my_pkg")
@@ -30,7 +30,7 @@ class TestPackageDeclarationRegistration:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText("package my_pkg; endpackage")
+        tree = parse_text("package my_pkg; endpackage")
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert symbol_table.lookup_module("my_pkg") is None
@@ -41,7 +41,7 @@ class TestPackageDeclarationRegistration:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText("module top; endmodule")
+        tree = parse_text("module top; endmodule")
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert symbol_table.lookup_module("top") is not None
@@ -50,14 +50,14 @@ class TestPackageDeclarationRegistration:
 
 class TestPackageImportHandler:
     def test_wildcard_import_syntax_is_registered_with_dispatch(self) -> None:
-        assert sl.PackageImportDeclarationSyntax in dispatch._registry
+        assert PackageImportDeclarationNode in dispatch._registry
 
     def test_wildcard_import_records_none_as_imported_name(self) -> None:
         symbol_table = SymbolTable()
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText("module top; import my_pkg::*; endmodule")
+        tree = parse_text("module top; import my_pkg::*; endmodule")
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         module_scope = symbol_table.lookup_module("top")
@@ -69,7 +69,7 @@ class TestPackageImportHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText("module top; import my_pkg::FOO; endmodule")
+        tree = parse_text("module top; import my_pkg::FOO; endmodule")
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         module_scope = symbol_table.lookup_module("top")
@@ -81,7 +81,7 @@ class TestPackageImportHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             "module top; import pkg_a::*; import pkg_b::BAR; endmodule"
         )
         walker.walk(tree.root, tree, ctx, symbol_table)
@@ -98,7 +98,7 @@ class TestPackageImportHandler:
         ctx = Context(scope=symbol_table.global_scope)
         walker = Walker(dispatch)
 
-        tree = sl.SyntaxTree.fromText(
+        tree = parse_text(
             "module top import my_pkg::*; (input logic clk_i); endmodule"
         )
         walker.walk(tree.root, tree, ctx, symbol_table)
