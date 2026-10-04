@@ -175,3 +175,25 @@ def test_run_paired_lint_case_with_diagnostics_parity(tmp_path: Path) -> None:
     result = run_paired_lint_case(files, tmp_path=tmp_path)
     assert result.for_code("CONSTANT_INDEX_OUT_OF_RANGE") != []
     assert result.for_code("INDEXED_PART_SELECT_WIDTH") != []
+
+
+def test_expect_diagnostics_inconsistent_shapes_raises() -> None:
+    result = LintCaseResult(diagnostics=[_diag(line=10, code="RULE_A"), _diag(line=20, code="RULE_B")])
+    with pytest.raises(ValueError, match="Inconsistent expectation shapes in expect_diagnostics"):
+        result.expect_diagnostics([(10, "RULE_A"), ("test.sv", 20, "RULE_B")])  # type: ignore[list-item]
+
+
+def test_expect_diagnostics_strict_tuple_type_check_raises() -> None:
+    result = LintCaseResult(diagnostics=[_diag()])
+    with pytest.raises(ValueError, match="Unsupported diagnostic expectation shape"):
+        result.expect_diagnostics([(10, 20)])  # type: ignore[list-item]
+
+
+def test_run_paired_lint_case_with_duplicate_module_and_subdirectories(tmp_path: Path) -> None:
+    files = {
+        "sub/first.sv": "module dup_across_files; endmodule",
+        "sub/second.sv": "module dup_across_files; endmodule",
+    }
+    result = run_paired_lint_case(files, tmp_path=tmp_path)
+    assert result.for_code("DUPLICATE_MODULE") != []
+

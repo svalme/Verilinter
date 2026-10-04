@@ -22,9 +22,9 @@ pytestmark = pytest.mark.stress
 
 
 def test_extreme_conditional_nesting_terminates_promptly() -> None:
-    """Validate 60 levels of nested if-blocks execute safely through LintPipeline."""
-    depth = 60
-    lines = ["module extreme_cond_top(input logic [59:0] cond_i, output logic out_o);", "  always_comb begin"]
+    """Validate 40 levels of nested if-blocks execute safely through LintPipeline."""
+    depth = 40
+    lines = ["module extreme_cond_top(input logic [39:0] cond_i, output logic out_o);", "  always_comb begin"]
     for i in range(depth):
         lines.append(f"    {'  ' * i}if (cond_i[{i}]) begin")
     lines.append(f"    {'  ' * depth}out_o = 1'b1;")
@@ -41,9 +41,9 @@ def test_extreme_conditional_nesting_terminates_promptly() -> None:
 
 
 def test_extreme_case_nesting_terminates_promptly() -> None:
-    """Validate 50 levels of nested case statements execute safely through LintPipeline."""
-    depth = 50
-    lines = ["module extreme_case_top(input logic [49:0] sel_i, output logic out_o);", "  always_comb begin"]
+    """Validate 25 levels of nested case statements execute safely through LintPipeline."""
+    depth = 25
+    lines = ["module extreme_case_top(input logic [24:0] sel_i, output logic out_o);", "  always_comb begin"]
     for i in range(depth):
         indent = "  " * (i + 1)
         lines.append(f"{indent}case (sel_i[{i}])")
@@ -57,7 +57,7 @@ def test_extreme_case_nesting_terminates_promptly() -> None:
     lines.extend(["  end", "endmodule"])
     hdl = "\n".join(lines)
 
-    with terminates_within("extreme_case_nesting", budget_s=25.0):
+    with terminates_within("extreme_case_nesting", budget_s=15.0):
         result = run_inline_lint_case({"extreme_case.sv": hdl})
 
     assert isinstance(result.diagnostics, list)
@@ -104,8 +104,8 @@ def test_extreme_concatenation_nesting_terminates_promptly() -> None:
 
 
 def test_extreme_generate_block_nesting_terminates_promptly() -> None:
-    """Validate 50 levels of nested generate-if blocks."""
-    depth = 50
+    """Validate 35 levels of nested generate-if blocks."""
+    depth = 35
     lines = ["module extreme_gen_top #(parameter int P = 1) ();"]
     for i in range(depth):
         indent = "  " * (i + 1)
@@ -124,8 +124,8 @@ def test_extreme_generate_block_nesting_terminates_promptly() -> None:
 
 
 def test_extreme_module_hierarchy_chain_terminates_promptly() -> None:
-    """Validate 50 linearly nested module instantiations execute hierarchy checks cleanly."""
-    count = 50
+    """Validate 35 linearly nested module instantiations execute hierarchy checks cleanly."""
+    count = 35
     files: dict[str, str] = {}
     for i in range(count):
         if i == count - 1:

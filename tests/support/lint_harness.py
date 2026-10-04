@@ -118,10 +118,13 @@ class LintCaseResult:
         if filter_code is not None:
             filtered = [d for d in filtered if d.get("code") == filter_code]
         if filter_file is not None:
+            target_name = Path(str(filter_file)).name
+            target_posix = Path(str(filter_file)).as_posix()
             filtered = [
                 d for d in filtered
-                if Path(str(d.get("file", ""))).name == filter_file
-                or str(d.get("file", "")) == filter_file
+                if Path(str(d.get("file", ""))).name == target_name
+                or Path(str(d.get("file", ""))).as_posix() == target_posix
+                or str(d.get("file", "")) == str(filter_file)
             ]
 
         expected_seq = list(expected)
@@ -132,19 +135,34 @@ class LintCaseResult:
             )
             return
 
+        def _shape_tag(item: object) -> tuple[type, ...]:
+            if isinstance(item, str):
+                return (str,)
+            if isinstance(item, tuple):
+                return tuple(type(x) for x in item)
+            return (type(item),)
+
+        first_shape = _shape_tag(expected_seq[0])
+        for idx, item in enumerate(expected_seq):
+            if _shape_tag(item) != first_shape:
+                raise ValueError(
+                    f"Inconsistent expectation shapes in expect_diagnostics: "
+                    f"item at index {idx} has shape {_shape_tag(item)}, expected {first_shape}"
+                )
+
         def _project(d: Diagnostic, template: object) -> object:
             if isinstance(template, str):
                 return str(d.get("code", ""))
             if isinstance(template, tuple):
-                if len(template) == 2 and isinstance(template[0], int):
+                if len(template) == 2 and isinstance(template[0], int) and isinstance(template[1], str):
                     return (int(d.get("line") or 0), str(d.get("code", "")))
-                if len(template) == 2 and isinstance(template[0], str):
+                if len(template) == 2 and isinstance(template[0], str) and isinstance(template[1], str):
                     return (Path(str(d.get("file", ""))).name, str(d.get("code", "")))
-                if len(template) == 3 and isinstance(template[0], int) and isinstance(template[1], int):
+                if len(template) == 3 and isinstance(template[0], int) and isinstance(template[1], int) and isinstance(template[2], str):
                     return (int(d.get("line") or 0), int(d.get("col") or 0), str(d.get("code", "")))
-                if len(template) == 3 and isinstance(template[0], str) and isinstance(template[1], int):
+                if len(template) == 3 and isinstance(template[0], str) and isinstance(template[1], int) and isinstance(template[2], str):
                     return (Path(str(d.get("file", ""))).name, int(d.get("line") or 0), str(d.get("code", "")))
-                if len(template) == 4 and isinstance(template[0], str):
+                if len(template) == 4 and isinstance(template[0], str) and isinstance(template[1], int) and isinstance(template[2], int) and isinstance(template[3], str):
                     return (
                         Path(str(d.get("file", ""))).name,
                         int(d.get("line") or 0),
@@ -312,7 +330,8 @@ def run_paired_lint_case(
     try:
         disk_paths: list[Path] = []
         for relative_path, contents in files.items():
-            path = tmp_path / relative_path
+            clean_rel = Path(relative_path).as_posix().lstrip("/\\")
+            path = tmp_path / clean_rel
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(contents.strip() + "\n", encoding="utf-8")
             disk_paths.append(path)
@@ -324,13 +343,39 @@ def run_paired_lint_case(
             selection=selection,
         )
 
+        def _clean_msg(msg: str) -> str:
+            msg_str = str(msg or "")
+            prefixes: list[str] = [
+                str(tmp_path),
+                str(tmp_path.resolve()),
+                tmp_path.as_posix(),
+                tmp_path.resolve().as_posix(),
+            ]
+            try:
+                rel = tmp_path.resolve().relative_to(Path.cwd().resolve())
+                prefixes.extend([str(rel), rel.as_posix()])
+            except (ValueError, RuntimeError):
+                pass
+            for p in prefixes:
+                for sep in ("\\", "/"):
+                    msg_str = msg_str.replace(p + sep, "")
+                msg_str = msg_str.replace(p, "")
+            return msg_str.replace("\\", "/")
+
+        def _norm_file(f: object) -> str:
+            p = Path(str(f or ""))
+            try:
+                return p.resolve().relative_to(tmp_path.resolve()).as_posix()
+            except (ValueError, RuntimeError):
+                return p.as_posix()
+
         def _norm_tuple(d: Diagnostic) -> tuple[str, int, int, str, str]:
             return (
-                Path(str(d.get("file", ""))).name,
+                _norm_file(d.get("file")),
                 int(d.get("line") or 0),
                 int(d.get("col") or 0),
                 str(d.get("code", "")),
-                str(d.get("message", "")),
+                _clean_msg(str(d.get("message", ""))),
             )
 
         inline_norm = sorted(_norm_tuple(d) for d in inline_result.diagnostics)
