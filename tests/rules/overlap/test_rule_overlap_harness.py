@@ -1239,3 +1239,85 @@ def test_case_overlapping_items_and_no_duplicate_case_item_coexist(
     exact_dup.expect_code_once("CASE_OVERLAPPING_ITEMS")
     exact_dup.expect_code_once("NO_DUPLICATE_CASE_ITEM")
 
+
+def test_indexed_part_select_width_and_constant_index_out_of_range_boundary(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    # 1. Variable width triggers INDEXED_PART_SELECT_WIDTH; CONSTANT_INDEX_OUT_OF_RANGE skips variable width
+    var_width = lint_inline_case(
+        {
+            "var_width.sv": """
+            module top(input logic [7:0] a, input logic [2:0] w, output logic [7:0] y);
+              assign y = a[0 +: w];
+            endmodule
+            """
+        }
+    )
+    var_width.expect_code_once("INDEXED_PART_SELECT_WIDTH")
+    var_width.expect_no_code("CONSTANT_INDEX_OUT_OF_RANGE")
+
+    # 2. Constant width exceeding signal range triggers CONSTANT_INDEX_OUT_OF_RANGE; legal constant width does not trigger INDEXED_PART_SELECT_WIDTH
+    range_overflow = lint_inline_case(
+        {
+            "range_overflow.sv": """
+            module top(input logic [7:0] a, output logic [15:0] y);
+              assign y = a[0 +: 16];
+            endmodule
+            """
+        }
+    )
+    range_overflow.expect_code_once("CONSTANT_INDEX_OUT_OF_RANGE")
+    range_overflow.expect_no_code("INDEXED_PART_SELECT_WIDTH")
+
+    # 3. Negative constant width triggers INDEXED_PART_SELECT_WIDTH
+    neg_width = lint_inline_case(
+        {
+            "neg_width.sv": """
+            module top(input logic [7:0] a, output logic [7:0] y);
+              assign y = a[0 +: -2];
+            endmodule
+            """
+        }
+    )
+    neg_width.expect_code_once("INDEXED_PART_SELECT_WIDTH")
+
+
+def test_reversed_indexed_part_select_and_constant_index_boundary(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    # Typo [2 :+ 1] triggers REVERSED_INDEXED_PART_SELECT while indices 2 and +1 are in bounds
+    reversed_slice = lint_inline_case(
+        {
+            "reversed_slice.sv": """
+            module top(input logic [7:0] a, output logic [1:0] y);
+              assign y = a[2 :+ 1];
+            endmodule
+            """
+        }
+    )
+    reversed_slice.expect_code_once("REVERSED_INDEXED_PART_SELECT")
+    reversed_slice.expect_no_code("CONSTANT_INDEX_OUT_OF_RANGE")
+
+
+def test_infinite_loop_and_sequential_blocking_coexistence(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    # Infinite loop inside clocked procedural block co-fires with NO_BLOCKING_SEQUENTIAL
+    seq_infinite = lint_inline_case(
+        {
+            "seq_infinite.sv": """
+            module top(input logic clk_i);
+              logic [7:0] count;
+              always @(posedge clk_i) begin
+                forever begin
+                  count = count + 1'b1;
+                end
+              end
+            endmodule
+            """
+        }
+    )
+    seq_infinite.expect_code_once("INFINITELOOP")
+    seq_infinite.expect_code_once("NO_BLOCKING_SEQUENTIAL")
+
+

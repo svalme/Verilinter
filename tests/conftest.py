@@ -14,6 +14,7 @@ from .support.lint_harness import (
     run_file_lint_case,
     run_inline_lint_case,
     run_inline_lint_case_spec,
+    run_paired_lint_case,
 )
 
 collect_ignore_glob = ["_tmp_*"]
@@ -82,3 +83,20 @@ def lint_temp_file_case() -> Callable[..., LintCaseResult]:
             shutil.rmtree(case_dir, ignore_errors=True)
 
     return _lint_case
+
+
+@pytest.fixture
+def lint_paired_case(tmp_path: Path) -> Callable[..., LintCaseResult]:
+    """Lint HDL snippets verifying identical diagnostics between in-memory and on-disk execution."""
+
+    def _lint_case(
+        files: dict[str, str], *, allow_parse_errors: bool = False
+    ) -> LintCaseResult:
+        return run_paired_lint_case(
+            files,
+            tmp_path=tmp_path,
+            allow_parse_errors=allow_parse_errors,
+        )
+
+    return _lint_case
+

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
+import uuid
 
 from src.pkg.parser.parse import parse_file, parse_text
 from src.pkg.parser.types import SyntaxTree
@@ -78,6 +80,90 @@ class LintCaseResult:
         messages = self.messages_for_code(code)
         assert any(text in message for message in messages), (
             f"Expected at least one {code} message to contain {text!r}, found: {messages}"
+        )
+
+    def expect_clean(self) -> None:
+        """Assert that zero diagnostics were reported across all rules and files."""
+        assert self.diagnostics == [], (
+            f"Expected clean lint result (0 diagnostics), found {len(self.diagnostics)}: {self.diagnostics}"
+        )
+
+    def expect_empty(self) -> None:
+        """Alias for expect_clean."""
+        self.expect_clean()
+
+    def expect_diagnostics(
+        self,
+        expected: list[object] | tuple[object, ...] | set[object],
+        *,
+        filter_code: str | None = None,
+        filter_file: str | None = None,
+        sort: bool = True,
+    ) -> None:
+        """Assert exact diagnostics matching against a normalized specification.
+
+        Supported item shapes in `expected`:
+        - `(line, code)`: e.g. `(10, "NO_IMPLICIT_NET")`
+        - `(line, col, code)`: e.g. `(10, 5, "NO_IMPLICIT_NET")`
+        - `(file, line, code)`: e.g. `("top.sv", 10, "NO_IMPLICIT_NET")`
+        - `(file, line, col, code)`: e.g. `("top.sv", 10, 5, "NO_IMPLICIT_NET")`
+        - `code` (str): e.g. `"NO_IMPLICIT_NET"`
+
+        If `filter_code` is provided, only diagnostics with matching `code` are asserted.
+        If `filter_file` is provided, only diagnostics matching the filename are asserted.
+        If `sort` is True (default), actual and expected items are sorted prior to equality comparison,
+        ensuring deterministic, non-brittle verification.
+        """
+        filtered = self.diagnostics
+        if filter_code is not None:
+            filtered = [d for d in filtered if d.get("code") == filter_code]
+        if filter_file is not None:
+            filtered = [
+                d for d in filtered
+                if Path(str(d.get("file", ""))).name == filter_file
+                or str(d.get("file", "")) == filter_file
+            ]
+
+        expected_seq = list(expected)
+        if not expected_seq:
+            assert len(filtered) == 0, (
+                f"Expected 0 diagnostics (filters: code={filter_code!r}, file={filter_file!r}), "
+                f"found {len(filtered)}:\n{filtered}"
+            )
+            return
+
+        def _project(d: Diagnostic, template: object) -> object:
+            if isinstance(template, str):
+                return str(d.get("code", ""))
+            if isinstance(template, tuple):
+                if len(template) == 2 and isinstance(template[0], int):
+                    return (int(d.get("line") or 0), str(d.get("code", "")))
+                if len(template) == 2 and isinstance(template[0], str):
+                    return (Path(str(d.get("file", ""))).name, str(d.get("code", "")))
+                if len(template) == 3 and isinstance(template[0], int) and isinstance(template[1], int):
+                    return (int(d.get("line") or 0), int(d.get("col") or 0), str(d.get("code", "")))
+                if len(template) == 3 and isinstance(template[0], str) and isinstance(template[1], int):
+                    return (Path(str(d.get("file", ""))).name, int(d.get("line") or 0), str(d.get("code", "")))
+                if len(template) == 4 and isinstance(template[0], str):
+                    return (
+                        Path(str(d.get("file", ""))).name,
+                        int(d.get("line") or 0),
+                        int(d.get("col") or 0),
+                        str(d.get("code", "")),
+                    )
+            raise ValueError(f"Unsupported diagnostic expectation shape: {template!r}")
+
+        sample = expected_seq[0]
+        actual_normalized = [_project(d, sample) for d in filtered]
+
+        actual_list = sorted(actual_normalized) if sort else actual_normalized
+        expected_list = sorted(expected_seq) if sort else expected_seq
+
+        assert actual_list == expected_list, (
+            f"Diagnostic expectation mismatch (filters: code={filter_code!r}, file={filter_file!r}):\n"
+            f"  Expected ({len(expected_list)}): {expected_list}\n"
+            f"  Actual   ({len(actual_list)}): {actual_list}\n"
+            f"  Raw diagnostics: {filtered}"
         )
 
 
@@ -194,3 +280,81 @@ def run_lint_case(
 ) -> LintCaseResult:
     """Backward-compatible alias for the inline rule-regression harness."""
     return run_inline_lint_case(files, jobs=jobs, allow_parse_errors=allow_parse_errors)
+
+
+def run_paired_lint_case(
+    files: dict[str, str],
+    *,
+    tmp_path: Path | None = None,
+    jobs: int = 1,
+    allow_parse_errors: bool = False,
+    selection: RuleSelection | None = None,
+) -> LintCaseResult:
+    """Run HDL files through BOTH in-memory and on-disk execution pipelines,
+    asserting that both pathways produce identical diagnostics, and return
+    the verified LintCaseResult.
+    """
+    inline_result = run_inline_lint_case(
+        files,
+        jobs=jobs,
+        allow_parse_errors=allow_parse_errors,
+        selection=selection,
+    )
+
+    created_tmp = False
+    if tmp_path is None:
+        scratch_root = Path(__file__).resolve().parent.parent / "_tmp_harness"
+        scratch_root.mkdir(parents=True, exist_ok=True)
+        tmp_path = scratch_root / f"paired_{uuid.uuid4().hex}"
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        created_tmp = True
+
+    try:
+        disk_paths: list[Path] = []
+        for relative_path, contents in files.items():
+            path = tmp_path / relative_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(contents.strip() + "\n", encoding="utf-8")
+            disk_paths.append(path)
+
+        file_result = run_file_lint_case(
+            disk_paths,
+            jobs=jobs,
+            allow_parse_errors=allow_parse_errors,
+            selection=selection,
+        )
+
+        def _norm_tuple(d: Diagnostic) -> tuple[str, int, int, str, str]:
+            return (
+                Path(str(d.get("file", ""))).name,
+                int(d.get("line") or 0),
+                int(d.get("col") or 0),
+                str(d.get("code", "")),
+                str(d.get("message", "")),
+            )
+
+        inline_norm = sorted(_norm_tuple(d) for d in inline_result.diagnostics)
+        file_norm = sorted(_norm_tuple(d) for d in file_result.diagnostics)
+
+        assert inline_norm == file_norm, (
+            f"Parity mismatch between in-memory and on-disk execution!\n"
+            f"  In-memory ({len(inline_norm)}): {inline_norm}\n"
+            f"  On-disk   ({len(file_norm)}): {file_norm}"
+        )
+
+        return inline_result
+    finally:
+        if created_tmp and tmp_path.exists():
+            shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+__all__ = [
+    "Diagnostic",
+    "LintCaseFile",
+    "LintCaseResult",
+    "run_file_lint_case",
+    "run_inline_lint_case",
+    "run_inline_lint_case_spec",
+    "run_lint_case",
+    "run_paired_lint_case",
+]

@@ -56,6 +56,7 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 **Stress & loop immunity tests** (`tests/stress/`):
 - `test_ast_cyclical_stress.py`: runs cyclical graph stress tests across all exported syntax query functions, rule-level statement latch analyzers, combinational loop DFS, and circular module instantiation DFS (single-node self-loops, multi-node cyclic rings, cyclic expressions, 500-node graph chains, and cyclic generators) to verify complete loop immunity and termination within the `terminates_within` budget without `RecursionError` or hangs.
 - `test_ast_malformed_stress.py`: malformed AST stress tests covering pathological parser error recovery trees, deep nesting beyond traversal limits, broken node attributes, cyclic scope hierarchies, cyclic context chains, and walker resilience.
+- `test_harness_nesting_stress.py`: end-to-end extreme nesting and stress tests through the full `LintPipeline` under `terminates_within` covering 60 levels of nested conditionals, 50 levels of nested case statements, 100-level parenthesized expressions, 80-level concatenations, 50-level generate blocks, and 50-module instantiation hierarchy chains.
 
 ## Pytest markers
 
@@ -80,12 +81,12 @@ Two ways to get RTL text through the walker coexist in the suite:
    majority pattern in `tests/rules/`.
 2. **Shared harness** (`tests/support/lint_harness.py`, exposed via
    `conftest.py` fixtures `lint_inline_case`, `lint_inline_case_spec`,
-   `lint_temp_file_case`): runs text or real files through the same walker and
+   `lint_temp_file_case`, `lint_paired_case`): runs text or real files through the same walker and
    all three rule runners (`rule_runner`, `symbol_rule_runner`,
    `module_rule_runner`), returning a `LintCaseResult` with assertion helpers
-   (`expect_code_count`, `expect_no_code`, `expect_files_for_code`,
-   `expect_message_contains`, ...). See `tests/test_rule_case_harness.py` for
-   examples.
+   (`expect_code_count`, `expect_no_code`, `expect_clean`, `expect_diagnostics`,
+   `expect_files_for_code`, `expect_message_contains`, ...). See `tests/unit/test_lint_harness.py`
+   and `tests/test_rule_case_harness.py` for examples.
 
 **Prefer the shared harness for new tests that check a complete diagnostic
 result** (count, file, location, message content) rather than hand-rolling the
