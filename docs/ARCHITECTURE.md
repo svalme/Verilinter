@@ -180,7 +180,7 @@ flowchart TD
 In Verilog and SystemVerilog (IEEE 1800-2017), expressions and assignments are not simple localized syntactic tokens; they obey complex semantic typing and context-dependent width rules. Treating them as ad-hoc logic inside individual rule classes creates subtle defects and maintenance bottlenecks:
 
 ### A. Context-Determined vs. Self-Determined Widths
-- In Verilog, binary shift operations (`<<`, `>>`, `<<<`, `>>>`) are **self-determined**: their resulting bit width is strictly equal to the bit width of the left operand, completely ignoring the right-hand shift amount or the surrounding assignment context.
+- For shifts (`<<`, `>>`, `<<<`, `>>>`), the shift amount is self-determined; the result width follows the left operand after applicable context sizing. The query reports the independently recoverable left-operand width, not a fully elaborated assignment-context type.
 - Conversely, binary arithmetic operations (`+`, `-`, `*`) are **context-determined**: when assigned to an LHS target or used in larger expressions, their bit width expands to match the largest operand or the target width.
 - When an individual rule attempts to evaluate an expression width on its own, it easily conflates self-determined width with natural/contextual width, causing either false positives (e.g. flagging a valid sign-extension) or false negatives (e.g. missing product overflow).
 - **Architecture Solution**: A single query layer (`expressions.py`) explicitly distinguishes `simple_expression_width_and_signed` (which only resolves self-determined, invariant widths) from `natural_expression_width_and_signed` (which models operation-specific bit-growth).
@@ -213,6 +213,34 @@ If the semantic model only records scalar `bit_width = 6`, rules checking consta
 ### D. Lexical Scope vs. Upward Resolution
 Complex RTL constructs (such as `generate for` loops, unrolled procedural loops, and automatic functions) nest scopes. When rules evaluate expressions inside a child scope, looking only at the immediate scope fails to find module-level nets.
 - **Architecture Solution**: `Scope.lookup_hierarchical` traverses the parent pointer chain, resolving outer declarations while preserving inner shadowing.
+
+---
+
+## 6. Expression Typing and Arithmetic Capacity
+
+The expression query layer separates three questions:
+
+1. `simple_expression_width_and_signed` resolves value-transfer widths for
+   identifiers, literals, selects, concatenations, shifts, ternaries, and
+   width-preserving `$signed`/`$unsigned` casts. Direct arithmetic stays out
+   of this query to preserve assignment-rule diagnostic ownership.
+2. `expression_width_and_signed` resolves arithmetic operand width before
+   assignment context: `+`, `-`, and `*` use the maximum operand width.
+   This is also used at cast boundaries and for ternary branches.
+3. `natural_expression_width_and_signed` estimates arithmetic capacity
+   recursively: add/subtract use the maximum operand capacity and multiply
+   sums operand capacities. Full-product capacity is a truncation policy,
+   not the IEEE expression type. Addition carry-out is not estimated.
+
+Unknown widths or signedness remain unknown. Assignment context must not be
+used to fabricate an independently known operand width. Signedness casts
+form self-determined boundaries; capacity is not propagated through them.
+Compound assignments are excluded from plain value-transfer resolution. Explicit signedness casts, including the shifted operand, preserve intentional widening and signedness choices; narrowing remains diagnosable.
+All recursive queries use traversal guards and structural syntax kinds.
+
+Parameter folding and concatenated targets are supported. General type casts,
+subroutine return types, and wider operator coverage are not; they require
+explicit context and type semantics, not token parsing.
 
 ---
 
@@ -367,7 +395,7 @@ Verilinter focuses on everyday synthesizable RTL correctness across Verilog-2001
 ### A. Supported RTL Subset
 1. **Modules & Hierarchy**:
    - ANSI and non-ANSI port declarations (`input`, `output`, `inout`, `ref`).
-   - Sized, packed, and unpacked port lists with inheritance across comma-separated lists.
+   - Sized, packed, and unpacked port lists with direction, packed dimension, scalar type width, and signedness inheritance across comma-separated ANSI ports; explicit direction/type declarations start new groups.
    - Positional and named module instantiations (`.port(net)`, `.*`).
    - Parameterized instantiations with named (`#(.WIDTH(16))`) and ordered (`#(16)`) overrides.
    - Circular instantiation graph analysis (`CIRCULAR_MODULE_INSTANTIATION`).
@@ -394,8 +422,8 @@ To prevent false alarms without requiring a full SystemVerilog elaboration simul
   - Complex runtime subroutine return expressions, dynamic user-defined type conversions, and deeply nested unsupported operators are safely skipped when widths cannot be statically established, rather than guessing or fabricating widths.
 
 ### C. FSM & Sequential Analysis Boundaries
-1. **One-Process Synthesizable FSMs**:
-   - Verilinter recognizes state machines adhering to the standard one-process style (an edge-triggered block where the `case` selector is a state register updated via non-blocking assignments).
+1. **One- and Bounded Two-Process Synthesizable FSMs**:
+   - Verilinter recognizes one-process state cases and direct module-sibling two-process machines with an unambiguous `state <= next_state` link. `CaseStatementHandler` and `ModuleDeclarationHandler` pre-index module procedural writers once per module and attach each resolved `FsmModel` to `ctx.data["fsm_model"]` and `module_scope.fsm_models`, recording the linked sequential block, next-state variable, legal case values, structural transitions with conditional guards, and async reset coverage. Unsupported or ambiguous two-process correlations are skipped.
    - Validates missing defaults (`MISSING_DEFAULT_ON_STATE_CASE`), async reset coverage (`MISSING_STATE_REGISTER_RESET`), and one-hot encoding consistency (`ONE_HOT_ENCODING_VIOLATION`).
 2. **Clock & Reset Safety**:
    - Edge-qualified sensitivity list analysis (`MULTI_CLOCK_PROCEDURAL_BLOCK` flags multiple clocks or duplicate edges).
@@ -404,11 +432,11 @@ To prevent false alarms without requiring a full SystemVerilog elaboration simul
    - Async reset value deterministic safety (`ASYNC_RESET_XZ_VALUE` flags X/Z values in reset branches).
 
 ### D. Explicitly Deferred Capabilities (Post-MVP Scope)
-The following capabilities require deeper whole-chip elaboration, clock-tree synthesis, or formal equivalence engines and are intentionally deferred beyond the MVP:
+The following capabilities require deeper semantic modeling or additional policy and remain deferred beyond the MVP:
 1. **Clock Domain Crossing (CDC)**:
    - Synchronizer flop chain depth analysis, domain propagation across hierarchy, and metastability settling logic.
-2. **Two-Process FSM Transition Graphs**:
-   - Correlating separate combinational `next_state` logic with sequential `state <= next_state` assignments, unreachable state detection, and deadlock/trap state graph traversal.
+2. **FSM Transition Proofs**:
+   - The structural FSM model supports bounded two-process correlation, but does not establish complete guarded transition feasibility, reset-rooted reachability, or intentional terminal-state policy. Unreachable and trap-state diagnostics remain deferred.
 3. **General Active-Low Polarity Inference**:
    - Inferring intended active-low polarity purely from datapath boolean usage outside edge-qualified sensitivity lists.
 4. **Dynamic Verification & Simulation Scheduling**:

@@ -14,6 +14,7 @@ from ..syntax_kinds import (
     BINARY_XOR_EXPRESSION_KIND,
     BIT_SELECT_KIND,
     CONCATENATION_EXPRESSION_KIND,
+    CONDITIONAL_EXPRESSION_KIND,
     DIVIDE_EXPRESSION_KIND,
     ELEMENT_SELECT_EXPRESSION_KIND,
     IDENTIFIER_NAME_KIND,
@@ -546,6 +547,19 @@ def simple_expression_width_and_signed(
                 return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
         return None, None
 
+    cast = _signedness_cast(expr)
+    if cast is not None:
+        argument, signed = cast
+        width, _ = expression_width_and_signed(scope, argument, tree)
+        return width, signed if width is not None else None
+
+    if kind == CONDITIONAL_EXPRESSION_KIND:
+        left_width, left_signed = expression_width_and_signed(scope, expr.left, tree)
+        right_width, right_signed = expression_width_and_signed(scope, expr.right, tree)
+        if left_width is not None and right_width is not None:
+            return max(left_width, right_width), None if left_signed is None or right_signed is None else left_signed and right_signed
+        return None, None
+
     if kind == INTEGER_VECTOR_EXPRESSION_KIND:
         size_node = getattr(expr, "size", None)
         size_val = getattr(size_node, "value", None)
@@ -639,19 +653,63 @@ def simple_expression_width_and_signed(
     return None, None
 
 
+@guarded_traversal(max_depth=32, default=(None, None), node_arg="expr")
+def expression_width_and_signed(scope: object, expr: SyntaxNode, tree: SyntaxTree | None = None) -> tuple[int | None, bool | None]:
+    """Language operand width before assignment context, without bit growth.
+
+    Arithmetic uses max operand width, including multiplication. The separate
+    natural query estimates full-product capacity for the truncation policy.
+    """
+    expr = unwrap_parentheses(expr)
+    if getattr(expr, "kind", None) in (*ADD_SUBTRACT_EXPRESSION_KINDS, MULTIPLY_EXPRESSION_KIND):
+        left_width, left_signed = expression_width_and_signed(scope, expr.left, tree)
+        right_width, right_signed = expression_width_and_signed(scope, expr.right, tree)
+        if left_width is not None and right_width is not None:
+            return max(left_width, right_width), None if left_signed is None or right_signed is None else left_signed and right_signed
+        return None, None
+    return simple_expression_width_and_signed(scope, expr, tree)
+
+
+def _signedness_cast(expr: object) -> tuple[object, bool] | None:
+    """Recognize the two width-preserving system casts structurally."""
+    if getattr(expr, "kind", None) != INVOCATION_EXPRESSION_KIND:
+        return None
+    token = getattr(getattr(expr, "left", None), "systemIdentifier", None)
+    name = getattr(token, "valueText", None)
+    if name not in ("$signed", "$unsigned"):
+        return None
+    parameters = getattr(getattr(expr, "arguments", None), "parameters", ())
+    if len(parameters) != 1:
+        return None
+    argument = getattr(parameters[0], "expr", None)
+    return (argument, name == "$signed") if isinstance(argument, SyntaxNode) else None
+
+
+def has_explicit_signedness_cast(expr: object) -> bool:
+    """Whether a cast explicitly sets result signedness, including a shift LHS."""
+    for _ in range(32):
+        expr = unwrap_parentheses(expr)
+        if _signedness_cast(expr) is not None:
+            return True
+        if getattr(expr, "kind", None) not in SHIFT_EXPRESSION_KINDS:
+            return False
+        expr = getattr(expr, "left", None)
+    return False
+
+
+@guarded_traversal(max_depth=32, default=(None, None), node_arg="expr")
 def natural_expression_width_and_signed(
     scope: object,
     expr: SyntaxNode,
     tree: SyntaxTree | None = None,
 ) -> tuple[int | None, bool | None]:
-    """Return the natural (self-determined) result width and signedness of
-    `expr`, extending `simple_expression_width_and_signed` to cover binary
-    arithmetic expressions (`+`, `-`, `*`).
+    """Estimate arithmetic capacity recursively, not an IEEE expression type.
 
-    Per IEEE 1364/1800:
+    This policy query extends simple operand typing with:
     - Add/subtract: `max(left_width, right_width)`.
-    - Multiply: `left_width + right_width`.
-    - Signedness: signed only when both operands are signed.
+    - Multiply: full-product capacity `left_width + right_width`.
+    - Signedness: signed only when both operands are known signed.
+    Casts form self-determined boundaries and addition carry-out is excluded.
     """
     if not isinstance(expr, SyntaxNode):
         return None, None
@@ -663,22 +721,31 @@ def natural_expression_width_and_signed(
         left = getattr(expr, "left", None)
         right = getattr(expr, "right", None)
         if left is not None and right is not None:
-            l_w, l_s = simple_expression_width_and_signed(scope, left, tree)
-            r_w, r_s = simple_expression_width_and_signed(scope, right, tree)
+            l_w, l_s = natural_expression_width_and_signed(scope, left, tree)
+            r_w, r_s = natural_expression_width_and_signed(scope, right, tree)
             if isinstance(l_w, int) and isinstance(r_w, int):
-                return max(l_w, r_w), bool(l_s and r_s)
+                return max(l_w, r_w), None if l_s is None or r_s is None else l_s and r_s
         return None, None
 
     if kind == MULTIPLY_EXPRESSION_KIND:
         left = getattr(expr, "left", None)
         right = getattr(expr, "right", None)
         if left is not None and right is not None:
-            l_w, l_s = simple_expression_width_and_signed(scope, left, tree)
-            r_w, r_s = simple_expression_width_and_signed(scope, right, tree)
+            l_w, l_s = natural_expression_width_and_signed(scope, left, tree)
+            r_w, r_s = natural_expression_width_and_signed(scope, right, tree)
             if isinstance(l_w, int) and isinstance(r_w, int):
-                return l_w + r_w, bool(l_s and r_s)
+                return l_w + r_w, None if l_s is None or r_s is None else l_s and r_s
         return None, None
 
+    if kind == CONDITIONAL_EXPRESSION_KIND:
+        left_width, left_signed = natural_expression_width_and_signed(scope, expr.left, tree)
+        right_width, right_signed = natural_expression_width_and_signed(scope, expr.right, tree)
+        if left_width is not None and right_width is not None:
+            return max(left_width, right_width), None if left_signed is None or right_signed is None else left_signed and right_signed
+        return None, None
+
+    # A cast is a self-determined boundary: do not propagate a hypothetical
+    # full product width through it.
     return simple_expression_width_and_signed(scope, expr, tree)
 
 
@@ -721,4 +788,3 @@ def evaluate_packed_dimension_bounds(
         dim_width = abs(msb_val - lsb_val) + 1
         total_width *= dim_width
     return total_width, first_msb, first_lsb
-

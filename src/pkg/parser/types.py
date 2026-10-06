@@ -65,10 +65,12 @@ ImplicitAnsiPortNode: TypeAlias = sl.ImplicitAnsiPortSyntax
 PrimitiveDeclarationNode: TypeAlias = sl.UdpDeclarationSyntax
 SystemNameNode: TypeAlias = sl.SystemNameSyntax
 ClockingDeclarationNode: TypeAlias = sl.ClockingDeclarationSyntax
+BinaryExpressionNode: TypeAlias = sl.BinaryExpressionSyntax
 
 __all__ = [
     "ArgumentListNode",
     "BinaryEventExpressionNode",
+    "BinaryExpressionNode",
     "CaseGenerateNode",
     "CaseStatementNode",
     "ClockingDeclarationNode",

@@ -7,6 +7,7 @@ from ..syntax_kinds import (
     BIT_SELECT_KIND,
     DESCENDING_RANGE_SELECT_KIND,
     RANGE_SELECT_KINDS,
+    READ_WRITE_ASSIGNMENT_KINDS,
     SIMPLE_RANGE_SELECT_KIND,
     UNARY_MINUS_EXPRESSION_KIND,
     UNARY_PLUS_EXPRESSION_KIND,
@@ -302,6 +303,22 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
     )
 
     raw = getattr(vnode, "raw", vnode)
+    # Compound operations are not plain value transfers. Comparing their
+    # RHS alone with the destination width/sign would produce false alarms.
+    if getattr(raw, "kind", None) in READ_WRITE_ASSIGNMENT_KINDS:
+        return None, None
+
+    ctx_data = getattr(ctx, "data", None)
+    module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
+    cache_key = ("assign_target_rhs", id(raw))
+    if isinstance(module_cache, dict) and cache_key in module_cache:
+        return module_cache[cache_key]
+
+    def _store(res: tuple[object, object]) -> tuple[object, object]:
+        if isinstance(module_cache, dict):
+            module_cache[cache_key] = res
+        return res
+
     scope = getattr(ctx, "scope", lambda: None)()
     tree = getattr(vnode, "tree", None) or getattr(ctx, "tree", None)
 
@@ -309,28 +326,28 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
         left = assignment_left(raw)
         right = assignment_right(raw)
         if left is None or right is None or scope is None:
-            return None, None
+            return _store((None, None))
         target = resolve_assignment_target(left, scope, tree)
         if target is None:
-            return None, None
-        return target, right
+            return _store((None, None))
+        return _store((target, right))
 
     if declarator_has_initializer(raw):
         if declarator_is_parameter(ctx):
-            return None, None
+            return _store((None, None))
         name = declarator_name(raw)
         if name is None or scope is None:
-            return None, None
+            return _store((None, None))
         lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
         symbol = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
         if symbol is None:
-            return None, None
+            return _store((None, None))
         right = declarator_initializer_expression(raw)
         target = AssignmentTarget(
             base_symbol=symbol,
             slice_width=None,
             is_sliced=False,
         )
-        return target, right
+        return _store((target, right))
 
-    return None, None
+    return _store((None, None))

@@ -1,13 +1,10 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
-    case_item_expressions,
-    case_statement_items,
-    case_statement_selector_name,
     is_case_statement,
-    is_state_register_case,
-    resolve_case_item_value,
+    state_machine_model,
 )
+from ...parser.types import CaseStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -39,22 +36,14 @@ def _is_one_hot_encoding_violation(vnode: BaseVNode, ctx: "Context") -> bool:
     """
     if not is_case_statement(vnode.raw):
         return False
-    if not is_state_register_case(vnode.raw, ctx):
+    model = state_machine_model(vnode.raw, ctx)
+    if model is None:
         return False
-
-    name = case_statement_selector_name(vnode.raw)
-    if name is None:
-        return False
-    symbol = ctx.scope().lookup_hierarchical(name)
+    symbol = ctx.scope().lookup_hierarchical(model.state_name)
     if symbol is None or not isinstance(symbol.bit_width, int) or symbol.bit_width <= 1:
         return False
 
-    values: set[int] = set()
-    for item in case_statement_items(vnode.raw):
-        for expression in case_item_expressions(item):
-            value = resolve_case_item_value(expression, ctx.scope())
-            if value is not None:
-                values.add(value)
+    values = model.legal_states
 
     if len(values) < 3 or len(values) != symbol.bit_width:
         return False
@@ -68,6 +57,7 @@ class OneHotEncodingViolationRule(Rule):
     message = "State register's declared width implies one-hot encoding, but at least one state value doesn't have exactly one bit set"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (CaseStatementNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _is_one_hot_encoding_violation(vnode, ctx)

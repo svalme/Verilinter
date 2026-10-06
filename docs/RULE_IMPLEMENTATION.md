@@ -115,6 +115,7 @@ re-exports them from `src/pkg/parser/_syntax_queries/`, split by theme:
 - `module_file.py`: file-scoped module-identity helpers, plus module-position
   and timescale-directive checks
 - `system_tasks.py`: system task/function name-set checks
+- `fsm.py`: structural state-machine model (`FsmModel`, `FsmTransition`, `state_machine_model`, `is_state_register_case`) with per-module procedural write summaries and per-case `Context.data` caching
 
 Adding a new helper: put it in the submodule matching its theme (or a new one,
 following `_syntax_queries/__init__.py`'s own guidance to split "when groups of
@@ -445,3 +446,44 @@ Example:
 
 That distinction matters because rule selection should key off policy metadata
 without forcing a file or folder reorganization first.
+
+## Assignment, Driver, and Branch Coverage Matrices
+
+For a rule that consumes value transfers, audit every applicable syntax form.
+Use the shared assignment target/RHS resolver and expression queries; do not
+reimplement source-text parsing inside the rule.
+
+| Vehicle | Width/sign/truncation | Literal policy | Self-assignment |
+|---|---|---|---|
+| Continuous `assign` | Check | Check | Check simple identifiers |
+| Blocking `=` | Check | Check | Check simple identifiers |
+| Nonblocking `<=` | Check | Check | Check simple identifiers |
+| Variable/net initializer | Check | Check | Excluded: initialization differs from redundant assignment |
+| Port default | Check | Check | Excluded |
+| Compound assignment | Excluded from plain transfer rules; needs operation semantics | Literal overflow still applies; unsized policy excluded | Excluded |
+
+Parameter initializers are excluded from ordinary assignment width and unsized
+assignment-literal policy. Literal overflow is lexical and applies wherever
+an unsigned sized literal occurs. Test sliced/indexed and concatenated targets,
+known and unknown operands, both HDL dialects, and explicit cast boundaries.
+
+| Driver source | Audit requirement |
+|---|---|
+| Continuous / procedural / initializer | Preserve driver identity and read/write distinctions |
+| Instance output / subroutine output, inout, ref | Preserve direction and actual-target selectors |
+| Generate alternatives | Preserve branch exclusivity across serialization |
+
+| Branch shape | Audit requirement |
+|---|---|
+| If/else and case | Check asymmetric assignments to multiple variables |
+| Nested conditional ladders | Check omitted intermediate branches and empty statements |
+| Pre-assignment and loops | Preserve statement order within a block; avoid imposing order across concurrent blocks |
+
+FSM rules should consume `state_machine_model` instead of independently
+guessing a state/next-state relationship. `ModuleDeclarationHandler` attaches a
+per-module `module_cache` on `Context.data`, and `CaseStatementHandler`
+computes `FsmModel` once per `CaseStatementNode` (attaching it to
+`ctx.data["fsm_model"]` and `module_scope.fsm_models`) so all FSM rules share a
+single evaluation without re-walking `module.members`. Its transitions are
+structural: unknown destinations and conditional guards require further
+analysis before issuing reachability or trap-state diagnostics.

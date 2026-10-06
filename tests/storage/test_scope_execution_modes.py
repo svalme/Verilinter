@@ -16,6 +16,42 @@ def normalized(rows):
     return sorted(json.dumps(row, sort_keys=True) for row in rows)
 
 
+def test_expression_and_two_process_fsm_mode_parity():
+    root = scratch()
+    expression = root / "expression.sv"
+    fsm = root / "fsm.sv"
+    expression.write_text("""
+        module expression(input [7:0] a,b,c, output [7:0] p);
+        assign p = a * b + c; endmodule
+    """, encoding="utf-8")
+    fsm.write_text("""
+        module fsm(input clk, rst);
+        logic [2:0] state, next_state;
+        always @(posedge clk or posedge rst)
+            if (rst) state <= 3'b001; else state <= next_state;
+        always_comb begin
+            next_state = state;
+            case (state)
+                3'b001: next_state = 3'b010;
+                3'b010: next_state = 3'b011;
+                3'b011: next_state = 3'b001;
+            endcase
+        end
+        endmodule
+    """, encoding="utf-8")
+    paths = [expression, fsm]
+    reference = analyze(paths, jobs=1, use_cache=False)
+    codes = {d["code"] for d in reference.diagnostics}
+    assert {"ARITHMETIC_RESULT_TRUNCATION", "MISSING_DEFAULT_ON_STATE_CASE", "ONE_HOT_ENCODING_VIOLATION"} <= codes
+    parallel = analyze(paths, jobs=2, use_cache=False)
+    cold = analyze(paths, jobs=2, store_path=root / "store.sqlite")
+    warm = analyze(paths, jobs=2, store_path=root / "store.sqlite")
+    assert cold.cache_stats == {"hits": 0, "misses": 2}
+    assert warm.cache_stats == {"hits": 2, "misses": 0}
+    for result in (parallel, cold, warm):
+        assert normalized(result.diagnostics) == normalized(reference.diagnostics)
+
+
 def test_cli_parallel_and_cache_equivalence_with_scopes(capsys):
     root = scratch()
     (root / "pkg.sv").write_text("package p; parameter int N = 1; endpackage", encoding="utf-8")

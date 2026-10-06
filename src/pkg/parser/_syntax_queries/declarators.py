@@ -146,14 +146,32 @@ def _iter_ansi_ports(node: object) -> Iterator[object]:
             yield from _iter_ansi_ports(child)
 
 
-def _ansi_port_list_items(list_node: object) -> list[object]:
+def _module_cache(ctx: object) -> dict[object, object] | None:
+    data = getattr(ctx, "data", None)
+    if isinstance(data, dict):
+        cache = data.get("module_cache")
+        if isinstance(cache, dict):
+            return cache
+    return None
+
+
+def _ansi_port_list_items(list_node: object, ctx: object = None) -> list[object]:
     """Flatten an `AnsiPortListSyntax` down to its ordered `ImplicitAnsiPortSyntax`
     items, looking through the intermediate separated-list wrapper pyslang puts
     between the list and its items."""
-    return list(_iter_ansi_ports(list_node))
+    if list_node is None:
+        return []
+    cache = _module_cache(ctx)
+    key = ("ansi_port_items", id(list_node))
+    if cache is not None and key in cache:
+        return cache[key]  # type: ignore[return-value]
+    items = list(_iter_ansi_ports(list_node))
+    if cache is not None:
+        cache[key] = items
+    return items
 
 
-def _inherited_port_direction(raw: object) -> str | None:
+def _inherited_port_direction(raw: object, ctx: object = None) -> str | None:
     """A port that omits its own direction keyword (`input clk, wen,` -- `wen`
     has no keyword of its own) inherits the *previous* port's direction in the
     same ANSI port list. pyslang models this literally: `wen`'s own
@@ -164,7 +182,7 @@ def _inherited_port_direction(raw: object) -> str | None:
     parent = getattr(raw, "parent", None)
     if parent is None:
         return None
-    siblings = _ansi_port_list_items(parent)
+    siblings = _ansi_port_list_items(parent, ctx)
     try:
         index = next(i for i, sibling in enumerate(siblings) if sibling is raw)
     except StopIteration:
@@ -173,6 +191,59 @@ def _inherited_port_direction(raw: object) -> str | None:
         direction = _explicit_port_direction(sibling)
         if direction is not None:
             return direction
+    return None
+
+
+def _effective_port_data_type(raw: object, ctx: object = None) -> object:
+    """Inherit omitted ANSI types, stopping at direction/type boundaries."""
+    cache = _module_cache(ctx)
+    key = ("port_data_type", id(raw))
+    if cache is not None and key in cache:
+        return cache[key]
+
+    def explicit(port: object) -> bool:
+        header = getattr(port, "header", None)
+        data_type = getattr(header, "dataType", None)
+        return (
+            _explicit_port_direction(port) is not None
+            or getattr(data_type, "kind", None) != IMPLICIT_TYPE_KIND
+            or bool(getattr(data_type, "dimensions", ()))
+            or bool(getattr(getattr(data_type, "signing", None), "valueText", ""))
+            or any(getattr(getattr(header, field, None), "valueText", "")
+                   for field in ("netType", "varKeyword"))
+        )
+
+    own_type = getattr(getattr(raw, "header", None), "dataType", None)
+    result = own_type
+    if getattr(raw, "kind", None) in ANSI_PORT_KINDS and not explicit(raw):
+        inherited = own_type
+        for sibling in _ansi_port_list_items(getattr(raw, "parent", None), ctx):
+            if explicit(sibling):
+                inherited = getattr(getattr(sibling, "header", None), "dataType", None)
+            if sibling == raw:
+                result = inherited
+                break
+    if cache is not None:
+        cache[key] = result
+    return result
+
+
+def _declarator_owner_data_type(ctx: "Context") -> object | None:
+    for ancestor in reversed(ctx.stack):
+        raw = ancestor.raw
+        kind = getattr(raw, "kind", None)
+        dt = None
+        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
+            if getattr(raw, "header", None) is not None:
+                dt = _effective_port_data_type(raw, ctx)
+        elif (
+            kind in DATA_DECLARATION_KINDS
+            or kind in NET_DECLARATION_KINDS
+            or kind in PARAMETER_DECLARATION_KINDS
+        ):
+            dt = getattr(raw, "type", None)
+        if dt is not None:
+            return dt
     return None
 
 
@@ -201,7 +272,7 @@ def declarator_port_direction(ctx: "Context") -> str | None:
             direction = _explicit_port_direction(raw)
             if direction is not None:
                 return direction
-            return _inherited_port_direction(raw)
+            return _inherited_port_direction(raw, ctx)
         if kind in DATA_DECLARATION_KINDS:
             return None
     return None
@@ -211,46 +282,14 @@ def declarator_is_event(ctx: "Context") -> bool:
     """True if the declarator's declared data type is `event`."""
     if EVENT_TYPE_KIND is None:
         return False
-    for ancestor in reversed(ctx.stack):
-        raw = ancestor.raw
-        kind = getattr(raw, "kind", None)
-        if kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
-            dt = getattr(raw, "type", None)
-            if dt is not None and getattr(dt, "kind", None) == EVENT_TYPE_KIND:
-                return True
-        elif kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
-            header = getattr(raw, "header", None)
-            if header is not None:
-                dt = getattr(header, "dataType", None)
-                if dt is not None and getattr(dt, "kind", None) == EVENT_TYPE_KIND:
-                    return True
-    return False
+    dt = _declarator_owner_data_type(ctx)
+    return dt is not None and getattr(dt, "kind", None) == EVENT_TYPE_KIND
 
 
 def _declarator_owner_packed_dimensions(ctx: "Context") -> list[SyntaxNode]:
-    for ancestor in reversed(ctx.stack):
-        raw = ancestor.raw
-        kind = getattr(raw, "kind", None)
-        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
-            header = getattr(raw, "header", None)
-            if header is not None:
-                dt = getattr(header, "dataType", None)
-                if dt is not None and hasattr(dt, "dimensions"):
-                    dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
-                    if dims:
-                        return dims
-        elif kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
-            dt = getattr(raw, "type", None)
-            if dt is not None and hasattr(dt, "dimensions"):
-                dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
-                if dims:
-                    return dims
-        elif kind in PARAMETER_DECLARATION_KINDS:
-            dt = getattr(raw, "type", None)
-            if dt is not None and hasattr(dt, "dimensions"):
-                dims = [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
-                if dims:
-                    return dims
+    dt = _declarator_owner_data_type(ctx)
+    if dt is not None and hasattr(dt, "dimensions"):
+        return [d for d in dt.dimensions if isinstance(d, SyntaxNode)]
     return []
 
 
@@ -381,64 +420,38 @@ def declarator_bit_width(ctx: "Context") -> int | None:
         return None
 
     # When there are no packed dimensions, determine scalar width directly from AST keyword
-    for ancestor in reversed(ctx.stack):
-        raw = ancestor.raw
-        kind = getattr(raw, "kind", None)
-        dt = None
-        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
-            header = getattr(raw, "header", None)
-            if header is not None:
-                dt = getattr(header, "dataType", None)
-        elif kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
-            dt = getattr(raw, "type", None)
-        elif kind in PARAMETER_DECLARATION_KINDS:
-            dt = getattr(raw, "type", None)
-
-        if dt is not None:
-            kw = getattr(getattr(dt, "keyword", None), "valueText", None)
-            if kw in ("integer", "int"):
-                return 32
-            if kw in ("time", "longint"):
-                return 64
-            if kw in ("shortint",):
-                return 16
-            if kw in ("byte",):
-                return 8
-            if kw in ("logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
-                return 1
-            break
+    dt = _declarator_owner_data_type(ctx)
+    if dt is not None:
+        kw = getattr(getattr(dt, "keyword", None), "valueText", None)
+        if kw in ("integer", "int"):
+            return 32
+        if kw in ("time", "longint"):
+            return 64
+        if kw in ("shortint",):
+            return 16
+        if kw in ("byte",):
+            return 8
+        if kw in ("logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
+            return 1
 
     return None
 
 
 def declarator_is_signed(ctx: "Context") -> bool | None:
-    for ancestor in reversed(ctx.stack):
-        raw = ancestor.raw
-        kind = getattr(raw, "kind", None)
-        dt = None
-        if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
-            header = getattr(raw, "header", None)
-            if header is not None:
-                dt = getattr(header, "dataType", None)
-        elif kind in DATA_DECLARATION_KINDS or kind in NET_DECLARATION_KINDS:
-            dt = getattr(raw, "type", None)
-        elif kind in PARAMETER_DECLARATION_KINDS:
-            dt = getattr(raw, "type", None)
-
-        if dt is not None:
-            signing_tok = getattr(dt, "signing", None)
-            if signing_tok is not None:
-                st = getattr(signing_tok, "valueText", "")
-                if st == "signed":
-                    return True
-                if st == "unsigned":
-                    return False
-            kw = getattr(getattr(dt, "keyword", None), "valueText", None)
-            if kw in ("integer", "int", "shortint", "longint", "byte"):
+    dt = _declarator_owner_data_type(ctx)
+    if dt is not None:
+        signing_tok = getattr(dt, "signing", None)
+        if signing_tok is not None:
+            st = getattr(signing_tok, "valueText", "")
+            if st == "signed":
                 return True
-            if kw in ("time", "logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
+            if st == "unsigned":
                 return False
-            break
+        kw = getattr(getattr(dt, "keyword", None), "valueText", None)
+        if kw in ("integer", "int", "shortint", "longint", "byte"):
+            return True
+        if kw in ("time", "logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
+            return False
 
     return None
 
@@ -523,4 +536,3 @@ def typedef_declaration_name_and_location(
         return None, None
     loc = token_location(name_token, tree)
     return name, loc
-

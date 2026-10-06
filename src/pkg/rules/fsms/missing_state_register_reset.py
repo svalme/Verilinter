@@ -1,13 +1,11 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
-    case_statement_selector_name,
     classify_reset_style,
-    enclosing_procedural_block,
     is_case_statement,
-    is_state_register_case,
-    is_state_register_reset_covered,
+    state_machine_model,
 )
+from ...parser.types import CaseStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -19,18 +17,14 @@ if TYPE_CHECKING:
 def _is_missing_state_register_reset(vnode: BaseVNode, ctx: "Context") -> bool:
     if not is_case_statement(vnode.raw):
         return False
-    if not is_state_register_case(vnode.raw, ctx):
+    model = state_machine_model(vnode.raw, ctx)
+    if model is None:
         return False
 
-    block = enclosing_procedural_block(ctx)
-    if block is None or classify_reset_style(block.raw) != "async":
+    if classify_reset_style(model.sequential_block) != "async":
         return False
 
-    name = case_statement_selector_name(vnode.raw)
-    if name is None:
-        return False
-
-    return not is_state_register_reset_covered(block.raw, name)
+    return not model.reset_covered
 
 
 @rule_runner.register
@@ -48,6 +42,7 @@ class MissingStateRegisterResetRule(Rule):
     message = "State register is not assigned inside the reset branch; its post-reset value is undefined"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (CaseStatementNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _is_missing_state_register_reset(vnode, ctx)

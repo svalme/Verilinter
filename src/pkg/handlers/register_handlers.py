@@ -14,6 +14,7 @@ from .primitive_declaration_handler import PrimitiveDeclarationHandler
 # blocks
 from .clocking_declaration_handler import ClockingDeclarationHandler
 from .procedural_block_handler import ProceduralBlockHandler
+from .case_statement_handler import CaseStatementHandler
 from .case_generate_handler import CaseGenerateHandler
 from .for_loop_statement_handler import ForLoopStatementHandler
 from .type_and_generate_scope_handler import StructUnionTypeHandler, LoopGenerateHandler

@@ -34,15 +34,18 @@ from ._syntax_queries.access import (
     unary_write_operand,
 )
 from ._syntax_queries.expressions import (
+    has_explicit_signedness_cast,
     compute_sliced_width,
     evaluate_constant_expression,
     evaluate_constant_text_expression,
     evaluate_packed_dimension_bounds,
+    expression_width_and_signed,
     natural_expression_width_and_signed,
     simple_expression_width_and_signed,
     unwrap_parentheses,
 )
 from ._syntax_queries.fsm import (
+    state_machine_model,
     case_statement_selector_name,
     is_state_register_case,
     resolve_case_item_value,
@@ -322,6 +325,9 @@ from ._syntax_queries.subroutines import (
 )
 
 __all__ = [
+    "has_explicit_signedness_cast",
+    "expression_width_and_signed",
+    "state_machine_model",
     "ALL_SYSTEM_TASK_NAMES",
     "assignment_is_implicit_real_conversion",
     "assignment_left",

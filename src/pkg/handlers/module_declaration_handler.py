@@ -35,7 +35,12 @@ class ModuleDeclarationHandler(SyntaxNodeHandler):
         )
         symbol_table.register_module(name, module_scope)
         async_resets = module_async_reset_signals(vnode.raw)
-        return ctx.push(vnode).with_scope(module_scope).with_data("module_async_resets", async_resets)
+        return (
+            ctx.push(vnode)
+            .with_scope(module_scope)
+            .with_data("module_async_resets", async_resets)
+            .with_data("module_cache", {})
+        )
 
     def on_exit(self, _ctx: Context, _vnode: SyntaxVNode, symbol_table: SymbolTable) -> None:
         symbol_table.pop_scope()

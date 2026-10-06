@@ -19,6 +19,7 @@ class Scope:
         # statements appearing directly in this scope; `imported_name` is None for
         # the wildcard form. Consulted by SymbolTable.lookup_from_scope.
         self.imports: list[tuple[str, str | None]] = []
+        self.fsm_models: list[object] = []
 
     def set_parent(self, parent: Scope | None = None) -> None:
         self.parent = parent

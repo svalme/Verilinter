@@ -146,13 +146,8 @@ class TestArithmeticResultTruncationRule:
 
         assert len(diagnostics) == 1
 
-    def test_does_not_flag_nested_arithmetic_expression(self) -> None:
-        # Documents a known limitation, not a claim of coverage: `_natural_
-        # result_width` only recognizes a direct `+`/`-`/`*` binary RHS, so
-        # nesting one arithmetic operation inside another (here `a * b + c`,
-        # whose true 9-bit result still overflows the 8-bit target) makes the
-        # inner `a * b` operand's width unrecoverable and silently skips the
-        # whole expression rather than guessing at it.
+    def test_flags_nested_arithmetic_expression(self) -> None:
+        # The nested product needs 16 bits under the full-product policy.
         diagnostics = _diagnostics(
             """
             module top;
@@ -165,13 +160,10 @@ class TestArithmeticResultTruncationRule:
             """
         )
 
-        assert diagnostics == []
+        assert len(diagnostics) == 1
 
-    def test_does_not_flag_bit_select_assignment_target(self) -> None:
-        # Documents a known limitation: the rule only resolves a plain
-        # identifier assignment target via `identifier_name`/`ctx.scope().
-        # lookup`, so a bit-select or part-select target (`p[7:0] = ...`) is
-        # silently skipped even though the same truncation can occur there.
+    def test_flags_part_select_assignment_target(self) -> None:
+        # Compare against the selected target width rather than the base net.
         diagnostics = _diagnostics(
             """
             module top;
@@ -183,7 +175,7 @@ class TestArithmeticResultTruncationRule:
             """
         )
 
-        assert diagnostics == []
+        assert len(diagnostics) == 1
 
     def test_flags_declarator_initializer_truncation(self) -> None:
         diagnostics = _diagnostics(

@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
+    has_explicit_signedness_cast,
     element_select_index_or_range,
     evaluate_constant_text_expression,
     extract_assignment_target_and_selectors,
@@ -8,7 +9,12 @@ from ...parser.syntax import (
     simple_expression_width_and_signed,
 )
 from ...parser.traversal_guard import guarded_traversal
-from ...parser.types import SyntaxNode
+from ...parser.types import (
+    BinaryExpressionNode,
+    DeclaratorNode,
+    ImplicitAnsiPortNode,
+    SyntaxNode,
+)
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -101,35 +107,50 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
     right-hand-side width is known and differs from its target's declared
     width, else `None`.
     """
+    ctx_data = getattr(ctx, "data", None)
+    module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
+    cache_key = ("width_mismatch", id(getattr(vnode, "raw", vnode)))
+    if isinstance(module_cache, dict) and cache_key in module_cache:
+        return module_cache[cache_key]  # type: ignore[return-value]
+
+    def _store(res: tuple[int, int] | None) -> tuple[int, int] | None:
+        if isinstance(module_cache, dict):
+            module_cache[cache_key] = res
+        return res
+
     lhs_symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)
     if lhs_symbol is None or right is None or not isinstance(lhs_symbol.bit_width, int):
-        return None
+        return _store(None)
 
     rhs_width, _rhs_signed = simple_expression_width_and_signed(ctx.scope(), right, vnode.tree)
     if not isinstance(rhs_width, int):
-        return None
+        return _store(None)
 
-    if lhs_symbol.bit_width != rhs_width:
-        return lhs_symbol.bit_width, rhs_width
+    intentional_extension = rhs_width < lhs_symbol.bit_width and has_explicit_signedness_cast(right)
+    if lhs_symbol.bit_width != rhs_width and not intentional_extension:
+        return _store((lhs_symbol.bit_width, rhs_width))
 
     # Check for index selector width mismatch in indexed array expressions
     scope = getattr(ctx, "scope", lambda: None)()
     if scope is not None:
         lhs_mismatch = _check_target_selectors(lhs_symbol, ctx, vnode.tree)
         if lhs_mismatch is not None:
-            return lhs_mismatch
+            return _store(lhs_mismatch)
 
         rhs_mismatch = _check_selects(right, scope, ctx, vnode.tree)
         if rhs_mismatch is not None:
-            return rhs_mismatch
+            return _store(rhs_mismatch)
 
-    return None
+    return _store(None)
 
 
 def _signedness_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[bool, bool] | None:
     """Sign-mismatch sibling of `_width_mismatch`, same recoverability limits."""
     lhs_symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)
     if lhs_symbol is None or right is None or lhs_symbol.is_signed is None:
+        return None
+
+    if has_explicit_signedness_cast(right):
         return None
 
     _rhs_width, rhs_signed = simple_expression_width_and_signed(ctx.scope(), right, vnode.tree)
@@ -147,6 +168,7 @@ class NoAssignmentWidthMismatchRule(Rule):
     message = "Assignment right-hand side width does not match its target's declared width"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (BinaryExpressionNode, DeclaratorNode, ImplicitAnsiPortNode)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _width_mismatch(vnode, ctx) is not None
@@ -158,6 +180,7 @@ class NoAssignmentSignednessMismatchRule(Rule):
     message = "Assignment right-hand side signedness does not match its target's declared signedness"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (BinaryExpressionNode, DeclaratorNode, ImplicitAnsiPortNode)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _signedness_mismatch(vnode, ctx) is not None
@@ -178,6 +201,7 @@ class NoAssignmentTruncationRule(Rule):
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     overlaps_with = ("ASSIGNMENT_WIDTH_MISMATCH",)
+    target_node_types = (BinaryExpressionNode, DeclaratorNode, ImplicitAnsiPortNode)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         widths = _width_mismatch(vnode, ctx)

@@ -1,4 +1,5 @@
-from ...parser.syntax import assignment_left, assignment_right, identifier_name, is_assignment_expression
+from ...parser.syntax import assignment_left, assignment_right, identifier_name, is_assignment_expression, is_read_write_assignment_expression
+from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -10,9 +11,10 @@ class NoSelfAssignmentRule(Rule):
     message = "Self-assignment detected"
     category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (BinaryExpressionNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: object) -> bool:
-        if not is_assignment_expression(vnode.raw):
+        if not is_assignment_expression(vnode.raw) or is_read_write_assignment_expression(vnode.raw):
             return False
 
         left = assignment_left(vnode.raw)

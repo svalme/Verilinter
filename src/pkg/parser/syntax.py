@@ -36,6 +36,9 @@ from .syntax_kinds import (
     WHILE_TOKEN_KIND,
 )
 from .syntax_queries import (
+    has_explicit_signedness_cast,
+    state_machine_model,
+    expression_width_and_signed,
     ALL_SYSTEM_TASK_NAMES,
     assignment_is_implicit_real_conversion,
     assignment_left,
@@ -320,6 +323,9 @@ from .syntax_queries import (
 )
 
 __all__ = [
+    "has_explicit_signedness_cast",
+    "expression_width_and_signed",
+    "state_machine_model",
     "ALWAYS_BLOCK_KIND",
     "ALWAYS_COMB_BLOCK_KIND",
     "ALWAYS_LATCH_BLOCK_KIND",

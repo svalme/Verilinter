@@ -15,6 +15,8 @@ from ..syntax_kinds import (
     MOD_EXPRESSION_KIND,
     MULTIPLY_EXPRESSION_KIND,
     PROCEDURAL_BLOCK_KINDS,
+    PARAMETER_DECLARATION_KINDS,
+    ENUM_TYPE_KIND,
     READ_WRITE_ASSIGNMENT_KINDS,
     READ_WRITE_UNARY_KINDS,
     SHIFT_EXPRESSION_KINDS,
@@ -22,7 +24,7 @@ from ..syntax_kinds import (
     UNARY_MINUS_EXPRESSION_KIND,
     UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
 )
-from ..types import IDENTIFIER_NAME_NODE_TYPES, ProceduralBlockNode
+from ..types import IDENTIFIER_NAME_NODE_TYPES, ProceduralBlockNode, DeclaratorNode
 
 
 def is_assignment_expression(raw: object) -> bool:
@@ -60,6 +62,10 @@ def is_unsized_literal_in_flagged_value_context(raw: object) -> bool:
     A continuous `assign x = 5;` shares the identical AssignmentExpression node
     shape, so this one check covers both procedural and continuous assignment.
 
+    Also covers variable/net initializers and port defaults. Parameter and
+    enum-definition values are excluded: they define constants, rather than
+    transferring an unsized value to a signal.
+
     Excludes a classic `for (i = 0; ...; i = i + 1)` loop header: its init/step
     clauses are ordinary AssignmentExpression/NonblockingAssignmentExpression
     nodes parented directly by ForLoopStatementSyntax, the same shape as an
@@ -70,6 +76,16 @@ def is_unsized_literal_in_flagged_value_context(raw: object) -> bool:
     if not is_unsized_literal(raw):
         return False
     assignment = getattr(raw, "parent", None)
+    declarator = getattr(assignment, "parent", None)
+    if isinstance(declarator, DeclaratorNode) and getattr(assignment, "expr", None) is raw:
+        ancestor = declarator.parent
+        for _ in range(32):
+            if ancestor is None:
+                return True
+            if getattr(ancestor, "kind", None) in (*PARAMETER_DECLARATION_KINDS, ENUM_TYPE_KIND, FOR_LOOP_STATEMENT_KIND):
+                return False
+            ancestor = getattr(ancestor, "parent", None)
+        return False
     if getattr(assignment, "kind", None) not in SIMPLE_ASSIGNMENT_KINDS:
         return False
     if getattr(assignment, "right", None) is not raw:
@@ -456,4 +472,3 @@ def has_case_overlapping_items(raw: object) -> bool:
                 seen_patterns.append(pat)
 
     return False
-

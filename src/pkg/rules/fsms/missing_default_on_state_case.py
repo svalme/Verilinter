@@ -6,6 +6,7 @@ from ...parser.syntax import (
     is_endcase_token,
     is_state_register_case,
 )
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -29,6 +30,7 @@ class MissingDefaultOnStateCaseRule(Rule):
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     overlaps_with = ("NO_DEFAULT_CASE_STATEMENT",)
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_endcase_token(vnode.raw):
