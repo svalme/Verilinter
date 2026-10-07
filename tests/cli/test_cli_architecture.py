@@ -1,24 +1,21 @@
 from __future__ import annotations
 
 import json
-import uuid
 from pathlib import Path
 
 import pytest
 
 from src.pkg.analysis_store import AnalysisStore
 from src.run_lint import AnalysisResult, WorkerResult, analyze, collect_paths, main, run
+from tests.support.scratch import make_scratch
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "self_assignment.v"
 CLEAN_DATA = Path(__file__).resolve().parents[1] / "data" / "simple.v"
 SYNTAX_ERROR_DATA = Path(__file__).resolve().parents[1] / "data" / "syntax_error.v"
-SCRATCH_ROOT = Path(__file__).resolve().parents[1] / "_tmp_cli_architecture"
 
 
 def _scratch(name: str) -> Path:
-    target = SCRATCH_ROOT / f"{name}_{uuid.uuid4().hex}"
-    target.mkdir(parents=True, exist_ok=True)
-    return target
+    return make_scratch("_tmp_cli_architecture", name)
 
 
 # ==============================================================================

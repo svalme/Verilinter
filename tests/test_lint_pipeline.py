@@ -158,7 +158,26 @@ class TestLintPipeline:
         assertion is the actual parity guarantee: if `UseEvent` ever gains a
         new field, this fixture (and the round-trip assertion below) must be
         updated to cover it, or this test fails first."""
-        symbol = Symbol(name="sig", kind="wire")
+        symbol = Symbol(name="sig", kind="variable")
+        symbol.add_declaration({"line": 1, "col": 3, "file": "top.sv"})
+        symbol.is_implicit = False
+        symbol.is_port = True
+        symbol.is_function_return = False
+        symbol.port_direction = "output"
+        symbol.bit_width = 16
+        symbol.msb = 15
+        symbol.lsb = 0
+        symbol.is_signed = True
+        symbol.value = 42
+        symbol.is_constant = True
+        symbol.is_localparam = True
+        symbol.initializer_text = "16'sh002a"
+        symbol.has_declaration_initializer = True
+        symbol.is_event = False
+        symbol.packed_dimensions = [("15", "0")]
+        symbol.packed_dimension_widths = [16]
+        symbol.unpacked_dimensions = [("0", "3")]
+        symbol.unpacked_dimension_widths = [4]
         symbol.add_use(
             loc={"line": 3, "col": 5, "file": "top.sv"},
             read=True,
@@ -182,6 +201,11 @@ class TestLintPipeline:
         restored = _symbol_from_dict(payload)
 
         assert restored.use_events == symbol.use_events
+        expected_attrs = {k: v for k, v in symbol.__dict__.items() if k != "scope"}
+        restored_attrs = {k: v for k, v in restored.__dict__.items() if k != "scope"}
+        assert restored_attrs == expected_attrs
+        assert restored.is_declared is True
+        assert restored.is_explicit_kind("variable") is True
 
     def test_pipeline_custom_runners_injection(self) -> None:
         """Verify that custom rule runners (AST, symbol, module) can be injected into LintPipeline."""

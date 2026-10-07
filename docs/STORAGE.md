@@ -51,7 +51,7 @@ Severity overrides are applied after cached worker results are loaded, so they d
 The current schema version is `3`.
 
 Verilinter treats schema compatibility separately from cache compatibility:
-- `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse (currently `2026-10-04-expression-and-fsm-coverage`)
+- `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse (currently `2026-10-06-symbol-serialization-and-port-inheritance`)
 - `SCHEMA_VERSION` controls whether the SQLite table layout is still compatible with the current code
 
 If Verilinter opens a store with an older schema version and a supported migration path exists, it upgrades the
@@ -334,14 +334,11 @@ Cache correctness details:
 - Package-export fingerprints invalidate consumers when the visible package
   names change, even if the consumer source did not change.
 - Include search order is significant and is preserved in the cache key.
-- Sources containing backticks currently bypass cache reads. The store does
-  not yet track transitive preprocessor dependencies, so reusing those results
-  could hide a changed header. This includes ordinary directive-only files
-  such as files with a `timescale directive; the policy is conservative.
+- Direct and transitive `include` dependencies are stored with their SHA-256
+  hashes (`header_dependencies_json`), so a changed header invalidates every
+  file that includes it, even when the including file did not change.
 - Files are parsed with fresh source managers so repeated analyses observe
   edits within the same Python process.
 - Analyzer changes invalidate old entries through `ANALYZER_CACHE_VERSION`.
 
-It does not yet provide:
-- automatic cache eviction
-- precise dependency-based reuse for files using preprocessing
+It does not provide automatic cache eviction; see Retention and Maintenance.

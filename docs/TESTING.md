@@ -28,7 +28,7 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `tests/walk/`: the `Walker`/`Context` mechanics, plus `print_tree_test.py`'s AST snapshot tests (see Golden files below).
 - `tests/vnodes/`: `vnode_factory` registration and vnode-specific logic.
 - `tests/semantic/`: the `SymbolTable` in isolation.
-- `tests/unit/`: `test_sv_adapter.py` for SystemVerilog AST adapter extraction, `test_expression_engine.py` for constant folding and width evaluation, and `test_traversal_guard.py` for active-path cycle immunity, recursion bounding, and PyBind11 address recycling.
+- `tests/unit/`: `test_sv_adapter.py` for SystemVerilog AST adapter extraction, `test_expression_engine.py` for constant folding and width evaluation, and `test_traversal_guard.py` for active-path cycle immunity, recursion bounding, and PyBind11 address recycling, and `test_node_cache.py` for identity-checked per-node memoization.
 
 **Integration tests** (`tests/integration/`):
 - `test_multi_file_lint.py`: multi-file / cross-file linting.
@@ -51,6 +51,7 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `test_mock_traversal_safety.py`: verifies exported query functions and context stack terminate on synthetic cyclic mocks.
 - `test_recursion_and_depth_hygiene.py`: static AST analysis verifying that every recursive function across `src/pkg/` is guarded by `@guarded_traversal`/`@guarded_generator` or an explicit bounded depth check, and that all AST traversal `while` loops enforce bounded iteration or depth ceilings.
 - `test_parser_boundary.py`: static AST analysis verifying that `pyslang` is imported only inside `src/pkg/parser/`, that no code outside the parser reads `<vnode>.raw.<field>` other than `.kind`, and that `run_lint.py` imports parsing entry points only from `pkg.parser.parse`.
+- `test_cache_and_scratch_hygiene.py`: static AST analysis verifying that `id()` is not used outside the allowlisted traversal and registry files (memoization uses `node_cache`), and that tests create scratch directories only through `make_scratch`.
 - `test_timing_assertion_hygiene.py`: verifies that no test reads the wall clock directly; time budgets go through `terminates_within` (see below).
 
 **Stress & loop immunity tests** (`tests/stress/`):
@@ -133,6 +134,39 @@ with terminates_within():          # label defaults to the running test id
 - Set `VERILINTER_TEST_TIME_SCALE` (for example `3`) to scale every budget on a
   loaded machine or slow CI runner.
 
+## Isolation standards
+
+Each test must start from a known state and leave nothing behind for a later
+test, run, or the code under test to pick up.
+
+- **On-disk scratch space** (SQLite stores, CLI output files, generated HDL)
+  comes from `make_scratch(root, name)` in `tests/support/scratch.py` or from
+  the `tmp_path` fixture. Never `mkdir` under `tests/_tmp_*` by hand. An autouse
+  fixture in `tests/conftest.py` removes every directory registered through
+  `make_scratch` when the test ends, and clears the `_tmp_*` roots once at
+  session start so a crashed run cannot leave data behind. Windows read-only
+  flags are cleared during removal.
+- Nothing reads scratch directories after a test, because assertions run inside
+  the test. To inspect them while debugging, run with `VERILINTER_KEEP_SCRATCH=1`;
+  the next run without it removes them.
+- **One store per test.** Every SQLite store lives in its own scratch directory,
+  so a cache hit or miss never depends on an earlier test. A test about warm
+  versus cold behavior creates both runs inside the same directory, deliberately.
+- **No ambient state.** Library code reads no environment variables or home
+  directory caches; the only configuration lookup is `.verilinter.toml` in the
+  working directory. Tests that change the working directory use
+  `monkeypatch.chdir` so it is restored.
+- **No process-wide memoization.** Cached analysis results live on the
+  per-module `Context` data and are keyed through `node_cache` (see
+  `CONTRIBUTING.md`), so a new module or run always starts empty. Module-level
+  `lru_cache` or global dicts holding analysis results are not allowed.
+- **A failure that passes on rerun is a bug,** not noise. Run the test alone and
+  in the full suite, with and without `VERILINTER_TEST_TIME_SCALE`, and look for
+  state shared between runs before retrying or loosening an assertion.
+
+`tests/meta/test_cache_and_scratch_hygiene.py` enforces the `id()` key rule and
+the `make_scratch` rule.
+
 ## Golden files
 
 Two things in this suite compare generated output against a checked-in file
@@ -140,7 +174,7 @@ and support the same regenerate convention:
 
 ```bash
 UPDATE_EXPECTED=1 pytest tests/walk/print_tree_test.py    # tests/expected/*.snippets.txt, *.walk.txt
-UPDATE_EXPECTED=1 pytest tests/test_fixture_usage_doc.py  # FIXTURE_USAGE.md
+UPDATE_EXPECTED=1 pytest tests/meta/test_fixture_usage_doc.py  # FIXTURE_USAGE.md
 ```
 
 Regenerating overwrites the checked-in file so the diff is a deliberate,

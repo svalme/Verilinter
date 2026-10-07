@@ -93,9 +93,10 @@ def test_non_ansi_style_port_declarations():
 def test_function_and_task_formal_direction_inheritance():
     table = walk("""
         module m;
-          function automatic int calc(int x, y, output int z);
+          function automatic int calc(int x, y, output logic [7:0] z, w);
             calc = x + y;
-            z = calc;
+            z = 8'd1;
+            w = 8'd2;
           endfunction
           task automatic do_work(string tag, int id, output bit err);
             err = 1'b0;
@@ -104,10 +105,69 @@ def test_function_and_task_formal_direction_inheritance():
     """)
     func_scope = next(s for s in table.scopes if s.kind == "function")
     assert func_scope.symbols["x"].port_direction == "input"
+    assert func_scope.symbols["x"].bit_width == 32
+    assert func_scope.symbols["x"].is_signed is True
     assert func_scope.symbols["y"].port_direction == "input"
+    assert func_scope.symbols["y"].bit_width == 32
+    assert func_scope.symbols["y"].is_signed is True
     assert func_scope.symbols["z"].port_direction == "output"
+    assert func_scope.symbols["z"].bit_width == 8
+    assert func_scope.symbols["z"].is_signed is False
+    assert func_scope.symbols["w"].port_direction == "output"
+    assert func_scope.symbols["w"].bit_width == 8
+    assert func_scope.symbols["w"].is_signed is False
+    assert func_scope.symbols["calc"].is_function_return is True
 
     task_scope = next(s for s in table.scopes if s.kind == "task")
     assert task_scope.symbols["tag"].port_direction == "input"
     assert task_scope.symbols["id"].port_direction == "input"
+    assert task_scope.symbols["id"].bit_width == 32
     assert task_scope.symbols["err"].port_direction == "output"
+    assert task_scope.symbols["err"].bit_width == 1
+
+
+def test_forward_called_non_ansi_subroutine_propagates_grouped_formal_directions():
+    result = run_inline_lint_case({
+        "m.sv": """`timescale 1ns/1ps
+        module m(input logic [7:0] src_i, output logic [7:0] out_a_o, out_b_o);
+          always_comb begin
+            drive_both(out_a_o, out_b_o, src_i);
+          end
+          task drive_both;
+            output logic [7:0] a, b;
+            input logic [7:0] c;
+            begin
+              a = c;
+              b = c;
+            end
+          endtask
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_UNDRIVEN_OUTPUT_PORT")
+    result.expect_no_code("READ_BEFORE_WRITE")
+
+
+def test_cross_file_package_function_excludes_synthesized_return_symbol_from_formals():
+    result = run_inline_lint_case({
+        "pkg.sv": """`timescale 1ns/1ps
+        package p;
+          function automatic int compute(output int side_out, input int in_a, in_b);
+            side_out = in_a + in_b;
+            compute = side_out;
+          endfunction
+        endpackage
+        """,
+        "top.sv": """`timescale 1ns/1ps
+        module top(input int a_i, b_i, output int side_o, ret_o);
+          import p::*;
+          always_comb begin
+            ret_o = compute(side_o, a_i, b_i);
+          end
+        endmodule
+        """,
+    })
+    result.expect_no_code("NO_UNDRIVEN_OUTPUT_PORT")
+    result.expect_no_code("NO_INPUT_PORT_WRITE")
+    result.expect_no_code("READ_BEFORE_WRITE")
+

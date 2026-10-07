@@ -17,7 +17,7 @@ class CaseStatementHandler(SyntaxNodeHandler):
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         ctx = ctx.push(vnode)
         model = state_machine_model(vnode.raw, ctx)
-        ctx = ctx.with_data("fsm_model", (id(vnode.raw), model))
+        ctx = ctx.with_data("fsm_model", (vnode.raw, model))
         if model is not None:
             module_scope = enclosing_module_scope(ctx.scope())
             if module_scope is not None:

@@ -1,15 +1,13 @@
 """Exercise scope semantics across worker serialization and persistent cache reuse."""
 import json
-import uuid
 from pathlib import Path
 
 from src.run_lint import analyze, main
+from tests.support.scratch import make_scratch
 
 
 def scratch():
-    path = Path(__file__).resolve().parents[1] / "_tmp_cli_execution_modes" / f"scopes_{uuid.uuid4().hex}"
-    path.mkdir(parents=True)
-    return path
+    return make_scratch("_tmp_cli_execution_modes", "scopes")
 
 
 def normalized(rows):
@@ -381,3 +379,94 @@ def test_partial_refresh_duplicate_module_cross_file_accuracy():
 
 
 
+def test_cross_file_symbol_table_serialization_invariants():
+    """Verify that all cross-file Symbol attributes (declarations, port_direction,
+    bit_width, is_signed, msb/lsb, branch_signature, use_events, and is_explicit_kind)
+    survive worker/SQLite JSON serialization identically in _build_cross_file_symbol_table."""
+    root = scratch()
+    child, parent = root / "child.sv", root / "parent.sv"
+    store = root / "store.sqlite"
+
+    child.write_text("""`timescale 1ns/1ps
+module child #(parameter int W = 8) (
+  input logic clk_i, rst_i,
+  input logic signed [W-1:0] din_a_i, din_b_i,
+  output logic signed [W-1:0] dout_o
+);
+  always_ff @(posedge clk_i or posedge rst_i) begin
+    if (rst_i) begin
+      dout_o <= '0;
+    end else begin
+      dout_o <= din_a_i + din_b_i;
+    end
+  end
+endmodule
+""", encoding="utf-8")
+
+    parent.write_text("""`timescale 1ns/1ps
+module parent(
+  input logic clk_i, rst_i,
+  input logic signed [7:0] a_i, b_i,
+  output logic signed [7:0] y_o
+);
+  generate
+    if (1) begin : gen_drv
+      child #(.W(8)) u_child (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+        .din_a_i(a_i),
+        .din_b_i(b_i),
+        .dout_o(y_o)
+      );
+    end
+  endgenerate
+endmodule
+""", encoding="utf-8")
+
+    paths = [child, parent]
+    seq = analyze(paths, jobs=1, use_cache=False)
+    par = analyze(paths, jobs=2, use_cache=False)
+    cold = analyze(paths, jobs=2, store_path=store)
+    warm = analyze(paths, jobs=2, store_path=store)
+    assert warm.cache_stats == {"hits": 2, "misses": 0}
+
+    def snapshot_symbol_table(st):
+        out = {}
+        for mod_name, scopes in sorted(st.modules.items()):
+            scope = scopes[0]
+            out[mod_name] = {
+                sym_name: {
+                    "kind": sym.kind,
+                    "is_declared": sym.is_declared,
+                    "is_explicit_var": sym.is_explicit_kind("variable"),
+                    "declarations": sym.declarations,
+                    "is_port": sym.is_port,
+                    "port_direction": sym.port_direction,
+                    "bit_width": sym.bit_width,
+                    "msb": sym.msb,
+                    "lsb": sym.lsb,
+                    "is_signed": sym.is_signed,
+                    "packed_dimensions": sym.packed_dimensions,
+                    "is_read": sym.is_read,
+                    "is_written": sym.is_written,
+                    "is_used_in_port_connection": sym.is_used_in_port_connection,
+                    "use_events": sym.use_events,
+                }
+                for sym_name, sym in sorted(scope.symbols.items())
+            }
+        return out
+
+    ref_snap = snapshot_symbol_table(seq.symbol_table)
+    child_syms = ref_snap["child"]
+    assert child_syms["din_a_i"]["port_direction"] == "input"
+    assert child_syms["din_b_i"]["port_direction"] == "input"
+    assert child_syms["din_b_i"]["bit_width"] == 8
+    assert child_syms["din_b_i"]["is_signed"] is True
+    assert child_syms["dout_o"]["is_declared"] is True
+    assert child_syms["dout_o"]["is_explicit_var"] is True
+    assert any(ev.get("branch_signature") for ev in child_syms["dout_o"]["use_events"])
+    assert ref_snap["parent"]["y_o"]["is_used_in_port_connection"] is True
+
+    for run_res in (par, cold, warm):
+        assert snapshot_symbol_table(run_res.symbol_table) == ref_snap
+        assert normalized(run_res.diagnostics) == normalized(seq.diagnostics)

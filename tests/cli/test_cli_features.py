@@ -2,24 +2,21 @@ from __future__ import annotations
 
 import json
 import shutil
-import uuid
 from pathlib import Path
 
 import pytest
 
 from src.run_lint import _parse_args, _resolve_config, main
+from tests.support.scratch import make_scratch
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "self_assignment.v"
 PORT_DATA = Path(__file__).resolve().parents[1] / "data" / "port_connection_issues.sv"
 PORT_ADVANCED_DATA = Path(__file__).resolve().parents[1] / "data" / "port_connection_advanced.sv"
 WILDCARD_PORT_DATA = Path(__file__).resolve().parents[1] / "data" / "wildcard_port_connection.sv"
-SCRATCH_ROOT = Path(__file__).resolve().parents[1] / "_tmp_cli_features"
 
 
 def _prepare_scratch(name: str) -> Path:
-    target = SCRATCH_ROOT / f"{name}_{uuid.uuid4().hex}"
-    target.mkdir(parents=True, exist_ok=True)
-    return target
+    return make_scratch("_tmp_cli_features", name)
 
 
 def test_main_prints_json_output(capsys: pytest.CaptureFixture[str]) -> None:

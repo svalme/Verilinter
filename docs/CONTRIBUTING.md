@@ -144,7 +144,14 @@ Follow these prefix and suffix conventions for helper functions:
   - Use `ast_descendants_iter(root, stop_at=..., max_depth=...)` for iterative subtree walks.
 - **Never maintain a flat, persistent visited set** (`visited: set[int] = set()`) across sibling loops or distinct traversals. Due to PyBind11 C++ wrapper object lifecycle, Python memory addresses are recycled dynamically (`pymalloc`), which causes false cycle detections on sibling nodes. Only active path nodes (anchored in call-stack frames) are cycle-immune.
 
-### 6. Dependency & Import Hygiene
+### 6. Memoizing Results Per Syntax Node (`node_cache`)
+
+- Per-module memoization on `ctx.data["module_cache"]` **must** go through `node_cache_get` / `node_cache_put` in `parser/_syntax_queries/node_cache.py`. Never write `cache[(tag, id(node))]` directly.
+- The reason is the same pymalloc address recycling described above: pyslang hands out short-lived Python wrappers, so once a wrapper is collected a different node can receive the same `id`. A bare `id` key then returns another node's cached result, which shows up as an intermittent wrong or missing diagnostic that depends on allocation order and passes when rerun.
+- `node_cache_put` stores the node inside the entry, which keeps its `id` from being reused for the cache's lifetime, and `node_cache_get` accepts an entry only when the stored node `is` the queried node. A cached `None` is distinguishable from a miss through the `MISSING` sentinel.
+- `id()` remains acceptable for per-traversal visited sets whose entries are removed on exit, and for sets of long-lived registry objects (rules, scopes, contexts). `tests/meta/test_cache_and_scratch_hygiene.py` keeps `id()` out of every other file under `src/pkg/`; add a new file to its allowlist only with a comment saying why the entries cannot outlive their object.
+
+### 7. Dependency & Import Hygiene
 
 - Helpers belong in thematic submodules under `src/pkg/parser/_syntax_queries/` (`instantiation.py`, `package_scoping.py`, `shapes.py`, `expressions.py`, `access.py`, `procedural.py`, etc.).
 - Always re-export public helpers in `src/pkg/parser/syntax_queries.py` and register them in `__all__`.

@@ -8,6 +8,7 @@ import uuid
 
 import pytest
 
+from .support import scratch as scratch_support
 from .support.lint_harness import (
     LintCaseFile,
     LintCaseResult,
@@ -37,6 +38,20 @@ if os.name == "nt":
         finally:
             path.resolve().relative_to(root)
             shutil.rmtree(path, ignore_errors=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _sweep_stale_scratch():
+    """Start from empty `_tmp_*` roots so leftovers from a crashed run cannot be read."""
+    scratch_support.sweep_roots()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _remove_scratch_after_test():
+    """Remove every directory the test created through `make_scratch`."""
+    yield
+    scratch_support.remove_registered()
 
 
 @pytest.fixture

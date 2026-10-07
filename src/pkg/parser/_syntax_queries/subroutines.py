@@ -15,6 +15,7 @@ from ..syntax_kinds import (
     NAMED_ARGUMENT_KIND,
     ORDERED_ARGUMENT_KIND,
     PACKAGE_DECLARATION_KIND,
+    PORT_DECLARATION_KIND,
     PORT_DIRECTION_TOKEN_KINDS,
     SCOPED_NAME_KIND,
     SIMPLE_RANGE_SELECT_KIND,
@@ -55,27 +56,35 @@ def function_returns_value(raw: object) -> bool:
 def extract_formals_from_subroutine_syntax(node: object) -> list[tuple[str, str]]:
     """Extract (formal_name, direction) list from a TaskDeclaration or FunctionDeclaration node,
     preserving declaration order and inherited port directions."""
-    proto = getattr(node, "prototype", None)
-    if proto is None:
-        return []
-    port_list = getattr(proto, "portList", None)
-    if port_list is None:
-        return []
-    ports = getattr(port_list, "ports", None)
-    if ports is None:
-        return []
-
     result: list[tuple[str, str]] = []
-    direction = "input"
-    for p in ports:
-        if getattr(p, "kind", None) == FUNCTION_PORT_KIND:
-            d_token = getattr(p, "direction", None)
-            d_str = PORT_DIRECTION_TOKEN_KINDS.get(getattr(d_token, "kind", None))
-            if d_str is not None:
-                direction = d_str
-            decl = getattr(p, "declarator", None)
-            name_token = getattr(decl, "name", None)
-            name = identifier_name(name_token)
+    proto = getattr(node, "prototype", None)
+    port_list = getattr(proto, "portList", None)
+    ports = getattr(port_list, "ports", None)
+    if ports is not None:
+        direction = "input"
+        for p in ports:
+            if getattr(p, "kind", None) == FUNCTION_PORT_KIND:
+                d_token = getattr(p, "direction", None)
+                d_str = PORT_DIRECTION_TOKEN_KINDS.get(getattr(d_token, "kind", None))
+                if d_str is not None:
+                    direction = d_str
+                decl = getattr(p, "declarator", None)
+                name_token = getattr(decl, "name", None)
+                name = identifier_name(name_token)
+                if name:
+                    result.append((name, direction))
+    if result:
+        return result
+
+    # Non-ANSI task/function declarations specify port directions in body items
+    for item in getattr(node, "items", ()) or ():
+        if getattr(item, "kind", None) != PORT_DECLARATION_KIND:
+            continue
+        header = getattr(item, "header", None)
+        d_token = getattr(header, "direction", None)
+        direction = PORT_DIRECTION_TOKEN_KINDS.get(getattr(d_token, "kind", None), "input")
+        for decl in getattr(item, "declarators", ()) or ():
+            name = identifier_name(getattr(decl, "name", None))
             if name:
                 result.append((name, direction))
     return result
@@ -158,7 +167,7 @@ def subroutine_formal_direction(
                     formals = [
                         (s.name, s.port_direction or "input")
                         for s in child.symbols.values()
-                        if s.is_port and s.name != child.name
+                        if s.is_port and not getattr(s, "is_function_return", False) and s.name != child.name
                     ]
                     break
     else:
@@ -172,7 +181,9 @@ def subroutine_formal_direction(
                     formals = [
                         (s.name, s.port_direction or "input")
                         for s in getattr(child, "symbols", {}).values()
-                        if getattr(s, "is_port", False) and getattr(s, "name", None) != child.name
+                        if getattr(s, "is_port", False)
+                        and not getattr(s, "is_function_return", False)
+                        and getattr(s, "name", None) != child.name
                     ]
                     break
             # Also check imported packages for this scope
@@ -185,7 +196,9 @@ def subroutine_formal_direction(
                             formals = [
                                 (s.name, s.port_direction or "input")
                                 for s in getattr(child, "symbols", {}).values()
-                                if getattr(s, "is_port", False) and getattr(s, "name", None) != child.name
+                                if getattr(s, "is_port", False)
+                                and not getattr(s, "is_function_return", False)
+                                and getattr(s, "name", None) != child.name
                             ]
                             break
                     if formals is not None:

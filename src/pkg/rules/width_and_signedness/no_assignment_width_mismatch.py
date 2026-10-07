@@ -9,6 +9,7 @@ from ...parser.syntax import (
     simple_expression_width_and_signed,
 )
 from ...parser.traversal_guard import guarded_traversal
+from ...parser._syntax_queries.node_cache import MISSING, node_cache_get, node_cache_put
 from ...parser.types import (
     BinaryExpressionNode,
     DeclaratorNode,
@@ -109,13 +110,13 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
     """
     ctx_data = getattr(ctx, "data", None)
     module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
-    cache_key = ("width_mismatch", id(getattr(vnode, "raw", vnode)))
-    if isinstance(module_cache, dict) and cache_key in module_cache:
-        return module_cache[cache_key]  # type: ignore[return-value]
+    cache_node = getattr(vnode, "raw", vnode)
+    cached = node_cache_get(module_cache, "width_mismatch", cache_node)
+    if cached is not MISSING:
+        return cached  # type: ignore[return-value]
 
     def _store(res: tuple[int, int] | None) -> tuple[int, int] | None:
-        if isinstance(module_cache, dict):
-            module_cache[cache_key] = res
+        node_cache_put(module_cache, "width_mismatch", cache_node, res)
         return res
 
     lhs_symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)

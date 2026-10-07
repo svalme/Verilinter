@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sqlite3
-import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -11,16 +10,14 @@ import src.pkg.analysis_store as analysis_store_module
 from src.pkg.rules.rule_selection import RuleSelection
 import src.run_lint as run_lint_module
 from src.run_lint import analyze
+from tests.support.scratch import make_scratch
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "self_assignment.v"
 PORT_DATA = Path(__file__).resolve().parents[1] / "data" / "port_connection_issues.sv"
-SCRATCH_ROOT = Path(__file__).resolve().parents[1] / "_tmp_analysis_store"
 
 
 def _scratch_dir(name: str) -> Path:
-    target = SCRATCH_ROOT / f"{name}_{uuid.uuid4().hex}"
-    target.mkdir(parents=True, exist_ok=True)
-    return target
+    return make_scratch("_tmp_analysis_store", name)
 
 
 def test_analyze_persists_run_and_connection_rows() -> None:

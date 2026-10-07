@@ -21,6 +21,7 @@ from .declarators import (
     declarator_name,
 )
 from .shared import identifier_name
+from .node_cache import MISSING, node_cache_get, node_cache_put
 
 
 def identifier_select_base_and_selectors(raw: object) -> tuple[str, list[SyntaxNode]] | None:
@@ -310,13 +311,12 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
 
     ctx_data = getattr(ctx, "data", None)
     module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
-    cache_key = ("assign_target_rhs", id(raw))
-    if isinstance(module_cache, dict) and cache_key in module_cache:
-        return module_cache[cache_key]
+    cached = node_cache_get(module_cache, "assign_target_rhs", raw)
+    if cached is not MISSING:
+        return cached  # type: ignore[return-value]
 
     def _store(res: tuple[object, object]) -> tuple[object, object]:
-        if isinstance(module_cache, dict):
-            module_cache[cache_key] = res
+        node_cache_put(module_cache, "assign_target_rhs", raw, res)
         return res
 
     scope = getattr(ctx, "scope", lambda: None)()

@@ -24,6 +24,7 @@ from ..syntax_kinds import (
 from ..traversal_guard import guarded_generator
 from ..types import SyntaxNode, SyntaxTree
 from .shared import identifier_name, node_location, raw_node_children, source_text_for_node, token_location
+from .node_cache import MISSING, node_cache_get, node_cache_put
 
 
 def declarator_name(raw: object) -> str | None:
@@ -162,12 +163,11 @@ def _ansi_port_list_items(list_node: object, ctx: object = None) -> list[object]
     if list_node is None:
         return []
     cache = _module_cache(ctx)
-    key = ("ansi_port_items", id(list_node))
-    if cache is not None and key in cache:
-        return cache[key]  # type: ignore[return-value]
+    cached = node_cache_get(cache, "ansi_port_items", list_node)
+    if cached is not MISSING:
+        return cached  # type: ignore[return-value]
     items = list(_iter_ansi_ports(list_node))
-    if cache is not None:
-        cache[key] = items
+    node_cache_put(cache, "ansi_port_items", list_node, items)
     return items
 
 
@@ -197,9 +197,9 @@ def _inherited_port_direction(raw: object, ctx: object = None) -> str | None:
 def _effective_port_data_type(raw: object, ctx: object = None) -> object:
     """Inherit omitted ANSI types, stopping at direction/type boundaries."""
     cache = _module_cache(ctx)
-    key = ("port_data_type", id(raw))
-    if cache is not None and key in cache:
-        return cache[key]
+    cached = node_cache_get(cache, "port_data_type", raw)
+    if cached is not MISSING:
+        return cached
 
     def explicit(port: object) -> bool:
         header = getattr(port, "header", None)
@@ -223,9 +223,29 @@ def _effective_port_data_type(raw: object, ctx: object = None) -> object:
             if sibling == raw:
                 result = inherited
                 break
-    if cache is not None:
-        cache[key] = result
+    node_cache_put(cache, "port_data_type", raw, result)
     return result
+
+
+def _effective_function_port_data_type(raw: object) -> object | None:
+    """Resolve effective `dataType` for a `FunctionPortSyntax`, inheriting across
+    comma-grouped subroutine ports that omit both direction and dataType."""
+    own_type = getattr(raw, "dataType", None)
+    own_dir = PORT_DIRECTION_TOKEN_KINDS.get(getattr(getattr(raw, "direction", None), "kind", None))
+    if own_type is not None or own_dir is not None:
+        return own_type
+    parent = getattr(raw, "parent", None)
+    inherited = None
+    for port in getattr(parent, "ports", None) or ():
+        if getattr(port, "kind", None) != FUNCTION_PORT_KIND:
+            continue
+        p_dir = PORT_DIRECTION_TOKEN_KINDS.get(getattr(getattr(port, "direction", None), "kind", None))
+        p_type = getattr(port, "dataType", None)
+        if p_dir is not None or p_type is not None:
+            inherited = p_type
+        if port is raw:
+            return inherited
+    return own_type
 
 
 def _declarator_owner_data_type(ctx: "Context") -> object | None:
@@ -233,6 +253,8 @@ def _declarator_owner_data_type(ctx: "Context") -> object | None:
         raw = ancestor.raw
         kind = getattr(raw, "kind", None)
         dt = None
+        if kind == FUNCTION_PORT_KIND:
+            return _effective_function_port_data_type(raw)
         if kind in ANSI_PORT_KINDS or kind == PORT_DECLARATION_KIND:
             if getattr(raw, "header", None) is not None:
                 dt = _effective_port_data_type(raw, ctx)

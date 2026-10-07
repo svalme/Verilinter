@@ -7,6 +7,7 @@ from ..traversal_guard import ast_descendants_iter
 from ..types import DeclaratorNode
 from .declarators import declarator_name
 from .shared import identifier_name
+from .node_cache import MISSING, node_cache_get, node_cache_put
 
 
 @dataclass(frozen=True)
@@ -39,16 +40,15 @@ class _MemberWriteSummary:
 
 
 def _block_declarator_names(block_raw: object, module_cache: dict[object, object] | None) -> frozenset[str]:
-    key = ("block_declarators", id(block_raw))
-    if module_cache is not None and key in module_cache:
-        return module_cache[key]  # type: ignore[return-value]
+    cached = node_cache_get(module_cache, "block_declarators", block_raw)
+    if cached is not MISSING:
+        return cached  # type: ignore[return-value]
     names = frozenset(
         name
         for node in ast_descendants_iter(block_raw)
         if isinstance(node, DeclaratorNode) and (name := declarator_name(node)) is not None
     )
-    if module_cache is not None:
-        module_cache[key] = names
+    node_cache_put(module_cache, "block_declarators", block_raw, names)
     return names
 
 
@@ -63,9 +63,9 @@ def _module_member_write_summaries(
         iter_assignment_nodes,
     )
 
-    key = ("module_fsm_index", id(module_raw))
-    if module_cache is not None and key in module_cache:
-        return module_cache[key]  # type: ignore[return-value]
+    cached = node_cache_get(module_cache, "module_fsm_index", module_raw)
+    if cached is not MISSING:
+        return cached  # type: ignore[return-value]
 
     summaries: list[_MemberWriteSummary] = []
     for member in getattr(module_raw, "members", ()):
@@ -95,8 +95,7 @@ def _module_member_write_summaries(
             )
 
     result = tuple(summaries)
-    if module_cache is not None:
-        module_cache[key] = result
+    node_cache_put(module_cache, "module_fsm_index", module_raw, result)
     return result
 
 
@@ -122,18 +121,17 @@ def state_machine_model(raw: object, ctx: "Context") -> FsmModel | None:
     module_cache: dict[object, object] | None = None
     if isinstance(ctx_data, dict):
         cached_fsm = ctx_data.get("fsm_model")
-        if isinstance(cached_fsm, tuple) and len(cached_fsm) == 2 and cached_fsm[0] == id(raw):
+        if isinstance(cached_fsm, tuple) and len(cached_fsm) == 2 and cached_fsm[0] is raw:
             return cached_fsm[1]
         raw_cache = ctx_data.get("module_cache")
         if isinstance(raw_cache, dict):
             module_cache = raw_cache
-            case_key = ("fsm_model", id(raw))
-            if case_key in module_cache:
-                return module_cache[case_key]  # type: ignore[return-value]
+            cached_model = node_cache_get(module_cache, "fsm_model", raw)
+            if cached_model is not MISSING:
+                return cached_model  # type: ignore[return-value]
 
     def _finish(model: FsmModel | None) -> FsmModel | None:
-        if module_cache is not None:
-            module_cache[("fsm_model", id(raw))] = model
+        node_cache_put(module_cache, "fsm_model", raw, model)
         return model
 
     state = case_statement_selector_name(raw)

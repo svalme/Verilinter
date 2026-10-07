@@ -388,7 +388,7 @@ Beyond CST/AST query functions, all graph algorithms and context traversals acro
 
 ---
 
-## 5. MVP Supported RTL Subset, Semantic Capabilities & Known Limitations
+## 9. MVP Supported RTL Subset, Semantic Capabilities & Known Limitations
 
 Verilinter focuses on everyday synthesizable RTL correctness across Verilog-2001 and SystemVerilog (IEEE 1364-2001 and IEEE 1800-2017). This section defines the supported constructs, semantic analysis boundaries, and explicitly deferred post-MVP capabilities.
 
@@ -415,7 +415,7 @@ To prevent false alarms without requiring a full SystemVerilog elaboration simul
   - Direct identifiers, sized vector literals (`4'b1010`, `8'hFF`), unsized integer literals (`0`, `15`), and unbased unsized literals (`'0`, `'1`).
   - Bit-selects (`vec[idx]`), constant part-selects (`vec[7:0]`), and indexed part-selects (`vec[i*4 +: 4]`, `vec[i*4 -: 4]`).
   - Replications (`{4{a}}`) and multi-member concatenations (`{a, b, 4'd0}`).
-  - Binary arithmetic expressions (`+`, `-`, `*`) with carry-out and bit-growth modeling.
+  - Binary arithmetic expressions (`+`, `-`, `*`) with arithmetic-capacity estimation (see section 6); addition carry-out is not estimated.
   - Sliced and multidimensional packed/unpacked array targets (`AssignmentTarget`).
   - Relational and equality comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`, `===`, `!==`, `==?`, `!=?`).
 - **Safe Skips**:

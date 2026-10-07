@@ -146,3 +146,30 @@ class TestNoWriteOnlyInputPortRule:
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
+
+    def test_flags_subsequent_ports_in_comma_grouped_ansi_input_declaration(
+        self, rule: NoWriteOnlyInputPortRule
+    ) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = parse_text(
+            """
+            module top(input logic [7:0] a_i, b_i, c_i, output logic [7:0] y_o);
+              always_comb begin
+                y_o = a_i;
+                b_i = 8'd1;
+                c_i = 8'd2;
+              end
+            endmodule
+            """
+        )
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        diagnostics = rule.run(symbol_table)
+        messages = [d["message"] for d in diagnostics]
+        assert len(diagnostics) == 2
+        assert any("b_i" in m for m in messages)
+        assert any("c_i" in m for m in messages)
+

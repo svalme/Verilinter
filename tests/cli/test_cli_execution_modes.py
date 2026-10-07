@@ -7,22 +7,19 @@ parser-checked in-memory harness `lint_harness.py` uses.
 from __future__ import annotations
 
 import json
-import uuid
 from pathlib import Path
 
 import pytest
 
 from src.run_lint import main
+from tests.support.scratch import make_scratch
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 SELF_ASSIGNMENT_DATA = DATA_DIR / "self_assignment.v"
-SCRATCH_ROOT = Path(__file__).resolve().parents[1] / "_tmp_cli_execution_modes"
 
 
 def _prepare_scratch(name: str) -> Path:
-    target = SCRATCH_ROOT / f"{name}_{uuid.uuid4().hex}"
-    target.mkdir(parents=True, exist_ok=True)
-    return target
+    return make_scratch("_tmp_cli_execution_modes", name)
 
 
 def _normalized(diagnostics: list[dict]) -> list[tuple]:

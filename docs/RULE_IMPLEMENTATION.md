@@ -481,7 +481,7 @@ known and unknown operands, both HDL dialects, and explicit cast boundaries.
 
 FSM rules should consume `state_machine_model` instead of independently
 guessing a state/next-state relationship. `ModuleDeclarationHandler` attaches a
-per-module `module_cache` on `Context.data`, and `CaseStatementHandler`
+per-module `module_cache` on `Context.data` (read and written only through `node_cache_get`/`node_cache_put`; see `CONTRIBUTING.md`, "Memoizing Results Per Syntax Node"), and `CaseStatementHandler`
 computes `FsmModel` once per `CaseStatementNode` (attaching it to
 `ctx.data["fsm_model"]` and `module_scope.fsm_models`) so all FSM rules share a
 single evaluation without re-walking `module.members`. Its transitions are

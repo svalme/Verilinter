@@ -222,7 +222,7 @@ def _record_packages_from_symbol_table(
                             "declarations": [dict(d) for d in s.declarations],
                         }
                         for s in child.symbols.values()
-                        if s.is_port
+                        if s.is_port and not s.is_function_return and s.name != child.name
                     ],
                 }
                 for child in scope.children
@@ -361,13 +361,18 @@ def _symbol_to_dict(symbol: Symbol) -> dict[str, Any]:
     return {
         "name": symbol.name,
         "kind": symbol.kind,
+        "declarations": [dict(d) for d in symbol.declarations],
+        "uses": [dict(u) for u in symbol.uses],
+        "is_implicit": symbol.is_implicit,
         "is_port": symbol.is_port,
+        "is_function_return": symbol.is_function_return,
         "direction": symbol.port_direction,
         "bit_width": symbol.bit_width,
         "msb": symbol.msb,
         "lsb": symbol.lsb,
         "is_signed": symbol.is_signed,
         "value": symbol.value,
+        "is_constant": symbol.is_constant,
         "is_localparam": symbol.is_localparam,
         "initializer_text": symbol.initializer_text,
         "has_declaration_initializer": symbol.has_declaration_initializer,
@@ -381,6 +386,7 @@ def _symbol_to_dict(symbol: Symbol) -> dict[str, Any]:
         "use_count": symbol.use_count,
         "read_count": symbol.read_count,
         "write_count": symbol.write_count,
+        "is_used_in_port_connection": symbol.is_used_in_port_connection,
         "use_events": [dict(event) for event in symbol.use_events],
     }
 
@@ -421,7 +427,14 @@ def _symbol_from_dict(symbol_data: dict[str, Any]) -> Symbol:
     `_symbol_to_dict`. Used to rebuild the cross-file `SymbolTable` from every
     worker's per-file JSON result."""
     symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
+    symbol.declarations = [
+        dict(d)
+        for d in symbol_data.get("declarations", []) or []
+        if isinstance(d, dict)
+    ]
+    symbol.is_implicit = bool(symbol_data.get("is_implicit", False))
     symbol.is_port = bool(symbol_data.get("is_port", False))
+    symbol.is_function_return = bool(symbol_data.get("is_function_return", False))
     symbol.port_direction = (
         str(symbol_data.get("direction")) if symbol_data.get("direction") else None
     )
@@ -434,6 +447,7 @@ def _symbol_from_dict(symbol_data: dict[str, Any]) -> Symbol:
     symbol.is_signed = bool(signed) if signed is not None else None
     val = symbol_data.get("value")
     symbol.value = int(val) if val is not None else None
+    symbol.is_constant = bool(symbol_data.get("is_constant", False))
     symbol.is_localparam = bool(symbol_data.get("is_localparam", False))
     init_text = symbol_data.get("initializer_text")
     symbol.initializer_text = str(init_text) if init_text is not None else None
@@ -469,6 +483,18 @@ def _symbol_from_dict(symbol_data: dict[str, Any]) -> Symbol:
         for event in symbol_data.get("use_events", []) or []
         if isinstance(event, dict)
     ]
+    if "uses" in symbol_data and isinstance(symbol_data["uses"], list):
+        symbol.uses = [dict(u) for u in symbol_data["uses"] if isinstance(u, dict)]
+    else:
+        symbol.uses = [
+            dict(event["location"])
+            for event in symbol.use_events
+            if isinstance(event.get("location"), dict)
+        ]
+    symbol.is_used_in_port_connection = bool(
+        symbol_data.get("is_used_in_port_connection", False)
+        or any(bool(event.get("in_port_connection")) for event in symbol.use_events)
+    )
     return symbol
 
 

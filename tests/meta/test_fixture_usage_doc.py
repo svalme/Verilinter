@@ -3,7 +3,7 @@
 To regenerate after adding, removing, or renaming a reference to a
 tests/data/ fixture:
 
-    UPDATE_EXPECTED=1 pytest tests/test_fixture_usage_doc.py
+    UPDATE_EXPECTED=1 pytest tests/meta/test_fixture_usage_doc.py
 
 This mirrors the golden-file convention in tests/walk/print_tree_test.py: the
 overwrite is a deliberate, reviewable diff rather than a doc that silently
