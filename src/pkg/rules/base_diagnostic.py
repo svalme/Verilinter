@@ -13,9 +13,9 @@ class BaseDiagnostic(ABC):
     # co-fire with (or need to be suppressed relative to) this one on the same
     # symbol/construct. Has no runtime effect -- runners still just concatenate
     # every rule's diagnostics (see symbol_rule_runner.py). Its only purpose is
-    # to be machine-checked against tests/test_rule_overlap_harness.py so a
+    # to be machine-checked against tests/rules/overlap/test_rule_overlap_harness.py so a
     # known overlap can never silently lose its regression test; see
-    # tests/test_rule_overlap_metadata.py and docs/RULE_IMPLEMENTATION.md.
+    # tests/rules/overlap/test_rule_overlap_metadata.py and docs/RULE_IMPLEMENTATION.md.
     overlaps_with: tuple[str, ...] = ()
 
     def report(self, vnode: BaseVNode) -> dict[str, Any]:

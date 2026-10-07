@@ -194,7 +194,7 @@ class NoAssignmentTruncationRule(Rule):
     (data-dropping) direction of a width mismatch, as opposed to a safe
     zero/sign-extending narrower-to-wider assignment. Always co-fires with
     `ASSIGNMENT_WIDTH_MISMATCH` on the same construct -- see `overlaps_with`
-    and the matching regression case in `tests/test_rule_overlap_harness.py`.
+    and the matching regression case in `tests/rules/overlap/test_rule_overlap_harness.py`.
     """
 
     code = "ASSIGNMENT_TRUNCATION"

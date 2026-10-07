@@ -202,7 +202,7 @@ class TestSequenceControllerMissingDefaultVariant:
     declares `NO_DEFAULT_CASE_STATEMENT` in `overlaps_with` for exactly this
     shape (a state-register case missing its default always co-fires the
     general case-default check alongside the state-specific one), and both are
-    exercised together in `tests/test_rule_overlap_harness.py` -- this covers
+    exercised together in `tests/rules/overlap/test_rule_overlap_harness.py` -- this covers
     the "include any intentional companion diagnostics" case.
     """
 

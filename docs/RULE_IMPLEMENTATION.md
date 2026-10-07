@@ -50,8 +50,8 @@ For syntax rules (subclassing `Rule`, registered with `rule_runner`), "focused
 tests" usually means:
 
 - unit coverage in `tests/rules/<category>/...`
-- at least one lint-path test in `tests/test_run_lint.py`
-- an overlap/regression test in `tests/test_rule_overlap_harness.py` when the rule
+- at least one lint-path test in `tests/cli/test_run_lint.py`
+- an overlap/regression test in `tests/rules/overlap/test_rule_overlap_harness.py` when the rule
   could plausibly collide with another rule
 
 For symbol or module rules (subclassing `BaseSymbolRule`, registered with
@@ -59,7 +59,7 @@ For symbol or module rules (subclassing `BaseSymbolRule`, registered with
 
 - a dedicated rule test under `tests/rules/<category>/...`
 - a lint-path or multi-file test when file attribution or cross-file behavior matters
-- an overlap/regression test in `tests/test_rule_overlap_harness.py` when the rule
+- an overlap/regression test in `tests/rules/overlap/test_rule_overlap_harness.py` when the rule
   could plausibly co-fire (or should suppress/be suppressed) alongside another rule
   on the same symbol or construct
 
@@ -70,15 +70,15 @@ already covers this" behavior lives entirely in each rule's own conditions, so i
 is only ever verified by a test that actually runs both rules together. When
 adding a symbol/module rule, check whether an existing rule could match the same
 symbol under some condition, and if so add a case to
-`tests/test_rule_overlap_harness.py` pinning which rule should fire (see e.g.
+`tests/rules/overlap/test_rule_overlap_harness.py` pinning which rule should fire (see e.g.
 `test_read_but_undriven_output_port_uses_output_specific_rule_not_unused_variable`
 for the expected pattern).
 
 When you add such a case, also record the relationship on both rule classes via
 the `overlaps_with: tuple[str, ...]` class attribute (`BaseDiagnostic`, purely
-declarative -- no runtime effect). `tests/test_rule_overlap_metadata.py` checks
+declarative -- no runtime effect). `tests/rules/overlap/test_rule_overlap_metadata.py` checks
 every declared pair against a real registered code and against
-`tests/test_rule_overlap_harness.py`, so a declared overlap can't silently lose
+`tests/rules/overlap/test_rule_overlap_harness.py`, so a declared overlap can't silently lose
 its regression test later. See `UnusedVariableRule`/`NoUndrivenOutputPortRule`/
 `ReadBeforeWriteRule`/`NoWriteOnlyVariableRule`/`NoWriteOnlyInputPortRule`/
 `NoInputPortWriteRule` for the existing worked example.
@@ -250,8 +250,8 @@ other rule codes (declared on `BaseDiagnostic`), purely declarative with no
 runtime effect: `symbol_rule_runner`/`module_rule_runner`/`rule_runner` still
 just concatenate every rule's diagnostics, so any actual suppression or
 co-firing behavior still lives in each rule's own `run()`/`applies()` logic.
-Its only job is to be checked by `tests/test_rule_overlap_metadata.py` against
-`tests/test_rule_overlap_harness.py`, so a known overlap can't silently lose its
+Its only job is to be checked by `tests/rules/overlap/test_rule_overlap_metadata.py` against
+`tests/rules/overlap/test_rule_overlap_harness.py`, so a known overlap can't silently lose its
 regression test. See `UnusedVariableRule`/`NoUndrivenOutputPortRule`/
 `ReadBeforeWriteRule`/`NoWriteOnlyVariableRule`/`NoWriteOnlyInputPortRule`/
 `NoInputPortWriteRule` for the worked example, and the Testing standard section
@@ -355,7 +355,7 @@ rule runs later over those facts.
 | `CASEX_CASEZ_WILDCARD_CASE_ITEM` | Syntax with helper logic | No | No | `case_statement_items`/`case_item_expressions` (existing), `CaseStatementSyntax.caseKeyword` | Anchors at the `CaseStatement` node itself, the same shape as `NO_DUPLICATE_CASE_ITEM` in the same folder, rather than at individual case-item nodes. `x` is a wildcard character in `casex` but not in `casez` (only `z`/`?` are), so an all-`x` `casez` item (which does not match everything) is deliberately not classified like an all-`x` `casex` item (which does). `default_profiles` is `("legacy_verilog",)` only, since `NO_CASEX_CASEZ` already excludes both keywords under `rtl_strict`/`sv_rtl_subset` (the same reasoning as `MISSING_GENERATE_BLOCK_LABEL`). |
 | `ASYNC_RESET_XZ_VALUE` | Syntax with helper logic | No new handler | No new semantic model | `async_reset_signal_names` (new, `_syntax_queries/procedural.py`), `is_within_async_reset_conditional` (new, `_syntax_queries/access.py`), `enclosing_procedural_block`, `is_conditional_statement`, `is_explicit_xz_literal` | Async-reset only: a sync-reset block's reset signal never appears in the sensitivity list, so it has no structural marker distinguishing it from any other identifier, and guessing would risk false positives and negatives on ordinary data-path `if`s. It does not disambiguate the reset-asserted branch from the other one (avoiding assumptions about `if(rst)` vs `if(!rst_n)` vs `if(rst_n==0)` polarity); one visible consequence is that an `else if` chain's inner conditional is still "inside" the outer reset-testing conditional, so a data-path branch reached via `else if` after `if (rst) ...` can still fire -- only a fully separate sibling `if` is guaranteed excluded. Declares `overlaps_with = ("EXPLICIT_XZ_LITERAL",)` since it always co-fires with that rule (the literal is flagged everywhere already), and a regression test pins this per the Testing standard above. |
 | `UNDRIVEN_TRISTATE_SIGNAL` | Shared-analysis / semantic | Yes | Yes | `is_tristate_continuous_assign` (new, `syntax_queries.py`), `SymbolTable.tristate_driver_ids`/`mark_tristate_driver` (new, mirrors `combinational_driver_ids`/`mark_combinational_driver` exactly), `signal_names_connected_to_instances` (new, `connection_analysis.py`) | `IdentifierNameHandler` already computes `driver_id` for every write to a continuous-assign target, so this needed one additive `if` branch beside the existing `mark_combinational_driver` call. It touches no existing field or behavior, but because this is the most heavily depended-on handler in the codebase the full suite should be run after changing it (same caution as `COMBINATIONAL_LOOP`). "Purely internal" cannot be derived from `Symbol` state: a signal wired to an instance's port connection carries no `UseEvent` from that connection (`IdentifierNameHandler` never walks `.connections`, as documented on `INSTANCE_OUTPUT_DRIVER_CONFLICT`), so `signal_names_connected_to_instances` reads `symbol_table.instantiations`' `expr_name` fields directly, the same fields `multiple_instance_driver_conflicts` reads for its by-signal-name grouping. Requires exactly one driver (`NO_MULTIPLE_DRIVERS` owns the 2+-driver case regardless of tri-state intent) and a fully-`z` ternary branch (reusing `_is_all_wildcard_text` from `CASEX_CASEZ_WILDCARD_CASE_ITEM`, restricted to `"z"`; an `x`-else branch is `EXPLICIT_XZ_LITERAL`'s concern). No `overlaps_with` is declared: the rule is mutually exclusive by construction with `NO_UNDRIVEN_SIGNAL` (requires `is_written`) and `NO_MULTIPLE_DRIVERS` (requires exactly one driver), so ordinary "does not fire on a nearby case" unit tests in the rule's own file cover it. |
-| `MODULE_FILENAME_MISMATCH` | Simple syntax (file-scoped), reads existing semantic state | No new handler | No new model | `is_module_filename_mismatch` in `src/pkg/parser/_syntax_queries/module_file.py` (composed from `module_declaration_names_in_file` and `module_declaration_file_stem`), fed by `enclosing_module_scope(ctx.scope()).file` in `src/pkg/semantic/scope.py` | Anchored on `is_first_module_declaration_in_file` (fires at most once per file, the same shape as `MISSING_TIMESCALE_DIRECTIVE`) and gathers every module name in the file via a second pass over `root.members` before deciding, since a multi-module file needs only one module to match the filename; this cannot be a single-node check like `ONE_MODULE_PER_FILE`. The file path comes from `enclosing_module_scope(ctx.scope()).file`, not from `tree.sourceManager.getFileName(...)`: pyslang reports the fixed placeholder `"source"` for every `SyntaxTree.fromText(...)` tree regardless of the logical filename the multi-file inline harness assigns via `symbol_table.set_current_file(file_name)`. `ModuleDeclarationHandler.update_context` calls `symbol_table.new_scope(...)`, which stamps `scope.file = symbol_table.current_file`, and the walker pushes that module scope onto `ctx` before `on_node`/`rule_runner.check` fires for the module-declaration vnode (`Walker._walk`: `update_context`, then `on_node`). So `ctx.scope()` inside `applies()` is the module's own scope and returns the correct file in both production and the test harness, with no handler changes. Inline-harness fixtures whose module name does not match their filename (e.g. `module top;` inside `"case_generate.sv"` in `tests/test_rule_overlap_harness.py`) also report this code and list it in their `expect_codes`. |
+| `MODULE_FILENAME_MISMATCH` | Simple syntax (file-scoped), reads existing semantic state | No new handler | No new model | `is_module_filename_mismatch` in `src/pkg/parser/_syntax_queries/module_file.py` (composed from `module_declaration_names_in_file` and `module_declaration_file_stem`), fed by `enclosing_module_scope(ctx.scope()).file` in `src/pkg/semantic/scope.py` | Anchored on `is_first_module_declaration_in_file` (fires at most once per file, the same shape as `MISSING_TIMESCALE_DIRECTIVE`) and gathers every module name in the file via a second pass over `root.members` before deciding, since a multi-module file needs only one module to match the filename; this cannot be a single-node check like `ONE_MODULE_PER_FILE`. The file path comes from `enclosing_module_scope(ctx.scope()).file`, not from `tree.sourceManager.getFileName(...)`: pyslang reports the fixed placeholder `"source"` for every `SyntaxTree.fromText(...)` tree regardless of the logical filename the multi-file inline harness assigns via `symbol_table.set_current_file(file_name)`. `ModuleDeclarationHandler.update_context` calls `symbol_table.new_scope(...)`, which stamps `scope.file = symbol_table.current_file`, and the walker pushes that module scope onto `ctx` before `on_node`/`rule_runner.check` fires for the module-declaration vnode (`Walker._walk`: `update_context`, then `on_node`). So `ctx.scope()` inside `applies()` is the module's own scope and returns the correct file in both production and the test harness, with no handler changes. Inline-harness fixtures whose module name does not match their filename (e.g. `module top;` inside `"case_generate.sv"` in `tests/rules/overlap/test_rule_overlap_harness.py`) also report this code and list it in their `expect_codes`. |
 
 ## Where To Change Things
 

@@ -77,13 +77,13 @@ def render_fixture_usage_doc(usage: dict[str, list[str]]) -> str:
         "A fixture referenced from several test files is exercised by all of them at "
         "once: a change to its RTL should be checked against every row it appears in, "
         "and an unintended parse or semantic change there can surface as unrelated-looking "
-        "failures across files. See `tests/test_fixture_validity.py` for the parser-error "
+        "failures across files. See `tests/meta/test_fixture_validity.py` for the parser-error "
         "check that fixtures must also pass regardless of how many tests reference them.",
         "",
         "This is a textual scan for literal filename references, so it misses tests that "
         "discover fixtures dynamically instead of naming them. Known gaps not reflected "
-        "below: `tests/test_fixture_validity.py` parses every file in `tests/data/` "
-        "regardless of name, and `tests/test_run_lint.py`'s "
+        "below: `tests/meta/test_fixture_validity.py` parses every file in `tests/data/` "
+        "regardless of name, and `tests/cli/test_run_lint.py`'s "
         "`test_collect_paths_deduplicates_overlapping_inputs` / "
         "`test_run_does_not_duplicate_diagnostics_for_overlapping_inputs` pass the whole "
         "`tests/data` directory to the linter, exercising every fixture in it.",

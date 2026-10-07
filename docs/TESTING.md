@@ -87,7 +87,7 @@ Two ways to get RTL text through the walker coexist in the suite:
    `module_rule_runner`), returning a `LintCaseResult` with assertion helpers
    (`expect_code_count`, `expect_no_code`, `expect_clean`, `expect_diagnostics`,
    `expect_files_for_code`, `expect_message_contains`, ...). See `tests/unit/test_lint_harness.py`
-   and `tests/test_rule_case_harness.py` for examples.
+   and `tests/integration/test_rule_case_harness.py` for examples.
 
 **Prefer the shared harness for new tests that check a complete diagnostic
 result** (count, file, location, message content) rather than hand-rolling the

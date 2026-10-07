@@ -8,7 +8,7 @@ a markdown doc no one is forced to open.
 
 This file is what actually makes the declaration mean something: every declared
 pair must (a) name a real, registered rule code, and (b) have at least one test
-in `tests/test_rule_overlap_harness.py` that exercises both codes together. That
+in `tests/rules/overlap/test_rule_overlap_harness.py` that exercises both codes together. That
 closes the gap docs/RULE_IMPLEMENTATION.md's Testing standard describes -- a
 declared overlap can no longer silently lose its regression coverage.
 """

@@ -22,7 +22,7 @@ class MissingDefaultOnStateCaseRule(Rule):
     synthesize an inferred latch or leave the FSM's behavior on an
     out-of-range state value entirely undefined. Always co-fires with
     `NO_DEFAULT_CASE_STATEMENT` on the same construct -- see `overlaps_with`
-    and the matching regression case in `tests/test_rule_overlap_harness.py`.
+    and the matching regression case in `tests/rules/overlap/test_rule_overlap_harness.py`.
     """
 
     code = "MISSING_DEFAULT_ON_STATE_CASE"

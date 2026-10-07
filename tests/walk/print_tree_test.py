@@ -75,7 +75,7 @@ def assert_matches_expected(name: str, actual: str):
     To regenerate a golden file after an intentional output change, run with
     UPDATE_EXPECTED=1 set, e.g.:
 
-        UPDATE_EXPECTED=1 pytest tests/ast/print_tree_test.py
+        UPDATE_EXPECTED=1 pytest tests/walk/print_tree_test.py
 
     This overwrites the golden file instead of asserting, so the resulting
     diff (via `git diff`) is a deliberate, reviewable record of what changed
