@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import has_full_parallel_case_pragma, is_case_keyword_token
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoFullParallelCaseRule(Rule):
     message = "Use of full_case / parallel_case pragmas can hide real case coverage issues"
     category = "classic_rtl_exclusion"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_case_keyword_token(vnode.raw) and has_full_parallel_case_pragma(vnode.raw, vnode.tree)

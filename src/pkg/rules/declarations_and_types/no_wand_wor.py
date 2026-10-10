@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_wand_wor_token
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoWandWorRule(Rule):
     message = "Use of wand/wor is discouraged in RTL; prefer explicit logic composition instead"
     category = "classic_rtl_exclusion"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_wand_wor_token(vnode.raw)

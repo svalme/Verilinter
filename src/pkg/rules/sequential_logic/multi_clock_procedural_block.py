@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_multi_clock_procedural_block, is_procedural_block
+from ...parser.types import ProceduralBlockNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class MultiClockProceduralBlockRule(Rule):
     message = "Procedural block has multiple clock signals or unhandled edge triggers"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ProceduralBlockNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_procedural_block(vnode.raw):

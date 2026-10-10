@@ -8,10 +8,11 @@ from ..parser.syntax import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
     ALWAYS_LATCH_BLOCK_KIND,
+    async_reset_signal_names,
     classify_reset_style,
+    is_combinational_style_always_block,
     missing_sensitivity_trigger_nodes,
-    mixed_assignment_trigger_node,
-    multiple_nonblocking_write_trigger_nodes,
+    procedural_block_assignment_triggers,
 )
 from ..parser.types import (
     ProceduralBlockNode,
@@ -38,14 +39,21 @@ class ProceduralBlockHandler(SyntaxNodeHandler):
         # times. A deliberate exception to the usual layering
         # standard of not putting handler state behind a fact a rule could derive
         # statelessly -- here it can, but only cheaply if computed once per block.
+        mix_trigger, multi_nb_triggers = procedural_block_assignment_triggers(vnode.raw)
         ctx = ctx.with_data("missing_sensitivity", missing_sensitivity_trigger_nodes(vnode.raw))
-        ctx = ctx.with_data("mix_trigger", mixed_assignment_trigger_node(vnode.raw))
+        ctx = ctx.with_data("mix_trigger", mix_trigger)
         ctx = ctx.with_data(
             "multiple_nonblocking_write_triggers",
-            multiple_nonblocking_write_trigger_nodes(vnode.raw),
+            multi_nb_triggers,
+        )
+        ctx = ctx.with_data(
+            "comb_always_block",
+            (vnode.raw, is_combinational_style_always_block(vnode.raw)),
         )
 
         reset_style = classify_reset_style(vnode.raw)
+        async_reset_names = async_reset_signal_names(vnode.raw) if reset_style == "async" else set()
+        ctx = ctx.with_data("block_async_reset_names", (vnode.raw, async_reset_names))
         if reset_style is not None:
             module_scope = enclosing_module_scope(ctx.scope())
             if module_scope is not None and module_scope.name:

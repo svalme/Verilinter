@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_xz_equality_comparison
+from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class XZEqualityComparisonRule(Rule):
     message = "==/!= compared against an X/Z literal always evaluates deterministically false/true; use ===/!== or ==?/!=? instead"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (BinaryExpressionNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
         return is_xz_equality_comparison(vnode.raw)

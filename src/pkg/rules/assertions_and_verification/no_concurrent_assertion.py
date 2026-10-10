@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_concurrent_assertion_node
+from ...parser.types import ConcurrentAssertionStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoConcurrentAssertionRule(Rule):
     message = "Use of concurrent assertions (assert/assume/cover property) is discouraged in synthesizable RTL; assertions belong in verification, not design"
     category = "sv_subset"
     default_profiles = ("sv_rtl_subset",)
+    target_node_types = (ConcurrentAssertionStatementNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_concurrent_assertion_node(vnode.raw)

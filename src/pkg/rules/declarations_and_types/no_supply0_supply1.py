@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_supply0_supply1_token
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoSupply0Supply1Rule(Rule):
     message = "Use of supply0/supply1 is discouraged in RTL; prefer explicit constant-driving intent instead"
     category = "classic_rtl_exclusion"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_supply0_supply1_token(vnode.raw)

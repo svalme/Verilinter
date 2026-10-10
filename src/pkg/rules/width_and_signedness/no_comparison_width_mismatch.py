@@ -6,6 +6,7 @@ from ...parser.syntax import (
     natural_expression_width_and_signed,
     unwrap_parentheses,
 )
+from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -88,6 +89,7 @@ class ComparisonWidthMismatchRule(Rule):
     message = "Comparison operands have mismatched bit widths"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (BinaryExpressionNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _comparison_width_mismatch(vnode, ctx) is not None

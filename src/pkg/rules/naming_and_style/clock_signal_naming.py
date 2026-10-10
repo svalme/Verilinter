@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import sync_clock_signal_name
+from ...parser.types import ProceduralBlockNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class ClockSignalNamingRule(Rule):
     message = "Clock signal is not named 'clk' or suffixed '_clk'"
     category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ProceduralBlockNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
         name = sync_clock_signal_name(vnode.raw)

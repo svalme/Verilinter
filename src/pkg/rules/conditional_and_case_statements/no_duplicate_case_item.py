@@ -1,4 +1,5 @@
 from ...parser.syntax import case_item_expressions, case_statement_items, is_case_statement, source_text_for_node
+from ...parser.types import CaseStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -25,6 +26,7 @@ class NoDuplicateCaseItemRule(Rule):
     message = "Duplicate case item detected"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (CaseStatementNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: object) -> bool:
         return is_case_statement(vnode.raw) and _has_duplicate_case_item(vnode)

@@ -1,4 +1,5 @@
 from ...parser.syntax import is_endcase_token
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
@@ -10,6 +11,7 @@ class DefaultCaseRule(Rule):
     message = "Case statement missing default case"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         return is_endcase_token(vnode.raw) \

@@ -234,3 +234,14 @@ class TestIndexedRuleDispatch:
         diags = filtered_runner.check(MockVNode(DummyChildNode()), ctx)
         assert len(diags) == 1
         assert diags[0]["code"] == "CAT_A"
+
+    def test_all_registered_syntax_rules_declare_target_node_types(self) -> None:
+        import src.pkg.rules.register_rules  # noqa: F401
+        from src.pkg.rules.rule_runner import rule_runner
+
+        untargeted_codes = [r.code for r in rule_runner._untargeted_rules]
+        assert untargeted_codes == [], (
+            f"All registered syntax rules must declare target_node_types for indexed dispatch; "
+            f"untargeted: {untargeted_codes}"
+        )
+

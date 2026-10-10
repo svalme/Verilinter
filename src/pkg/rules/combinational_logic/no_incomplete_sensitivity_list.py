@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from ...parser.syntax import identifier_name, is_identifier_name_node
+from ...parser.types import IDENTIFIER_NAME_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoIncompleteSensitivityListRule(Rule):
     message = "Signal is read in this block but missing from its explicit sensitivity list"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = IDENTIFIER_NAME_NODE_TYPES
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_identifier_name_node(vnode.raw):

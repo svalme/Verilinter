@@ -81,14 +81,20 @@ def _identifier_access_modes_over_ancestors(
 ) -> tuple[bool, bool]:
     from ..syntax_queries import is_read_write_assignment_expression
 
-    for ancestor in reversed(raw_ancestors):
+    for idx in range(len(raw_ancestors) - 1, -1, -1):
+        ancestor = raw_ancestors[idx]
         left = assignment_left(ancestor)
-        if left is not None and contains_descendant(left, raw_identifier):
-            if _selectors_containing_identifier(left, raw_identifier):
-                return True, False
-            if is_read_write_assignment_expression(ancestor):
-                return True, True
-            return False, True
+        if left is not None:
+            next_node = raw_ancestors[idx + 1] if idx + 1 < len(raw_ancestors) else raw_identifier
+            right = getattr(ancestor, "right", None)
+            if next_node is right and right is not left:
+                continue
+            if next_node is left or contains_descendant(left, raw_identifier):
+                if _selectors_containing_identifier(left, raw_identifier):
+                    return True, False
+                if is_read_write_assignment_expression(ancestor):
+                    return True, True
+                return False, True
 
         operand = unary_write_operand(ancestor)
         if operand is not None and contains_descendant(operand, raw_identifier):
@@ -291,7 +297,12 @@ def is_within_async_reset_conditional(ctx: "Context") -> bool:
     block = enclosing_procedural_block(ctx)
     if block is None:
         return False
-    reset_names = async_reset_signal_names(block.raw)
+    ctx_data = getattr(ctx, "data", None)
+    cached_resets = ctx_data.get("block_async_reset_names") if isinstance(ctx_data, dict) else None
+    if isinstance(cached_resets, tuple) and len(cached_resets) == 2 and cached_resets[0] is block.raw:
+        reset_names = cached_resets[1]
+    else:
+        reset_names = async_reset_signal_names(block.raw)
     if not reset_names:
         return False
 

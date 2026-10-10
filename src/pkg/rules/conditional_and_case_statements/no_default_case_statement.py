@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import enclosing_case_statement, has_default_case_item, is_endcase_token
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoDefaultCaseStatementRule(Rule):
     message = "Case statement missing default case"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_endcase_token(vnode.raw):

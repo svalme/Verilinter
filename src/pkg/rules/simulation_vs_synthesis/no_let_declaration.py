@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_let_declaration_node
+from ...parser.types import LetDeclarationNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoLetDeclarationRule(Rule):
     message = "Use of let declarations is discouraged in synthesizable RTL"
     category = "sv_subset"
     default_profiles = ("sv_rtl_subset",)
+    target_node_types = (LetDeclarationNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_let_declaration_node(vnode.raw)

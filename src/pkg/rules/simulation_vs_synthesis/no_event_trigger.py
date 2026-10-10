@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_event_trigger_token
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoEventTriggerRule(Rule):
     message = "Use of event trigger statements is discouraged in synthesizable RTL"
     category = "rtl_subset"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_event_trigger_token(vnode.raw, ctx)

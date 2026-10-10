@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_if_generate_node
+from ...parser.types import IfGenerateNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoIfGenerateRule(Rule):
     message = "Use of if-generate can make structural intent harder to follow"
     category = "rtl_subset"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
+    target_node_types = (IfGenerateNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_if_generate_node(vnode.raw)

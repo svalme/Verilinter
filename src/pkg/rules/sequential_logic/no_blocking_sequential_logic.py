@@ -3,6 +3,7 @@ from ...parser.syntax import (
     is_blocking_assignment_token,
     is_in_for_loop_header,
 )
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
@@ -14,6 +15,7 @@ class NoBlockingAssignmentInSequentialRule(Rule):
     message = "Blocking assignment used in sequential logic"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         if not is_blocking_assignment_token(vnode.raw):

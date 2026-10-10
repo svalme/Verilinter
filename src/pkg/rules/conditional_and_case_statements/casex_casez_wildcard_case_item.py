@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import has_casex_casez_wildcard_case_item
+from ...parser.types import CaseStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class CasexCasezWildcardCaseItemRule(Rule):
     message = "casex/casez case item is composed entirely of wildcard bits and silently matches every value"
     category = "rtl_correctness"
     default_profiles = ("legacy_verilog",)
+    target_node_types = (CaseStatementNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
         return has_casex_casez_wildcard_case_item(vnode.raw)

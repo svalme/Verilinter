@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_final_block
+from ...parser.types import ProceduralBlockNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoFinalBlockRule(Rule):
     message = "Use of final blocks is usually not appropriate in synthesizable RTL"
     category = "rtl_subset"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
+    target_node_types = (ProceduralBlockNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_final_block(vnode.raw)

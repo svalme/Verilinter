@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_missing_timescale_directive
+from ...parser.types import ModuleDeclarationNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class MissingTimescaleDirectiveRule(Rule):
     message = "File has no `timescale directive before its first module declaration"
     category = "rtl_subset"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ModuleDeclarationNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_missing_timescale_directive(vnode.raw, vnode.tree)

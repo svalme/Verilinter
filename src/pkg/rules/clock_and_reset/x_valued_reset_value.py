@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_explicit_xz_literal, is_within_async_reset_conditional
+from ...parser.types import LITERAL_EXPRESSION_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class AsyncResetXZValueRule(Rule):
     message = "Explicit X/Z literal assigned inside an async-reset conditional, defeating reset determinism"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = LITERAL_EXPRESSION_NODE_TYPES
     overlaps_with = ("EXPLICIT_XZ_LITERAL",)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:

@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import async_reset_signal_edges
+from ...parser.types import ProceduralBlockNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -25,6 +26,7 @@ class ResetSignalNamingRule(Rule):
     message = "Sensitivity-list signal's edge polarity does not match its _n/_b suffix convention"
     category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ProceduralBlockNode,)
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
         return _has_polarity_mismatch(vnode)

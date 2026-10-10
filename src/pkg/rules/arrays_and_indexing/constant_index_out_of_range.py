@@ -5,6 +5,7 @@ from ...parser.syntax import (
     evaluate_constant_expression,
     identifier_select_base_and_selectors,
 )
+from ...parser.types import SELECT_EXPRESSION_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -71,6 +72,7 @@ class ConstantIndexOutOfRangeRule(Rule):
     message = "Constant bit-select or part-select index is out of the signal's declared range"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = SELECT_EXPRESSION_NODE_TYPES
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _is_constant_index_out_of_range(vnode, ctx)

@@ -2,6 +2,7 @@ from ...parser.syntax import (
     enclosing_combinational_style_always_block,
     is_nonblocking_assignment_token,
 )
+from ...parser.types import Token
 from ...vnodes.base_vnode import BaseVNode
 from ...walk.context import Context, ContextFlag
 from ..base_rule import Rule
@@ -13,6 +14,7 @@ class NoNonBlockingAssignmentInCombRule(Rule):
     message = "Non-blocking assignment used in combinational logic"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (Token,)
 
     def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         if not is_nonblocking_assignment_token(vnode.raw):

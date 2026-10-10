@@ -359,10 +359,7 @@ All syntax query modules in `src/pkg/parser/_syntax_queries/` use the `Traversal
 | `_iter_identifier_nodes` (`procedural.py`) | `@guarded_generator` | 128 | `Iterator[tuple[str, SyntaxNode]]` |
 | `iter_assignment_nodes` (`procedural.py`) | `@guarded_generator` | 128 | `Iterator[SyntaxNode]` |
 | `_collect_sensitivity_events` (`procedural.py`) | `@guarded_traversal` | 64 | `None` |
-| `_count_edge_qualified_signals` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
-| `_edge_qualified_signal_names` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
-| `async_reset_signal_edges` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
-| `procedural_block_edge_events` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
+| `_inspect_edge_events` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
 | `extract_assignment_target_and_selectors` (`shapes.py`) | `@guarded_traversal` | 64 | `(None, [])` |
 | `resolve_assignment_target` (`shapes.py`) | `@guarded_traversal` | 32 | `None` |
 | `evaluate_constant_expression` (`expressions.py`) | `@guarded_traversal` | 16 | `None` |

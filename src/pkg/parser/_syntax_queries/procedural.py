@@ -160,14 +160,29 @@ def is_sequential_style_procedural_block(raw: object) -> bool:
 
 
 
-def _count_edge_qualified_signals(node: object) -> int:
+def _inspect_edge_events(raw: object) -> tuple[int, list[tuple[str, str]]]:
+    """Walk `raw`'s sensitivity-list event expression once, returning
+    `(edge_clause_count, [(edge_kind, signal_name), ...])`.
+    """
     from ..syntax_queries import is_negedge_event, is_posedge_event
 
-    count = 0
+    if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
+        return 0, []
+
+    timing_statement = getattr(raw, "statement", None)
+    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
+        return 0, []
+
+    event_control = getattr(timing_statement, "timingControl", None)
+    if isinstance(event_control, ImplicitEventControlNode):
+        return 0, []
+
+    edge_count = 0
+    events: list[tuple[str, str]] = []
 
     @guarded_traversal(max_depth=32, default=None)
     def _walk(current: object) -> None:
-        nonlocal count
+        nonlocal edge_count
         if current is None:
             return
         if isinstance(current, ParenthesizedEventExpressionNode):
@@ -176,56 +191,30 @@ def _count_edge_qualified_signals(node: object) -> int:
             _walk(getattr(current, "left", None))
             _walk(getattr(current, "right", None))
         elif isinstance(current, SignalEventExpressionNode):
-            if is_posedge_event(current) or is_negedge_event(current):
-                count += 1
+            if is_posedge_event(current):
+                edge = "posedge"
+            elif is_negedge_event(current):
+                edge = "negedge"
+            else:
+                edge = None
+            if edge is not None:
+                edge_count += 1
+                expr = getattr(current, "expr", None)
+                if isinstance(expr, SyntaxNode):
+                    for name, _identifier in _iter_identifier_nodes(expr):
+                        events.append((edge, name))
 
-    _walk(node)
-    return count
+    _walk(getattr(event_control, "expr", None))
+    return edge_count, events
 
 
 def classify_reset_style(raw: object) -> str | None:
-    if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
-        return None
-
-    timing_statement = getattr(raw, "statement", None)
-    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
-        return None
-
-    event_control = getattr(timing_statement, "timingControl", None)
-    if isinstance(event_control, ImplicitEventControlNode):
-        return None
-
-    edge_count = _count_edge_qualified_signals(getattr(event_control, "expr", None))
+    edge_count, _events = _inspect_edge_events(raw)
     if edge_count == 1:
         return "sync"
     if edge_count >= 2:
         return "async"
     return None
-
-
-def _edge_qualified_signal_names(node: object) -> set[str]:
-    from ..syntax_queries import is_negedge_event, is_posedge_event
-
-    names: set[str] = set()
-
-    @guarded_traversal(max_depth=32, default=None)
-    def _walk(current: object) -> None:
-        if current is None:
-            return
-        if isinstance(current, ParenthesizedEventExpressionNode):
-            _walk(getattr(current, "expr", None))
-        elif isinstance(current, BinaryEventExpressionNode):
-            _walk(getattr(current, "left", None))
-            _walk(getattr(current, "right", None))
-        elif isinstance(current, SignalEventExpressionNode):
-            if is_posedge_event(current) or is_negedge_event(current):
-                expr = getattr(current, "expr", None)
-                if isinstance(expr, SyntaxNode):
-                    for name, _identifier in _iter_identifier_nodes(expr):
-                        names.add(name)
-
-    _walk(node)
-    return names
 
 
 def async_reset_signal_names(raw: object) -> set[str]:
@@ -237,18 +226,10 @@ def async_reset_signal_names(raw: object) -> set[str]:
     from any other identifier, so it can't be identified this way -- see
     `ASYNC_RESET_XZ_VALUE`'s deliberately async-only scope.
     """
-    if classify_reset_style(raw) != "async":
+    edge_count, events = _inspect_edge_events(raw)
+    if edge_count < 2:
         return set()
-
-    timing_statement = getattr(raw, "statement", None)
-    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
-        return set()
-
-    event_control = getattr(timing_statement, "timingControl", None)
-    if isinstance(event_control, ImplicitEventControlNode):
-        return set()
-
-    return _edge_qualified_signal_names(getattr(event_control, "expr", None))
+    return {name for _edge, name in events}
 
 
 def sync_clock_signal_name(raw: object) -> str | None:
@@ -259,18 +240,10 @@ def sync_clock_signal_name(raw: object) -> str | None:
     async block (2+ edge-qualified signals) -- same "don't guess which one is
     the clock" restraint as `async_reset_signal_names`.
     """
-    if classify_reset_style(raw) != "sync":
+    edge_count, events = _inspect_edge_events(raw)
+    if edge_count != 1:
         return None
-
-    timing_statement = getattr(raw, "statement", None)
-    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
-        return None
-
-    event_control = getattr(timing_statement, "timingControl", None)
-    if isinstance(event_control, ImplicitEventControlNode):
-        return None
-
-    names = _edge_qualified_signal_names(getattr(event_control, "expr", None))
+    names = {name for _edge, name in events}
     return next(iter(names)) if len(names) == 1 else None
 
 
@@ -282,90 +255,19 @@ def async_reset_signal_edges(raw: object) -> dict[str, str]:
     by `RESET_SIGNAL_NAMING` to check every edge-qualified name's suffix
     convention without needing to guess which one is "the reset".
     """
-    from ..syntax_queries import is_negedge_event, is_posedge_event
-
-    if classify_reset_style(raw) != "async":
+    edge_count, events = _inspect_edge_events(raw)
+    if edge_count < 2:
         return {}
-
-    timing_statement = getattr(raw, "statement", None)
-    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
-        return {}
-
-    event_control = getattr(timing_statement, "timingControl", None)
-    if isinstance(event_control, ImplicitEventControlNode):
-        return {}
-
-    edges: dict[str, str] = {}
-
-    @guarded_traversal(max_depth=32, default=None)
-    def _walk(current: object) -> None:
-        if current is None:
-            return
-        if isinstance(current, ParenthesizedEventExpressionNode):
-            _walk(getattr(current, "expr", None))
-        elif isinstance(current, BinaryEventExpressionNode):
-            _walk(getattr(current, "left", None))
-            _walk(getattr(current, "right", None))
-        elif isinstance(current, SignalEventExpressionNode):
-            if is_posedge_event(current):
-                edge = "posedge"
-            elif is_negedge_event(current):
-                edge = "negedge"
-            else:
-                edge = None
-            if edge is not None:
-                expr = getattr(current, "expr", None)
-                if isinstance(expr, SyntaxNode):
-                    for name, _identifier in _iter_identifier_nodes(expr):
-                        edges[name] = edge
-
-    _walk(getattr(event_control, "expr", None))
-    return edges
+    return {name: edge for edge, name in events}
 
 
 def procedural_block_edge_events(raw: object) -> list[tuple[str, str]]:
     """Return all (edge_kind, signal_name) tuples for edge-qualified events
     in `raw`'s sensitivity list in document order.
     """
-    from ..syntax_queries import is_negedge_event, is_posedge_event
-
-    if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
-        return []
-
-    timing_statement = getattr(raw, "statement", None)
-    if getattr(timing_statement, "kind", None) != TIMING_CONTROL_STATEMENT_KIND:
-        return []
-
-    event_control = getattr(timing_statement, "timingControl", None)
-    if isinstance(event_control, ImplicitEventControlNode):
-        return []
-
-    events: list[tuple[str, str]] = []
-
-    @guarded_traversal(max_depth=32, default=None)
-    def _walk(current: object) -> None:
-        if current is None:
-            return
-        if isinstance(current, ParenthesizedEventExpressionNode):
-            _walk(getattr(current, "expr", None))
-        elif isinstance(current, BinaryEventExpressionNode):
-            _walk(getattr(current, "left", None))
-            _walk(getattr(current, "right", None))
-        elif isinstance(current, SignalEventExpressionNode):
-            if is_posedge_event(current):
-                edge = "posedge"
-            elif is_negedge_event(current):
-                edge = "negedge"
-            else:
-                edge = None
-            if edge is not None:
-                expr = getattr(current, "expr", None)
-                if isinstance(expr, SyntaxNode):
-                    for name, _identifier in _iter_identifier_nodes(expr):
-                        events.append((edge, name))
-
-    _walk(getattr(event_control, "expr", None))
+    _edge_count, events = _inspect_edge_events(raw)
     return events
+
 
 
 def procedural_block_top_level_reset_names(raw: object) -> set[str]:
@@ -599,7 +501,13 @@ def procedural_nesting_depth(ctx: "Context") -> int:
 
 
 def enclosing_combinational_style_always_block(ctx: "Context") -> "BaseVNode | None":
+    ctx_data = getattr(ctx, "data", None)
+    cached = ctx_data.get("comb_always_block") if isinstance(ctx_data, dict) else None
     for ancestor in reversed(ctx.stack):
+        if isinstance(cached, tuple) and len(cached) == 2 and cached[0] is ancestor.raw:
+            if cached[1]:
+                return ancestor
+            continue
         if is_combinational_style_always_block(ancestor.raw):
             return ancestor
     return None
@@ -713,6 +621,42 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
         seen_parents.append(parent)
 
     return triggers
+
+
+def procedural_block_assignment_triggers(
+    block_raw: object,
+) -> tuple[SyntaxNode | None, dict[str, SyntaxNode]]:
+    """Compute `(mixed_assignment_trigger_node, multiple_nonblocking_write_trigger_nodes)`
+    in a single `iter_assignment_nodes` pass over `block_raw`.
+    """
+    if not isinstance(block_raw, SyntaxNode):
+        return None, {}
+
+    from .access import assignment_target_identifier_name
+
+    mix_trigger: SyntaxNode | None = None
+    seen_kinds: set[object] = set()
+    nb_triggers: dict[str, SyntaxNode] = {}
+    seen_parents_by_target: dict[str, list[object]] = {}
+
+    for node in iter_assignment_nodes(block_raw):
+        kind = getattr(node, "kind", None)
+        if mix_trigger is None:
+            if kind not in seen_kinds and seen_kinds:
+                mix_trigger = node
+            seen_kinds.add(kind)
+
+        if kind in SIMPLE_ASSIGNMENT_KINDS and kind == NONBLOCKING_ASSIGNMENT_KIND:
+            name = assignment_target_identifier_name(node)
+            if name is not None:
+                parent = _enclosing_statement_parent(node)
+                seen_parents = seen_parents_by_target.setdefault(name, [])
+                if name not in nb_triggers and any(parent is existing for existing in seen_parents):
+                    nb_triggers[name] = node
+                seen_parents.append(parent)
+
+    return mix_trigger, nb_triggers
+
 
 
 BranchSignature = tuple[tuple[str, int], ...]

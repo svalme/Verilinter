@@ -6,6 +6,7 @@ from ...parser.syntax import (
     is_shift_expression,
     simple_expression_width_and_signed,
 )
+from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -44,6 +45,7 @@ class ShiftAmountOutOfRangeRule(Rule):
     message = "Constant shift amount is negative or exceeds the shifted operand's declared width"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (BinaryExpressionNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return _shift_amount_out_of_range(vnode, ctx)

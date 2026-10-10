@@ -1,4 +1,5 @@
 from ...parser.syntax import has_case_overlapping_items, is_case_statement
+from ...parser.types import CaseStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -10,6 +11,7 @@ class CaseOverlappingItemsRule(Rule):
     message = "Case statement contains duplicate or overlapping case items"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (CaseStatementNode,)
     overlaps_with = ("NO_DUPLICATE_CASE_ITEM",)
 
     def applies(self, vnode: BaseVNode, _ctx: object) -> bool:

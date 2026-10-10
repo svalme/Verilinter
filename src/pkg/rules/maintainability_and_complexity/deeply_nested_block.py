@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_block_statement, procedural_nesting_depth
+from ...parser.types import BlockStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -26,6 +27,7 @@ class DeeplyNestedBlockRule(Rule):
     message = f"Procedural block/conditional/case nesting exceeds {_MAX_NESTING_DEPTH} levels; consider refactoring"
     category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (BlockStatementNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_block_statement(vnode.raw):

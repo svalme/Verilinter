@@ -20,6 +20,7 @@ Every new rule should, unless there is a documented exception:
 - have a stable diagnostic `code`
 - have a clear user-facing `message`
 - be registered in the appropriate registry
+- declare `target_node_types` (imported from `src/pkg/parser/types.py`) when registered with `rule_runner`, so `RuleRunner` indexes the rule by raw syntax or token class rather than evaluating `applies()` on every visited node
 - be listed in `RULES.md` in the same change
 - include focused tests
 

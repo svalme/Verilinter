@@ -4,6 +4,7 @@ from ...parser.syntax import (
     assignment_is_implicit_real_conversion,
     declarator_is_implicit_real_conversion,
 )
+from ...parser.types import BinaryExpressionNode, DeclaratorNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -18,6 +19,7 @@ class NoImplicitRealConversionRule(Rule):
     message = "Implicit conversion of real or fractional value to integral target loses fractional precision"
     category = "declarations_and_types"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (DeclaratorNode, BinaryExpressionNode)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         raw = vnode.raw

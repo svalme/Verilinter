@@ -18,7 +18,7 @@ from ...parser.syntax import (
     procedural_block_statement,
 )
 from ...parser.traversal_guard import guarded_traversal
-from ...parser.types import SyntaxNode
+from ...parser.types import ProceduralBlockNode, SyntaxNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -159,6 +159,7 @@ class NoLatchInAlwaysCombRule(Rule):
     message = "always_comb block contains a conditional-only assignment that can infer latch-like storage"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ProceduralBlockNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not is_always_comb_block(vnode.raw):

@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_unwrapped_else_body, is_unwrapped_if_body
+from ...parser.types import ConditionalStatementNode, ElseClauseNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoIfWithoutBeginEndRule(Rule):
     message = "`if` branch is a single statement not wrapped in begin/end"
     category = "rtl_subset"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ConditionalStatementNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_unwrapped_if_body(vnode.raw)
@@ -26,6 +28,7 @@ class NoElseWithoutBeginEndRule(Rule):
     message = "`else` branch is a single statement not wrapped in begin/end"
     category = "rtl_subset"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = (ElseClauseNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_unwrapped_else_body(vnode.raw)

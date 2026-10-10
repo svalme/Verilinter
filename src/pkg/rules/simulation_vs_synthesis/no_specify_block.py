@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_specify_block_node
+from ...parser.types import SpecifyBlockNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoSpecifyBlockRule(Rule):
     message = "Use of specify blocks is discouraged in synthesizable RTL; pin-to-pin timing modeling is not synthesizable"
     category = "classic_rtl_exclusion"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
+    target_node_types = (SpecifyBlockNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_specify_block_node(vnode.raw)

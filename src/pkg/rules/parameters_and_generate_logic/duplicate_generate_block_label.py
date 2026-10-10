@@ -5,6 +5,7 @@ from ...parser.syntax import (
     is_case_generate_node,
     is_if_generate_node,
 )
+from ...parser.types import CaseGenerateNode, IfGenerateNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -26,6 +27,7 @@ class DuplicateGenerateBlockLabelRule(Rule):
     message = "Sibling generate blocks share the same explicit label"
     category = "rtl_correctness"
     default_profiles = ("legacy_verilog",)
+    target_node_types = (IfGenerateNode, CaseGenerateNode)
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
         if not (is_if_generate_node(vnode.raw) or is_case_generate_node(vnode.raw)):

@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import is_unsized_literal_in_flagged_value_context
+from ...parser.types import LITERAL_EXPRESSION_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -15,6 +16,7 @@ class NoUnsizedLiteralRule(Rule):
     message = "Unsized decimal literal used as an assigned value; its width will be inferred and may mismatch the target"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
+    target_node_types = LITERAL_EXPRESSION_NODE_TYPES
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         return is_unsized_literal_in_flagged_value_context(vnode.raw)
