@@ -424,6 +424,90 @@ To ensure total transparency, Verilinter provides an integrated **Analysis Trunc
      ```
    - Writing telemetry to `stderr` preserves standard stdout formatting, ensuring machine-readable JSON (`--format json`) and SARIF outputs remain compliant with automated consumers and tooling.
 
+### F. Practical RTL Patterns Where Depth Limits Are Exceeded
+
+In commercial and open-source SystemVerilog codebases, recursion limits are not abstract safeguards; they interact directly with real-world synthesis patterns. When an AST traversal hits a depth bound, the analysis truncates, returning default fallback values. Below are concrete RTL designs where depth limits can be exceeded, the specific query functions affected, and why telemetry is indispensable to prevent silent false negatives:
+
+#### 1. Cascaded Ternary Multiplexers & Priority Encoders (`infer_expression_width`, `limit=32`)
+- **RTL Pattern**:
+  A common design style for 32-to-1 or 64-to-1 priority selectors, barrel shifters, and interrupt arbitration trees is a chained ternary expression:
+  ```systemverilog
+  assign data_out = (req[0])  ? din[0]  :
+                    (req[1])  ? din[1]  :
+                    (req[2])  ? din[2]  :
+                    // ...
+                    (req[31]) ? din[31] :
+                    (req[32]) ? din[32] : 32'd0;
+  ```
+- **AST Shape & Depth Impact**:
+  In SystemVerilog syntax trees, each `cond ? expr_true : expr_false` is a `ConditionalExpressionSyntax` node. Chaining 32 conditional branches places each subsequent branch inside the `expr_false` subtree, forming a right-heavy AST of depth 32. At branch 33, AST descent reaches depth 33.
+- **Truncation Consequence**:
+  `infer_expression_width` has a depth bound of `max_depth=32`. At the 33rd branch, the traversal returns `(None, None)` (unknown width). Without telemetry, the linter silently stops verifying width compatibility for all subsequent inputs (`din[32]`, etc.), potentially missing width truncation bugs. With telemetry, Verilinter flags that `infer_expression_width` hit its limit at that line and column, alerting developers to verify the uninspected branches.
+
+#### 2. Multi-Operand Arithmetic & DSP Pipelines (`eval_constant_int`, `limit=16`)
+- **RTL Pattern**:
+  In digital signal processing (DSP), filter taps, address stride calculations, and memory mapping offsets frequently accumulate wide parameter expressions:
+  ```systemverilog
+  localparam MEM_OFFSET = OFFSET_BASE + STRIDE_0 + STRIDE_1 + STRIDE_2 +
+                          STRIDE_3    + STRIDE_4 + STRIDE_5 + STRIDE_6 +
+                          STRIDE_7    + STRIDE_8 + STRIDE_9 + STRIDE_10 +
+                          STRIDE_11   + STRIDE_12 + STRIDE_13 + STRIDE_14 + STRIDE_15;
+  ```
+- **AST Shape & Depth Impact**:
+  Arithmetic expressions associate as nested binary trees (`BinaryExpressionSyntax`). Summing 17 terms builds a binary tree 16 levels deep.
+- **Truncation Consequence**:
+  `eval_constant_int` uses `max_depth=16`. Once depth reaches 16, constant folding aborts and returns `None`. Downstream rules relying on constant evaluations (such as `CONSTANT_INDEX_OUT_OF_RANGE`, `PORT_CONNECTION_WIDTH_MISMATCH`, or array dimension sizing) cannot resolve the value and must treat it as dynamic, silently bypassing compile-time bound validation. The telemetry system records the exact truncated expression, enabling developers to increase bounds or simplify expressions.
+
+#### 3. Wide Bitwise Reduction & Parity Trees (`_involves_symbol`, `_expr_reads_symbol`, `limit=64`)
+- **RTL Pattern**:
+  Error-correcting code (ECC) generators, CRC checksums, and wide parity calculations across 64-bit or 128-bit data buses:
+  ```systemverilog
+  assign parity_bit = payload[0]  ^ payload[1]  ^ payload[2]  ^ // ...
+                      payload[63] ^ payload[64] ^ payload[65];
+  ```
+- **AST Shape & Depth Impact**:
+  Chaining 66 XOR operands creates a binary syntax tree 65 levels deep.
+- **Truncation Consequence**:
+  Syntax queries that check whether an expression involves or reads a particular signal (such as `_involves_symbol` or `_expr_reads_symbol`, `max_depth=64`) will abort when inspecting operands beyond the 64th level, returning `False`. If this check drives combinational sensitivity list verification (`NO_INCOMPLETE_SENSITIVITY_LIST`) or read-before-write analysis, missing signals can lead to missing warnings. Telemetry informs the engineer that signals beyond the depth boundary could not be inspected.
+
+#### 4. Deeply Nested Protocol Decoders & Hierarchical Conditionals (`_collect_body`, `limit=128`)
+- **RTL Pattern**:
+  Complex packet framing decoders (e.g. PCIe, Ethernet, AXI bus arbiters) or auto-generated RTL with nested `if-else` blocks and state-dependent field extractions:
+  ```systemverilog
+  always_comb begin
+    if (state == HDR) begin
+      if (pkt_valid) begin
+        if (protocol == ETH) begin
+          if (vlan_tagged) begin
+            // 20+ levels of nested protocol encapsulation...
+          end
+        end
+      end
+    end
+  end
+  ```
+- **AST Shape & Depth Impact**:
+  Each conditional statement introduces new AST statement nodes, blocks, and child bodies.
+- **Truncation Consequence**:
+  Iterating procedural events (`_walk_procedural_events`, `max_depth=128`) or gathering statement bodies (`_collect_body`) can hit bounds in heavily generated RTL, resulting in incomplete statement lists for latch checks (`NO_LATCH_IN_ALWAYS_COMB`) or assignment tracking (`NO_MULTIPLE_NONBLOCKING_WRITES`). Telemetry ensures that when statement bodies are truncated, the linter does not silently claim the block is latch-free without notifying the user.
+
+#### 5. Cyclic References in Faulty Code & Self-Referential Graph Dependencies (`ActivePath`, reason=`cycle_detected`)
+- **RTL Pattern**:
+  Circular hierarchy definitions, mutual module instantiations (`modA` instantiating `modB`, which instantiates `modA`), or cyclic symbol dependencies:
+  ```systemverilog
+  module modA (input a, output b);
+    modB instB (.x(b), .y(a));
+  endmodule
+
+  module modB (input x, output y);
+    modA instA (.a(y), .b(x));
+  endmodule
+  ```
+- **AST Shape & Depth Impact**:
+  Graph traversals tracing structural hierarchy or driver chains encounter previously visited nodes along the active descent path.
+- **Truncation Consequence**:
+  Rather than hanging indefinitely or overflowing the Python call stack with a `RecursionError`, `ActivePath.enter` intercepts the cycle and records a `reason="cycle_detected"` telemetry event. The linter safely aborts the infinite loop while accurately reporting the cyclic dependency.
+
 ---
 
 ## 9. MVP Supported RTL Subset, Semantic Capabilities & Known Limitations
