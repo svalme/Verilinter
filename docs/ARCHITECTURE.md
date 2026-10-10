@@ -508,6 +508,47 @@ In commercial and open-source SystemVerilog codebases, recursion limits are not 
 - **Truncation Consequence**:
   Rather than hanging indefinitely or overflowing the Python call stack with a `RecursionError`, `ActivePath.enter` intercepts the cycle and records a `reason="cycle_detected"` telemetry event. The linter safely aborts the infinite loop while accurately reporting the cyclic dependency.
 
+### G. Comprehensive System-Wide Depth Bound Audit
+
+Below is the complete audit of every recursion limit, traversal depth ceiling, and iteration bound across all subsystems of Verilinter:
+
+| Subsystem Layer | Target Operation / Function | Source Location | Ceiling Limit | Boundary Mechanism | Fallback / Abort Behavior | Telemetry Recorded |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Expression Evaluation** | `eval_constant_int` | `_syntax_queries/expressions.py` | `max_depth = 16` | `@guarded_traversal` | Returns `None` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `infer_expression_width` | `_syntax_queries/expressions.py` | `max_depth = 32` | `@guarded_traversal` | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `infer_type_dimensions` | `_syntax_queries/expressions.py` | `max_depth = 32` | `@guarded_traversal` | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `infer_expression_dimensions` | `_syntax_queries/expressions.py` | `max_depth = 32` | `@guarded_traversal` | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Identifier Access** | `contains_descendant` / `_involves_symbol` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
+| **Identifier Access** | `_expr_reads_symbol` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
+| **Identifier Access** | `_is_loop_index_var` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
+| **Identifier Access** | `_is_descendant_of` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
+| **Declarations** | `_walk_declarations` | `_syntax_queries/declarators.py` | `max_depth = 64` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
+| **Shapes & Structure** | `extract_memory_dimensions` | `_syntax_queries/shapes.py` | `max_depth = 64` | `@guarded_traversal` | Returns `(None, [])` | `max_depth` / `cycle_detected` |
+| **Shapes & Structure** | `find_parent_of_type` | `_syntax_queries/shapes.py` | `max_depth = 32` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
+| **Loop Analysis** | `contains_loop` | `_syntax_queries/loops.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_collect_body` | `_syntax_queries/procedural.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_walk_procedural_events` | `_syntax_queries/procedural.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_walk_procedural_blocks` | `_syntax_queries/procedural.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_first_blocking_assignment_before` | `_syntax_queries/procedural.py` | `max_depth = 64` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_find_enclosing_loop` | `_syntax_queries/procedural.py` | `max_depth = 32` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
+| **Rule Checker** | `_find_blocking_assigned_vars` | `rules/combinational_logic/no_latch_in_always_comb.py` | `max_depth = 64` | `@guarded_traversal` | Returns `set()` | `max_depth` / `cycle_detected` |
+| **Rule Checker** | `_check_case_branches` | `rules/combinational_logic/no_latch_in_always_comb.py` | `max_depth = 64` | `@guarded_traversal` | Returns `(False, set())` | `max_depth` / `cycle_detected` |
+| **Rule Checker** | `_infer_expr_width` | `rules/width_and_signedness/no_assignment_width_mismatch.py` | `max_depth = 64` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
+| **Rule Checker** | `_check_target_selectors` | `rules/width_and_signedness/no_assignment_width_mismatch.py` | `depth >= 64` | Explicit parameter recursion | Returns `None` | N/A |
+| **AST Walker** | `Walker._walk` | `walk/walker.py` | `depth >= 256` | Top-level recursion ceiling | Returns immediately | N/A |
+| **AST Context** | `Context.iter_ancestors` | `walk/context.py` | `depth < 256` | Bounded while loop + cycle set | Terminates generator | N/A |
+| **Iterative DFS** | `ast_descendants_iter` | `parser/traversal_guard.py` | `max_depth = 128` | DFS stack depth check | Skips child nodes | `max_depth` event |
+| **Descent Guard** | `ActivePath.enter` | `parser/traversal_guard.py` | `max_depth = 64` | RAII active path tracker | Returns `_INACTIVE_SCOPE` | `max_depth` / `cycle_detected` |
+| **Scope Resolution** | `Scope.lookup_hierarchical` | `semantic/scope.py` | `depth < 64` | Bounded parent pointer loop | Returns `None` | N/A |
+| **Scope Resolution** | `Scope.enclosing_package` | `semantic/scope.py` | `depth < 64` | Bounded parent pointer loop | Returns `None` | N/A |
+| **Symbol Table** | Module / Interface lookup | `semantic/symbol_table.py` | `depth < 64` | Bounded parent pointer loop | Returns `None` | N/A |
+| **Symbol Table** | `_search` hierarchy DFS | `semantic/symbol_table.py` | `depth >= 64` | Explicit parameter recursion | Returns `None` | N/A |
+| **Graph Analysis** | Combinational loop Tarjan DFS | `rules/combinational_logic/combinational_loop.py` | `depth >= 256` | Explicit parameter recursion | Aborts branch search | N/A |
+| **Graph Analysis** | Circular instantiation DFS | `rules/connectivity_and_hierarchy/circular_module_instantiation.py` | `depth >= 256` | Explicit parameter recursion | Aborts branch search | N/A |
+| **Branch Analysis** | `_collapse_exhaustive_branches` | `rules/combinational_logic/read_before_write_rule.py` | `iteration < 64` | Bounded fixed-point while loop | Halts reduction | N/A |
+| **Serialization** | `_to_tuple` | `semantic/models/instance_record.py` | `depth < 32` | Explicit parameter recursion | Returns item unchanged | N/A |
+| **Default Copy** | `_copy_default` | `parser/traversal_guard.py` | `depth >= 32` | Explicit parameter recursion | Returns item unchanged | N/A |
+
 ---
 
 ## 9. MVP Supported RTL Subset, Semantic Capabilities & Known Limitations
