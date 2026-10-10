@@ -59,7 +59,7 @@ def declarator_initializer_expression(raw: object) -> SyntaxNode | None:
 
 
 def declarator_is_port(ctx: "Context") -> bool:
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         raw = ancestor.raw
         kind = getattr(raw, "kind", None)
         if kind in ALL_PORT_DECLARATION_KINDS:
@@ -75,7 +75,7 @@ def declarator_is_parameter(ctx: "Context") -> bool:
     declaration or a port. Both `parameter` and `localparam` share this same node
     kind -- pyslang distinguishes them only via the declaration's own `keyword`
     field, which this project's rules have no current need to tell apart."""
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         raw = ancestor.raw
         kind = getattr(raw, "kind", None)
         if kind in PARAMETER_DECLARATION_KINDS:
@@ -92,7 +92,7 @@ def declarator_is_parameter(ctx: "Context") -> bool:
 def declarator_is_enum_member(ctx: "Context") -> bool:
     """True if the declarator being processed belongs to an `enum` definition
     (`EnumTypeSyntax`) rather than an ordinary variable/signal declaration."""
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         raw = ancestor.raw
         kind = getattr(raw, "kind", None)
         if kind == ENUM_TYPE_KIND:
@@ -109,7 +109,7 @@ def declarator_is_enum_member(ctx: "Context") -> bool:
 
 def declarator_is_localparam(ctx: "Context") -> bool:
     """True if the declarator being processed belongs to a `localparam` declaration."""
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         raw = ancestor.raw
         kind = getattr(raw, "kind", None)
         if kind == PARAMETER_DECLARATION_STATEMENT_KIND:
@@ -148,6 +148,9 @@ def _iter_ansi_ports(node: object) -> Iterator[object]:
 
 
 def _module_cache(ctx: object) -> dict[object, object] | None:
+    module_frame = getattr(ctx, "module_frame", None)
+    if module_frame is not None and isinstance(module_frame.cache, dict):
+        return module_frame.cache
     data = getattr(ctx, "data", None)
     if isinstance(data, dict):
         cache = data.get("module_cache")
@@ -249,7 +252,7 @@ def _effective_function_port_data_type(raw: object) -> object | None:
 
 
 def _declarator_owner_data_type(ctx: "Context") -> object | None:
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         raw = ancestor.raw
         kind = getattr(raw, "kind", None)
         dt = None
@@ -273,7 +276,7 @@ def declarator_port_direction(ctx: "Context") -> str | None:
     """Return "input" / "output" / "inout" / "ref" for a port declarator, else
     None. Falls back to `_inherited_port_direction` for an ANSI port that
     shares a preceding port's direction keyword instead of repeating it."""
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         raw = ancestor.raw
         kind = getattr(raw, "kind", None)
         if kind == FUNCTION_PORT_KIND:

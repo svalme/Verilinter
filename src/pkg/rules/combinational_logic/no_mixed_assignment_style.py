@@ -24,4 +24,7 @@ class NoMixedAssignmentStyleRule(Rule):
 
         # Computed once per enclosing block by ProceduralBlockHandler rather
         # than re-derived here per node.
-        return ctx.data.get("mix_trigger") is vnode.raw
+        block_frame = getattr(ctx, "block_frame", None)
+        if block_frame is not None:
+            return block_frame.mix_trigger is vnode.raw
+        return getattr(ctx, "data", {}).get("mix_trigger") is vnode.raw

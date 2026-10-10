@@ -207,3 +207,52 @@ def test_maintenance_flag_without_store_errors(capsys: pytest.CaptureFixture[str
     captured = capsys.readouterr()
     assert result == 1
     assert "--store is required" in captured.err
+
+
+def test_verbose_flag_runs_cleanly(capsys: pytest.CaptureFixture[str]) -> None:
+    result = main(["-v", str(DATA)])
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "NO_SELF_ASSIGNMENT" in captured.out
+
+
+def test_truncation_warning_printed_to_stderr(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    import src.run_lint as rl
+    orig_analyze = rl.analyze
+
+    def mock_analyze(*args: object, **kwargs: object) -> object:
+        res = orig_analyze(*args, **kwargs)
+        from src.pkg.engine import AnalysisResult
+        return AnalysisResult(
+            diagnostics=res.diagnostics,
+            symbol_table=res.symbol_table,
+            cache_stats=res.cache_stats,
+            truncations=[
+                {
+                    "query_name": "infer_expression_width",
+                    "file": str(DATA),
+                    "line": 15,
+                    "col": 4,
+                    "depth": 32,
+                    "limit": 32,
+                    "reason": "max_depth",
+                }
+            ],
+        )
+
+    monkeypatch.setattr(rl, "analyze", mock_analyze)
+
+    # 1. Non-verbose emits summary notice
+    res1 = main([str(DATA)])
+    cap1 = capsys.readouterr()
+    assert res1 == 0
+    assert "warning: analysis depth limit reached for 1 AST traversal(s); rerun with -v/--verbose for details" in cap1.err
+    assert "[TRUNCATION]" not in cap1.err
+
+    # 2. Verbose emits detailed truncation log
+    res2 = main(["-v", str(DATA)])
+    cap2 = capsys.readouterr()
+    assert res2 == 0
+    assert "warning: [TRUNCATION] max_depth reached during query 'infer_expression_width'" in cap2.err
+    assert "depth=32, limit=32" in cap2.err
+

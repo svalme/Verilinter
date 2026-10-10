@@ -15,6 +15,7 @@ from .parser.parse import (
     parse_file,
     tree_has_package_declaration,
 )
+from .parser.traversal_guard import collect_truncations
 from .rules.register_rules import *
 from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
 from .rules.rule_selection import RuleSelection
@@ -74,6 +75,7 @@ class WorkerResult:
     instantiation_edges: list[tuple[str, str, dict[str, Any]]]
     instantiations: list[InstanceRecord]
     header_dependencies: list[dict[str, str]] = field(default_factory=list)
+    truncations: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -81,6 +83,7 @@ class AnalysisResult:
     diagnostics: list[dict[str, Any]]
     symbol_table: SymbolTable
     cache_stats: dict[str, int] | None = None
+    truncations: list[dict[str, Any]] = field(default_factory=list)
 
 
 def collect_paths(raw: list[str], exclude: list[str] | None = None) -> list[Path]:
@@ -526,7 +529,11 @@ def _lint_single_tree(
     symbol_table.set_current_file_default_nettype_none(default_nettype_none)
     _seed_cross_file_packages(symbol_table, package_registry, file_name)
 
-    walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
+    truncations: list[dict[str, Any]] = []
+    with collect_truncations(file_name=file_name, tree=tree) as trunc_events:
+        walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
+        diagnostics = ast_diagnostics + _symbol_rule_runner.run(symbol_table, rule_selection)
+        truncations = [e.to_dict() for e in trunc_events]
 
     modules: list[dict[str, Any]] = []
     for name, scopes in symbol_table.modules.items():
@@ -543,7 +550,6 @@ def _lint_single_tree(
                 }
             )
 
-    diagnostics = ast_diagnostics + _symbol_rule_runner.run(symbol_table, rule_selection)
     return WorkerResult(
         diagnostics=diagnostics,
         modules=modules,
@@ -552,6 +558,7 @@ def _lint_single_tree(
         instantiation_edges=list(symbol_table.instantiation_edges),
         instantiations=list(symbol_table.instantiations),
         header_dependencies=header_dependencies or [],
+        truncations=truncations,
     )
 
 
@@ -675,6 +682,7 @@ def _worker_result_from_payload(payload: dict[str, Any]) -> WorkerResult:
             for inst in payload.get("instantiations", [])
         ],
         header_dependencies=list(payload.get("header_dependencies", [])),
+        truncations=list(payload.get("truncations", [])),
     )
 
 
@@ -799,14 +807,17 @@ class LintPipeline:
 
         # Phase 6: Diagnostics aggregation
         diagnostics: list[dict[str, Any]] = []
+        truncations: list[dict[str, Any]] = []
         for w_res in worker_results:
             diagnostics.extend(w_res.diagnostics)
+            truncations.extend(w_res.truncations)
         diagnostics.extend(module_diagnostics)
         diagnostics = sort_diagnostics(diagnostics)
 
         return AnalysisResult(
             diagnostics=diagnostics,
             symbol_table=cross_file_symbol_table,
+            truncations=truncations,
         )
 
     def analyze_paths(
@@ -902,8 +913,10 @@ class LintPipeline:
 
         results = [results_by_path[str(path)] for path in paths]
         diagnostics: list[dict[str, Any]] = []
+        truncations: list[dict[str, Any]] = []
         for result in results:
             diagnostics.extend(result.diagnostics)
+            truncations.extend(result.truncations)
 
         cross_file_symbol_table = _build_cross_file_symbol_table(results)
         _mod_runner = self._module_rule_runner or _get_override("module_rule_runner", module_rule_runner)
@@ -929,6 +942,7 @@ class LintPipeline:
             cache_stats={"hits": cache_hits, "misses": len(paths) - cache_hits}
             if store is not None
             else None,
+            truncations=truncations,
         )
 
 

@@ -163,6 +163,17 @@ Useful in reporting pipelines that archive findings without halting pipeline ste
 verilinter --exit-zero tests/data
 ```
 
+### `-v`, `--verbose`
+
+Enable verbose diagnostic output, including detailed AST analysis truncation and depth ceiling logs.
+When recursive expression evaluation, constant folding, or tree walks reach internal recursion bounds (`max_depth`) or encounter cycles, detailed event records (`query_name`, source file, line number, column, depth, and limit) are printed to standard error (`stderr`).
+
+```bash
+verilinter -v tests/data
+```
+
+When run without `-v`/`--verbose`, Verilinter automatically emits a concise summary warning to `stderr` if any traversals hit depth limits, alerting developers that analysis bounds were reached without perturbing standard diagnostics output (or JSON formatting).
+
 ### `--config PATH`
 
 Load configuration from a specific TOML file.
@@ -369,6 +380,7 @@ Supported config fields:
 - `fail_on_error`
 - `fail_on_warning`
 - `exit_zero`
+- `verbose`
 
 CLI options override config-file values.
 

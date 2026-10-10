@@ -413,7 +413,11 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
     if not name:
         return False
 
-    async_resets = ctx.data.get("module_async_resets")
+    module_frame = getattr(ctx, "module_frame", None)
+    if module_frame is not None:
+        async_resets = module_frame.async_reset_signals
+    else:
+        async_resets = ctx.data.get("module_async_resets") if hasattr(ctx, "data") else None
     if not async_resets or name not in async_resets:
         return False
 
@@ -426,13 +430,13 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
         return False
 
     # 3. Not flagged if in an event control or sensitivity list
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         raw = ancestor.raw
         if getattr(raw, "kind", None) in EVENT_CONTROL_OR_EXPRESSION_KINDS:
             return False
 
     # 4. Not flagged if in an assertion statement or diagnostic system task
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_immediate_assertion_node(ancestor.raw) or is_concurrent_assertion_node(ancestor.raw):
             return False
         if getattr(ancestor.raw, "kind", None) == INVOCATION_EXPRESSION_KIND:
@@ -484,15 +488,14 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
 def procedural_nesting_depth(ctx: "Context") -> int:
     """Count block/conditional/case-statement ancestors above the current
     position, back to (but not including) the nearest enclosing procedural
-    block. The current node itself (the last entry of `ctx.stack`) is
-    excluded -- callers add 1 back in for it. Loop statements are
-    deliberately not counted -- `DEEPLY_NESTED_BLOCK` only tracks begin/end
-    and if/case nesting, not loop-body nesting.
+    block. The current node itself is excluded -- callers add 1 back in for
+    it. Loop statements are deliberately not counted -- `DEEPLY_NESTED_BLOCK`
+    only tracks begin/end and if/case nesting, not loop-body nesting.
     """
     from ..syntax_queries import is_block_statement, is_case_statement, is_conditional_statement, is_procedural_block
 
     depth = 0
-    for ancestor in reversed(ctx.stack[:-1]):
+    for ancestor in ctx.iter_ancestors(include_self=False):
         if is_procedural_block(ancestor.raw):
             break
         if is_block_statement(ancestor.raw) or is_conditional_statement(ancestor.raw) or is_case_statement(ancestor.raw):
@@ -501,9 +504,14 @@ def procedural_nesting_depth(ctx: "Context") -> int:
 
 
 def enclosing_combinational_style_always_block(ctx: "Context") -> "BaseVNode | None":
+    block_frame = getattr(ctx, "block_frame", None)
     ctx_data = getattr(ctx, "data", None)
     cached = ctx_data.get("comb_always_block") if isinstance(ctx_data, dict) else None
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
+        if block_frame is not None and block_frame.block_raw is ancestor.raw:
+            if block_frame.is_comb:
+                return ancestor
+            continue
         if isinstance(cached, tuple) and len(cached) == 2 and cached[0] is ancestor.raw:
             if cached[1]:
                 return ancestor

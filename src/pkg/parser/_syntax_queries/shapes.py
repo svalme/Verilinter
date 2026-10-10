@@ -309,8 +309,12 @@ def resolve_assignment_target_and_rhs(vnode: object, ctx: object):
     if getattr(raw, "kind", None) in READ_WRITE_ASSIGNMENT_KINDS:
         return None, None
 
-    ctx_data = getattr(ctx, "data", None)
-    module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
+    module_frame = getattr(ctx, "module_frame", None)
+    if module_frame is not None and isinstance(module_frame.cache, dict):
+        module_cache = module_frame.cache
+    else:
+        ctx_data = getattr(ctx, "data", None)
+        module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
     cached = node_cache_get(module_cache, "assign_target_rhs", raw)
     if cached is not MISSING:
         return cached  # type: ignore[return-value]

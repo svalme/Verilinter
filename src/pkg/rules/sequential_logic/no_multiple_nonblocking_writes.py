@@ -17,5 +17,9 @@ class NoMultipleNonblockingWritesRule(Rule):
         if not is_assignment_expression(vnode.raw):
             return False
 
-        triggers = getattr(ctx, "data", {}).get("multiple_nonblocking_write_triggers", {})
+        block_frame = getattr(ctx, "block_frame", None)
+        if block_frame is not None:
+            triggers = block_frame.multiple_nonblocking_write_triggers
+        else:
+            triggers = getattr(ctx, "data", {}).get("multiple_nonblocking_write_triggers", {})
         return vnode.raw in triggers.values()

@@ -1,4 +1,4 @@
-from ..walk.context import Context, ContextFlag
+from ..walk.context import Context, ContextFlag, ProceduralBlockFrame
 from ..semantic.scope import enclosing_module_scope
 from ..semantic.symbol_table import SymbolTable
 from .syntax_node_handler import SyntaxNodeHandler
@@ -40,20 +40,22 @@ class ProceduralBlockHandler(SyntaxNodeHandler):
         # standard of not putting handler state behind a fact a rule could derive
         # statelessly -- here it can, but only cheaply if computed once per block.
         mix_trigger, multi_nb_triggers = procedural_block_assignment_triggers(vnode.raw)
-        ctx = ctx.with_data("missing_sensitivity", missing_sensitivity_trigger_nodes(vnode.raw))
-        ctx = ctx.with_data("mix_trigger", mix_trigger)
-        ctx = ctx.with_data(
-            "multiple_nonblocking_write_triggers",
-            multi_nb_triggers,
-        )
-        ctx = ctx.with_data(
-            "comb_always_block",
-            (vnode.raw, is_combinational_style_always_block(vnode.raw)),
-        )
-
         reset_style = classify_reset_style(vnode.raw)
-        async_reset_names = async_reset_signal_names(vnode.raw) if reset_style == "async" else set()
-        ctx = ctx.with_data("block_async_reset_names", (vnode.raw, async_reset_names))
+        async_reset_names = (
+            frozenset(async_reset_signal_names(vnode.raw))
+            if reset_style == "async"
+            else frozenset()
+        )
+        block_frame = ProceduralBlockFrame(
+            block_raw=vnode.raw,
+            missing_sensitivity=missing_sensitivity_trigger_nodes(vnode.raw),
+            mix_trigger=mix_trigger,
+            multiple_nonblocking_write_triggers=multi_nb_triggers,
+            is_comb=is_combinational_style_always_block(vnode.raw),
+            async_reset_names=async_reset_names,
+        )
+        ctx = ctx.with_block_frame(block_frame)
+
         if reset_style is not None:
             module_scope = enclosing_module_scope(ctx.scope())
             if module_scope is not None and module_scope.name:

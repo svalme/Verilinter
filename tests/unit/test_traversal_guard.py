@@ -8,9 +8,13 @@ import pytest
 
 from src.pkg.parser.traversal_guard import (
     ActivePath,
+    TruncationEvent,
     ast_descendants_iter,
+    collect_truncations,
+    get_current_truncations,
     guarded_generator,
     guarded_traversal,
+    record_truncation,
 )
 from src.pkg.parser.types import SyntaxNode
 
@@ -239,3 +243,172 @@ class TestAstDescendantsIter:
 
         assigns = list(find_assigns(tree.root))
         assert len(assigns) == 2
+
+
+class TestTruncationTelemetry:
+    def test_truncation_event_dataclass(self) -> None:
+        event = TruncationEvent(
+            query_name="test_query",
+            file="top.sv",
+            line=12,
+            col=5,
+            depth=16,
+            limit=16,
+            reason="max_depth",
+        )
+        assert event.query_name == "test_query"
+        assert event.file == "top.sv"
+        assert event.line == 12
+        assert event.col == 5
+        assert event.depth == 16
+        assert event.limit == 16
+        assert event.reason == "max_depth"
+
+        d = event.to_dict()
+        assert d == {
+            "query_name": "test_query",
+            "file": "top.sv",
+            "line": 12,
+            "col": 5,
+            "depth": 16,
+            "limit": 16,
+            "reason": "max_depth",
+        }
+
+    def test_collect_truncations_records_max_depth(self) -> None:
+        @guarded_traversal(max_depth=3, default=False)
+        def deep_walk(node: object) -> bool:
+            for child in getattr(node, "children", ()):
+                deep_walk(child)
+            return True
+
+        # Chain 5 levels deep
+        n4 = MockNode("n4")
+        n3 = MockNode("n3", [n4])
+        n2 = MockNode("n2", [n3])
+        n1 = MockNode("n1", [n2])
+        root = MockNode("root", [n1])
+
+        with collect_truncations() as events:
+            deep_walk(root)
+
+        assert len(events) >= 1
+        assert any(e.reason == "max_depth" and e.limit == 3 and "deep_walk" in e.query_name for e in events)
+
+    def test_collect_truncations_records_cycle_detected(self) -> None:
+        @guarded_traversal(max_depth=16, default=False)
+        def cycle_walk(node: object) -> bool:
+            for child in getattr(node, "children", ()):
+                cycle_walk(child)
+            return True
+
+        cyc = MockNode("cyc")
+        cyc.children = [cyc]
+
+        with collect_truncations() as events:
+            cycle_walk(cyc)
+
+        assert len(events) >= 1
+        assert any(e.reason == "cycle_detected" and "cycle_walk" in e.query_name for e in events)
+
+    def test_collect_truncations_generator(self) -> None:
+        @guarded_generator(max_depth=2)
+        def iter_deep(node: object) -> Iterator[str]:
+            yield getattr(node, "name", "")
+            for child in getattr(node, "children", ()):
+                yield from iter_deep(child)
+
+        n3 = MockNode("n3")
+        n2 = MockNode("n2", [n3])
+        n1 = MockNode("n1", [n2])
+        root = MockNode("root", [n1])
+
+        with collect_truncations() as events:
+            list(iter_deep(root))
+
+        assert len(events) >= 1
+        assert any(e.reason == "max_depth" and e.limit == 2 for e in events)
+
+    def test_active_path_truncation_recording(self) -> None:
+        path = ActivePath(max_depth=2)
+        n0 = MockNode("n0")
+        n1 = MockNode("n1")
+        n2 = MockNode("n2")
+
+        with collect_truncations() as events:
+            with path.enter(n0, query_name="test_active_path") as s0:
+                assert s0
+                p1 = path.next_level()
+                with p1.enter(n1, query_name="test_active_path") as s1:
+                    assert s1
+                    p2 = p1.next_level()
+                    with p2.enter(n2, query_name="test_active_path") as s2:
+                        assert not s2
+
+        assert len(events) == 1
+        assert events[0].reason == "max_depth"
+        assert events[0].limit == 2
+        assert events[0].query_name == "test_active_path"
+
+        # Cycle rejection
+        path_cyc = ActivePath(max_depth=10)
+        cnode = MockNode("cnode")
+        with collect_truncations() as cyc_events:
+            with path_cyc.enter(cnode, query_name="cyc_test") as sc1:
+                assert sc1
+                with path_cyc.enter(cnode, query_name="cyc_test") as sc2:
+                    assert not sc2
+
+        assert len(cyc_events) == 1
+        assert cyc_events[0].reason == "cycle_detected"
+
+    def test_ast_descendants_iter_truncation(self) -> None:
+        n3 = MockNode("n3")
+        n2 = MockNode("n2", [n3])
+        n1 = MockNode("n1", [n2])
+        root = MockNode("root", [n1])
+
+        with collect_truncations() as events:
+            list(ast_descendants_iter(root, max_depth=2))
+
+        assert len(events) >= 1
+        assert any(e.reason == "max_depth" and e.query_name == "ast_descendants_iter" for e in events)
+
+    def test_location_extraction_from_vnode_and_pyslang(self) -> None:
+        from src.pkg.parser.parse import parse_text
+
+        class MockVNodeWithLocation:
+            def __init__(self, loc: dict[str, object]) -> None:
+                self.location = loc
+
+        vnode = MockVNodeWithLocation({"file": "module.sv", "line": 42, "col": 7})
+        with collect_truncations() as events:
+            record_truncation("custom_query", vnode, depth=10, limit=10, reason="max_depth")
+
+        assert len(events) == 1
+        assert events[0].file == "module.sv"
+        assert events[0].line == 42
+        assert events[0].col == 7
+
+        # Pyslang SyntaxNode with active tree
+        code = """
+        module test_loc;
+          logic x;
+        endmodule
+        """
+        tree = parse_text(code)
+        node = tree.root.members[0]
+        with collect_truncations(file_name="test_loc.sv", tree=tree) as tree_events:
+            record_truncation("pyslang_query", node, depth=5, limit=5, reason="max_depth")
+
+        assert len(tree_events) == 1
+        assert tree_events[0].file == "test_loc.sv"
+        assert tree_events[0].line == 3
+        assert tree_events[0].col == 11
+
+    def test_zero_overhead_when_inactive(self) -> None:
+        assert get_current_truncations() is None
+        # Recording truncation when no sink is active does not raise
+        record_truncation("dummy", MockNode("n"), depth=1, limit=1)
+        assert get_current_truncations() is None
+

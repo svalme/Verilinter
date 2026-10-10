@@ -116,7 +116,7 @@ def is_disable_token(raw: object, ctx: "Context") -> bool:
     # DisableKeyword token as an ordinary `disable <label>;` statement, but is a
     # completely different grammatical construct (DisableIffSyntax, not
     # DisableStatementSyntax) -- not a disable statement at all.
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if getattr(ancestor.raw, "kind", None) == DISABLE_IFF_KIND:
             return False
     return True
@@ -132,7 +132,7 @@ def is_event_trigger_token(raw: object, ctx: "Context") -> bool:
     # `->` is also SystemVerilog's ordinary logical-implication operator, usable in
     # any expression (`a -> b`), not just an event-trigger statement (`-> done;`).
     # Both share TokenKind.MinusArrow; only the statement form is an event trigger.
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if getattr(ancestor.raw, "kind", None) in EVENT_TRIGGER_STATEMENT_KINDS:
             return True
     return False
@@ -172,14 +172,14 @@ def is_plain_for_token(raw: object, ctx: "Context") -> bool:
     if not is_for_token(raw):
         return False
 
-    return not any(is_loop_generate_node(ancestor.raw) for ancestor in reversed(ctx.stack))
+    return not any(is_loop_generate_node(ancestor.raw) for ancestor in ctx.iter_ancestors())
 
 
 def is_plain_while_token(raw: object, ctx: "Context") -> bool:
     if not is_while_token(raw):
         return False
 
-    return not any(is_do_while_statement(ancestor.raw) for ancestor in reversed(ctx.stack))
+    return not any(is_do_while_statement(ancestor.raw) for ancestor in ctx.iter_ancestors())
 
 
 def is_case_inside_token(raw: object, ctx: "Context") -> bool:
@@ -189,7 +189,7 @@ def is_case_inside_token(raw: object, ctx: "Context") -> bool:
     # `case (expr) inside ... endcase` (IEEE 1800-2017 SS12.5.4) is the only form
     # where `inside` is the case statement's own `matchesOrInside` token, rather
     # than an ordinary `inside` operator used somewhere in an expression.
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_case_statement(ancestor.raw):
             return ancestor.raw.matchesOrInside == raw
     return False
@@ -250,7 +250,7 @@ def is_unique0_case_token(raw: object, ctx: "Context") -> bool:
 def enclosing_conditional_statement(ctx: "Context") -> "BaseVNode | None":
     from ..syntax_queries import is_conditional_statement
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_conditional_statement(ancestor.raw):
             return ancestor
     return None

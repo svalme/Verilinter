@@ -270,7 +270,12 @@ Complex AST handlers decompose disparate concerns into injectable strategy subco
   - `UseEventContextExtractor`: Extracts access modes, driver blocks, and branch exclusivity signatures.
 - **`HierarchyInstantiationHandler`**:
   - `ParameterOverrideExtractor`: Extracts parameter overrides and computes style, accepting an injectable constant `evaluator`.
-  - `PortConnectionExtractor`: Resolves port connections and connection style, accepting an injectable `width_resolver`.
+### D. Typed Context Frames & Ancestor Traversal (`walk/context.py`)
+`Context` encapsulates immutable traversal state and provides typed context frames to eliminate untyped string-keyed dictionary communication between handlers and rules:
+- **`ModuleFrame`**: Captures enclosing module raw AST, asynchronous reset signals, and module-level AST query caches (`cache: dict[object, object]`).
+- **`ProceduralBlockFrame`**: Captures enclosing procedural block AST, precomputed sensitivity violations (`missing_sensitivity`), mixed-assignment triggers (`mix_trigger`), non-blocking write triggers, combinational classification (`is_comb`), and block-level asynchronous reset names (`async_reset_names`).
+- **`CaseStatementFrame`**: Captures enclosing case statement AST and precomputed FSM transition models (`fsm_model`).
+- **`iter_ancestors(include_self=True)`**: Traverses parent pointers directly from innermost to outermost, eliminating $O(D)$ list allocations and reversals while enforcing cycle immunity and `< 256` depth bounds.
 
 ---
 
@@ -372,8 +377,8 @@ All syntax query modules in `src/pkg/parser/_syntax_queries/` use the `Traversal
 
 Beyond CST/AST query functions, all graph algorithms and context traversals across the codebase enforce strict depth ceilings and cycle immunity:
 
-1. **Context Stack Ancestor Traversal (`walk/context.py`)**:
-   - `Context.stack` traverses parent pointers on demand, tracks `seen: set[int]` to break on cyclic parent references, and bounds depth to `depth < 256` (matching the `Walker` depth ceiling).
+1. **Context Stack & Ancestor Traversal (`walk/context.py`)**:
+   - `Context.iter_ancestors` and `Context.stack` traverse parent pointers on demand, track `seen: set[int]` to break on cyclic parent references, and bound depth to `depth < 256` (matching the `Walker` depth ceiling).
 2. **Combinational Feedback Loop Graph DFS (`rules/combinational_logic/combinational_loop.py`)**:
    - Tarjan DFS cycle search traverses signal dependencies with `depth: int = 0`, enforcing an explicit ceiling `if depth >= 256: return` to prevent call-stack overflows on deep pipeline chains.
 3. **Circular Module Instantiation DFS (`rules/connectivity_and_hierarchy/circular_module_instantiation.py`)**:
@@ -382,6 +387,42 @@ Beyond CST/AST query functions, all graph algorithms and context traversals acro
    - `_collapse_exhaustive_branches` while loop includes an explicit iteration cap `while changed and iteration < 64:` to prevent runaway iteration on malformed signatures.
 5. **Instance Record Deserialization (`semantic/models/instance_record.py`)**:
    - `_to_tuple` recursive list-to-tuple converter enforces `depth < 32` against self-referential or deeply nested signature structures.
+
+### E. Analysis Truncation Telemetry & Observability Subsystem
+
+When internal depth bounds (`max_depth`) or cycle detection ceilings fire during expression evaluation, constant folding, or tree walks, execution must abort early to prevent call-stack overflows (`RecursionError`) and infinite loops. Historically, silently returning defaults (`None`, `False`, `(None, None)`) protected the runtime but created a risk of silent false negatives—where an infraction was missed not because the RTL was correct, but because analysis halted early.
+
+To ensure total transparency, Verilinter provides an integrated **Analysis Truncation Telemetry & Logging Subsystem** in `src/pkg/parser/traversal_guard.py`:
+
+1. **Structured Telemetry Events (`TruncationEvent`)**:
+   - Encapsulates every aborted descent: `query_name`, `file`, `line`, `col`, `depth`, `limit`, and `reason` (`"max_depth"` or `"cycle_detected"`).
+   - Provides JSON-safe serialization via `.to_dict()`.
+
+2. **Zero-Overhead Context-Local Collection (`collect_truncations`)**:
+   - Uses Python's `contextvars.ContextVar` (`_truncation_sink`, `_active_file`, `_active_tree`) to collect events with zero lock contention across threads and async tasks.
+   - When no collector is active, overhead is virtually zero (a single dictionary lookup returning `None`).
+   - Hard cap of 1,000 events per session prevents runaway memory growth on pathological inputs.
+
+3. **Defensive Source Location Recovery**:
+   - Recursively resolves coordinates without creating circular module dependencies:
+     - Directly queries `.location` on `BaseVNode` and `SyntaxVNode`.
+     - Defensively queries `tree.sourceManager` on raw `pyslang.syntax.SyntaxNode` using the active file context.
+
+4. **Multi-Process Pipeline Integration**:
+   - `_lint_single_tree` collects truncation records during worker analysis.
+   - Records are serialized across worker process boundaries in `WorkerResult.truncations` and aggregated into `AnalysisResult.truncations`.
+   - SQLite cache stores and retrieves truncation records seamlessly alongside file diagnostics.
+
+5. **CLI Observability & Stderr Routing**:
+   - **Concise Stderr Notice**: When any traversals hit depth limits, Verilinter writes a summary notice to `stderr`:
+     ```text
+     warning: analysis depth limit reached for N AST traversal(s); rerun with -v/--verbose for details
+     ```
+   - **Verbose Detail (`-v` / `--verbose`)**: Emits granular diagnostic records per truncation event to `stderr`:
+     ```text
+     warning: [TRUNCATION] max_depth reached during query 'infer_expression_width' at top.sv:45:12 (depth=32, limit=32)
+     ```
+   - Writing telemetry to `stderr` preserves standard stdout formatting, ensuring machine-readable JSON (`--format json`) and SARIF outputs remain compliant with automated consumers and tooling.
 
 ---
 

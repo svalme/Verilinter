@@ -81,11 +81,11 @@ def _identifier_access_modes_over_ancestors(
 ) -> tuple[bool, bool]:
     from ..syntax_queries import is_read_write_assignment_expression
 
-    for idx in range(len(raw_ancestors) - 1, -1, -1):
+    for idx in range(len(raw_ancestors)):
         ancestor = raw_ancestors[idx]
         left = assignment_left(ancestor)
         if left is not None:
-            next_node = raw_ancestors[idx + 1] if idx + 1 < len(raw_ancestors) else raw_identifier
+            next_node = raw_ancestors[idx - 1] if idx > 0 else raw_identifier
             right = getattr(ancestor, "right", None)
             if next_node is right and right is not left:
                 continue
@@ -104,20 +104,20 @@ def _identifier_access_modes_over_ancestors(
 
 
 def identifier_access_modes(ctx: "Context", raw_identifier: SyntaxNode) -> tuple[bool, bool]:
-    return _identifier_access_modes_over_ancestors([a.raw for a in ctx.stack], raw_identifier)
+    return _identifier_access_modes_over_ancestors([a.raw for a in ctx.iter_ancestors()], raw_identifier)
 
 
 def enclosing_procedural_block(ctx: "Context") -> "BaseVNode | None":
     from ..syntax_queries import is_procedural_block
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_procedural_block(ancestor.raw):
             return ancestor
     return None
 
 
 def enclosing_primitive_instantiation(ctx: "Context") -> "BaseVNode | None":
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if getattr(ancestor.raw, "kind", None) == PRIMITIVE_INSTANTIATION_KIND:
             return ancestor
     return None
@@ -126,7 +126,7 @@ def enclosing_primitive_instantiation(ctx: "Context") -> "BaseVNode | None":
 def enclosing_continuous_assign(ctx: "Context") -> "BaseVNode | None":
     from ..syntax_queries import is_continuous_assign
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_continuous_assign(ancestor.raw):
             return ancestor
     return None
@@ -135,7 +135,7 @@ def enclosing_continuous_assign(ctx: "Context") -> "BaseVNode | None":
 def enclosing_subroutine_declaration(ctx: "Context") -> "BaseVNode | None":
     from ..syntax_kinds import FUNCTION_DECLARATION_KIND, TASK_DECLARATION_KIND
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         kind = getattr(ancestor.raw, "kind", None)
         if kind in (TASK_DECLARATION_KIND, FUNCTION_DECLARATION_KIND):
             return ancestor
@@ -156,7 +156,7 @@ def enclosing_port_connection(ctx: "Context") -> "BaseVNode | None":
     """
     from ..syntax_queries import is_port_connection_node
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_port_connection_node(ancestor.raw):
             return ancestor
     return None
@@ -181,7 +181,7 @@ def enclosing_for_loop_ids(ctx: "Context") -> tuple[str, ...]:
     than requiring the exact same nearest loop.
     """
     ids: list[str] = []
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if getattr(ancestor.raw, "kind", None) == FOR_LOOP_STATEMENT_KIND:
             loc = ancestor.location
             ids.append(f"loop:{loc.get('file', '')}:{loc['line']}:{loc['col']}")
@@ -195,7 +195,7 @@ def is_nonblocking_assignment_node(raw: object) -> bool:
 def is_in_for_loop_header(raw: object, ctx: "Context") -> bool:
     """True if `raw` sits in the init/stop/iteration clauses of its nearest
     enclosing `for` loop, not in the loop's body statement."""
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if getattr(ancestor.raw, "kind", None) != FOR_LOOP_STATEMENT_KIND:
             continue
         statement = getattr(ancestor.raw, "statement", None)
@@ -227,7 +227,7 @@ def enclosing_assignment_expression(ctx: "Context") -> "BaseVNode | None":
     """
     from ..syntax_queries import is_assignment_expression
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_assignment_expression(ancestor.raw):
             return ancestor
     return None
@@ -260,13 +260,13 @@ def is_initial_driver_block(driver_block: "BaseVNode") -> bool:
 def enclosing_case_statement(ctx: "Context") -> "BaseVNode | None":
     from ..syntax_queries import is_case_statement
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if is_case_statement(ancestor.raw):
             return ancestor
     return None
 
 
-def _conditional_references_any_name(raw: object, names: set[str]) -> bool:
+def _conditional_references_any_name(raw: object, names: set[str] | frozenset[str]) -> bool:
     from .procedural import _iter_identifier_nodes
 
     predicate = getattr(raw, "predicate", None)
@@ -297,16 +297,20 @@ def is_within_async_reset_conditional(ctx: "Context") -> bool:
     block = enclosing_procedural_block(ctx)
     if block is None:
         return False
-    ctx_data = getattr(ctx, "data", None)
-    cached_resets = ctx_data.get("block_async_reset_names") if isinstance(ctx_data, dict) else None
-    if isinstance(cached_resets, tuple) and len(cached_resets) == 2 and cached_resets[0] is block.raw:
-        reset_names = cached_resets[1]
+    block_frame = getattr(ctx, "block_frame", None)
+    if block_frame is not None and block_frame.block_raw is block.raw:
+        reset_names = block_frame.async_reset_names
     else:
-        reset_names = async_reset_signal_names(block.raw)
+        ctx_data = getattr(ctx, "data", None)
+        cached_resets = ctx_data.get("block_async_reset_names") if isinstance(ctx_data, dict) else None
+        if isinstance(cached_resets, tuple) and len(cached_resets) == 2 and cached_resets[0] is block.raw:
+            reset_names = cached_resets[1]
+        else:
+            reset_names = async_reset_signal_names(block.raw)
     if not reset_names:
         return False
 
-    for ancestor in reversed(ctx.stack):
+    for ancestor in ctx.iter_ancestors():
         if ancestor is block:
             break
         if is_conditional_statement(ancestor.raw) and _conditional_references_any_name(ancestor.raw, reset_names):

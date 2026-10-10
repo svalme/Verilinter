@@ -108,8 +108,12 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
     right-hand-side width is known and differs from its target's declared
     width, else `None`.
     """
-    ctx_data = getattr(ctx, "data", None)
-    module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
+    module_frame = getattr(ctx, "module_frame", None)
+    if module_frame is not None and isinstance(module_frame.cache, dict):
+        module_cache = module_frame.cache
+    else:
+        ctx_data = getattr(ctx, "data", None)
+        module_cache = ctx_data.get("module_cache") if isinstance(ctx_data, dict) else None
     cache_node = getattr(vnode, "raw", vnode)
     cached = node_cache_get(module_cache, "width_mismatch", cache_node)
     if cached is not MISSING:

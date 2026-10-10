@@ -30,6 +30,7 @@ class LintConfig:
     fail_on_error: bool = False
     fail_on_warning: bool = False
     exit_zero: bool = False
+    verbose: bool = False
     defines_explicit: bool = False
     fmt_explicit: bool = False
     jobs_explicit: bool = False
@@ -38,6 +39,7 @@ class LintConfig:
     fail_on_error_explicit: bool = False
     fail_on_warning_explicit: bool = False
     exit_zero_explicit: bool = False
+    verbose_explicit: bool = False
 
     def to_rule_selection(self) -> RuleSelection | None:
         enabled_codes = frozenset(self.rules) if self.rules else None
@@ -141,6 +143,10 @@ def load_config(path: Path) -> LintConfig:
     if not isinstance(exit_zero, bool):
         raise ValueError("config field 'exit_zero' must be true or false")
 
+    verbose = data.get("verbose", False)
+    if not isinstance(verbose, bool):
+        raise ValueError("config field 'verbose' must be true or false")
+
     return LintConfig(
         profile=profile,
         rules=_parse_string_list(data.get("rules"), "rules"),
@@ -156,6 +162,7 @@ def load_config(path: Path) -> LintConfig:
         fail_on_error=fail_on_error,
         fail_on_warning=fail_on_warning,
         exit_zero=exit_zero,
+        verbose=verbose,
         defines_explicit="defines" in data,
         fmt_explicit="format" in data,
         jobs_explicit="jobs" in data,
@@ -164,6 +171,7 @@ def load_config(path: Path) -> LintConfig:
         fail_on_error_explicit="fail_on_error" in data,
         fail_on_warning_explicit="fail_on_warning" in data,
         exit_zero_explicit="exit_zero" in data,
+        verbose_explicit="verbose" in data,
     )
 
 
@@ -183,6 +191,7 @@ def merge_config(base: LintConfig, override: LintConfig) -> LintConfig:
         fail_on_error=override.fail_on_error if override.fail_on_error_explicit else base.fail_on_error,
         fail_on_warning=override.fail_on_warning if override.fail_on_warning_explicit else base.fail_on_warning,
         exit_zero=override.exit_zero if override.exit_zero_explicit else base.exit_zero,
+        verbose=override.verbose if override.verbose_explicit else base.verbose,
         defines_explicit=base.defines_explicit or override.defines_explicit,
         fmt_explicit=base.fmt_explicit or override.fmt_explicit,
         jobs_explicit=base.jobs_explicit or override.jobs_explicit,
@@ -191,6 +200,7 @@ def merge_config(base: LintConfig, override: LintConfig) -> LintConfig:
         fail_on_error_explicit=base.fail_on_error_explicit or override.fail_on_error_explicit,
         fail_on_warning_explicit=base.fail_on_warning_explicit or override.fail_on_warning_explicit,
         exit_zero_explicit=base.exit_zero_explicit or override.exit_zero_explicit,
+        verbose_explicit=base.verbose_explicit or override.verbose_explicit,
     )
 
 
@@ -210,6 +220,7 @@ def config_from_cli(
     fail_on_error: bool = False,
     fail_on_warning: bool = False,
     exit_zero: bool = False,
+    verbose: bool = False,
 ) -> LintConfig:
     overrides: dict[str, str] = {}
     for entry in severity or []:
@@ -237,6 +248,7 @@ def config_from_cli(
         fail_on_error=fail_on_error,
         fail_on_warning=fail_on_warning,
         exit_zero=exit_zero,
+        verbose=verbose,
         defines_explicit=bool(defines),
         fmt_explicit=fmt is not None,
         jobs_explicit=jobs is not None,
@@ -245,4 +257,5 @@ def config_from_cli(
         fail_on_error_explicit=fail_on_error,
         fail_on_warning_explicit=fail_on_warning,
         exit_zero_explicit=exit_zero,
+        verbose_explicit=verbose,
     )

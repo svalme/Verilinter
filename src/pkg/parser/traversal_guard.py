@@ -17,12 +17,166 @@ from __future__ import annotations
 
 import functools
 import inspect
+import logging
+from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any, Callable, Iterator, TypeVar, cast
 
 from .types import SyntaxNode
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+@dataclass(frozen=True)
+class TruncationEvent:
+    """Represents a bounded AST recursion limit or cycle rejection event."""
+
+    query_name: str
+    file: str | None = None
+    line: int | None = None
+    col: int | None = None
+    depth: int = 0
+    limit: int = 0
+    reason: str = "max_depth"  # "max_depth" | "cycle_detected"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "query_name": self.query_name,
+            "file": self.file,
+            "line": self.line,
+            "col": self.col,
+            "depth": self.depth,
+            "limit": self.limit,
+            "reason": self.reason,
+        }
+
+
+_truncation_sink: ContextVar[list[TruncationEvent] | None] = ContextVar(
+    "_truncation_sink", default=None
+)
+_active_file: ContextVar[str | None] = ContextVar("_active_file", default=None)
+_active_tree: ContextVar[object | None] = ContextVar("_active_tree", default=None)
+
+
+def _extract_node_location(
+    node: object,
+    args: tuple[Any, ...] = (),
+    kwargs: dict[str, Any] | None = None,
+) -> tuple[str | None, int | None, int | None]:
+    """Safely extracts (file, line, col) from a syntax node, vnode, or active context."""
+    loc = getattr(node, "location", None)
+    if callable(loc):
+        try:
+            loc = loc()
+        except Exception:
+            loc = None
+    if isinstance(loc, dict):
+        file = loc.get("file")
+        if file is None:
+            file = _active_file.get(None)
+        return (
+            str(file) if file is not None else None,
+            loc.get("line"),
+            loc.get("col"),
+        )
+
+    tree = None
+    if kwargs and "tree" in kwargs:
+        tree = kwargs["tree"]
+    else:
+        for arg in args:
+            if hasattr(arg, "sourceManager"):
+                tree = arg
+                break
+    if tree is None:
+        tree = _active_tree.get(None)
+
+    file_name = _active_file.get(None)
+
+    if tree is not None:
+        sm = getattr(tree, "sourceManager", None)
+        sr = getattr(node, "sourceRange", None)
+        start = getattr(sr, "start", None)
+        if sm is not None and start is not None:
+            try:
+                raw_file = sm.getFileName(start)
+                if raw_file and raw_file != "source":
+                    file_name = str(raw_file)
+                return (
+                    file_name,
+                    sm.getLineNumber(start),
+                    sm.getColumnNumber(start),
+                )
+            except Exception:
+                pass
+
+    return (file_name, None, None)
+
+
+def record_truncation(
+    query_name: str,
+    node: object,
+    depth: int,
+    limit: int,
+    reason: str = "max_depth",
+    args: tuple[Any, ...] = (),
+    kwargs: dict[str, Any] | None = None,
+) -> None:
+    """Records an AST truncation or cycle rejection event into the active sink."""
+    file, line, col = _extract_node_location(node, args, kwargs)
+    event = TruncationEvent(
+        query_name=query_name,
+        file=file,
+        line=line,
+        col=col,
+        depth=depth,
+        limit=limit,
+        reason=reason,
+    )
+    sink = _truncation_sink.get(None)
+    if sink is not None and len(sink) < 1000:
+        sink.append(event)
+    logger = logging.getLogger("verilinter.truncation")
+    logger.debug(
+        "Truncation in %s: %s at %s:%s:%s (depth=%d, limit=%d)",
+        query_name,
+        reason,
+        file,
+        line,
+        col,
+        depth,
+        limit,
+    )
+
+
+@contextmanager
+def collect_truncations(
+    file_name: str | None = None,
+    tree: object = None,
+) -> Iterator[list[TruncationEvent]]:
+    """Context manager collecting AST truncation events on the current thread/task.
+
+    Guarantees thread/async safety via ContextVar with zero overhead when inactive.
+    """
+    events: list[TruncationEvent] = []
+    tok_sink = _truncation_sink.set(events)
+    tok_file = _active_file.set(file_name) if file_name is not None else None
+    tok_tree = _active_tree.set(tree) if tree is not None else None
+    try:
+        yield events
+    finally:
+        _truncation_sink.reset(tok_sink)
+        if tok_file is not None:
+            _active_file.reset(tok_file)
+        if tok_tree is not None:
+            _active_tree.reset(tok_tree)
+
+
+def get_current_truncations() -> list[TruncationEvent] | None:
+    """Returns the active truncation event list if currently collected, or None."""
+    return _truncation_sink.get(None)
+
 
 
 class _InactiveScope:
@@ -90,14 +244,34 @@ class ActivePath:
     def max_depth(self) -> int:
         return self._max_depth
 
-    def enter(self, node: object) -> ActivePathScope | _InactiveScope:
+    def enter(
+        self,
+        node: object,
+        query_name: str = "ActivePath",
+    ) -> ActivePathScope | _InactiveScope:
         """Attempt to enter `node`. Returns an active scope if safe, or an inactive
         scope if `node` is None, already in the active path (cycle), or depth limit reached.
         """
-        if node is None or self._depth >= self._max_depth:
+        if node is None:
+            return _INACTIVE_SCOPE
+        if self._depth >= self._max_depth:
+            record_truncation(
+                query_name=query_name,
+                node=node,
+                depth=self._depth,
+                limit=self._max_depth,
+                reason="max_depth",
+            )
             return _INACTIVE_SCOPE
         nid = id(getattr(node, "raw", node))
         if nid in self._active_ids:
+            record_truncation(
+                query_name=query_name,
+                node=node,
+                depth=self._depth,
+                limit=self._max_depth,
+                reason="cycle_detected",
+            )
             return _INACTIVE_SCOPE
         return ActivePathScope(self, nid)
 
@@ -195,10 +369,28 @@ def guarded_traversal(
                     cv_path.reset(tok)
 
             if len(path) >= max_depth:
+                record_truncation(
+                    query_name=func.__qualname__,
+                    node=node,
+                    depth=len(path),
+                    limit=max_depth,
+                    reason="max_depth",
+                    args=args,
+                    kwargs=kwargs,
+                )
                 return _copy_default(default)
 
             nid = id(getattr(node, "raw", node))
             if nid in path:
+                record_truncation(
+                    query_name=func.__qualname__,
+                    node=node,
+                    depth=len(path),
+                    limit=max_depth,
+                    reason="cycle_detected",
+                    args=args,
+                    kwargs=kwargs,
+                )
                 return _copy_default(default)
 
             path.add(nid)
@@ -247,10 +439,28 @@ def guarded_generator(
                 return
 
             if len(path) >= max_depth:
+                record_truncation(
+                    query_name=func.__qualname__,
+                    node=node,
+                    depth=len(path),
+                    limit=max_depth,
+                    reason="max_depth",
+                    args=args,
+                    kwargs=kwargs,
+                )
                 return
 
             nid = id(getattr(node, "raw", node))
             if nid in path:
+                record_truncation(
+                    query_name=func.__qualname__,
+                    node=node,
+                    depth=len(path),
+                    limit=max_depth,
+                    reason="cycle_detected",
+                    args=args,
+                    kwargs=kwargs,
+                )
                 return
 
             path.add(nid)
@@ -284,6 +494,13 @@ def ast_descendants_iter(
     while stack:
         curr, depth = stack.pop()
         if depth >= max_depth:
+            record_truncation(
+                query_name="ast_descendants_iter",
+                node=curr,
+                depth=depth,
+                limit=max_depth,
+                reason="max_depth",
+            )
             continue
 
         cid = id(getattr(curr, "raw", curr))

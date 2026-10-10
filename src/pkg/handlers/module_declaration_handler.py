@@ -1,5 +1,5 @@
 from ..walk.dispatch import dispatch
-from ..walk.context import Context
+from ..walk.context import Context, ModuleFrame
 from ..parser.syntax import is_package_declaration_node, module_async_reset_signals, module_declaration_name
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.syntax_vnode import SyntaxVNode
@@ -35,11 +35,15 @@ class ModuleDeclarationHandler(SyntaxNodeHandler):
         )
         symbol_table.register_module(name, module_scope)
         async_resets = module_async_reset_signals(vnode.raw)
+        module_frame = ModuleFrame(
+            module_raw=vnode.raw,
+            async_reset_signals=frozenset(async_resets),
+            cache={},
+        )
         return (
             ctx.push(vnode)
             .with_scope(module_scope)
-            .with_data("module_async_resets", async_resets)
-            .with_data("module_cache", {})
+            .with_module_frame(module_frame)
         )
 
     def on_exit(self, _ctx: Context, _vnode: SyntaxVNode, symbol_table: SymbolTable) -> None:

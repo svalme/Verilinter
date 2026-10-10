@@ -177,6 +177,91 @@ class TestContext:
         assert ctx.has(ContextFlag.ALWAYS)
         assert ctx.has(ContextFlag.POSEDGE)
 
+    def test_iter_ancestors_empty_context(self, context: Context) -> None:
+        assert list(context.iter_ancestors()) == []
+        assert list(context.iter_ancestors(include_self=False)) == []
+
+    def test_iter_ancestors_returns_innermost_first(self, context: Context) -> None:
+        vnode1 = fake_vnode(None)
+        vnode2 = fake_vnode(None)
+        vnode3 = fake_vnode(None)
+        ctx = context.push(vnode1).push(vnode2).push(vnode3)
+
+        ancestors = list(ctx.iter_ancestors(include_self=True))
+        assert ancestors == [vnode3, vnode2, vnode1]
+
+        true_ancestors = list(ctx.iter_ancestors(include_self=False))
+        assert true_ancestors == [vnode2, vnode1]
+
+    def test_enclosing_returns_matching_ancestor(self, context: Context) -> None:
+        vnode1 = fake_vnode(None)
+        vnode2 = fake_vnode(None)
+        vnode3 = fake_vnode(None)
+        ctx = context.push(vnode1).push(vnode2).push(vnode3)
+
+        found = ctx.enclosing(lambda v: v is vnode2)
+        assert found is vnode2
+
+        found_self = ctx.enclosing(lambda v: v is vnode3, include_self=True)
+        assert found_self is vnode3
+
+        not_found_self = ctx.enclosing(lambda v: v is vnode3, include_self=False)
+        assert not_found_self is None
+
+    def test_with_module_frame_populates_frame_and_backward_compatible_data(self, context: Context) -> None:
+        from src.pkg.walk.context import ModuleFrame
+        raw_mod = object()
+        frame = ModuleFrame(module_raw=raw_mod, async_reset_signals=frozenset({"rst", "arst"}), cache={"k": "v"})
+        ctx = context.with_module_frame(frame)
+
+        assert ctx.module_frame is frame
+        assert ctx.data["module_async_resets"] == {"rst", "arst"}
+        assert ctx.data["module_cache"] == {"k": "v"}
+
+        # Preserved across push
+        child = ctx.push(fake_vnode(None))
+        assert child.module_frame is frame
+        assert child.data["module_async_resets"] == {"rst", "arst"}
+
+    def test_with_block_frame_populates_frame_and_backward_compatible_data(self, context: Context) -> None:
+        from src.pkg.walk.context import ProceduralBlockFrame
+        raw_block = object()
+        mix_trigger = object()
+        frame = ProceduralBlockFrame(
+            block_raw=raw_block,
+            missing_sensitivity={"clk": object()},
+            mix_trigger=mix_trigger,
+            multiple_nonblocking_write_triggers={"q": object()},
+            is_comb=True,
+            async_reset_names=frozenset({"rst_n"}),
+        )
+        ctx = context.with_block_frame(frame)
+
+        assert ctx.block_frame is frame
+        assert ctx.data["mix_trigger"] is mix_trigger
+        assert ctx.data["comb_always_block"] == (raw_block, True)
+        assert ctx.data["block_async_reset_names"] == (raw_block, {"rst_n"})
+
+        # Preserved across push
+        child = ctx.push(fake_vnode(None))
+        assert child.block_frame is frame
+        assert child.data["mix_trigger"] is mix_trigger
+
+    def test_with_case_frame_populates_frame_and_backward_compatible_data(self, context: Context) -> None:
+        from src.pkg.walk.context import CaseStatementFrame
+        raw_case = object()
+        fake_model = object()
+        frame = CaseStatementFrame(case_raw=raw_case, fsm_model=fake_model)
+        ctx = context.with_case_frame(frame)
+
+        assert ctx.case_frame is frame
+        assert ctx.data["fsm_model"] == (raw_case, fake_model)
+
+        # Preserved across push
+        child = ctx.push(fake_vnode(None))
+        assert child.case_frame is frame
+        assert child.data["fsm_model"] == (raw_case, fake_model)
+
 
 class TestContextFlag:
     """Test cases for the ContextFlag enum."""

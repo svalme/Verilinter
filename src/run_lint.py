@@ -175,6 +175,12 @@ def _build_lint_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="always exit with status code 0 unless an unhandled error occurs",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="enable verbose output, including analysis truncation and depth ceiling logs",
+    )
 
     # Backward-compatible legacy store maintenance flags on top-level parser
     parser.add_argument(
@@ -269,6 +275,7 @@ def _resolve_config(args: argparse.Namespace) -> LintConfig:
         fail_on_error=getattr(args, "fail_on_error", False),
         fail_on_warning=getattr(args, "fail_on_warning", False),
         exit_zero=getattr(args, "exit_zero", False),
+        verbose=getattr(args, "verbose", False),
     )
     return merge_config(config, cli_config)
 
@@ -379,6 +386,26 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, FileNotFoundError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+
+    truncations = getattr(analysis, "truncations", None)
+    if truncations:
+        if config.verbose:
+            for t in truncations:
+                loc_parts = []
+                if t.get("file"):
+                    loc_parts.append(str(t["file"]))
+                if t.get("line"):
+                    loc_parts.append(str(t["line"]))
+                    if t.get("col"):
+                        loc_parts.append(str(t["col"]))
+                loc_str = f" at {':'.join(loc_parts)}" if loc_parts else ""
+                sys.stderr.write(
+                    f"warning: [TRUNCATION] {t['reason']} reached during query '{t['query_name']}'{loc_str} (depth={t['depth']}, limit={t['limit']})\n"
+                )
+        else:
+            sys.stderr.write(
+                f"warning: analysis depth limit reached for {len(truncations)} AST traversal(s); rerun with -v/--verbose for details\n"
+            )
 
     has_parser_errors = any(d.get("code") == "PARSER_ERROR" for d in analysis.diagnostics)
     if args.write_baseline:

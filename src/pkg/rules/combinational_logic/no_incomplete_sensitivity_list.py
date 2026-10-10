@@ -24,7 +24,12 @@ class NoIncompleteSensitivityListRule(Rule):
 
         # Computed once per enclosing block by ProceduralBlockHandler rather
         # than re-derived here per node.
-        missing = ctx.data.get("missing_sensitivity", {})
+        block_frame = getattr(ctx, "block_frame", None)
+        missing = (
+            block_frame.missing_sensitivity
+            if block_frame is not None
+            else getattr(ctx, "data", {}).get("missing_sensitivity", {})
+        )
         return any(node is vnode.raw for node in missing.values())
 
     def report(self, vnode: BaseVNode) -> dict[str, Any]:

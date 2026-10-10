@@ -117,18 +117,27 @@ def state_machine_model(raw: object, ctx: "Context") -> FsmModel | None:
     if not is_case_statement(raw):
         return None
 
+    case_frame = getattr(ctx, "case_frame", None)
+    if case_frame is not None and case_frame.case_raw is raw:
+        return case_frame.fsm_model
+
+    module_frame = getattr(ctx, "module_frame", None)
+    module_cache: dict[object, object] | None = module_frame.cache if module_frame is not None else None
+
     ctx_data = getattr(ctx, "data", None)
-    module_cache: dict[object, object] | None = None
     if isinstance(ctx_data, dict):
         cached_fsm = ctx_data.get("fsm_model")
         if isinstance(cached_fsm, tuple) and len(cached_fsm) == 2 and cached_fsm[0] is raw:
             return cached_fsm[1]
-        raw_cache = ctx_data.get("module_cache")
-        if isinstance(raw_cache, dict):
-            module_cache = raw_cache
-            cached_model = node_cache_get(module_cache, "fsm_model", raw)
-            if cached_model is not MISSING:
-                return cached_model  # type: ignore[return-value]
+        if module_cache is None:
+            raw_cache = ctx_data.get("module_cache")
+            if isinstance(raw_cache, dict):
+                module_cache = raw_cache
+
+    if module_cache is not None:
+        cached_model = node_cache_get(module_cache, "fsm_model", raw)
+        if cached_model is not MISSING:
+            return cached_model  # type: ignore[return-value]
 
     def _finish(model: FsmModel | None) -> FsmModel | None:
         node_cache_put(module_cache, "fsm_model", raw, model)
@@ -147,7 +156,7 @@ def state_machine_model(raw: object, ctx: "Context") -> FsmModel | None:
             return _finish(None)
         sequential = block.raw
     elif getattr(block.raw, "kind", None) == ALWAYS_COMB_BLOCK_KIND or is_combinational_style_always_block(block.raw):
-        module = next((n.raw for n in reversed(ctx.stack)
+        module = next((n.raw for n in ctx.iter_ancestors()
                        if getattr(n.raw, "kind", None) == MODULE_DECLARATION_KIND), None)
         # Direct sibling blocks only; generate-local and function-local
         # symbols must not be conflated with identically named module nets.
