@@ -115,3 +115,28 @@ def lint_paired_case(tmp_path: Path) -> Callable[..., LintCaseResult]:
 
     return _lint_case
 
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Automatically tag collected test items with registered markers according to directory."""
+    for item in items:
+        rel_parts = Path(item.fspath).parts
+        if "meta" in rel_parts:
+            item.add_marker(pytest.mark.meta)
+        if "stress" in rel_parts:
+            item.add_marker(pytest.mark.stress)
+        if "rules" in rel_parts:
+            item.add_marker(pytest.mark.rules)
+            if "overlap" in rel_parts:
+                item.add_marker(pytest.mark.overlap)
+        if "handlers" in rel_parts:
+            item.add_marker(pytest.mark.handlers)
+        if "cli" in rel_parts:
+            item.add_marker(pytest.mark.cli)
+        if "storage" in rel_parts:
+            item.add_marker(pytest.mark.storage)
+        if "integration" in rel_parts:
+            item.add_marker(pytest.mark.integration)
+        if any(p in rel_parts for p in ("unit", "vnodes", "walk", "semantic")):
+            item.add_marker(pytest.mark.unit)
+
+

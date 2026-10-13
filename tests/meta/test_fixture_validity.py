@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.meta
+
 from src.pkg.parser.parse import parse_file
 from tests.support.parse_diagnostics import parse_errors, render_diagnostics
 

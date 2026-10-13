@@ -9,6 +9,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.meta
+
+
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 PKG_ROOT = SRC_ROOT / "pkg"
 PARSER_ROOT = PKG_ROOT / "parser"

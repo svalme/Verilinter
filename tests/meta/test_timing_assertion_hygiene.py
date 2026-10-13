@@ -9,6 +9,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.meta
+
+
 TESTS_ROOT = Path(__file__).resolve().parents[1]
 HARNESS = TESTS_ROOT / "support" / "termination.py"
 CLOCK_FUNCTIONS = {"perf_counter", "perf_counter_ns", "monotonic", "monotonic_ns", "time", "time_ns"}

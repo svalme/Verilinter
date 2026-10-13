@@ -18,6 +18,8 @@ from unittest.mock import Mock
 
 import pytest
 
+pytestmark = pytest.mark.meta
+
 import src.pkg.parser.syntax_queries as sq
 from src.pkg.parser.parse import tree_uses_default_nettype_none
 from src.pkg.semantic.scope import Scope, enclosing_module_scope

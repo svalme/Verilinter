@@ -13,7 +13,12 @@ drifts from reality.
 import os
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.meta
+
 from tests.support.fixture_usage import collect_fixture_usage, render_fixture_usage_doc
+
 
 DOC_PATH = Path(__file__).resolve().parents[2] / "docs" / "FIXTURE_USAGE.md"
 

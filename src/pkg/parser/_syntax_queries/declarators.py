@@ -24,7 +24,8 @@ from ..syntax_kinds import (
 from ..traversal_guard import guarded_generator
 from ..types import SyntaxNode, SyntaxTree
 from .shared import identifier_name, node_location, raw_node_children, source_text_for_node, token_location
-from .node_cache import MISSING, node_cache_get, node_cache_put
+from .node_cache import MISSING, memoized_node_query, node_cache_get, node_cache_put
+
 
 
 def declarator_name(raw: object) -> str | None:
@@ -159,19 +160,15 @@ def _module_cache(ctx: object) -> dict[object, object] | None:
     return None
 
 
+@memoized_node_query(tag="ansi_port_items", node_arg="list_node", ctx_arg="ctx")
 def _ansi_port_list_items(list_node: object, ctx: object = None) -> list[object]:
     """Flatten an `AnsiPortListSyntax` down to its ordered `ImplicitAnsiPortSyntax`
     items, looking through the intermediate separated-list wrapper pyslang puts
     between the list and its items."""
     if list_node is None:
         return []
-    cache = _module_cache(ctx)
-    cached = node_cache_get(cache, "ansi_port_items", list_node)
-    if cached is not MISSING:
-        return cached  # type: ignore[return-value]
-    items = list(_iter_ansi_ports(list_node))
-    node_cache_put(cache, "ansi_port_items", list_node, items)
-    return items
+    return list(_iter_ansi_ports(list_node))
+
 
 
 def _inherited_port_direction(raw: object, ctx: object = None) -> str | None:
@@ -197,13 +194,9 @@ def _inherited_port_direction(raw: object, ctx: object = None) -> str | None:
     return None
 
 
+@memoized_node_query(tag="port_data_type", node_arg="raw", ctx_arg="ctx")
 def _effective_port_data_type(raw: object, ctx: object = None) -> object:
     """Inherit omitted ANSI types, stopping at direction/type boundaries."""
-    cache = _module_cache(ctx)
-    cached = node_cache_get(cache, "port_data_type", raw)
-    if cached is not MISSING:
-        return cached
-
     def explicit(port: object) -> bool:
         header = getattr(port, "header", None)
         data_type = getattr(header, "dataType", None)
@@ -226,8 +219,8 @@ def _effective_port_data_type(raw: object, ctx: object = None) -> object:
             if sibling == raw:
                 result = inherited
                 break
-    node_cache_put(cache, "port_data_type", raw, result)
     return result
+
 
 
 def _effective_function_port_data_type(raw: object) -> object | None:

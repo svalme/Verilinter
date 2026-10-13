@@ -1,4 +1,9 @@
+import pytest
+
 from src.pkg.rules.register_rules import rule_runner
+
+pytestmark = pytest.mark.meta
+
 
 
 def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:

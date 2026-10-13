@@ -11,6 +11,11 @@ import ast
 import os
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.meta
+
+
 TESTS_ROOT = Path(__file__).resolve().parents[1]
 
 
