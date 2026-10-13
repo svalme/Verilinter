@@ -103,6 +103,15 @@ When a subset of files in a multi-file project is modified, Verilinter executes 
 
 Verilinter avoids repeated parsing and walking for unchanged files without a VCS-aware index or a separate "changed files only" database. It does not do Git-index-aware candidate selection, file watching, or whole-repo incremental scheduling.
 
+## Failure Handling
+
+The store is an optimization, so lint runs keep working when it cannot be used:
+- a cached row with unreadable JSON, an unexpected payload shape, or malformed header-dependency data is treated as a cache miss and re-analyzed
+- a store file that is not a valid SQLite database, or a read or write that fails (for example, `database is locked`), prints a `warning:` line to stderr and the run continues without the cache; `cache_stats` is then absent from the result
+- a store with an unsupported schema version still fails fast, as described under Schema
+
+Connections wait up to 30 seconds for a competing writer before reporting a lock error.
+
 ## Retention and Maintenance
 
 Stores are created or migrated automatically when a lint run uses `--store PATH`. Cached file results and

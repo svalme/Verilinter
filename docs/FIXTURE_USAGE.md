@@ -86,7 +86,7 @@ This is a textual scan for literal filename references, so it misses tests that 
 | `tests/data/package_declaration.sv` | 2 | `tests/cli/test_run_lint.py`<br>`tests/rules/overlap/test_rule_overlap_harness.py` |
 | `tests/data/plusargs_system_function.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/port_connection_advanced.sv` | 5 | `tests/cli/test_cli_architecture.py`<br>`tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/rules/test_connection_rules.py` |
-| `tests/data/port_connection_issues.sv` | 5 | `tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/rules/test_connection_rules.py`<br>`tests/storage/test_analysis_store.py` |
+| `tests/data/port_connection_issues.sv` | 6 | `tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/rules/test_connection_rules.py`<br>`tests/storage/test_analysis_store.py`<br>`tests/storage/test_store_lifecycle.py` |
 | `tests/data/primitive_declaration.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/priority_if.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/program_declaration.sv` | 2 | `tests/cli/test_run_lint.py`<br>`tests/rules/overlap/test_rule_overlap_harness.py` |

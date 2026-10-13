@@ -202,7 +202,7 @@ def extract_assignment_target_and_selectors(
     return (name if isinstance(name, str) and name else None), []
 
 
-@guarded_traversal(max_depth=32, default=None)
+@guarded_traversal(max_depth=64, default=None)
 def resolve_assignment_target(
     target_node: object,
     scope: object,

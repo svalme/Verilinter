@@ -180,7 +180,7 @@ def _inspect_edge_events(raw: object) -> tuple[int, list[tuple[str, str]]]:
     edge_count = 0
     events: list[tuple[str, str]] = []
 
-    @guarded_traversal(max_depth=32, default=None)
+    @guarded_traversal(max_depth=64, default=None)
     def _walk(current: object) -> None:
         nonlocal edge_count
         if current is None:

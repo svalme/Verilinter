@@ -254,15 +254,6 @@ class ActivePath:
         """
         if node is None:
             return _INACTIVE_SCOPE
-        if self._depth >= self._max_depth:
-            record_truncation(
-                query_name=query_name,
-                node=node,
-                depth=self._depth,
-                limit=self._max_depth,
-                reason="max_depth",
-            )
-            return _INACTIVE_SCOPE
         nid = id(getattr(node, "raw", node))
         if nid in self._active_ids:
             record_truncation(
@@ -271,6 +262,15 @@ class ActivePath:
                 depth=self._depth,
                 limit=self._max_depth,
                 reason="cycle_detected",
+            )
+            return _INACTIVE_SCOPE
+        if self._depth >= self._max_depth:
+            record_truncation(
+                query_name=query_name,
+                node=node,
+                depth=self._depth,
+                limit=self._max_depth,
+                reason="max_depth",
             )
             return _INACTIVE_SCOPE
         return ActivePathScope(self, nid)
@@ -368,18 +368,6 @@ def guarded_traversal(
                     path.discard(nid)
                     cv_path.reset(tok)
 
-            if len(path) >= max_depth:
-                record_truncation(
-                    query_name=func.__qualname__,
-                    node=node,
-                    depth=len(path),
-                    limit=max_depth,
-                    reason="max_depth",
-                    args=args,
-                    kwargs=kwargs,
-                )
-                return _copy_default(default)
-
             nid = id(getattr(node, "raw", node))
             if nid in path:
                 record_truncation(
@@ -388,6 +376,18 @@ def guarded_traversal(
                     depth=len(path),
                     limit=max_depth,
                     reason="cycle_detected",
+                    args=args,
+                    kwargs=kwargs,
+                )
+                return _copy_default(default)
+
+            if len(path) >= max_depth:
+                record_truncation(
+                    query_name=func.__qualname__,
+                    node=node,
+                    depth=len(path),
+                    limit=max_depth,
+                    reason="max_depth",
                     args=args,
                     kwargs=kwargs,
                 )
@@ -438,18 +438,6 @@ def guarded_generator(
                     cv_path.reset(tok)
                 return
 
-            if len(path) >= max_depth:
-                record_truncation(
-                    query_name=func.__qualname__,
-                    node=node,
-                    depth=len(path),
-                    limit=max_depth,
-                    reason="max_depth",
-                    args=args,
-                    kwargs=kwargs,
-                )
-                return
-
             nid = id(getattr(node, "raw", node))
             if nid in path:
                 record_truncation(
@@ -458,6 +446,18 @@ def guarded_generator(
                     depth=len(path),
                     limit=max_depth,
                     reason="cycle_detected",
+                    args=args,
+                    kwargs=kwargs,
+                )
+                return
+
+            if len(path) >= max_depth:
+                record_truncation(
+                    query_name=func.__qualname__,
+                    node=node,
+                    depth=len(path),
+                    limit=max_depth,
+                    reason="max_depth",
                     args=args,
                     kwargs=kwargs,
                 )

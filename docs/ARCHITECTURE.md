@@ -216,7 +216,9 @@ Complex RTL constructs (such as `generate for` loops, unrolled procedural loops,
 
 ---
 
-## 6. Expression Typing and Arithmetic Capacity
+## 6. Expression Typing, Arithmetic Capacity & Associative Spine Architecture
+
+### A. Expression Query Taxonomy
 
 The expression query layer separates three questions:
 
@@ -241,6 +243,31 @@ All recursive queries use traversal guards and structural syntax kinds.
 Parameter folding and concatenated targets are supported. General type casts,
 subroutine return types, and wider operator coverage are not; they require
 explicit context and type semantics, not token parsing.
+
+### B. Architectural Decision: In-Place Iterative Unrolling vs. Dedicated Spine Subsystem
+
+A primary design consideration is whether associative RTL structures (cascaded ternary multiplexers, multi-operand arithmetic spines, and wide bitwise/parity reduction trees) warrant an independent intermediate representation (IR) subsystem (such as an $N$-ary expression graph, flattened spine DAG, or lowered three-address intermediate format).
+
+Verilinter adopts **in-place iterative unrolling directly within the syntax query layer** as its core architectural pattern. This design choice is governed by four principles:
+
+1. **Zero Allocation and Traversal Overhead**:
+   In-place unrolling traverses native `pyslang.syntax.SyntaxNode` pointers using bounded iterative loops (`while` with strict iteration guards). Introducing a separate spine subsystem or intermediate lowering pass would require allocating intermediate AST wrapper nodes and managing secondary translation lifetimes across thousands of source files, adding runtime memory and garbage-collection overhead without diagnostic benefit.
+
+2. **Preservation of Concrete Syntax Locality**:
+   Lint rules and diagnostic reporters depend on exact CST node references, byte offsets, trivia tokens, and source manager locations to emit actionable diagnostics with precise line/column highlights and proposed auto-fixes. Transforming expressions into a detached intermediate spine representation strips away CST context, requiring complex back-mapping tables to trace an unrolled tap at index 48 back to its exact token span in source text.
+
+3. **IEEE 1800 Semantic Conformance**:
+   SystemVerilog specifies strict associativity rules (right-associativity for ternary `? :` and left-associativity for binary arithmetic and bitwise operators). In-place iterative unrolling evaluates nodes strictly in language-defined associativity order, preventing subtle semantic distortions, sign-extension discrepancies, or operand reordering bugs that can occur in generalized $N$-ary AST rewriters.
+
+4. **Complexity Elimination ($O(1)$ Recursion Depth)**:
+   By unrolling associative branches iteratively, call-stack recursion depth is reduced from $O(N)$ to $O(1)$. A 64-stage ternary multiplexer or 64-tap adder chain evaluates in a single stack frame with zero recursion risk, completely eliminating call-stack exhaustion and depth-bound truncation without architectural bloat.
+
+#### Criteria for a Future Dedicated Expression Subsystem
+A standalone Expression IR / Spine Subsystem would only be justified if Verilinter's scope expands into:
+- **Symbolic Equivalence & Global Normalization**: e.g., re-associating non-adjacent constants across sub-expressions (`(a + 2) + 3` $\to$ `a + 5`), applying algebraic distributive laws, or canonical commutativity sorting.
+- **Whole-Program SSA / Dataflow Modeling**: Inter-procedural value numbering, common subexpression elimination (CSE), or boolean satisfiability (SAT/SMT) bit-vector modeling.
+
+For static linting, structural width checking, constant folding, and rule verification, in-place iterative unrolling is the strictly optimal, lowest-overhead, and highest-fidelity design.
 
 ---
 
@@ -428,7 +455,7 @@ To ensure total transparency, Verilinter provides an integrated **Analysis Trunc
 
 In commercial and open-source SystemVerilog codebases, recursion limits are not abstract safeguards; they interact directly with real-world synthesis patterns. When an AST traversal hits a depth bound, the analysis truncates, returning default fallback values. Below are concrete RTL designs where depth limits can be exceeded, the specific query functions affected, and why telemetry is indispensable to prevent silent false negatives:
 
-#### 1. Cascaded Ternary Multiplexers & Priority Encoders (`infer_expression_width`, `limit=32`)
+#### 1. Cascaded Ternary Multiplexers & Priority Encoders (`infer_expression_width`, `limit=64`)
 - **RTL Pattern**:
   A common design style for 32-to-1 or 64-to-1 priority selectors, barrel shifters, and interrupt arbitration trees is a chained ternary expression:
   ```systemverilog
@@ -441,10 +468,10 @@ In commercial and open-source SystemVerilog codebases, recursion limits are not 
   ```
 - **AST Shape & Depth Impact**:
   In SystemVerilog syntax trees, each `cond ? expr_true : expr_false` is a `ConditionalExpressionSyntax` node. Chaining 32 conditional branches places each subsequent branch inside the `expr_false` subtree, forming a right-heavy AST of depth 32. At branch 33, AST descent reaches depth 33.
-- **Truncation Consequence**:
-  `infer_expression_width` has a depth bound of `max_depth=32`. At the 33rd branch, the traversal returns `(None, None)` (unknown width). Without telemetry, the linter silently stops verifying width compatibility for all subsequent inputs (`din[32]`, etc.), potentially missing width truncation bugs. With telemetry, Verilinter flags that `infer_expression_width` hit its limit at that line and column, alerting developers to verify the uninspected branches.
+- **Architectural Resolution & Truncation Safeguard**:
+  `infer_expression_width` (with ceiling recalibrated to `max_depth=64`), `simple_expression_width_and_signed`, and `evaluate_constant_expression` iteratively unroll the right-associative false branches of ternary expressions. Rather than consuming $O(N)$ stack frames for an $N$-stage multiplexer, the chain evaluates in $O(1)$ recursion depth. If an unresolvable or non-associative sub-tree exceeds `max_depth=64`, telemetry records the exact truncated expression to alert engineers without silent failure.
 
-#### 2. Multi-Operand Arithmetic & DSP Pipelines (`eval_constant_int`, `limit=16`)
+#### 2. Multi-Operand Arithmetic & DSP Pipelines (`eval_constant_int`, `limit=64`)
 - **RTL Pattern**:
   In digital signal processing (DSP), filter taps, address stride calculations, and memory mapping offsets frequently accumulate wide parameter expressions:
   ```systemverilog
@@ -455,8 +482,8 @@ In commercial and open-source SystemVerilog codebases, recursion limits are not 
   ```
 - **AST Shape & Depth Impact**:
   Arithmetic expressions associate as nested binary trees (`BinaryExpressionSyntax`). Summing 17 terms builds a binary tree 16 levels deep.
-- **Truncation Consequence**:
-  `eval_constant_int` uses `max_depth=16`. Once depth reaches 16, constant folding aborts and returns `None`. Downstream rules relying on constant evaluations (such as `CONSTANT_INDEX_OUT_OF_RANGE`, `PORT_CONNECTION_WIDTH_MISMATCH`, or array dimension sizing) cannot resolve the value and must treat it as dynamic, silently bypassing compile-time bound validation. The telemetry system records the exact truncated expression, enabling developers to increase bounds or simplify expressions.
+- **Architectural Resolution & Truncation Safeguard**:
+  `evaluate_constant_expression` (recalibrated from 16 to `max_depth=64`), `expression_width_and_signed` (`max_depth=64`), and `natural_expression_width_and_signed` (`max_depth=128`) iteratively flatten left-associative binary arithmetic (`+`, `-`, `*`) and bitwise spines. Multi-tap DSP filters evaluate in $O(1)$ recursion frames, allowing 32-tap or 64-tap unrolled arithmetic to compute completely without truncation. If an expression surpasses the expanded ceiling, telemetry logs the boundary event with precise file:line:col coordinates.
 
 #### 3. Wide Bitwise Reduction & Parity Trees (`_involves_symbol`, `_expr_reads_symbol`, `limit=64`)
 - **RTL Pattern**:
@@ -514,10 +541,10 @@ Below is the complete audit of every recursion limit, traversal depth ceiling, a
 
 | Subsystem Layer | Target Operation / Function | Source Location | Ceiling Limit | Boundary Mechanism | Fallback / Abort Behavior | Telemetry Recorded |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Expression Evaluation** | `eval_constant_int` | `_syntax_queries/expressions.py` | `max_depth = 16` | `@guarded_traversal` | Returns `None` | `max_depth` event with source line/col |
-| **Expression Evaluation** | `infer_expression_width` | `_syntax_queries/expressions.py` | `max_depth = 32` | `@guarded_traversal` | Returns `(None, None)` | `max_depth` event with source line/col |
-| **Expression Evaluation** | `infer_type_dimensions` | `_syntax_queries/expressions.py` | `max_depth = 32` | `@guarded_traversal` | Returns `(None, None)` | `max_depth` event with source line/col |
-| **Expression Evaluation** | `infer_expression_dimensions` | `_syntax_queries/expressions.py` | `max_depth = 32` | `@guarded_traversal` | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `eval_constant_int` / `evaluate_constant_expression` | `_syntax_queries/expressions.py` | `max_depth = 64` | `@guarded_traversal` + Iterative spine flattening | Returns `None` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `simple_expression_width_and_signed` | `_syntax_queries/expressions.py` | `max_depth = 64` | `@guarded_traversal` + Iterative ternary unrolling | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `expression_width_and_signed` | `_syntax_queries/expressions.py` | `max_depth = 64` | `@guarded_traversal` + Iterative binary flattening | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `natural_expression_width_and_signed` | `_syntax_queries/expressions.py` | `max_depth = 128` | `@guarded_traversal` + Iterative arithmetic/ternary flattening | Returns `(None, None)` | `max_depth` event with source line/col |
 | **Identifier Access** | `contains_descendant` / `_involves_symbol` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
 | **Identifier Access** | `_expr_reads_symbol` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
 | **Identifier Access** | `_is_loop_index_var` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |

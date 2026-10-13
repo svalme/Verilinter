@@ -145,7 +145,26 @@ def _resolve_symbol_in_scope(scope: object, name: str) -> object:
     return None
 
 
-@guarded_traversal(max_depth=16, default=None)
+def _extract_predicate_expression(predicate: object) -> object:
+    if predicate is None:
+        return None
+    conditions = getattr(predicate, "conditions", None)
+    if conditions:
+        try:
+            first = conditions[0]
+            expr = getattr(first, "expr", None) or getattr(first, "expression", None)
+            if expr is not None:
+                return expr
+            return first
+        except (IndexError, TypeError):
+            pass
+    expr = getattr(predicate, "expr", None) or getattr(predicate, "expression", None)
+    if expr is not None:
+        return expr
+    return predicate
+
+
+@guarded_traversal(max_depth=64, default=None)
 def evaluate_constant_expression(
     expr: object,
     scope: object = None,
@@ -163,8 +182,10 @@ def evaluate_constant_expression(
     - Shifts: <<, >>, <<<, >>> (guarded up to 128 bits)
     - Bitwise logic: &, |, ^
     - System function: $clog2(...)
+    - Conditional (ternary) operator: ? :
     - Parentheses unwrapping
     - Cycle detection on identifier lookups and AST nodes to prevent infinite recursion
+    - Iterative flattening of associative binary spines and ternary cascades in O(1) recursion depth
     """
     if expr is None or not isinstance(expr, SyntaxNode):
         return None
@@ -238,7 +259,119 @@ def evaluate_constant_expression(
                     return (arg_val - 1).bit_length() if arg_val > 0 else 0
         return None
 
-    # 5. Binary expressions (strictly gated by kind to avoid exponential branching on non-binary nodes)
+    # 5. Conditional (ternary) expression: iteratively walk false-branch spine in O(1) recursion depth
+    if kind == CONDITIONAL_EXPRESSION_KIND:
+        curr = expr
+        depth_iter = 0
+        seen_ternary: set[int] = set()
+        while getattr(curr, "kind", None) == CONDITIONAL_EXPRESSION_KIND and depth_iter < 1024:
+            cid = id(curr)
+            if cid in seen_ternary:
+                return None
+            seen_ternary.add(cid)
+            depth_iter += 1
+
+            cond_raw = getattr(curr, "predicate", None) or getattr(curr, "condition", None)
+            cond_expr = _extract_predicate_expression(cond_raw)
+            cond_val = evaluate_constant_expression(cond_expr, scope=scope, _visited=_visited)
+            if cond_val is None:
+                return None
+            if cond_val != 0:
+                true_expr = getattr(curr, "left", None)
+                return evaluate_constant_expression(true_expr, scope=scope, _visited=_visited)
+            curr = unwrap_parentheses(getattr(curr, "right", None))
+
+        return evaluate_constant_expression(curr, scope=scope, _visited=_visited)
+
+    # 6. Associative binary expressions: iteratively unwind left spines in O(1) recursion depth
+    if kind in (
+        ADD_EXPRESSION_KIND,
+        SUBTRACT_EXPRESSION_KIND,
+        MULTIPLY_EXPRESSION_KIND,
+        BINARY_AND_EXPRESSION_KIND,
+        BINARY_OR_EXPRESSION_KIND,
+        BINARY_XOR_EXPRESSION_KIND,
+    ):
+        operands = []
+        curr = expr
+        depth_iter = 0
+        seen_spine: set[int] = set()
+        while getattr(curr, "kind", None) == kind and depth_iter < 1024:
+            cid = id(curr)
+            if cid in seen_spine:
+                return None
+            seen_spine.add(cid)
+            depth_iter += 1
+            operands.append(getattr(curr, "right", None))
+            curr = unwrap_parentheses(getattr(curr, "left", None))
+        operands.append(curr)
+        operands.reverse()
+
+        if kind == ADD_EXPRESSION_KIND:
+            total = 0
+            for op in operands:
+                val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+                if val is None:
+                    return None
+                total += val
+            return total
+
+        if kind == SUBTRACT_EXPRESSION_KIND:
+            first = True
+            total = 0
+            for op in operands:
+                val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+                if val is None:
+                    return None
+                if first:
+                    total = val
+                    first = False
+                else:
+                    total -= val
+            return total
+
+        if kind == MULTIPLY_EXPRESSION_KIND:
+            total = 1
+            for op in operands:
+                val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+                if val is None:
+                    return None
+                total *= val
+            return total
+
+        if kind == BINARY_AND_EXPRESSION_KIND:
+            first = True
+            total = 0
+            for op in operands:
+                val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+                if val is None:
+                    return None
+                if first:
+                    total = val
+                    first = False
+                else:
+                    total &= val
+            return total
+
+        if kind == BINARY_OR_EXPRESSION_KIND:
+            total = 0
+            for op in operands:
+                val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+                if val is None:
+                    return None
+                total |= val
+            return total
+
+        if kind == BINARY_XOR_EXPRESSION_KIND:
+            total = 0
+            for op in operands:
+                val = evaluate_constant_expression(op, scope=scope, _visited=_visited)
+                if val is None:
+                    return None
+                total ^= val
+            return total
+
+    # 7. Non-associative binary expressions (divide, mod, power, shifts, comparisons, logical)
     if kind in _EVALUATABLE_BINARY_KINDS:
         left = getattr(expr, "left", None)
         right = getattr(expr, "right", None)
@@ -246,13 +379,7 @@ def evaluate_constant_expression(
             l_val = evaluate_constant_expression(left, scope=scope, _visited=_visited)
             r_val = evaluate_constant_expression(right, scope=scope, _visited=_visited)
             if l_val is not None and r_val is not None:
-                if kind == ADD_EXPRESSION_KIND:
-                    return l_val + r_val
-                elif kind == SUBTRACT_EXPRESSION_KIND:
-                    return l_val - r_val
-                elif kind == MULTIPLY_EXPRESSION_KIND:
-                    return l_val * r_val
-                elif kind == DIVIDE_EXPRESSION_KIND:
+                if kind == DIVIDE_EXPRESSION_KIND:
                     if r_val == 0:
                         return None
                     return l_val // r_val
@@ -275,12 +402,6 @@ def evaluate_constant_expression(
                     if r_val >= 0:
                         return l_val >> r_val
                     return None
-                elif kind == BINARY_AND_EXPRESSION_KIND:
-                    return l_val & r_val
-                elif kind == BINARY_OR_EXPRESSION_KIND:
-                    return l_val | r_val
-                elif kind == BINARY_XOR_EXPRESSION_KIND:
-                    return l_val ^ r_val
                 elif kind in (EQUALITY_EXPRESSION_KIND, CASE_EQUALITY_EXPRESSION_KIND, WILDCARD_EQUALITY_EXPRESSION_KIND):
                     return int(l_val == r_val)
                 elif kind in (INEQUALITY_EXPRESSION_KIND, CASE_INEQUALITY_EXPRESSION_KIND, WILDCARD_INEQUALITY_EXPRESSION_KIND):
@@ -511,7 +632,7 @@ def compute_sliced_width(
 
 
 
-@guarded_traversal(node_arg="expr", max_depth=32, default=(None, None))
+@guarded_traversal(node_arg="expr", max_depth=64, default=(None, None))
 def simple_expression_width_and_signed(
     scope: object,
     expr: SyntaxNode,
@@ -554,11 +675,34 @@ def simple_expression_width_and_signed(
         return width, signed if width is not None else None
 
     if kind == CONDITIONAL_EXPRESSION_KIND:
-        left_width, left_signed = expression_width_and_signed(scope, expr.left, tree)
-        right_width, right_signed = expression_width_and_signed(scope, expr.right, tree)
-        if left_width is not None and right_width is not None:
-            return max(left_width, right_width), None if left_signed is None or right_signed is None else left_signed and right_signed
-        return None, None
+        branches = []
+        curr = expr
+        depth_iter = 0
+        seen_ternary: set[int] = set()
+        while getattr(curr, "kind", None) == CONDITIONAL_EXPRESSION_KIND and depth_iter < 1024:
+            cid = id(curr)
+            if cid in seen_ternary:
+                return None, None
+            seen_ternary.add(cid)
+            depth_iter += 1
+            branches.append(getattr(curr, "left", None))
+            curr = unwrap_parentheses(getattr(curr, "right", None))
+        branches.append(curr)
+
+        max_width: int | None = None
+        all_signed: bool | None = True
+        for branch in branches:
+            if branch is None:
+                return None, None
+            b_width, b_signed = expression_width_and_signed(scope, branch, tree)
+            if b_width is None:
+                return None, None
+            max_width = b_width if max_width is None else max(max_width, b_width)
+            if b_signed is None:
+                all_signed = None
+            elif all_signed is not None and not b_signed:
+                all_signed = False
+        return max_width, all_signed
 
     if kind == INTEGER_VECTOR_EXPRESSION_KIND:
         size_node = getattr(expr, "size", None)
@@ -653,7 +797,7 @@ def simple_expression_width_and_signed(
     return None, None
 
 
-@guarded_traversal(max_depth=32, default=(None, None), node_arg="expr")
+@guarded_traversal(max_depth=64, default=(None, None), node_arg="expr")
 def expression_width_and_signed(scope: object, expr: SyntaxNode, tree: SyntaxTree | None = None) -> tuple[int | None, bool | None]:
     """Language operand width before assignment context, without bit growth.
 
@@ -661,12 +805,36 @@ def expression_width_and_signed(scope: object, expr: SyntaxNode, tree: SyntaxTre
     natural query estimates full-product capacity for the truncation policy.
     """
     expr = unwrap_parentheses(expr)
-    if getattr(expr, "kind", None) in (*ADD_SUBTRACT_EXPRESSION_KINDS, MULTIPLY_EXPRESSION_KIND):
-        left_width, left_signed = expression_width_and_signed(scope, expr.left, tree)
-        right_width, right_signed = expression_width_and_signed(scope, expr.right, tree)
-        if left_width is not None and right_width is not None:
-            return max(left_width, right_width), None if left_signed is None or right_signed is None else left_signed and right_signed
-        return None, None
+    target_kinds = (*ADD_SUBTRACT_EXPRESSION_KINDS, MULTIPLY_EXPRESSION_KIND)
+    if getattr(expr, "kind", None) in target_kinds:
+        operands = []
+        curr = expr
+        depth_iter = 0
+        seen_spine: set[int] = set()
+        while getattr(curr, "kind", None) in target_kinds and depth_iter < 1024:
+            cid = id(curr)
+            if cid in seen_spine:
+                return None, None
+            seen_spine.add(cid)
+            depth_iter += 1
+            operands.append(getattr(curr, "right", None))
+            curr = unwrap_parentheses(getattr(curr, "left", None))
+        operands.append(curr)
+
+        max_width: int | None = None
+        all_signed: bool | None = True
+        for op in operands:
+            if op is None:
+                return None, None
+            op_width, op_signed = expression_width_and_signed(scope, op, tree)
+            if op_width is None:
+                return None, None
+            max_width = op_width if max_width is None else max(max_width, op_width)
+            if op_signed is None:
+                all_signed = None
+            elif all_signed is not None and not op_signed:
+                all_signed = False
+        return max_width, all_signed
     return simple_expression_width_and_signed(scope, expr, tree)
 
 
@@ -697,7 +865,7 @@ def has_explicit_signedness_cast(expr: object) -> bool:
     return False
 
 
-@guarded_traversal(max_depth=32, default=(None, None), node_arg="expr")
+@guarded_traversal(max_depth=128, default=(None, None), node_arg="expr")
 def natural_expression_width_and_signed(
     scope: object,
     expr: SyntaxNode,
@@ -718,31 +886,94 @@ def natural_expression_width_and_signed(
     kind = getattr(expr, "kind", None)
 
     if kind in ADD_SUBTRACT_EXPRESSION_KINDS:
-        left = getattr(expr, "left", None)
-        right = getattr(expr, "right", None)
-        if left is not None and right is not None:
-            l_w, l_s = natural_expression_width_and_signed(scope, left, tree)
-            r_w, r_s = natural_expression_width_and_signed(scope, right, tree)
-            if isinstance(l_w, int) and isinstance(r_w, int):
-                return max(l_w, r_w), None if l_s is None or r_s is None else l_s and r_s
-        return None, None
+        operands = []
+        curr = expr
+        depth_iter = 0
+        seen_spine: set[int] = set()
+        while getattr(curr, "kind", None) in ADD_SUBTRACT_EXPRESSION_KINDS and depth_iter < 1024:
+            cid = id(curr)
+            if cid in seen_spine:
+                return None, None
+            seen_spine.add(cid)
+            depth_iter += 1
+            operands.append(getattr(curr, "right", None))
+            curr = unwrap_parentheses(getattr(curr, "left", None))
+        operands.append(curr)
+
+        max_width: int | None = None
+        all_signed: bool | None = True
+        for op in operands:
+            if op is None:
+                return None, None
+            op_w, op_s = natural_expression_width_and_signed(scope, op, tree)
+            if not isinstance(op_w, int):
+                return None, None
+            max_width = op_w if max_width is None else max(max_width, op_w)
+            if op_s is None:
+                all_signed = None
+            elif all_signed is not None and not op_s:
+                all_signed = False
+        return max_width, all_signed
 
     if kind == MULTIPLY_EXPRESSION_KIND:
-        left = getattr(expr, "left", None)
-        right = getattr(expr, "right", None)
-        if left is not None and right is not None:
-            l_w, l_s = natural_expression_width_and_signed(scope, left, tree)
-            r_w, r_s = natural_expression_width_and_signed(scope, right, tree)
-            if isinstance(l_w, int) and isinstance(r_w, int):
-                return l_w + r_w, None if l_s is None or r_s is None else l_s and r_s
-        return None, None
+        operands = []
+        curr = expr
+        depth_iter = 0
+        seen_spine: set[int] = set()
+        while getattr(curr, "kind", None) == MULTIPLY_EXPRESSION_KIND and depth_iter < 1024:
+            cid = id(curr)
+            if cid in seen_spine:
+                return None, None
+            seen_spine.add(cid)
+            depth_iter += 1
+            operands.append(getattr(curr, "right", None))
+            curr = unwrap_parentheses(getattr(curr, "left", None))
+        operands.append(curr)
+
+        total_width: int = 0
+        all_signed: bool | None = True
+        for op in operands:
+            if op is None:
+                return None, None
+            op_w, op_s = natural_expression_width_and_signed(scope, op, tree)
+            if not isinstance(op_w, int):
+                return None, None
+            total_width += op_w
+            if op_s is None:
+                all_signed = None
+            elif all_signed is not None and not op_s:
+                all_signed = False
+        return total_width, all_signed
 
     if kind == CONDITIONAL_EXPRESSION_KIND:
-        left_width, left_signed = natural_expression_width_and_signed(scope, expr.left, tree)
-        right_width, right_signed = natural_expression_width_and_signed(scope, expr.right, tree)
-        if left_width is not None and right_width is not None:
-            return max(left_width, right_width), None if left_signed is None or right_signed is None else left_signed and right_signed
-        return None, None
+        branches = []
+        curr = expr
+        depth_iter = 0
+        seen_ternary: set[int] = set()
+        while getattr(curr, "kind", None) == CONDITIONAL_EXPRESSION_KIND and depth_iter < 1024:
+            cid = id(curr)
+            if cid in seen_ternary:
+                return None, None
+            seen_ternary.add(cid)
+            depth_iter += 1
+            branches.append(getattr(curr, "left", None))
+            curr = unwrap_parentheses(getattr(curr, "right", None))
+        branches.append(curr)
+
+        max_width: int | None = None
+        all_signed: bool | None = True
+        for branch in branches:
+            if branch is None:
+                return None, None
+            b_width, b_signed = natural_expression_width_and_signed(scope, branch, tree)
+            if not isinstance(b_width, int):
+                return None, None
+            max_width = b_width if max_width is None else max(max_width, b_width)
+            if b_signed is None:
+                all_signed = None
+            elif all_signed is not None and not b_signed:
+                all_signed = False
+        return max_width, all_signed
 
     # A cast is a self-determined boundary: do not propagate a hypothetical
     # full product width through it.

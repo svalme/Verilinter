@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -686,6 +687,13 @@ def _worker_result_from_payload(payload: dict[str, Any]) -> WorkerResult:
     )
 
 
+def _warn_store_unavailable(store_path: Path, exc: Exception) -> None:
+    print(
+        f"warning: analysis store {store_path} is unusable ({exc}); continuing without the cache",
+        file=sys.stderr,
+    )
+
+
 def run(
     paths: list[Path],
     jobs: int = 1,
@@ -848,7 +856,12 @@ class LintPipeline:
         package_registry = _scan_packages(paths, include_dirs, defines=normalized_defines)
         package_registry_fingerprint = _fingerprint_package_registry(package_registry)
 
-        store = self._store if self._store is not None else (AnalysisStore(store_path) if store_path is not None else None)
+        store = self._store
+        if store is None and store_path is not None:
+            try:
+                store = AnalysisStore(store_path)
+            except sqlite3.Error as exc:
+                _warn_store_unavailable(store_path, exc)
         file_records: list[dict[str, Any]] = []
         results_by_path: dict[str, WorkerResult] = {}
         missed_paths: list[Path] = []
@@ -869,8 +882,14 @@ class LintPipeline:
                     if use_cache
                     else None
                 )
+                cached_result: WorkerResult | None = None
                 if payload is not None:
-                    results_by_path[str(path)] = _worker_result_from_payload(payload)
+                    try:
+                        cached_result = _worker_result_from_payload(payload)
+                    except (KeyError, TypeError, ValueError, AttributeError):
+                        cached_result = None
+                if cached_result is not None:
+                    results_by_path[str(path)] = cached_result
                     cache_hits += 1
                     file_records.append(
                         {"file_path": str(path), "file_hash": file_hash, "cache_hit": True}
@@ -900,16 +919,20 @@ class LintPipeline:
         for path, result in zip(missed_paths, fresh_results):
             results_by_path[str(path)] = result
             if store is not None:
-                store.store_cached_worker_result(
-                    file_path=str(path),
-                    file_hash=file_sha256(path),
-                    rule_selection=resolved_selection,
-                    worker_result=asdict(result),
-                    include_dirs=include_dirs,
-                    package_registry_fingerprint=package_registry_fingerprint,
-                    defines=normalized_defines,
-                    header_dependencies=result.header_dependencies,
-                )
+                try:
+                    store.store_cached_worker_result(
+                        file_path=str(path),
+                        file_hash=file_sha256(path),
+                        rule_selection=resolved_selection,
+                        worker_result=asdict(result),
+                        include_dirs=include_dirs,
+                        package_registry_fingerprint=package_registry_fingerprint,
+                        defines=normalized_defines,
+                        header_dependencies=result.header_dependencies,
+                    )
+                except sqlite3.Error as exc:
+                    _warn_store_unavailable(store.path, exc)
+                    store = None
 
         results = [results_by_path[str(path)] for path in paths]
         diagnostics: list[dict[str, Any]] = []
@@ -925,17 +948,21 @@ class LintPipeline:
         diagnostics = sort_diagnostics(diagnostics)
         diagnostics = filter_by_baseline(diagnostics, baseline_path)
         if store is not None:
-            store.record_run(
-                cwd=str(Path.cwd()),
-                fmt=fmt,
-                report_kind=report_kind,
-                jobs=jobs,
-                rule_selection=resolved_selection,
-                baseline_path=str(baseline_path) if baseline_path is not None else None,
-                file_records=file_records,
-                diagnostics=diagnostics,
-                symbol_table=cross_file_symbol_table,
-            )
+            try:
+                store.record_run(
+                    cwd=str(Path.cwd()),
+                    fmt=fmt,
+                    report_kind=report_kind,
+                    jobs=jobs,
+                    rule_selection=resolved_selection,
+                    baseline_path=str(baseline_path) if baseline_path is not None else None,
+                    file_records=file_records,
+                    diagnostics=diagnostics,
+                    symbol_table=cross_file_symbol_table,
+                )
+            except sqlite3.Error as exc:
+                _warn_store_unavailable(store.path, exc)
+                store = None
         return AnalysisResult(
             diagnostics=diagnostics,
             symbol_table=cross_file_symbol_table,

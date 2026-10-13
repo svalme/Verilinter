@@ -13,6 +13,7 @@ from .semantic.symbol_table import SymbolTable
 
 SCHEMA_VERSION = "3"
 ANALYZER_CACHE_VERSION = "2026-10-06-symbol-serialization-and-port-inheritance"
+BUSY_TIMEOUT_SECONDS = 30.0
 
 
 def utc_now_iso() -> str:
@@ -62,9 +63,10 @@ class AnalysisStore:
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
+        conn = sqlite3.connect(self.path, timeout=BUSY_TIMEOUT_SECONDS)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute(f"PRAGMA busy_timeout = {int(BUSY_TIMEOUT_SECONDS * 1000)}")
         return conn
 
     @contextmanager
@@ -188,7 +190,8 @@ class AnalysisStore:
 
             self._migrate_schema(conn, existing_version)
 
-    def _read_schema_version(self, conn: sqlite3.Connection) -> str | None:
+    @staticmethod
+    def _read_schema_version(conn: sqlite3.Connection) -> str | None:
         row = conn.execute(
             """
             SELECT value
@@ -221,7 +224,8 @@ class AnalysisStore:
                 )
             version = migration(conn)
 
-    def _migrate_schema_0_to_1(self, conn: sqlite3.Connection) -> str:
+    @staticmethod
+    def _migrate_schema_0_to_1(conn: sqlite3.Connection) -> str:
         conn.execute(
             """
             UPDATE schema_meta
@@ -231,7 +235,8 @@ class AnalysisStore:
         )
         return "1"
 
-    def _migrate_schema_1_to_2(self, conn: sqlite3.Connection) -> str:
+    @staticmethod
+    def _migrate_schema_1_to_2(conn: sqlite3.Connection) -> str:
         """Add ON DELETE CASCADE to the analysis_run_* child tables so
         prune_runs no longer has to delete children in a hand-maintained order."""
         rebuilds = {
@@ -323,7 +328,8 @@ class AnalysisStore:
         )
         return "2"
 
-    def _migrate_schema_2_to_3(self, conn: sqlite3.Connection) -> str:
+    @staticmethod
+    def _migrate_schema_2_to_3(conn: sqlite3.Connection) -> str:
         """Add header_dependencies_json to cached_file_analysis to track
         transitive preprocessor dependencies."""
         cols = [r[1] for r in conn.execute("PRAGMA table_info(cached_file_analysis)").fetchall()]
@@ -361,15 +367,18 @@ class AnalysisStore:
         defines: list[str] | None = None,
     ) -> dict[str, Any] | None:
         key = selection_key(rule_selection, include_dirs, package_registry_fingerprint, defines=defines)
-        with self._transaction() as conn:
-            row = conn.execute(
-                """
-                SELECT worker_result_json, header_dependencies_json
-                FROM cached_file_analysis
-                WHERE file_path = ? AND file_hash = ? AND selection_key = ?
-                """,
-                (file_path, file_hash, key),
-            ).fetchone()
+        try:
+            with self._transaction() as conn:
+                row = conn.execute(
+                    """
+                    SELECT worker_result_json, header_dependencies_json
+                    FROM cached_file_analysis
+                    WHERE file_path = ? AND file_hash = ? AND selection_key = ?
+                    """,
+                    (file_path, file_hash, key),
+                ).fetchone()
+        except sqlite3.Error:
+            return None
         if row is None:
             return None
 
@@ -382,10 +391,14 @@ class AnalysisStore:
                     dep_path = Path(dep["path"])
                     if not dep_path.is_file() or file_sha256(dep_path) != dep.get("hash"):
                         return None
-            except (ValueError, OSError):
+            except (ValueError, TypeError, KeyError, OSError):
                 return None
 
-        return json.loads(str(row["worker_result_json"]))
+        try:
+            payload = json.loads(str(row["worker_result_json"]))
+        except ValueError:
+            return None
+        return payload if isinstance(payload, dict) else None
 
     def store_cached_worker_result(
         self,

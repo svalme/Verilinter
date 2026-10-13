@@ -412,3 +412,20 @@ class TestTruncationTelemetry:
         record_truncation("dummy", MockNode("n"), depth=1, limit=1)
         assert get_current_truncations() is None
 
+    def test_cycle_detected_precedence_over_max_depth(self) -> None:
+        """Verifies that cycles are decoupled from depth limits and recorded as cycle_detected."""
+        @guarded_traversal(max_depth=2, default=False)
+        def walk(node: object) -> bool:
+            for child in getattr(node, "children", ()):
+                walk(child)
+            return True
+
+        n0 = MockNode("n0")
+        n1 = MockNode("n1", [n0])  # Cycle: n0 -> n1 -> n0
+        n0.children = [n1]
+
+        with collect_truncations() as events:
+            walk(n0)
+
+        assert any(e.reason == "cycle_detected" for e in events)
+

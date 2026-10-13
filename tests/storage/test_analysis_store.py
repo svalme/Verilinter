@@ -354,3 +354,89 @@ def test_vacuum_store_preserves_data() -> None:
     finally:
         conn.close()
     assert run_count == 1
+
+
+def test_analyze_survives_garbage_store_file() -> None:
+    tmp = _scratch_dir("garbage_store")
+    store_path = tmp / "verilinter.sqlite"
+    store_path.write_bytes(b"this is not a sqlite database" * 100)
+
+    result = analyze([PORT_DATA], store_path=store_path)
+
+    assert result.cache_stats is None
+    assert result.diagnostics
+
+
+def test_cache_load_treats_corrupt_worker_json_as_miss() -> None:
+    tmp = _scratch_dir("corrupt_json")
+    store_path = tmp / "verilinter.sqlite"
+    analyze([PORT_DATA], store_path=store_path)
+
+    conn = sqlite3.connect(store_path)
+    try:
+        conn.execute("UPDATE cached_file_analysis SET worker_result_json = '{not json'")
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = analyze([PORT_DATA], store_path=store_path)
+    assert result.cache_stats == {"hits": 0, "misses": 1}
+
+
+def test_cache_load_treats_wrong_shape_payload_as_miss() -> None:
+    tmp = _scratch_dir("wrong_shape")
+    store_path = tmp / "verilinter.sqlite"
+    first = analyze([PORT_DATA], store_path=store_path)
+
+    conn = sqlite3.connect(store_path)
+    try:
+        conn.execute("UPDATE cached_file_analysis SET worker_result_json = '[1, 2]'")
+        conn.commit()
+    finally:
+        conn.close()
+
+    second = analyze([PORT_DATA], store_path=store_path)
+    assert second.cache_stats == {"hits": 0, "misses": 1}
+    assert [d["code"] for d in second.diagnostics] == [d["code"] for d in first.diagnostics]
+
+
+def test_cache_load_treats_malformed_header_dependencies_as_miss() -> None:
+    tmp = _scratch_dir("bad_header_deps")
+    store_path = tmp / "verilinter.sqlite"
+    analyze([PORT_DATA], store_path=store_path)
+
+    conn = sqlite3.connect(store_path)
+    try:
+        conn.execute("UPDATE cached_file_analysis SET header_dependencies_json = '[1]'")
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = analyze([PORT_DATA], store_path=store_path)
+    assert result.cache_stats == {"hits": 0, "misses": 1}
+
+
+def test_analyze_degrades_when_cache_writes_fail(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    tmp = _scratch_dir("write_failure")
+    store_path = tmp / "verilinter.sqlite"
+
+    def locked(self, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(analysis_store_module.AnalysisStore, "store_cached_worker_result", locked)
+    result = analyze([PORT_DATA], store_path=store_path)
+
+    assert result.cache_stats is None
+    assert result.diagnostics
+    assert "continuing without the cache" in capsys.readouterr().err
+
+
+def test_connections_use_busy_timeout() -> None:
+    tmp = _scratch_dir("busy_timeout")
+    store = analysis_store_module.AnalysisStore(tmp / "verilinter.sqlite")
+    conn = store._connect()
+    try:
+        timeout_ms = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+    finally:
+        conn.close()
+    assert timeout_ms == int(analysis_store_module.BUSY_TIMEOUT_SECONDS * 1000)
