@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+# Fixtures whose committed bytes are CRLF on purpose.
+tests/data/simple.v -text
+tests/expected/simple.v.snippets.txt -text
+tests/expected/simple.v.walk.txt -text
