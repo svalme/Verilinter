@@ -56,6 +56,101 @@ def selection_key(
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
+_SCHEMA_SCRIPT = """
+    CREATE TABLE IF NOT EXISTS schema_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cached_file_analysis (
+        file_path TEXT NOT NULL,
+        file_hash TEXT NOT NULL,
+        selection_key TEXT NOT NULL,
+        cached_at TEXT NOT NULL,
+        worker_result_json TEXT NOT NULL,
+        header_dependencies_json TEXT,
+        PRIMARY KEY (file_path, file_hash, selection_key)
+    );
+
+    CREATE TABLE IF NOT EXISTS analysis_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        cwd TEXT,
+        format TEXT,
+        report_kind TEXT,
+        jobs INTEGER NOT NULL,
+        selection_key TEXT NOT NULL,
+        baseline_path TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS analysis_run_files (
+        run_id INTEGER NOT NULL,
+        ordinal INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        file_hash TEXT NOT NULL,
+        cache_hit INTEGER NOT NULL,
+        PRIMARY KEY (run_id, ordinal),
+        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS analysis_run_diagnostics (
+        run_id INTEGER NOT NULL,
+        ordinal INTEGER NOT NULL,
+        code TEXT NOT NULL,
+        category TEXT,
+        severity TEXT,
+        file TEXT,
+        line INTEGER NOT NULL,
+        col INTEGER NOT NULL,
+        message TEXT NOT NULL,
+        PRIMARY KEY (run_id, ordinal),
+        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS analysis_run_modules (
+        run_id INTEGER NOT NULL,
+        ordinal INTEGER NOT NULL,
+        module_name TEXT NOT NULL,
+        file TEXT,
+        line INTEGER NOT NULL,
+        col INTEGER NOT NULL,
+        PRIMARY KEY (run_id, ordinal),
+        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS analysis_run_instantiations (
+        run_id INTEGER NOT NULL,
+        ordinal INTEGER NOT NULL,
+        parent_module TEXT,
+        child_module TEXT,
+        instance_name TEXT,
+        file TEXT,
+        line INTEGER NOT NULL,
+        col INTEGER NOT NULL,
+        connection_style TEXT,
+        PRIMARY KEY (run_id, ordinal),
+        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS analysis_run_connections (
+        run_id INTEGER NOT NULL,
+        instantiation_ordinal INTEGER NOT NULL,
+        ordinal INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        port_name TEXT,
+        expr_text TEXT,
+        expr_name TEXT,
+        expr_width INTEGER,
+        expr_signed INTEGER,
+        file TEXT,
+        line INTEGER NOT NULL,
+        col INTEGER NOT NULL,
+        PRIMARY KEY (run_id, instantiation_ordinal, ordinal),
+        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
+    );
+"""
+
+
 class AnalysisStore:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -79,116 +174,41 @@ class AnalysisStore:
             conn.close()
 
     def _ensure_schema(self) -> None:
-        with self._transaction() as conn:
-            conn.executescript(
+        # Schema creation and migration run inside one explicit write
+        # transaction, so a crash or error leaves the previous schema intact and
+        # concurrent openers serialize on the write lock.
+        conn = self._connect()
+        conn.isolation_level = None
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                self._apply_schema(conn)
+                conn.execute("COMMIT")
+            except BaseException:
+                if conn.in_transaction:
+                    conn.execute("ROLLBACK")
+                raise
+        finally:
+            conn.close()
+
+    def _apply_schema(self, conn: sqlite3.Connection) -> None:
+        # The statements contain no embedded semicolons, so splitting is safe.
+        for statement in _SCHEMA_SCRIPT.split(";"):
+            if statement.strip():
+                conn.execute(statement)
+        existing_version = self._read_schema_version(conn)
+        if existing_version is None:
+            conn.execute(
                 """
-                PRAGMA journal_mode = WAL;
-
-                CREATE TABLE IF NOT EXISTS schema_meta (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS cached_file_analysis (
-                    file_path TEXT NOT NULL,
-                    file_hash TEXT NOT NULL,
-                    selection_key TEXT NOT NULL,
-                    cached_at TEXT NOT NULL,
-                    worker_result_json TEXT NOT NULL,
-                    header_dependencies_json TEXT,
-                    PRIMARY KEY (file_path, file_hash, selection_key)
-                );
-
-                CREATE TABLE IF NOT EXISTS analysis_runs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    created_at TEXT NOT NULL,
-                    cwd TEXT,
-                    format TEXT,
-                    report_kind TEXT,
-                    jobs INTEGER NOT NULL,
-                    selection_key TEXT NOT NULL,
-                    baseline_path TEXT
-                );
-
-                CREATE TABLE IF NOT EXISTS analysis_run_files (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    file_path TEXT NOT NULL,
-                    file_hash TEXT NOT NULL,
-                    cache_hit INTEGER NOT NULL,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                );
-
-                CREATE TABLE IF NOT EXISTS analysis_run_diagnostics (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    code TEXT NOT NULL,
-                    category TEXT,
-                    severity TEXT,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    message TEXT NOT NULL,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                );
-
-                CREATE TABLE IF NOT EXISTS analysis_run_modules (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    module_name TEXT NOT NULL,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                );
-
-                CREATE TABLE IF NOT EXISTS analysis_run_instantiations (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    parent_module TEXT,
-                    child_module TEXT,
-                    instance_name TEXT,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    connection_style TEXT,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                );
-
-                CREATE TABLE IF NOT EXISTS analysis_run_connections (
-                    run_id INTEGER NOT NULL,
-                    instantiation_ordinal INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    kind TEXT NOT NULL,
-                    port_name TEXT,
-                    expr_text TEXT,
-                    expr_name TEXT,
-                    expr_width INTEGER,
-                    expr_signed INTEGER,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    PRIMARY KEY (run_id, instantiation_ordinal, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                );
-                """
+                INSERT INTO schema_meta(key, value)
+                VALUES ('schema_version', ?)
+                """,
+                (SCHEMA_VERSION,),
             )
-            existing_version = self._read_schema_version(conn)
-            if existing_version is None:
-                conn.execute(
-                    """
-                    INSERT INTO schema_meta(key, value)
-                    VALUES ('schema_version', ?)
-                    """,
-                    (SCHEMA_VERSION,),
-                )
-                return
+            return
 
-            self._migrate_schema(conn, existing_version)
+        self._migrate_schema(conn, existing_version)
 
     @staticmethod
     def _read_schema_version(conn: sqlite3.Connection) -> str | None:

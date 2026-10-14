@@ -72,6 +72,11 @@ Use `SCHEMA_VERSION` when:
 - a column is added, removed, renamed, or repurposed
 - relational constraints or persisted row semantics change
 
+Schema creation and every migration step run inside a single write transaction (`BEGIN IMMEDIATE`). If a
+migration fails or the process is killed partway through, the transaction rolls back and the store keeps its
+previous schema and data, so the next run retries the migration from the start. Several processes opening the
+same store at once take turns on the write lock, and the first one performs the migration.
+
 Current migration policy:
 - durable run-history tables should be migrated forward when practical
 - disposable cache rows may be invalidated instead of migrated

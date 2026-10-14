@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -10,6 +13,7 @@ from src.pkg.analysis_store import AnalysisStore, SCHEMA_VERSION
 from src.run_lint import analyze, main
 from tests.support.scratch import make_scratch
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PORT_DATA = Path(__file__).resolve().parents[1] / "data" / "port_connection_issues.sv"
 
 _RUN_CHILD_COLUMNS = {
@@ -221,3 +225,190 @@ def test_store_path_that_is_a_directory_degrades_with_warning(capsys: pytest.Cap
     assert result.cache_stats is None
     assert result.diagnostics
     assert "continuing without the cache" in capsys.readouterr().err
+
+
+class _CrashingConnection:
+    """Delegates to a real connection but raises once `fail_after` statements have run."""
+
+    def __init__(self, conn: sqlite3.Connection, fail_after: int) -> None:
+        self._conn = conn
+        self._remaining = fail_after
+
+    def execute(self, *args, **kwargs):
+        if self._remaining <= 0:
+            raise RuntimeError("simulated crash")
+        self._remaining -= 1
+        return self._conn.execute(*args, **kwargs)
+
+
+def _table_names(path: Path) -> set[str]:
+    conn = sqlite3.connect(path)
+    try:
+        return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    finally:
+        conn.close()
+
+
+@pytest.mark.parametrize("fail_after", [1, 5, 11, 20])
+def test_interrupted_migration_rolls_back_and_can_be_retried(
+    fail_after: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_path = make_scratch("_tmp_store_lifecycle", f"interrupted_{fail_after}") / "verilinter.sqlite"
+    _build_historical_store(store_path, "1", cascade=False)
+    original = AnalysisStore._migrate_schema_1_to_2
+
+    monkeypatch.setattr(
+        AnalysisStore,
+        "_migrate_schema_1_to_2",
+        staticmethod(lambda conn: original(_CrashingConnection(conn, fail_after))),
+    )
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        AnalysisStore(store_path)
+
+    conn = sqlite3.connect(store_path)
+    try:
+        assert conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()[0] == "1"
+        for table in _RUN_CHILD_ROWS:
+            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1
+    finally:
+        conn.close()
+    assert not any(name.endswith("_v2") for name in _table_names(store_path))
+
+    monkeypatch.undo()
+    AnalysisStore(store_path)
+
+    conn = sqlite3.connect(store_path)
+    try:
+        assert conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()[0] == SCHEMA_VERSION
+        for table in _RUN_CHILD_ROWS:
+            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1
+    finally:
+        conn.close()
+
+
+_OPEN_STORE_SCRIPT = "import sys; from pathlib import Path; from src.pkg.analysis_store import AnalysisStore; AnalysisStore(Path(sys.argv[1]))"
+
+_KILLED_MIGRATION_SCRIPT = """
+import os, sys
+from pathlib import Path
+from src.pkg.analysis_store import AnalysisStore
+
+original = AnalysisStore._migrate_schema_1_to_2
+
+class Dying:
+    def __init__(self, conn):
+        self.conn, self.left = conn, int(sys.argv[2])
+    def execute(self, *args, **kwargs):
+        if self.left <= 0:
+            os._exit(3)
+        self.left -= 1
+        return self.conn.execute(*args, **kwargs)
+
+AnalysisStore._migrate_schema_1_to_2 = staticmethod(lambda conn: original(Dying(conn)))
+AnalysisStore(Path(sys.argv[1]))
+"""
+
+
+def _spawn(script: str, *args: str) -> subprocess.Popen:
+    return subprocess.Popen(
+        [sys.executable, "-c", script, *args],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+@pytest.mark.parametrize("historical", [False, True])
+def test_concurrent_openers_create_or_migrate_exactly_once(historical: bool) -> None:
+    store_path = make_scratch("_tmp_store_lifecycle", f"concurrent_open_{historical}") / "verilinter.sqlite"
+    if historical:
+        _build_historical_store(store_path, "1", cascade=False)
+
+    procs = [_spawn(_OPEN_STORE_SCRIPT, str(store_path)) for _ in range(4)]
+    outputs = [(proc.wait(timeout=120), proc.stderr.read()) for proc in procs]
+
+    assert [code for code, _ in outputs] == [0, 0, 0, 0], outputs
+    conn = sqlite3.connect(store_path)
+    try:
+        versions = conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchall()
+        assert versions == [(SCHEMA_VERSION,)]
+        if historical:
+            for table in _RUN_CHILD_ROWS:
+                assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1
+            assert conn.execute("SELECT COUNT(*) FROM cached_file_analysis").fetchone()[0] == 1
+    finally:
+        conn.close()
+    assert not any(name.endswith("_v2") for name in _table_names(store_path))
+
+
+@pytest.mark.parametrize("die_after", [2, 12])
+def test_process_killed_mid_migration_leaves_store_recoverable(die_after: int) -> None:
+    store_path = make_scratch("_tmp_store_lifecycle", f"killed_{die_after}") / "verilinter.sqlite"
+    _build_historical_store(store_path, "1", cascade=False)
+
+    proc = _spawn(_KILLED_MIGRATION_SCRIPT, str(store_path), str(die_after))
+    assert proc.wait(timeout=120) == 3, proc.stderr.read()
+
+    conn = sqlite3.connect(store_path)
+    try:
+        assert conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()[0] == "1"
+    finally:
+        conn.close()
+
+    AnalysisStore(store_path)
+    conn = sqlite3.connect(store_path)
+    try:
+        assert conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()[0] == SCHEMA_VERSION
+        for table in _RUN_CHILD_ROWS:
+            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1
+    finally:
+        conn.close()
+
+
+def test_concurrent_writers_do_not_lose_rows() -> None:
+    store_path = make_scratch("_tmp_store_lifecycle", "concurrent_writers") / "verilinter.sqlite"
+    store = AnalysisStore(store_path)
+
+    def write(worker: int) -> None:
+        for i in range(15):
+            store.store_cached_worker_result(
+                file_path=f"w{worker}_{i}.sv",
+                file_hash=f"hash{worker}_{i}",
+                rule_selection=None,
+                worker_result={"diagnostics": []},
+            )
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for future in [pool.submit(write, worker) for worker in range(4)]:
+            future.result()
+
+    assert store.status()["cached_files"] == 60
+    assert (
+        store.load_cached_worker_result(file_path="w3_14.sv", file_hash="hash3_14", rule_selection=None)
+        == {"diagnostics": []}
+    )
+
+
+def test_store_locked_by_another_writer_degrades_with_warning(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    store_path = make_scratch("_tmp_store_lifecycle", "locked") / "verilinter.sqlite"
+    analyze([PORT_DATA], store_path=store_path)
+    capsys.readouterr()
+    monkeypatch.setattr("src.pkg.analysis_store.BUSY_TIMEOUT_SECONDS", 0.2)
+
+    blocker = sqlite3.connect(store_path, isolation_level=None)
+    try:
+        blocker.execute("BEGIN IMMEDIATE")
+        result = analyze([PORT_DATA], store_path=store_path)
+    finally:
+        blocker.execute("ROLLBACK")
+        blocker.close()
+
+    assert result.cache_stats is None
+    assert result.diagnostics
+    assert "continuing without the cache" in capsys.readouterr().err
+
+    recovered = analyze([PORT_DATA], store_path=store_path)
+    assert recovered.cache_stats == {"hits": 1, "misses": 0}
