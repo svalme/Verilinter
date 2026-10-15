@@ -122,6 +122,7 @@ from ._syntax_queries.declarators import (
     declarator_port_direction,
     declarator_unpacked_dimension_texts,
     declarator_unpacked_dimension_widths,
+    is_empty_non_ansi_port,
     typedef_declaration_name_and_location,
 )
 from ._syntax_queries.conditional_shapes import (
@@ -481,6 +482,7 @@ __all__ = [
     "is_modport_declaration_node",
     "is_multi_clock_procedural_block",
     "is_mutually_exclusive_branch_pair",
+    "is_empty_non_ansi_port",
     "is_empty_port_connection",
     "is_named_parameter_override",
     "is_named_port_connection",

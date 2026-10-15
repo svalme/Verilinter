@@ -96,6 +96,7 @@ NAMED_PORT_CONNECTION_KIND = _syntax_kind("NamedPortConnection")
 ORDERED_PORT_CONNECTION_KIND = _syntax_kind("OrderedPortConnection")
 WILDCARD_PORT_CONNECTION_KIND = _syntax_kind("WildcardPortConnection")
 EMPTY_PORT_CONNECTION_KIND = _syntax_kind("EmptyPortConnection")
+EMPTY_NON_ANSI_PORT_KIND = _syntax_kind("EmptyNonAnsiPort")
 PORT_CONNECTION_KINDS = {
     kind
     for kind in (
@@ -726,6 +727,7 @@ __all__ = [
     "ELEMENT_SELECT_EXPRESSION_KIND",
     "ELEMENT_SELECT_KIND",
     "ELSE_CLAUSE_KIND",
+    "EMPTY_NON_ANSI_PORT_KIND",
     "EMPTY_PORT_CONNECTION_KIND",
     "EMPTY_STATEMENT_KIND",
     "ENUM_TYPE_KIND",

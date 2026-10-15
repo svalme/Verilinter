@@ -69,6 +69,8 @@ HierarchyInstantiationNode: TypeAlias = sl.HierarchyInstantiationSyntax
 HierarchicalInstanceNode: TypeAlias = sl.HierarchicalInstanceSyntax
 PortDeclarationNode: TypeAlias = sl.PortDeclarationSyntax
 ImplicitAnsiPortNode: TypeAlias = sl.ImplicitAnsiPortSyntax
+EmptyNonAnsiPortNode: TypeAlias = sl.EmptyNonAnsiPortSyntax
+EmptyPortConnectionNode: TypeAlias = sl.EmptyPortConnectionSyntax
 PrimitiveDeclarationNode: TypeAlias = sl.UdpDeclarationSyntax
 SystemNameNode: TypeAlias = sl.SystemNameSyntax
 ClockingDeclarationNode: TypeAlias = sl.ClockingDeclarationSyntax
@@ -154,6 +156,8 @@ __all__ = [
     "DoWhileStatementNode",
     "ElementSelectExpressionNode",
     "ElseClauseNode",
+    "EmptyNonAnsiPortNode",
+    "EmptyPortConnectionNode",
     "EmptyStatementNode",
     "ForLoopStatementNode",
     "ForeverStatementNode",

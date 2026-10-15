@@ -9,6 +9,7 @@ from ..syntax_kinds import (
     ANSI_PORT_KINDS,
     CLOCKING_DECLARATION_KIND,
     DATA_DECLARATION_KINDS,
+    EMPTY_NON_ANSI_PORT_KIND,
     ENUM_TYPE_KIND,
     EVENT_TYPE_KIND,
     FUNCTION_PORT_KIND,
@@ -36,6 +37,10 @@ def declarator_name(raw: object) -> str | None:
 
 def declarator_has_initializer(raw: object) -> bool:
     return getattr(raw, "initializer", None) is not None
+
+
+def is_empty_non_ansi_port(raw: object) -> bool:
+    return getattr(raw, "kind", None) == EMPTY_NON_ANSI_PORT_KIND
 
 
 def declarator_initializer_value(raw: object, scope: object = None) -> int | None:

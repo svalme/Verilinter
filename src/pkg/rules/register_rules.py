@@ -136,6 +136,7 @@ from .parameters_and_generate_logic.duplicate_generate_block_label import Duplic
 from .fsms.missing_default_on_state_case import MissingDefaultOnStateCaseRule
 from .fsms.missing_state_register_reset import MissingStateRegisterResetRule
 from .fsms.one_hot_encoding_violation import OneHotEncodingViolationRule
+from .connectivity_and_hierarchy.null_port import NullPortRule
 
 # symbol rules (single-file, post-walk)
 from .unused_and_dead_code.unused_variable_rule import UnusedVariableRule
@@ -153,6 +154,9 @@ from .combinational_logic.read_before_write_rule import ReadBeforeWriteRule
 from .clock_and_reset.no_mixed_reset_style import NoMixedResetStyleRule
 from .combinational_logic.combinational_loop import CombinationalLoopRule
 from .connectivity_and_hierarchy.undriven_tristate_signal import UndrivenTristateSignalRule
+from .simulation_vs_synthesis.procedural_assignment_to_initialized_variable import (
+    ProceduralAssignmentToInitializedVariableRule,
+)
 
 # module rules (cross-file)
 from .syntax_and_structure.duplicate_module_definition import DuplicateModuleDefinitionRule
