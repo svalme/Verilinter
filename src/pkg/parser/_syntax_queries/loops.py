@@ -11,6 +11,8 @@ from ..syntax_kinds import (
     EXPRESSION_STATEMENT_KIND,
     FOREVER_STATEMENT_KIND,
     FOR_LOOP_STATEMENT_KIND,
+    FUNCTION_DECLARATION_KIND,
+    IDENTIFIER_NAME_KIND,
     INVOCATION_EXPRESSION_KIND,
     JUMP_STATEMENT_KIND,
     LOOP_STATEMENT_KIND,
@@ -24,6 +26,8 @@ from ..traversal_guard import guarded_traversal
 from ..types import SyntaxNode
 from .expressions import evaluate_constant_expression, unwrap_parentheses
 from .literals import constant_integer_value
+from .shared import identifier_name
+from .subroutines import _find_subroutine_in_container_syntax
 from .system_tasks import system_task_name
 
 LOOP_STATEMENT_KINDS = {
@@ -102,11 +106,30 @@ def _is_expression_constantly_true(expr: object, scope: object = None) -> bool:
     return False
 
 
+def _call_may_block(callee: object) -> bool:
+    """True unless `callee` is a plain name that resolves, in an enclosing scope of the same
+    syntax tree, to a function (functions cannot block). Tasks, methods, hierarchical or
+    package-qualified names and names declared elsewhere are assumed to be able to block."""
+    if getattr(callee, "kind", None) != IDENTIFIER_NAME_KIND:
+        return True
+    name = identifier_name(getattr(callee, "identifier", None))
+    scope = getattr(callee, "parent", None)
+    for _ in range(64):
+        if scope is None:
+            return True
+        declaration = _find_subroutine_in_container_syntax(scope, name) if name else None
+        if declaration is not None:
+            return getattr(declaration, "kind", None) != FUNCTION_DECLARATION_KIND
+        scope = getattr(scope, "parent", None)
+    return True
+
+
 @guarded_traversal(max_depth=64, default=False)
 def has_loop_exit_or_timing_control(statement_node: object, allow_break: bool = True) -> bool:
     """True if `statement_node` contains an escape statement (`break`, `return`,
-    `disable`, `$finish`, `$fatal`, `$stop`, `$exit`) or a timing/event control
-    (`#`, `@`, `wait`) that prevents an infinite loop from hanging simulation.
+    `disable`, `$finish`, `$fatal`, `$stop`, `$exit`), a timing/event control
+    (`#`, `@`, `wait`), or a call statement to a task or method, which may
+    block, that prevents an infinite loop from hanging simulation.
     Breaks inside nested child loops do not escape the outer loop."""
     if statement_node is None:
         return False
@@ -129,6 +152,8 @@ def has_loop_exit_or_timing_control(statement_node: object, allow_break: bool = 
         callee = getattr(expr, "left", None) if expr_kind == INVOCATION_EXPRESSION_KIND else expr
         sys_name = system_task_name(callee)
         if sys_name in {"$finish", "$fatal", "$stop", "$exit"}:
+            return True
+        if expr_kind == INVOCATION_EXPRESSION_KIND and sys_name is None and _call_may_block(callee):
             return True
 
     is_nested_loop = kind in LOOP_STATEMENT_KINDS

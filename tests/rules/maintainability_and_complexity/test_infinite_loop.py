@@ -268,6 +268,71 @@ class TestInfiniteLoopRule:
         )
         assert len(diagnostics) == 0
 
+    def test_allows_loop_calling_blocking_method(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              mailbox #(int) mbox;
+              task main();
+                forever begin
+                  int i;
+                  mbox.get(i);
+                end
+              endtask
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 0
+
+    def test_allows_loop_calling_user_task(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              task automatic step();
+                #1;
+              endtask
+              initial begin
+                forever begin
+                  step();
+                end
+              end
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 0
+
+    def test_flags_loop_calling_only_a_function(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              reg [7:0] count;
+              function automatic void bump();
+                count = count + 1;
+              endfunction
+              initial begin
+                forever begin
+                  bump();
+                end
+              end
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 1
+
+    def test_flags_loop_calling_only_system_display(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              initial begin
+                forever begin
+                  $display("tick");
+                end
+              end
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 1
+
     def test_allows_loop_with_finish(self) -> None:
         diagnostics = _diagnostics(
             """
