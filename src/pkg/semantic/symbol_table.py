@@ -26,6 +26,7 @@ class SymbolTable:
         self.initial_driver_ids: set[str] = set()
         self.tristate_driver_ids: set[str] = set()
         self.branch_constructs: dict[str, tuple[set[int] | None, tuple[tuple[str, int], ...]]] = {}
+        self.pending_interface_member_uses: list[tuple[str, str, Location | None, dict[str, object]]] = []
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
 
@@ -132,6 +133,29 @@ class SymbolTable:
         """Record branching construct metadata (required branches for exhaustiveness,
         and enclosing parent branch signature) for control-flow analysis."""
         self.branch_constructs[construct_id] = (required_branches, parent_signature)
+
+    def record_interface_member_use(
+        self,
+        interface_type: str,
+        member: str,
+        location: Location | None,
+        use_kwargs: dict[str, object],
+    ) -> None:
+        """Queue a read/write of `member` reached through a port or instance of `interface_type`.
+
+        The interface may be declared later in the file, so the use is applied by
+        `resolve_interface_member_uses` once the whole file has been walked."""
+        self.pending_interface_member_uses.append((interface_type, member, location, use_kwargs))
+
+    def resolve_interface_member_uses(self) -> None:
+        """Attach queued interface-member uses to the members' symbols; uses whose
+        interface is not declared in the walked files are dropped."""
+        pending, self.pending_interface_member_uses = self.pending_interface_member_uses, []
+        for interface_type, member, location, use_kwargs in pending:
+            scope = self.lookup_module(interface_type)
+            symbol = scope.lookup(member) if scope is not None else None
+            if symbol is not None:
+                symbol.add_use(location, **use_kwargs)  # type: ignore[arg-type]
 
     def lookup_module(self, name: str) -> Scope | None:
         """Return the first scope for a named module, or None if not yet seen."""

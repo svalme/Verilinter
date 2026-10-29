@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..parser.syntax import member_selector_base_name
 from ..parser.types import IDENTIFIER_NAME_NODE_TYPES
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.base_vnode import BaseVNode
@@ -46,7 +47,10 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         symbol_table: SymbolTable,
     ) -> Context:
         name = vnode.identifier_name
-        if not name or self.filter.is_structural_reference(vnode.raw):
+        if not name:
+            return ctx.push(vnode)
+        if self.filter.is_structural_reference(vnode.raw):
+            self._record_interface_member_use(name, ctx, vnode, symbol_table)
             return ctx.push(vnode)
 
         symbol = self.resolver.resolve_or_create(name, vnode, ctx, symbol_table)
@@ -57,6 +61,24 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         symbol.add_use(vnode.location, **event_context.to_use_kwargs())
 
         return ctx.push(vnode)
+
+    def _record_interface_member_use(
+        self,
+        member: str,
+        ctx: Context,
+        vnode: IdentifierNameVNode,
+        symbol_table: SymbolTable,
+    ) -> None:
+        base_name = member_selector_base_name(vnode.raw)
+        if base_name is None:
+            return
+        base = symbol_table.lookup_from_scope(base_name, ctx.scope())
+        if base is None or base.interface_type_name is None:
+            return
+        event_context = self.extractor.extract(vnode, ctx, symbol_table)
+        symbol_table.record_interface_member_use(
+            base.interface_type_name, member, vnode.location, event_context.to_use_kwargs()
+        )
 
     def children(self, vnode: IdentifierNameVNode) -> list[BaseVNode]:
         return [vnode_factory.create(child, vnode.tree) for child in vnode.raw_children]

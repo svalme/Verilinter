@@ -104,4 +104,5 @@ def test_shared_rule_runner_includes_all_expected_syntax_rule_codes() -> None:
         "NO_LATCH_IN_ALWAYS_LATCH",
         "NO_IMPLICIT_REAL_CONVERSION",
         "NULLPORT",
+        "ASSIGNEQEXPR",
     }.issubset(codes)

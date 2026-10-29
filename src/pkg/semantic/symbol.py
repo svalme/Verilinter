@@ -58,6 +58,7 @@ class Symbol:
         self.is_used_in_port_connection: bool = False
         self.has_declaration_initializer: bool = False
         self.is_event: bool = False
+        self.interface_type_name: str | None = None  # declared type name; an interface only once resolved
 
     def set_scope(self, scope: Scope | None) -> None:
         self.scope = scope

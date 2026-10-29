@@ -269,6 +269,18 @@ READ_WRITE_UNARY_KINDS = {
 
 ASSIGNMENT_KINDS = SIMPLE_ASSIGNMENT_KINDS | READ_WRITE_ASSIGNMENT_KINDS
 
+ASSIGNMENT_STATEMENT_PARENT_KINDS = {
+    kind
+    for kind in (
+        CONTINUOUS_ASSIGN_KIND,
+        EXPRESSION_STATEMENT_KIND,
+        FOR_LOOP_STATEMENT_KIND,
+        _syntax_kind("ProceduralAssignStatement"),
+        _syntax_kind("ProceduralForceStatement"),
+    )
+    if kind is not None
+}
+
 PROCEDURAL_BLOCK_KINDS = {
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
@@ -477,6 +489,7 @@ DEFPARAM_ASSIGNMENT_KIND = _syntax_kind("DefParamAssignment")
 DISABLE_STATEMENT_KIND = _syntax_kind("DisableStatement")
 DISABLE_IFF_KIND = _syntax_kind("DisableIff")
 NAMED_TYPE_KIND = _syntax_kind("NamedType")
+INTERFACE_PORT_HEADER_KIND = _syntax_kind("InterfacePortHeader")
 INVOCATION_EXPRESSION_KIND = _syntax_kind("InvocationExpression")
 COVER_CROSS_KIND = _syntax_kind("CoverCross")
 EXTENDS_CLAUSE_KIND = _syntax_kind("ExtendsClause")
@@ -673,6 +686,7 @@ __all__ = [
     "ASCENDING_RANGE_SELECT_KIND",
     "ASSIGNMENT_EXPRESSION_KIND",
     "ASSIGNMENT_KINDS",
+    "ASSIGNMENT_STATEMENT_PARENT_KINDS",
     "ASSIGN_DEASSIGN_TOKEN_KINDS",
     "ASSIGNMENT_PATTERN_ITEM_KIND",
     "BINARY_AND_EXPRESSION_KIND",
@@ -791,6 +805,7 @@ __all__ = [
     "NAMED_PARAM_ASSIGNMENT_KIND",
     "NAMED_PORT_CONNECTION_KIND",
     "NAMED_TYPE_KIND",
+    "INTERFACE_PORT_HEADER_KIND",
     "NET_DECLARATION_KIND",
     "NET_DECLARATION_KINDS",
     "NONBLOCKING_ASSIGNMENT_KIND",

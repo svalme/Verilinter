@@ -1321,3 +1321,24 @@ def test_infinite_loop_and_sequential_blocking_coexistence(
     seq_infinite.expect_code_once("NO_BLOCKING_SEQUENTIAL")
 
 
+
+
+def test_unassigned_task_output_reports_both_unused_variable_and_subroutine_output_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "task_output.sv": """
+            module top;
+              task x;
+                output o;
+                begin
+                end
+              endtask
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("UNDRIVEN_SUBROUTINE_OUTPUT")
+    result.expect_code_once("UNUSED_VARIABLE")

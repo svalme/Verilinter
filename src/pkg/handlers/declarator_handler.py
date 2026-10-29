@@ -3,6 +3,7 @@ from ..walk.context import Context
 from ..parser.syntax import (
     declarator_bit_width,
     declarator_has_initializer,
+    declarator_interface_type_name,
     declarator_initializer_expression,
     declarator_initializer_value,
     declarator_is_event,
@@ -59,6 +60,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
         symbol.unpacked_dimension_widths = declarator_unpacked_dimension_widths(vnode.raw, scope=ctx.scope())
         symbol.is_signed = declarator_is_signed(ctx)
         symbol.is_event = declarator_is_event(ctx)
+        symbol.interface_type_name = declarator_interface_type_name(ctx)
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):
             symbol.has_declaration_initializer = True

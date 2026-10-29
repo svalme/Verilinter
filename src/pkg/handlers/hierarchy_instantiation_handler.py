@@ -62,6 +62,7 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
             inst_name = hierarchical_instance_name(item)
             if inst_name:
                 sym = Symbol(name=inst_name, kind="instance")
+                sym.interface_type_name = type_name
                 sym.add_declaration(vnode.location)
                 ctx.scope().define(sym)
 

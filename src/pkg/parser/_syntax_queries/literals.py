@@ -1,6 +1,7 @@
 from ..syntax_kinds import (
     ADD_SUBTRACT_EXPRESSION_KINDS,
     ASSIGNMENT_KINDS,
+    ASSIGNMENT_STATEMENT_PARENT_KINDS,
     CASEX_KEYWORD_TOKEN_KIND,
     CASEZ_KEYWORD_TOKEN_KIND,
     COMPARISON_EXPRESSION_KINDS,
@@ -29,6 +30,14 @@ from ..types import IDENTIFIER_NAME_NODE_TYPES, ProceduralBlockNode, DeclaratorN
 
 def is_assignment_expression(raw: object) -> bool:
     return getattr(raw, "kind", None) in ASSIGNMENT_KINDS
+
+
+def is_assignment_inside_expression(raw: object) -> bool:
+    """True for an assignment operator nested in a larger expression, e.g. `(a = b) ? x : y`."""
+    if not is_assignment_expression(raw):
+        return False
+    parent = getattr(raw, "parent", None)
+    return parent is not None and getattr(parent, "kind", None) not in ASSIGNMENT_STATEMENT_PARENT_KINDS
 
 
 def is_read_write_assignment_expression(raw: object) -> bool:

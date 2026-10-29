@@ -13,8 +13,12 @@ from ..syntax_kinds import (
     ENUM_TYPE_KIND,
     EVENT_TYPE_KIND,
     FUNCTION_PORT_KIND,
+    IDENTIFIER_NAME_KIND,
+    IDENTIFIER_TOKEN_KIND,
     IMPLICIT_TYPE_KIND,
+    INTERFACE_PORT_HEADER_KIND,
     LOCALPARAM_TOKEN_KIND,
+    NAMED_TYPE_KIND,
     NET_DECLARATION_KINDS,
     PARAMETER_DECLARATION_KIND,
     PARAMETER_DECLARATION_KINDS,
@@ -268,6 +272,29 @@ def _declarator_owner_data_type(ctx: "Context") -> object | None:
         if dt is not None:
             return dt
     return None
+
+
+def declarator_interface_type_name(ctx: "Context") -> str | None:
+    """Name of the interface (or other named type) a port or variable is declared
+    with -- `dummy_if d`, `dummy_if.mp d` -- else None. Whether the name denotes an
+    interface is only known once its declaration is resolved."""
+    for ancestor in ctx.iter_ancestors():
+        raw = ancestor.raw
+        if getattr(raw, "kind", None) in ANSI_PORT_KINDS or getattr(raw, "kind", None) == PORT_DECLARATION_KIND:
+            header = getattr(raw, "header", None)
+            if getattr(header, "kind", None) == INTERFACE_PORT_HEADER_KIND:
+                token = getattr(header, "nameOrKeyword", None)
+                if getattr(token, "kind", None) == IDENTIFIER_TOKEN_KIND:
+                    return getattr(token, "valueText", None) or None
+                return None
+            break
+    data_type = _declarator_owner_data_type(ctx)
+    if getattr(data_type, "kind", None) != NAMED_TYPE_KIND:
+        return None
+    name = getattr(data_type, "name", None)
+    if getattr(name, "kind", None) != IDENTIFIER_NAME_KIND:
+        return None
+    return identifier_name(name)
 
 
 def declarator_port_direction(ctx: "Context") -> str | None:

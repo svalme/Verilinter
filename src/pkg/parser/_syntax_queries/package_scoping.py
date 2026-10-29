@@ -2,6 +2,7 @@ from ..syntax_kinds import (
     ASSIGNMENT_PATTERN_ITEM_KIND,
     DOT_TOKEN_KIND,
     DOUBLE_COLON_TOKEN_KIND,
+    IDENTIFIER_NAME_KIND,
     PACKAGE_DECLARATION_KIND,
     PACKAGE_IMPORT_DECLARATION_KIND,
     SCOPED_NAME_KIND,
@@ -18,6 +19,16 @@ def is_member_selector(raw: object) -> bool:
     return (getattr(parent, "kind", None) == SCOPED_NAME_KIND
             and getattr(getattr(parent, "separator", None), "kind", None) == DOT_TOKEN_KIND
             and getattr(parent, "right", None) is raw)
+
+
+def member_selector_base_name(raw: object) -> str | None:
+    """For the member in `base.member`, the name of a plain identifier `base`."""
+    if not is_member_selector(raw):
+        return None
+    left = getattr(getattr(raw, "parent", None), "left", None)
+    if getattr(left, "kind", None) != IDENTIFIER_NAME_KIND:
+        return None
+    return identifier_name(left)
 
 
 def _is_double_colon_scoped_name(node: object) -> bool:
