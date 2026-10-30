@@ -748,7 +748,7 @@ class TestRunJobsValidation:
         diagnostics = run([UNUSED_PARAMETER_DATA], jobs=1)
 
         assert any(d["code"] == "NO_UNUSED_PARAMETER" for d in diagnostics)
-        assert any("UNUSED_WIDTH" in d["message"] for d in diagnostics)
+        assert any("SPARE_WIDTH" in d["message"] for d in diagnostics)
         assert not any(d["code"] == "NO_WRITE_ONLY_VARIABLE" for d in diagnostics)
 
     def test_run_reports_duplicate_named_port_connection_rule(self) -> None:

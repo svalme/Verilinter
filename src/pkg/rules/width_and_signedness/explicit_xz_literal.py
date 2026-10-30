@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import is_explicit_xz_literal
+from ...parser.syntax import is_explicit_xz_value_literal
 from ...parser.types import LITERAL_EXPRESSION_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -19,4 +19,4 @@ class ExplicitXZLiteralRule(Rule):
     target_node_types = LITERAL_EXPRESSION_NODE_TYPES
 
     def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
-        return is_explicit_xz_literal(vnode.raw)
+        return is_explicit_xz_value_literal(vnode.raw)

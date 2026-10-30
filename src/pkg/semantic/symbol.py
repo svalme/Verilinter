@@ -108,6 +108,12 @@ class Symbol:
     def is_declared(self) -> bool:
         return bool(self.declarations)
 
+    @property
+    def is_intentionally_unused(self) -> bool:
+        """True when the name carries the `unused` marker (`unused_sig`, `data_unused`) that
+        designers use for signals kept on purpose without a reader."""
+        return "unused" in self.name.lower()
+
     def is_explicit_kind(self, kind: str) -> bool:
         """True when this is a genuine, explicitly-declared symbol of `kind`.
 

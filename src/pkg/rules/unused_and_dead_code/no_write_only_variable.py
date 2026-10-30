@@ -19,7 +19,7 @@ class NoWriteOnlyVariableRule(BaseSymbolRule):
             for sym in scope.symbols.values():
                 if not sym.is_explicit_kind("variable"):
                     continue
-                if sym.is_port:
+                if sym.is_port or sym.is_intentionally_unused:
                     continue
                 if not sym.is_written or sym.is_read:
                     continue

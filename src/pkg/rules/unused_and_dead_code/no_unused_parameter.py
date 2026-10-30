@@ -18,7 +18,9 @@ class NoUnusedParameterRule(BaseSymbolRule):
             for sym in scope.symbols.values():
                 if not sym.is_explicit_kind("parameter"):
                     continue
-                if sym.is_read:
+                if sym.is_read or sym.is_intentionally_unused:
+                    continue
+                if getattr(sym.scope, "kind", None) == "package":
                     continue
 
                 loc = sym.declarations[0]

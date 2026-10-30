@@ -1,3 +1,3 @@
 module dup_mod;
-  real unused_sig;
+  real spare_sig;
 endmodule

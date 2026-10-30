@@ -12,7 +12,7 @@ from src.pkg.walk.walker import Walker
 
 UNUSED_PARAMETER_CODE = """
 module top(input logic a, output logic y);
-  parameter UNUSED_WIDTH = 8;
+  parameter SPARE_WIDTH = 8;
   assign y = a;
 endmodule
 """
@@ -26,14 +26,14 @@ endmodule
 
 UNUSED_LOCALPARAM_CODE = """
 module top(input logic a, output logic y);
-  localparam UNUSED_DEPTH = 4;
+  localparam SPARE_DEPTH = 4;
   assign y = a;
 endmodule
 """
 
 UNUSED_ORDINARY_VARIABLE_CODE = """
 module top(input logic a, output logic y);
-  logic unused_var;
+  logic spare_var;
   assign y = a;
 endmodule
 """
@@ -92,7 +92,29 @@ class TestNoUnusedParameterRule:
 
         assert len(diagnostics) == 1
         assert diagnostics[0]["code"] == "NO_UNUSED_PARAMETER"
-        assert "UNUSED_WIDTH" in diagnostics[0]["message"]
+        assert "SPARE_WIDTH" in diagnostics[0]["message"]
+
+    def test_ignores_package_parameter_and_unused_named_parameter(self, rule: NoUnusedParameterRule) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = parse_text(
+            """
+            package pkg;
+              parameter int PublicConstant = 3;
+            endpackage
+            module top #(parameter UNUSED_PAD = 1, parameter REAL_UNUSED_WIDTH = 8, parameter SPARE = 2)
+              (input logic a, output logic y);
+              assign y = a;
+            endmodule
+            """
+        )
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        names = [d["message"] for d in rule.run(symbol_table)]
+
+        assert names == ["Unused parameter 'SPARE'"]
 
     def test_against_real_parsed_source_used_parameter(self, rule: NoUnusedParameterRule) -> None:
         symbol_table = SymbolTable()
@@ -116,7 +138,7 @@ class TestNoUnusedParameterRule:
 
         assert len(diagnostics) == 1
         assert diagnostics[0]["code"] == "NO_UNUSED_PARAMETER"
-        assert "UNUSED_DEPTH" in diagnostics[0]["message"]
+        assert "SPARE_DEPTH" in diagnostics[0]["message"]
 
     def test_against_real_parsed_source_does_not_flag_ordinary_variable(
         self, rule: NoUnusedParameterRule

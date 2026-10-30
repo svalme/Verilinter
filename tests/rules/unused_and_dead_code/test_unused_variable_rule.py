@@ -37,6 +37,15 @@ class TestUnusedVariableRule:
         assert diagnostics[0]["col"] == 8
         assert "x" in diagnostics[0]["message"]
 
+    @pytest.mark.parametrize("name", ["unused_sig", "UNUSED", "data_unused", "_unused_bits"])
+    def test_does_not_flag_variable_named_as_intentionally_unused(self, rule: UnusedVariableRule, name: str) -> None:
+        st = SymbolTable()
+        sym = Symbol(name=name, kind="variable")
+        sym.add_declaration({"line": 2, "col": 8})
+        st.global_scope.define(sym)
+
+        assert rule.run(st) == []
+
     def test_does_not_flag_variable_that_is_used(self, rule: UnusedVariableRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="x", kind="variable")

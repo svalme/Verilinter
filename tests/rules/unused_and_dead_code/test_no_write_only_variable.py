@@ -58,6 +58,19 @@ class TestNoWriteOnlyVariableRule:
         assert diagnostics[0]["code"] == "NO_WRITE_ONLY_VARIABLE"
         assert "x" in diagnostics[0]["message"]
 
+    @pytest.mark.parametrize("name", ["unused_sig", "data_unused", "_unused_bits"])
+    def test_does_not_flag_write_only_variable_named_as_intentionally_unused(
+        self, rule: NoWriteOnlyVariableRule, name: str
+    ) -> None:
+        symbol_table = SymbolTable()
+        ctx = Context(scope=symbol_table.global_scope)
+        walker = Walker(dispatch)
+
+        tree = parse_text(WRITE_ONLY_VARIABLE_CODE.replace(" x", f" {name}").replace("x =", f"{name} ="))
+        walker.walk(tree.root, tree, ctx, symbol_table)
+
+        assert rule.run(symbol_table) == []
+
     def test_does_not_flag_variable_that_is_read(self, rule: NoWriteOnlyVariableRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="x", kind="variable")

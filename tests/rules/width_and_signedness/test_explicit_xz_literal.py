@@ -113,18 +113,56 @@ class TestExplicitXZLiteralRule:
 
         assert len(diagnostics) == 1
 
-    def test_flags_literal_with_question_mark_wildcard_bit(self) -> None:
-        # `?` is a legal literal-digit synonym for `z`, and is checked
-        # alongside `x`/`z` by `is_explicit_xz_literal`.
+    def test_allows_question_mark_wildcard_digits(self) -> None:
+        # `?` is wildcard notation, so a literal made of `?` and 0/1 digits is not an X/Z value.
         diagnostics = _diagnostics(
             """
             module top(output [3:0] y);
-              assign y = 4'b10?1;
+              parameter logic [3:0] MASK = 4'b10?1;
+              assign y = MASK;
             endmodule
             """
         )
 
-        assert len(diagnostics) == 1
+        assert diagnostics == []
+
+    def test_allows_xz_digits_in_wildcard_match_patterns(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input logic [3:0] a, output logic y, z, w);
+              always_comb begin
+                casez (a)
+                  4'b1zz0: y = 1'b1;
+                  default: y = 1'b0;
+                endcase
+                z = (a ==? 4'b1xx0);
+                w = (a inside {4'b1zz1});
+              end
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_xz_value_inside_case_item_body_and_plain_case(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input logic [3:0] a, output logic y, z);
+              always_comb begin
+                casez (a)
+                  4'b1???: y = 1'bx;
+                  default: y = 1'b0;
+                endcase
+                case (a)
+                  4'bx000: z = 1'b1;
+                  default: z = 1'b0;
+                endcase
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 2
 
     def test_flags_literal_used_as_case_item_not_only_assigned_values(self) -> None:
         # Unlike NO_UNSIZED_LITERAL (which only fires on a literal in direct

@@ -79,12 +79,12 @@ def test_temp_file_harness_preserves_generated_file_names(
         {
             "a.sv": """
             module dup_mod;
-              real unused_sig;
+              real spare_sig;
             endmodule
             """,
             "b.sv": """
             module dup_mod;
-              real unused_sig;
+              real spare_sig;
             endmodule
             """,
         }
@@ -144,12 +144,12 @@ def test_inline_and_temp_file_harnesses_agree_on_duplicate_module_case(
     files = {
         "a.sv": """
         module dup_mod;
-          real unused_sig;
+          real spare_sig;
         endmodule
         """,
         "b.sv": """
         module dup_mod;
-          real unused_sig;
+          real spare_sig;
         endmodule
         """,
     }

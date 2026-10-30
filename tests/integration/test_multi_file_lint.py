@@ -37,7 +37,7 @@ def _walk_files(paths: list[Path]) -> tuple[Walker, SymbolTable]:
 
 class TestMultiFileLinting:
     """dup_module_a.v and dup_module_b.v both declare `module dup_mod` with an
-    unused `real unused_sig`, so linting them together should register one
+    unused `real spare_sig`, so linting them together should register one
     duplicate module and two distinct unused-variable diagnostics."""
 
     def test_module_registry_spans_files(self) -> None:
@@ -70,7 +70,7 @@ class TestMultiFileLinting:
         _, symbol_table = _walk_files([FILE_A, FILE_B])
 
         diagnostics = symbol_rule_runner.run(symbol_table)
-        unused = [d for d in diagnostics if "unused_sig" in d["message"]]
+        unused = [d for d in diagnostics if "spare_sig" in d["message"]]
 
         assert len(unused) == 2
         assert all("file" in d for d in unused)

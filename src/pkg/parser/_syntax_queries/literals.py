@@ -11,6 +11,7 @@ from ..syntax_kinds import (
     EQUALITY_EXPRESSION_KIND,
     FOR_LOOP_STATEMENT_KIND,
     INEQUALITY_EXPRESSION_KIND,
+    INSIDE_EXPRESSION_KIND,
     INTEGER_LITERAL_EXPRESSION_KIND,
     INTEGER_VECTOR_EXPRESSION_KIND,
     MOD_EXPRESSION_KIND,
@@ -22,8 +23,11 @@ from ..syntax_kinds import (
     READ_WRITE_UNARY_KINDS,
     SHIFT_EXPRESSION_KINDS,
     SIMPLE_ASSIGNMENT_KINDS,
+    STANDARD_CASE_ITEM_KIND,
     UNARY_MINUS_EXPRESSION_KIND,
     UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
+    WILDCARD_EQUALITY_EXPRESSION_KIND,
+    WILDCARD_INEQUALITY_EXPRESSION_KIND,
 )
 from ..types import IDENTIFIER_NAME_NODE_TYPES, ProceduralBlockNode, DeclaratorNode
 
@@ -178,6 +182,40 @@ def is_explicit_xz_literal(raw: object) -> bool:
     if getattr(raw, "kind", None) == UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND:
         return text in ("x", "z")
     return any(ch in "xz?" for ch in text)
+
+
+def _is_wildcard_match_operand(raw: object) -> bool:
+    """True if `raw` is part of a pattern that matches by wildcard: a `casez`/`casex` item
+    expression, an operand of `==?`/`!=?`, or the right-hand set of `inside`."""
+    child = raw
+    parent = getattr(raw, "parent", None)
+    for _ in range(64):
+        if parent is None:
+            return False
+        kind = getattr(parent, "kind", None)
+        if kind in (WILDCARD_EQUALITY_EXPRESSION_KIND, WILDCARD_INEQUALITY_EXPRESSION_KIND):
+            return True
+        if kind == INSIDE_EXPRESSION_KIND:
+            return child is not getattr(parent, "expr", None)
+        if kind == STANDARD_CASE_ITEM_KIND:
+            statement = getattr(parent, "parent", None)
+            style = getattr(getattr(statement, "caseKeyword", None), "kind", None)
+            in_expressions = any(child is item for item in (getattr(parent, "expressions", None) or ()))
+            return in_expressions and style in (CASEX_KEYWORD_TOKEN_KIND, CASEZ_KEYWORD_TOKEN_KIND)
+        child, parent = parent, getattr(parent, "parent", None)
+    return False
+
+
+def is_explicit_xz_value_literal(raw: object) -> bool:
+    """True if `raw` is an explicit x/z literal written as a value. Literals made only of `?`
+    digits are wildcard notation, and x/z digits inside a wildcard-match pattern are the
+    pattern itself, so neither counts."""
+    if not is_explicit_xz_literal(raw):
+        return False
+    text = _xz_literal_bit_text(raw) or ""
+    if not any(ch in "xz" for ch in text):
+        return False
+    return not _is_wildcard_match_operand(raw)
 
 
 def is_xz_equality_comparison(raw: object) -> bool:
