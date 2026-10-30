@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class NoUnsizedLiteralRule(Rule):
     code = "NO_UNSIZED_LITERAL"
     message = "Unsized decimal literal used as an assigned value; its width will be inferred and may mismatch the target"
-    category = "rtl_correctness"
+    category = "rtl_style"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = LITERAL_EXPRESSION_NODE_TYPES
 

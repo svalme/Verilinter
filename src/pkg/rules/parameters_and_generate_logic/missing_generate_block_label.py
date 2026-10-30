@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class MissingGenerateBlockLabelRule(Rule):
     code = "MISSING_GENERATE_BLOCK_LABEL"
     message = "Generate block is missing an explicit label"
-    category = "rtl_style"
+    category = "rtl_correctness"
     default_profiles = ("legacy_verilog",)
     target_node_types = (GenerateBlockNode,)
 

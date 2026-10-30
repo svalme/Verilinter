@@ -39,7 +39,7 @@ class PortConnectionWidthMismatchRule(BaseSymbolRule):
 @module_rule_runner.register
 class PortConnectionWidthUnknownRule(BaseSymbolRule):
     code = "PORT_CONNECTION_WIDTH_UNKNOWN"
-    category = "module_correctness"
+    category = "analysis_limits"
     default_profiles = ("rtl_strict", "sv_rtl_subset")
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
