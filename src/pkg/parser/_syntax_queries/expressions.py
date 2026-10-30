@@ -19,6 +19,7 @@ from ..syntax_kinds import (
     ELEMENT_SELECT_EXPRESSION_KIND,
     IDENTIFIER_NAME_KIND,
     IDENTIFIER_SELECT_NAME_KIND,
+    SCOPED_NAME_KIND,
     INTEGER_LITERAL_EXPRESSION_KIND,
     INTEGER_VECTOR_EXPRESSION_KIND,
     INVOCATION_EXPRESSION_KIND,
@@ -86,6 +87,22 @@ _EVALUATABLE_BINARY_KINDS = (
     LOGICAL_AND_EXPRESSION_KIND,
     LOGICAL_OR_EXPRESSION_KIND,
 )
+
+
+def is_width_bounded_operand(expr: object) -> bool:
+    """True for a name, select or concatenation: a value limited to its declared width.
+
+    An arithmetic result such as `a + b` is evaluated at the context width, so it can exceed the
+    width its operands suggest and is not bounded in this sense.
+    """
+    kind = getattr(unwrap_parentheses(expr), "kind", None)
+    return kind in (
+        IDENTIFIER_NAME_KIND,
+        IDENTIFIER_SELECT_NAME_KIND,
+        SCOPED_NAME_KIND,
+        ELEMENT_SELECT_EXPRESSION_KIND,
+        CONCATENATION_EXPRESSION_KIND,
+    )
 
 
 def unwrap_parentheses(expr: object) -> object:

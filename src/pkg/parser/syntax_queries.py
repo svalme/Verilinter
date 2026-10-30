@@ -42,6 +42,7 @@ from ._syntax_queries.expressions import (
     expression_width_and_signed,
     natural_expression_width_and_signed,
     simple_expression_width_and_signed,
+    is_width_bounded_operand,
     unwrap_parentheses,
 )
 from ._syntax_queries.fsm import (

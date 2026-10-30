@@ -43,14 +43,18 @@ class TestComparisonAlwaysConstantRule:
 
     @pytest.mark.parametrize(
         "condition",
-        ["u < 0", "u >= 0", "u > 3'b111", "u > 7", "u <= 7", "r <= 15", "0 > u", "7 < u", "15 >= r"],
+        ["u < 0", "u >= 0", "u > 3'b111", "u > 7", "u <= 7", "r <= 15", "0 > u", "7 < u", "15 >= r", "(u) > 7", "{u, u} > 63"],
     )
     def test_flags_comparison_at_range_limit(self, condition: str) -> None:
         assert len(_diagnostics(condition)) == 1
 
     @pytest.mark.parametrize(
         "condition",
-        ["u > 6", "u < 7", "u >= 1", "u <= 6", "r < 15", "u == 0", "u != 7", "s < 0", "s >= 0", "u < r", "u > 8"],
+        ["u > 6", "u < 7", "u >= 1", "u <= 6", "r < 15", "u == 0", "u != 7", "s < 0", "s >= 0", "u < r", "u > 8", "(u + u) > 7", "(r + r) <= 15", "(u * u) > 7"],
     )
     def test_ignores_comparison_that_can_vary_or_is_not_a_boundary(self, condition: str) -> None:
         assert _diagnostics(condition) == []
+
+    @pytest.mark.parametrize("condition", ["(u + u) < 0", "(r + r) >= 0"])
+    def test_flags_lower_bound_of_arithmetic_operand(self, condition: str) -> None:
+        assert len(_diagnostics(condition)) == 1

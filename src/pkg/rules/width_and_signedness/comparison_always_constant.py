@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from ...parser.syntax import (
     comparison_operands,
     constant_integer_value,
+    is_width_bounded_operand,
     natural_expression_width_and_signed,
     unwrap_parentheses,
 )
@@ -18,19 +19,22 @@ if TYPE_CHECKING:
 _MIRRORED = {"<": ">", "<=": ">=", ">": "<", ">=": "<="}
 
 
-def _always_constant(op: str, constant: int, high: int) -> bool:
+def _always_constant(op: str, constant: int, high: int, bounded: bool) -> bool:
     """True when `variable <op> constant` has one outcome for every value in `[0, high]`.
 
     Constants outside the range are reported by COMPARISON_WIDTH_MISMATCH, so only the boundary cases remain.
+    The lower bound of an unsigned operand always holds; the upper bound needs a `bounded` operand.
     """
     if op == "<":
         return constant == 0
+    if op == ">=":
+        return constant == 0
+    if not bounded:
+        return False
     if op == "<=":
         return constant == high
     if op == ">":
         return constant == high
-    if op == ">=":
-        return constant == 0
     return False
 
 
@@ -50,7 +54,8 @@ def _comparison_always_constant(vnode: BaseVNode, ctx: "Context") -> bool:
         width, signed = natural_expression_width_and_signed(scope, variable, vnode.tree)
         if not isinstance(width, int) or width <= 0 or signed is not False:
             continue
-        if 0 <= constant <= (1 << width) - 1 and _always_constant(effective_op, constant, (1 << width) - 1):
+        bounded = is_width_bounded_operand(variable)
+        if 0 <= constant <= (1 << width) - 1 and _always_constant(effective_op, constant, (1 << width) - 1, bounded):
             return True
     return False
 
