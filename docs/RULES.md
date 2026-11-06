@@ -35,6 +35,17 @@ Guidelines:
   classic synthesizable-RTL exclusions are constructs that strict RTL codebases usually ban because they are legacy, non-synthesizable, or easy to misuse in hardware design;
   SystemVerilog verification-oriented structure rules are constructs that are valid SystemVerilog but are intentionally excluded because this project wants a smaller RTL-focused subset rather than the full language.
 
+
+## Rule Confidence
+
+Each rule declares a `confidence` that appears on its findings in JSON and SARIF output (see `docs/CLI.md`). Rules not listed here are `unreviewed`.
+
+| Confidence | Rules |
+|---|---|
+| `definite` | `EXPLICIT_XZ_LITERAL`, `NO_UNSIZED_LITERAL`, `SELF_COMPARISON` |
+| `heuristic` | `COMPARISON_ALWAYS_CONSTANT`, `COMPARISON_SIGNEDNESS_MISMATCH`, `INFINITELOOP`, `NO_UNUSED_PARAMETER`, `NO_WRITE_ONLY_VARIABLE`, `UNUSED_VARIABLE` |
+| `analysis_limit` | `PORT_CONNECTION_WIDTH_UNKNOWN` |
+
 ## Syntax and Structure
 
 Rules in `src/pkg/rules/syntax_and_structure/`.

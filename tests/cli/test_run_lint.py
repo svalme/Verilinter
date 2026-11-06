@@ -1265,7 +1265,8 @@ class TestMain:
 
         captured = capsys.readouterr()
         assert result == 0
-        assert captured.err == ""
+        assert captured.err.startswith("Verilinter ")
+        assert "Verilinter" not in captured.out
 
     def test_main_returns_one_for_missing_file(self, capsys: pytest.CaptureFixture[str]) -> None:
         result = main(["does_not_exist.v"])

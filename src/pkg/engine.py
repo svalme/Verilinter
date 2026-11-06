@@ -85,6 +85,7 @@ class AnalysisResult:
     symbol_table: SymbolTable
     cache_stats: dict[str, int] | None = None
     truncations: list[dict[str, Any]] = field(default_factory=list)
+    suppressed_by_baseline: int = 0
 
 
 def collect_paths(raw: list[str], exclude: list[str] | None = None) -> list[Path]:
@@ -946,7 +947,9 @@ class LintPipeline:
         diagnostics.extend(_mod_runner.run(cross_file_symbol_table, resolved_selection))
         diagnostics = enrich_diagnostics(diagnostics, severity_overrides)
         diagnostics = sort_diagnostics(diagnostics)
+        reported_count = len(diagnostics)
         diagnostics = filter_by_baseline(diagnostics, baseline_path)
+        suppressed_by_baseline = reported_count - len(diagnostics)
         if store is not None:
             try:
                 store.record_run(
@@ -970,6 +973,7 @@ class LintPipeline:
             if store is not None
             else None,
             truncations=truncations,
+            suppressed_by_baseline=suppressed_by_baseline,
         )
 
 

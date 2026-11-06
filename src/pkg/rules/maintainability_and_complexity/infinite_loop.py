@@ -20,6 +20,7 @@ class InfiniteLoopRule(Rule):
     code = "INFINITELOOP"
     message = "Infinite loop condition is always true and lacks exit or timing control"
     category = "rtl_correctness"
+    confidence = "heuristic"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = (
         ForeverStatementNode,

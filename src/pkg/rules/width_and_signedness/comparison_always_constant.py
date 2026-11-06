@@ -65,6 +65,7 @@ class ComparisonAlwaysConstantRule(Rule):
     code = "COMPARISON_ALWAYS_CONSTANT"
     message = "Comparison of an unsigned operand against the limit of its range always has the same result"
     category = "rtl_correctness"
+    confidence = "heuristic"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = (BinaryExpressionNode,)
 

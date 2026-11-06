@@ -9,6 +9,7 @@ from ..symbol_rule_runner import symbol_rule_runner
 class NoWriteOnlyVariableRule(BaseSymbolRule):
     code = "NO_WRITE_ONLY_VARIABLE"
     category = "semantic_correctness"
+    confidence = "heuristic"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     overlaps_with = ("UNUSED_VARIABLE",)
 

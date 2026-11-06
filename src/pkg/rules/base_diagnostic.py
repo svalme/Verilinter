@@ -8,6 +8,10 @@ class BaseDiagnostic(ABC):
     code: str = "UNSPEC"
     message: str = "No message"
     category: str = "uncategorized"
+    # How much the tool trusts a finding: "definite" (exact pattern match), "heuristic" (depends on
+    # an estimate that can be wrong), "analysis_limit" (the tool could not decide), or "unreviewed"
+    # (not yet classified). See VALID_CONFIDENCES in diagnostics.py.
+    confidence: str = "unreviewed"
     default_profiles: tuple[str, ...] = ()
     # Purely declarative cross-reference: other rule codes that can plausibly
     # co-fire with (or need to be suppressed relative to) this one on the same

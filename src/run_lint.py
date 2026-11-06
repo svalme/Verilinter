@@ -17,10 +17,11 @@ try:
         collect_paths,
         run,
     )
-    from src.pkg.output import render_connection_report, render_diagnostics
+    from src.pkg.output import format_summary, render_connection_report, render_diagnostics
     from src.pkg.parser.parse import extract_parse_diagnostics, file_uses_default_nettype_none, parse_file
     from src.pkg.rules.profiles import available_rule_profiles
     from src.pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
+    from src.pkg.version import tool_version
     from src.pkg.walk.walker import Walker
 except ImportError:
     from pkg.analysis_store import AnalysisStore
@@ -33,10 +34,11 @@ except ImportError:
         collect_paths,
         run,
     )
-    from pkg.output import render_connection_report, render_diagnostics
+    from pkg.output import format_summary, render_connection_report, render_diagnostics
     from pkg.parser.parse import extract_parse_diagnostics, file_uses_default_nettype_none, parse_file
     from pkg.rules.profiles import available_rule_profiles
     from pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
+    from pkg.version import tool_version
     from pkg.walk.walker import Walker
 
 __all__ = [
@@ -426,6 +428,16 @@ def main(argv: list[str] | None = None) -> int:
         config.output_path.write_text(rendered, encoding="utf-8")
     else:
         sys.stdout.write(rendered)
+
+    if config.fmt == "text" and args.report != "connections":
+        sys.stderr.write(
+            format_summary(
+                analysis.diagnostics,
+                len(paths),
+                tool_version(),
+                suppressed=getattr(analysis, "suppressed_by_baseline", 0),
+            )
+        )
 
     # Compute exit code
     if config.exit_zero:

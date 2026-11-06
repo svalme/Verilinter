@@ -321,6 +321,14 @@ Default diagnostic format:
 path/to/file.sv:12:7 - [RULE_CODE] [WARNING] Message text
 ```
 
+After the findings, a one-line run summary is written to `stderr`, so `stdout` carries only the findings:
+
+```text
+Verilinter 0.1.0: 14 findings in 3 of 5 files (0 error, 9 warning, 5 info); 2 suppressed by baseline; 1 file failed to parse.
+```
+
+The summary gives the tool version, the finding count by severity, how many of the analyzed files have findings, the number of findings removed by `--baseline`, and the number of files that failed to parse. The last two parts appear only when they are not zero. A run with no findings prints `Verilinter 0.1.0: no findings in 5 files.` The summary appears only for `--format text`.
+
 ### JSON Output
 
 Useful for scripts and tooling:
@@ -329,6 +337,15 @@ Useful for scripts and tooling:
 verilinter --format json tests/data
 ```
 
+Each diagnostic has `code`, `category`, `severity`, `confidence`, `file`, `line`, `col` and `message`.
+
+`confidence` says how much the tool trusts the finding:
+
+- `definite`: the rule matched the exact pattern it checks.
+- `heuristic`: the result depends on an estimate that can be wrong, such as an inferred width or signedness.
+- `analysis_limit`: the tool could not decide, so the finding reports its own uncertainty and says nothing about the code.
+- `unreviewed`: the rule has not been classified yet.
+
 ### SARIF Output
 
 Useful for CI systems, code scanning, or editor integrations:
@@ -336,6 +353,8 @@ Useful for CI systems, code scanning, or editor integrations:
 ```bash
 verilinter --format sarif tests/data
 ```
+
+SARIF results carry `category`, `severity` and `confidence` under `properties`, and each rule entry lists its `category`, `defaultSeverity` and `confidence`.
 
 ### Parser and Syntax Errors
 

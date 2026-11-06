@@ -33,6 +33,32 @@ def format_text(diagnostics: list[Diagnostic]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def format_summary(
+    diagnostics: list[Diagnostic],
+    file_count: int,
+    version: str,
+    suppressed: int = 0,
+) -> str:
+    """One-line run summary: tool version, finding counts by severity, files, suppressed, parse failures."""
+    parse_failures = len({d.get("file") for d in diagnostics if d.get("code") == "PARSER_ERROR"})
+    files_noun = "file" if file_count == 1 else "files"
+    parts = [f"Verilinter {version}:"]
+    if diagnostics:
+        counts = {level: sum(1 for d in diagnostics if d.get("severity") == level) for level in ("error", "warning", "info")}
+        files_with_findings = len({d.get("file") for d in diagnostics if d.get("file")})
+        noun = "finding" if len(diagnostics) == 1 else "findings"
+        by_severity = ", ".join(f"{counts[level]} {level}" for level in ("error", "warning", "info"))
+        parts.append(f"{len(diagnostics)} {noun} in {files_with_findings} of {file_count} {files_noun} ({by_severity})")
+    else:
+        parts.append(f"no findings in {file_count} {files_noun}")
+    summary = " ".join(parts)
+    if suppressed:
+        summary += f"; {suppressed} suppressed by baseline"
+    if parse_failures:
+        summary += f"; {parse_failures} {'file' if parse_failures == 1 else 'files'} failed to parse"
+    return summary + ".\n"
+
+
 def format_json(diagnostics: list[Diagnostic]) -> str:
     return json.dumps(diagnostics, indent=2) + "\n"
 
@@ -55,6 +81,7 @@ def format_sarif(diagnostics: list[Diagnostic]) -> str:
             "properties": {
                 "category": item.category,
                 "defaultSeverity": item.default_severity,
+                "confidence": item.confidence,
             },
         }
         for code, item in sorted(metadata.items())
@@ -69,6 +96,7 @@ def format_sarif(diagnostics: list[Diagnostic]) -> str:
             "properties": {
                 "category": diagnostic.get("category"),
                 "severity": diagnostic.get("severity"),
+                "confidence": diagnostic.get("confidence"),
             },
         }
         if diagnostic.get("file"):

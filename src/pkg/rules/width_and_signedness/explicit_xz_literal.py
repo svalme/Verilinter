@@ -15,6 +15,7 @@ class ExplicitXZLiteralRule(Rule):
     code = "EXPLICIT_XZ_LITERAL"
     message = "Explicit X/Z literal used as a value; unsynthesizable and defeats reset/comparison determinism"
     category = "rtl_correctness"
+    confidence = "definite"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = LITERAL_EXPRESSION_NODE_TYPES
 

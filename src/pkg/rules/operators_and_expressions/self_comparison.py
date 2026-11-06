@@ -15,6 +15,7 @@ class SelfComparisonRule(Rule):
     code = "SELF_COMPARISON"
     message = "Signal is compared with itself"
     category = "rtl_correctness"
+    confidence = "definite"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = (BinaryExpressionNode,)
 

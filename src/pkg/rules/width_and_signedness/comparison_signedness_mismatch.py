@@ -61,6 +61,7 @@ class ComparisonSignednessMismatchRule(Rule):
     code = "COMPARISON_SIGNEDNESS_MISMATCH"
     message = "Comparison mixes signed and unsigned operands"
     category = "rtl_correctness"
+    confidence = "heuristic"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = (BinaryExpressionNode,)
 

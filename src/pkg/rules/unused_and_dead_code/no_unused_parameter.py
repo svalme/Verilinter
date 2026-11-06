@@ -9,6 +9,7 @@ from ..symbol_rule_runner import symbol_rule_runner
 class NoUnusedParameterRule(BaseSymbolRule):
     code = "NO_UNUSED_PARAMETER"
     category = "semantic_correctness"
+    confidence = "heuristic"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:

@@ -97,7 +97,7 @@ This is a textual scan for literal filename references, so it misses tests that 
 | `tests/data/read_before_write.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/real_type.v` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/repeat_loop.v` | 1 | `tests/cli/test_run_lint.py` |
-| `tests/data/self_assignment.v` | 5 | `tests/cli/test_cli_architecture.py`<br>`tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/storage/test_analysis_store.py` |
+| `tests/data/self_assignment.v` | 6 | `tests/cli/test_cli_architecture.py`<br>`tests/cli/test_cli_execution_modes.py`<br>`tests/cli/test_cli_features.py`<br>`tests/cli/test_run_lint.py`<br>`tests/storage/test_analysis_store.py`<br>`tests/unit/test_report_output.py` |
 | `tests/data/sequence_declaration.sv` | 1 | `tests/cli/test_run_lint.py` |
 | `tests/data/simple.v` | 8 | `tests/cli/test_cli_architecture.py`<br>`tests/cli/test_run_lint.py`<br>`tests/handlers/identifier/integration/test_identifier_handler_integration.py`<br>`tests/handlers/identifier/unit/test_identifier.py`<br>`tests/rules/declarations_and_types/test_no_implicit_net.py`<br>`tests/rules/declarations_and_types/test_undeclared_variable.py`<br>`tests/rules/unused_and_dead_code/test_unused_variable_rule.py`<br>`tests/walk/print_tree_test.py` |
 | `tests/data/simulation_control_task.v` | 1 | `tests/cli/test_run_lint.py` |

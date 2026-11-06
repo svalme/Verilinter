@@ -10,6 +10,7 @@ from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_r
 Diagnostic = dict[str, Any]
 Severity = str
 VALID_SEVERITIES = frozenset({"error", "warning", "info"})
+VALID_CONFIDENCES = frozenset({"definite", "heuristic", "analysis_limit", "unreviewed"})
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,7 @@ class RuleMetadata:
     category: str
     default_severity: Severity
     message: str
+    confidence: str = "unreviewed"
 
 
 def metadata_by_code() -> dict[str, RuleMetadata]:
@@ -27,6 +29,7 @@ def metadata_by_code() -> dict[str, RuleMetadata]:
             category="syntax_and_structure",
             default_severity="error",
             message="Syntax error or parser failure reported by the parser.",
+            confidence="definite",
         )
     }
 
@@ -37,6 +40,7 @@ def metadata_by_code() -> dict[str, RuleMetadata]:
                 category=rule.category,
                 default_severity=getattr(rule, "severity", "warning"),
                 message=rule.message,
+                confidence=getattr(rule, "confidence", "unreviewed"),
             )
 
     return metadata
@@ -55,12 +59,14 @@ def enrich_diagnostics(
         rule_metadata = metadata.get(copy["code"])
         if rule_metadata is not None:
             copy.setdefault("category", rule_metadata.category)
+            copy.setdefault("confidence", rule_metadata.confidence)
             copy.setdefault(
                 "severity",
                 severity_overrides.get(rule_metadata.code, rule_metadata.default_severity),
             )
         else:
             copy.setdefault("category", "uncategorized")
+            copy.setdefault("confidence", "unreviewed")
             copy.setdefault("severity", severity_overrides.get(copy["code"], "warning"))
         enriched.append(copy)
 
