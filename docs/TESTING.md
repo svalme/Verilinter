@@ -160,6 +160,11 @@ test, run, or the code under test to pick up.
   per-module `Context` data and are keyed through `node_cache` (see
   `CONTRIBUTING.md`), so a new module or run always starts empty. Module-level
   `lru_cache` or global dicts holding analysis results are not allowed.
+- **Concurrency tests do not rely on one lucky interleaving.** A test that starts
+  competing processes repeats the round, each with a fresh store, and a test of a
+  specific lock path holds the contended lock deterministically (see
+  `test_open_waits_for_a_competing_writer_instead_of_failing`). A single round of
+  contenders can pass for months and still hide a race.
 - **A failure that passes on rerun is a bug,** not noise. Run the test alone and
   in the full suite, with and without `VERILINTER_TEST_TIME_SCALE`, and look for
   state shared between runs before retrying or loosening an assertion.

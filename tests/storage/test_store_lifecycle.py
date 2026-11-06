@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import subprocess
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -319,27 +320,32 @@ def _spawn(script: str, *args: str) -> subprocess.Popen:
     )
 
 
+_CONCURRENT_ROUNDS = 8
+
+
 @pytest.mark.parametrize("historical", [False, True])
 def test_concurrent_openers_create_or_migrate_exactly_once(historical: bool) -> None:
-    store_path = make_scratch("_tmp_store_lifecycle", f"concurrent_open_{historical}") / "verilinter.sqlite"
-    if historical:
-        _build_historical_store(store_path, "1", cascade=False)
-
-    procs = [_spawn(_OPEN_STORE_SCRIPT, str(store_path)) for _ in range(4)]
-    outputs = [(proc.wait(timeout=120), proc.stderr.read()) for proc in procs]
-
-    assert [code for code, _ in outputs] == [0, 0, 0, 0], outputs
-    conn = sqlite3.connect(store_path)
-    try:
-        versions = conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchall()
-        assert versions == [(SCHEMA_VERSION,)]
+    # Contention is timing-dependent, so one round can pass by luck; every round uses a fresh store.
+    for round_index in range(_CONCURRENT_ROUNDS):
+        store_path = make_scratch("_tmp_store_lifecycle", f"concurrent_open_{historical}_{round_index}") / "verilinter.sqlite"
         if historical:
-            for table in _RUN_CHILD_ROWS:
-                assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1
-            assert conn.execute("SELECT COUNT(*) FROM cached_file_analysis").fetchone()[0] == 1
-    finally:
-        conn.close()
-    assert not any(name.endswith("_v2") for name in _table_names(store_path))
+            _build_historical_store(store_path, "1", cascade=False)
+
+        procs = [_spawn(_OPEN_STORE_SCRIPT, str(store_path)) for _ in range(4)]
+        outputs = [(proc.wait(timeout=120), proc.stderr.read()) for proc in procs]
+
+        assert [code for code, _ in outputs] == [0, 0, 0, 0], (round_index, outputs)
+        conn = sqlite3.connect(store_path)
+        try:
+            versions = conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchall()
+            assert versions == [(SCHEMA_VERSION,)]
+            if historical:
+                for table in _RUN_CHILD_ROWS:
+                    assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1
+                assert conn.execute("SELECT COUNT(*) FROM cached_file_analysis").fetchone()[0] == 1
+        finally:
+            conn.close()
+        assert not any(name.endswith("_v2") for name in _table_names(store_path))
 
 
 @pytest.mark.parametrize("die_after", [2, 12])
@@ -412,3 +418,23 @@ def test_store_locked_by_another_writer_degrades_with_warning(
 
     recovered = analyze([PORT_DATA], store_path=store_path)
     assert recovered.cache_stats == {"hits": 1, "misses": 0}
+
+
+def test_open_waits_for_a_competing_writer_instead_of_failing() -> None:
+    """A competing writer holding the lock while a new store switches to WAL delays the open; it never raises 'database is locked'."""
+    store_path = make_scratch("_tmp_store_lifecycle", "open_waits_for_writer") / "verilinter.sqlite"
+    holder = sqlite3.connect(store_path, timeout=0, isolation_level=None, check_same_thread=False)
+    holder.execute("BEGIN IMMEDIATE")
+    holder.execute("CREATE TABLE competing(x)")
+    released = threading.Timer(0.5, lambda: holder.execute("COMMIT"))
+    released.start()
+    try:
+        AnalysisStore(store_path)
+    finally:
+        released.join()
+        holder.close()
+    conn = sqlite3.connect(store_path)
+    try:
+        assert conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchall() == [(SCHEMA_VERSION,)]
+    finally:
+        conn.close()

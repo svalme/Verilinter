@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -14,6 +15,8 @@ from .semantic.symbol_table import SymbolTable
 SCHEMA_VERSION = "3"
 ANALYZER_CACHE_VERSION = "2026-10-06-symbol-serialization-and-port-inheritance"
 BUSY_TIMEOUT_SECONDS = 30.0
+_WAL_RETRY_DELAY_SECONDS = 0.02
+_WAL_RETRY_ATTEMPTS = int(BUSY_TIMEOUT_SECONDS / _WAL_RETRY_DELAY_SECONDS)
 
 
 def utc_now_iso() -> str:
@@ -180,7 +183,7 @@ class AnalysisStore:
         conn = self._connect()
         conn.isolation_level = None
         try:
-            conn.execute("PRAGMA journal_mode = WAL")
+            self._enable_wal(conn)
             conn.execute("BEGIN IMMEDIATE")
             try:
                 self._apply_schema(conn)
@@ -191,6 +194,27 @@ class AnalysisStore:
                 raise
         finally:
             conn.close()
+
+    @staticmethod
+    def _enable_wal(conn: sqlite3.Connection) -> None:
+        # Switching a database file into WAL mode needs a lock that SQLite does not
+        # wait for with the busy timeout, so concurrent first openers can see
+        # "database is locked" immediately. Retry for the same budget the other
+        # statements get.
+        last_error: sqlite3.OperationalError | None = None
+        for _ in range(_WAL_RETRY_ATTEMPTS):
+            if str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal":
+                return
+            try:
+                conn.execute("PRAGMA journal_mode = WAL").fetchone()
+                return
+            except sqlite3.OperationalError as exc:
+                if "locked" not in str(exc):
+                    raise
+                last_error = exc
+                time.sleep(_WAL_RETRY_DELAY_SECONDS)
+        assert last_error is not None
+        raise last_error
 
     def _apply_schema(self, conn: sqlite3.Connection) -> None:
         # The statements contain no embedded semicolons, so splitting is safe.
