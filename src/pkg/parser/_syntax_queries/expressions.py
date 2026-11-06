@@ -13,6 +13,7 @@ from ..syntax_kinds import (
     BINARY_OR_EXPRESSION_KIND,
     BINARY_XOR_EXPRESSION_KIND,
     BIT_SELECT_KIND,
+    BITWISE_BINARY_EXPRESSION_KINDS,
     CONCATENATION_EXPRESSION_KIND,
     CONDITIONAL_EXPRESSION_KIND,
     DIVIDE_EXPRESSION_KIND,
@@ -30,6 +31,7 @@ from ..syntax_kinds import (
     MOD_EXPRESSION_KIND,
     MULTIPLE_CONCATENATION_EXPRESSION_KIND,
     MULTIPLY_EXPRESSION_KIND,
+    ONE_BIT_RESULT_EXPRESSION_KINDS,
     PARENTHESIZED_EXPRESSION_KIND,
     POWER_EXPRESSION_KIND,
     RANGE_SELECT_KINDS,
@@ -130,6 +132,12 @@ def unwrap_parentheses(expr: object) -> object:
         else:
             break
     return expr
+
+
+def _is_constant_symbol_operand(scope: object, expr: object) -> bool:
+    """True for a name that resolves to a parameter, localparam or enum member."""
+    symbol = _resolve_symbol_in_scope(scope, identifier_name(unwrap_parentheses(expr)) or "")
+    return bool(getattr(symbol, "is_compile_time_constant", False))
 
 
 def _resolve_symbol_in_scope(scope: object, name: str) -> object:
@@ -894,6 +902,8 @@ def natural_expression_width_and_signed(
     - Add/subtract: `max(left_width, right_width)`.
     - Multiply: full-product capacity `left_width + right_width`.
     - Signedness: signed only when both operands are known signed.
+    - Comparison, logical and reduction operators: one unsigned bit.
+    - Bitwise operators: the widest operand (`~x`: the width of `x`).
     Casts form self-determined boundaries and addition carry-out is excluded.
     """
     if not isinstance(expr, SyntaxNode):
@@ -991,6 +1001,28 @@ def natural_expression_width_and_signed(
             elif all_signed is not None and not b_signed:
                 all_signed = False
         return max_width, all_signed
+
+    # A bitwise operator is as wide as its widest operand; `~x` is as wide as `x`. A parameter operand adapts
+    # to the other operand and to the target (`localparam integer` is 32 bits wide but holds a small value),
+    # so its declared width is not the width of the result.
+    if kind in BITWISE_BINARY_EXPRESSION_KINDS:
+        if _is_constant_symbol_operand(scope, getattr(expr, "left", None)) or _is_constant_symbol_operand(
+            scope, getattr(expr, "right", None)
+        ):
+            return None, None
+        left_width, left_signed = natural_expression_width_and_signed(scope, getattr(expr, "left", None), tree)
+        right_width, right_signed = natural_expression_width_and_signed(scope, getattr(expr, "right", None), tree)
+        if not isinstance(left_width, int) or not isinstance(right_width, int):
+            return None, None
+        if left_signed is None or right_signed is None:
+            return max(left_width, right_width), None
+        return max(left_width, right_width), left_signed and right_signed
+    if kind == UNARY_BITWISE_NOT_EXPRESSION_KIND:
+        return natural_expression_width_and_signed(scope, getattr(expr, "operand", None), tree)
+
+    # Comparisons, logical operators and reductions yield one unsigned bit whatever their operand widths.
+    if kind in ONE_BIT_RESULT_EXPRESSION_KINDS:
+        return 1, False
 
     # A cast is a self-determined boundary: do not propagate a hypothetical
     # full product width through it.

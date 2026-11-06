@@ -352,3 +352,56 @@ class TestExpressionEngine:
             assert s_nat is False
 
         assert len(truncations) == 0, f"Expected 0 truncations on 64-operand add, got {truncations}"
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "a == b", "a != b", "a === b", "a !== b", "a ==? b", "a < b", "a <= b", "a > b", "a >= b",
+        "a && b", "a || b", "!a", "&a", "|a", "^a", "~&a", "~|a", "~^a",
+    ],
+)
+def test_comparison_logical_and_reduction_operators_are_one_unsigned_bit(test_scope, expression):
+    rhs, tree = _get_rhs(f"assign w = {expression};")
+
+    assert natural_expression_width_and_signed(test_scope, rhs, tree) == (1, False)
+
+
+def test_one_bit_operator_inside_arithmetic_contributes_one_bit(test_scope):
+    rhs, tree = _get_rhs("assign w = (a == b) + b;")
+
+    assert natural_expression_width_and_signed(test_scope, rhs, tree) == (4, False)
+
+
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ("a & b", (8, False)),
+        ("b | a", (8, False)),
+        ("a ^ b", (8, False)),
+        ("a ~^ b", (8, False)),
+        ("~a", (8, False)),
+        ("~b", (4, False)),
+        ("a & s", (16, False)),
+        ("s ^ s", (16, True)),
+        ("(a & b) | s", (16, False)),
+    ],
+)
+def test_bitwise_operators_are_as_wide_as_the_widest_operand(test_scope, expression, expected):
+    rhs, tree = _get_rhs(f"assign w = {expression};")
+
+    assert natural_expression_width_and_signed(test_scope, rhs, tree) == expected
+
+
+def test_a_bitwise_operator_with_an_unknown_operand_has_unknown_width(test_scope):
+    rhs, tree = _get_rhs("assign w = a & unknown_name;")
+
+    assert natural_expression_width_and_signed(test_scope, rhs, tree) == (None, None)
+
+
+def test_a_bitwise_operator_with_a_parameter_operand_has_unknown_width(test_scope):
+    rhs, tree = _get_rhs("assign w = a | WIDTH;")
+
+    assert natural_expression_width_and_signed(test_scope, rhs, tree) == (None, None)

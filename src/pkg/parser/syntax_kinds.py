@@ -585,6 +585,50 @@ BINARY_OR_EXPRESSION_KIND = _syntax_kind("BinaryOrExpression")
 BINARY_XOR_EXPRESSION_KIND = _syntax_kind("BinaryXorExpression")
 LOGICAL_AND_EXPRESSION_KIND = _syntax_kind("LogicalAndExpression")
 LOGICAL_OR_EXPRESSION_KIND = _syntax_kind("LogicalOrExpression")
+BINARY_XNOR_EXPRESSION_KIND = _syntax_kind("BinaryXnorExpression")
+BITWISE_BINARY_EXPRESSION_KINDS = {
+    kind
+    for kind in (
+        BINARY_AND_EXPRESSION_KIND,
+        BINARY_OR_EXPRESSION_KIND,
+        BINARY_XOR_EXPRESSION_KIND,
+        BINARY_XNOR_EXPRESSION_KIND,
+    )
+    if kind is not None
+}
+LOGICAL_IMPLICATION_EXPRESSION_KIND = _syntax_kind("LogicalImplicationExpression")
+LOGICAL_EQUIVALENCE_EXPRESSION_KIND = _syntax_kind("LogicalEquivalenceExpression")
+
+REDUCTION_EXPRESSION_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("UnaryBitwiseAndExpression"),
+        _syntax_kind("UnaryBitwiseOrExpression"),
+        _syntax_kind("UnaryBitwiseXorExpression"),
+        _syntax_kind("UnaryBitwiseNandExpression"),
+        _syntax_kind("UnaryBitwiseNorExpression"),
+        _syntax_kind("UnaryBitwiseXnorExpression"),
+    )
+    if kind is not None
+}
+
+# Operators whose result is one unsigned bit whatever the operand widths (IEEE 1800 section 11.6):
+# comparisons, logical operators and reductions.
+ONE_BIT_RESULT_EXPRESSION_KINDS = (
+    COMPARISON_EXPRESSION_KINDS
+    | REDUCTION_EXPRESSION_KINDS
+    | {
+        kind
+        for kind in (
+            LOGICAL_AND_EXPRESSION_KIND,
+            LOGICAL_OR_EXPRESSION_KIND,
+            UNARY_LOGICAL_NOT_EXPRESSION_KIND,
+            LOGICAL_IMPLICATION_EXPRESSION_KIND,
+            LOGICAL_EQUIVALENCE_EXPRESSION_KIND,
+        )
+        if kind is not None
+    }
+)
 TYPEDEF_DECLARATION_KIND = _syntax_kind("TypedefDeclaration")
 FORWARD_TYPEDEF_DECLARATION_KIND = _syntax_kind("ForwardTypedefDeclaration")
 
@@ -694,7 +738,9 @@ __all__ = [
     "BINARY_OR_EXPRESSION_KIND",
     "BINARY_XOR_EXPRESSION_KIND",
     "BIND_DIRECTIVE_KIND",
+    "BINARY_XNOR_EXPRESSION_KIND",
     "BIT_SELECT_KIND",
+    "BITWISE_BINARY_EXPRESSION_KINDS",
     "BLOCK_ITEM_SKIP_KINDS",
     "BLOCK_STATEMENT_KINDS",
     "BLOCKING_EVENT_TRIGGER_STATEMENT_KIND",
@@ -793,6 +839,8 @@ __all__ = [
     "LESS_THAN_EXPRESSION_KIND",
     "LET_DECLARATION_KIND",
     "LOGICAL_AND_EXPRESSION_KIND",
+    "LOGICAL_EQUIVALENCE_EXPRESSION_KIND",
+    "LOGICAL_IMPLICATION_EXPRESSION_KIND",
     "LOGICAL_OR_EXPRESSION_KIND",
     "LOGICAL_SHIFT_LEFT_EXPRESSION_KIND",
     "LOGICAL_SHIFT_RIGHT_EXPRESSION_KIND",
@@ -838,7 +886,9 @@ __all__ = [
     "QUEUE_DIMENSION_SPECIFIER_KIND",
     "RANDSEQUENCE_STATEMENT_KIND",
     "RANGE_DIMENSION_SPECIFIER_KIND",
+    "ONE_BIT_RESULT_EXPRESSION_KINDS",
     "RANGE_SELECT_KINDS",
+    "REDUCTION_EXPRESSION_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",
     "READ_WRITE_UNARY_KINDS",
     "REAL_LITERAL_EXPRESSION_KIND",

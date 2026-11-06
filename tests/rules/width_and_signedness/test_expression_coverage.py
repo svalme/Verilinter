@@ -157,3 +157,14 @@ def test_grouped_ansi_types_preserve_width_sign_and_direction_boundaries():
     assert (symbols["limit"].bit_width, symbols["limit"].is_signed) == (32, True)
     assert symbols["b"].packed_dimension_widths == [8]
     assert (symbols["b"].msb, symbols["b"].lsb) == (7, 0)
+
+
+def test_bitwise_or_with_an_integer_parameter_is_not_arithmetic_truncation():
+    result = run_inline_lint_case("""
+        module m(input clk, input flag);
+          localparam integer OFFSET = 16;
+          reg [4:0] latched;
+          always @(posedge clk) latched <= OFFSET | flag;
+        endmodule
+    """)
+    result.expect_no_code("ARITHMETIC_RESULT_TRUNCATION")
