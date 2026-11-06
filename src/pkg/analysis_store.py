@@ -1,404 +1,42 @@
+"""The local analysis store, composed from its parts.
+
+`AnalysisStore` is the one object the pipeline and the CLI hold. The work is in `store/`: `connection`
+(opening the file), `schema` (tables and migrations), `cache` (reusable per-file results) and `history`
+(recorded runs). Each part has its own version token: `ANALYZER_CACHE_VERSION` for the cache and
+`SCHEMA_VERSION` for the table layout.
+"""
 from __future__ import annotations
 
-import hashlib
-import json
-import sqlite3
-import time
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any
 
 from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
+from .store.cache import FileAnalysisCache
+from .store.connection import BUSY_TIMEOUT_SECONDS, StoreConnection
+from .store.history import RunHistory
+from .store.keys import ANALYZER_CACHE_VERSION, file_sha256, selection_key
+from .store.schema import SCHEMA_VERSION, ensure_schema
+from .store.timestamps import utc_now_iso
 
-SCHEMA_VERSION = "3"
-ANALYZER_CACHE_VERSION = "2026-11-06-unresolved-references-and-no-implicit-flag"
-BUSY_TIMEOUT_SECONDS = 30.0
-_WAL_RETRY_DELAY_SECONDS = 0.02
-_WAL_RETRY_ATTEMPTS = int(BUSY_TIMEOUT_SECONDS / _WAL_RETRY_DELAY_SECONDS)
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def selection_key(
-    selection: RuleSelection | None,
-    include_dirs: list[str] | None = None,
-    package_registry_fingerprint: str | None = None,
-    defines: list[str] | None = None,
-) -> str:
-    payload = {
-        "analyzer_cache_version": ANALYZER_CACHE_VERSION,
-        "enabled_codes": sorted(selection.enabled_codes) if selection and selection.enabled_codes else None,
-        "enabled_categories": sorted(selection.enabled_categories)
-        if selection and selection.enabled_categories
-        else None,
-        "enabled_profiles": sorted(selection.enabled_profiles) if selection and selection.enabled_profiles else None,
-        # A cached per-file result was parsed with a specific set of `--include-dir`
-        # search paths; changing them can change how `` `include ``/macro
-        # resolution -- and therefore the parsed AST -- comes out for the same
-        # file content, so this must be part of the cache key too.
-        "include_dirs": include_dirs or None,
-        # A cached per-file result was also resolved against a specific
-        # corpus-wide set of package declarations (run_lint.py's `_scan_packages`
-        # pre-pass) -- a package changing in a DIFFERENT file can change what a
-        # package-qualified/wildcard-imported name resolves to for this file, so
-        # this must be part of the key too even though the file's own content
-        # didn't change. See `seed_cross_file_packages`.
-        "package_registry_fingerprint": package_registry_fingerprint,
-        # Preprocessor defines (-D) change macro expansion and conditional
-        # compilation branches (`ifdef / `ifndef), so they must be part of the cache key.
-        "defines": sorted(defines) if defines else None,
-    }
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-
-
-_SCHEMA_SCRIPT = """
-    CREATE TABLE IF NOT EXISTS schema_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS cached_file_analysis (
-        file_path TEXT NOT NULL,
-        file_hash TEXT NOT NULL,
-        selection_key TEXT NOT NULL,
-        cached_at TEXT NOT NULL,
-        worker_result_json TEXT NOT NULL,
-        header_dependencies_json TEXT,
-        PRIMARY KEY (file_path, file_hash, selection_key)
-    );
-
-    CREATE TABLE IF NOT EXISTS analysis_runs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at TEXT NOT NULL,
-        cwd TEXT,
-        format TEXT,
-        report_kind TEXT,
-        jobs INTEGER NOT NULL,
-        selection_key TEXT NOT NULL,
-        baseline_path TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS analysis_run_files (
-        run_id INTEGER NOT NULL,
-        ordinal INTEGER NOT NULL,
-        file_path TEXT NOT NULL,
-        file_hash TEXT NOT NULL,
-        cache_hit INTEGER NOT NULL,
-        PRIMARY KEY (run_id, ordinal),
-        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS analysis_run_diagnostics (
-        run_id INTEGER NOT NULL,
-        ordinal INTEGER NOT NULL,
-        code TEXT NOT NULL,
-        category TEXT,
-        severity TEXT,
-        file TEXT,
-        line INTEGER NOT NULL,
-        col INTEGER NOT NULL,
-        message TEXT NOT NULL,
-        PRIMARY KEY (run_id, ordinal),
-        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS analysis_run_modules (
-        run_id INTEGER NOT NULL,
-        ordinal INTEGER NOT NULL,
-        module_name TEXT NOT NULL,
-        file TEXT,
-        line INTEGER NOT NULL,
-        col INTEGER NOT NULL,
-        PRIMARY KEY (run_id, ordinal),
-        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS analysis_run_instantiations (
-        run_id INTEGER NOT NULL,
-        ordinal INTEGER NOT NULL,
-        parent_module TEXT,
-        child_module TEXT,
-        instance_name TEXT,
-        file TEXT,
-        line INTEGER NOT NULL,
-        col INTEGER NOT NULL,
-        connection_style TEXT,
-        PRIMARY KEY (run_id, ordinal),
-        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS analysis_run_connections (
-        run_id INTEGER NOT NULL,
-        instantiation_ordinal INTEGER NOT NULL,
-        ordinal INTEGER NOT NULL,
-        kind TEXT NOT NULL,
-        port_name TEXT,
-        expr_text TEXT,
-        expr_name TEXT,
-        expr_width INTEGER,
-        expr_signed INTEGER,
-        file TEXT,
-        line INTEGER NOT NULL,
-        col INTEGER NOT NULL,
-        PRIMARY KEY (run_id, instantiation_ordinal, ordinal),
-        FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-    );
-"""
+__all__ = [
+    "ANALYZER_CACHE_VERSION",
+    "AnalysisStore",
+    "BUSY_TIMEOUT_SECONDS",
+    "SCHEMA_VERSION",
+    "file_sha256",
+    "selection_key",
+    "utc_now_iso",
+]
 
 
 class AnalysisStore:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._ensure_schema()
-
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=BUSY_TIMEOUT_SECONDS)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute(f"PRAGMA busy_timeout = {int(BUSY_TIMEOUT_SECONDS * 1000)}")
-        return conn
-
-    @contextmanager
-    def _transaction(self) -> Iterator[sqlite3.Connection]:
-        conn = self._connect()
-        try:
-            with conn:
-                yield conn
-        finally:
-            conn.close()
-
-    def _ensure_schema(self) -> None:
-        # Schema creation and migration run inside one explicit write
-        # transaction, so a crash or error leaves the previous schema intact and
-        # concurrent openers serialize on the write lock.
-        conn = self._connect()
-        conn.isolation_level = None
-        try:
-            self._enable_wal(conn)
-            conn.execute("BEGIN IMMEDIATE")
-            try:
-                self._apply_schema(conn)
-                conn.execute("COMMIT")
-            except BaseException:
-                if conn.in_transaction:
-                    conn.execute("ROLLBACK")
-                raise
-        finally:
-            conn.close()
-
-    @staticmethod
-    def _enable_wal(conn: sqlite3.Connection) -> None:
-        # Switching a database file into WAL mode needs a lock that SQLite does not
-        # wait for with the busy timeout, so concurrent first openers can see
-        # "database is locked" immediately. Retry for the same budget the other
-        # statements get.
-        last_error: sqlite3.OperationalError | None = None
-        for _ in range(_WAL_RETRY_ATTEMPTS):
-            if str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal":
-                return
-            try:
-                conn.execute("PRAGMA journal_mode = WAL").fetchone()
-                return
-            except sqlite3.OperationalError as exc:
-                if "locked" not in str(exc):
-                    raise
-                last_error = exc
-                time.sleep(_WAL_RETRY_DELAY_SECONDS)
-        assert last_error is not None
-        raise last_error
-
-    def _apply_schema(self, conn: sqlite3.Connection) -> None:
-        # The statements contain no embedded semicolons, so splitting is safe.
-        for statement in _SCHEMA_SCRIPT.split(";"):
-            if statement.strip():
-                conn.execute(statement)
-        existing_version = self._read_schema_version(conn)
-        if existing_version is None:
-            conn.execute(
-                """
-                INSERT INTO schema_meta(key, value)
-                VALUES ('schema_version', ?)
-                """,
-                (SCHEMA_VERSION,),
-            )
-            return
-
-        self._migrate_schema(conn, existing_version)
-
-    @staticmethod
-    def _read_schema_version(conn: sqlite3.Connection) -> str | None:
-        row = conn.execute(
-            """
-            SELECT value
-            FROM schema_meta
-            WHERE key = 'schema_version'
-            """
-        ).fetchone()
-        if row is None:
-            return None
-        return str(row["value"])
-
-    def _migrate_schema(self, conn: sqlite3.Connection, existing_version: str) -> None:
-        if existing_version == SCHEMA_VERSION:
-            return
-
-        migrations: dict[str, Callable[[sqlite3.Connection], str]] = {
-            "0": self._migrate_schema_0_to_1,
-            "1": self._migrate_schema_1_to_2,
-            "2": self._migrate_schema_2_to_3,
-        }
-
-        version = existing_version
-        while version != SCHEMA_VERSION:
-            migration = migrations.get(version)
-            if migration is None:
-                raise ValueError(
-                    "analysis store schema version mismatch: "
-                    f"found {existing_version}, expected {SCHEMA_VERSION}. "
-                    "No migration path is available. Use a fresh --store path or rebuild the existing store."
-                )
-            version = migration(conn)
-
-    @staticmethod
-    def _migrate_schema_0_to_1(conn: sqlite3.Connection) -> str:
-        conn.execute(
-            """
-            UPDATE schema_meta
-            SET value = '1'
-            WHERE key = 'schema_version'
-            """
-        )
-        return "1"
-
-    @staticmethod
-    def _migrate_schema_1_to_2(conn: sqlite3.Connection) -> str:
-        """Add ON DELETE CASCADE to the analysis_run_* child tables so
-        prune_runs no longer has to delete children in a hand-maintained order."""
-        rebuilds = {
-            "analysis_run_files": """
-                CREATE TABLE analysis_run_files_v2 (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    file_path TEXT NOT NULL,
-                    file_hash TEXT NOT NULL,
-                    cache_hit INTEGER NOT NULL,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                )
-            """,
-            "analysis_run_diagnostics": """
-                CREATE TABLE analysis_run_diagnostics_v2 (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    code TEXT NOT NULL,
-                    category TEXT,
-                    severity TEXT,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    message TEXT NOT NULL,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                )
-            """,
-            "analysis_run_modules": """
-                CREATE TABLE analysis_run_modules_v2 (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    module_name TEXT NOT NULL,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                )
-            """,
-            "analysis_run_instantiations": """
-                CREATE TABLE analysis_run_instantiations_v2 (
-                    run_id INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    parent_module TEXT,
-                    child_module TEXT,
-                    instance_name TEXT,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    connection_style TEXT,
-                    PRIMARY KEY (run_id, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                )
-            """,
-            "analysis_run_connections": """
-                CREATE TABLE analysis_run_connections_v2 (
-                    run_id INTEGER NOT NULL,
-                    instantiation_ordinal INTEGER NOT NULL,
-                    ordinal INTEGER NOT NULL,
-                    kind TEXT NOT NULL,
-                    port_name TEXT,
-                    expr_text TEXT,
-                    expr_name TEXT,
-                    expr_width INTEGER,
-                    expr_signed INTEGER,
-                    file TEXT,
-                    line INTEGER NOT NULL,
-                    col INTEGER NOT NULL,
-                    PRIMARY KEY (run_id, instantiation_ordinal, ordinal),
-                    FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE
-                )
-            """,
-        }
-
-        for table, create_sql in rebuilds.items():
-            conn.execute(create_sql)
-            conn.execute(f"INSERT INTO {table}_v2 SELECT * FROM {table}")
-            conn.execute(f"DROP TABLE {table}")
-            conn.execute(f"ALTER TABLE {table}_v2 RENAME TO {table}")
-
-        conn.execute(
-            """
-            UPDATE schema_meta
-            SET value = '2'
-            WHERE key = 'schema_version'
-            """
-        )
-        return "2"
-
-    @staticmethod
-    def _migrate_schema_2_to_3(conn: sqlite3.Connection) -> str:
-        """Add header_dependencies_json to cached_file_analysis to track
-        transitive preprocessor dependencies."""
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(cached_file_analysis)").fetchall()]
-        if "header_dependencies_json" not in cols:
-            conn.execute(
-                """
-                ALTER TABLE cached_file_analysis
-                ADD COLUMN header_dependencies_json TEXT DEFAULT '[]'
-                """
-            )
-        conn.execute(
-            """
-            UPDATE cached_file_analysis
-            SET header_dependencies_json = '[]'
-            WHERE header_dependencies_json IS NULL
-            """
-        )
-        conn.execute(
-            """
-            UPDATE schema_meta
-            SET value = '3'
-            WHERE key = 'schema_version'
-            """
-        )
-        return "3"
+        self.connection = StoreConnection(path)
+        ensure_schema(self.connection)
+        self.cache = FileAnalysisCache(self.connection)
+        self.history = RunHistory(self.connection)
 
     def load_cached_worker_result(
         self,
@@ -410,39 +48,14 @@ class AnalysisStore:
         package_registry_fingerprint: str | None = None,
         defines: list[str] | None = None,
     ) -> dict[str, Any] | None:
-        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint, defines=defines)
-        try:
-            with self._transaction() as conn:
-                row = conn.execute(
-                    """
-                    SELECT worker_result_json, header_dependencies_json
-                    FROM cached_file_analysis
-                    WHERE file_path = ? AND file_hash = ? AND selection_key = ?
-                    """,
-                    (file_path, file_hash, key),
-                ).fetchone()
-        except sqlite3.Error:
-            return None
-        if row is None:
-            return None
-
-        # Verify transitive header dependencies
-        header_deps_raw = row["header_dependencies_json"]
-        if header_deps_raw:
-            try:
-                deps = json.loads(str(header_deps_raw))
-                for dep in deps:
-                    dep_path = Path(dep["path"])
-                    if not dep_path.is_file() or file_sha256(dep_path) != dep.get("hash"):
-                        return None
-            except (ValueError, TypeError, KeyError, OSError):
-                return None
-
-        try:
-            payload = json.loads(str(row["worker_result_json"]))
-        except ValueError:
-            return None
-        return payload if isinstance(payload, dict) else None
+        return self.cache.load(
+            file_path=file_path,
+            file_hash=file_hash,
+            rule_selection=rule_selection,
+            include_dirs=include_dirs,
+            package_registry_fingerprint=package_registry_fingerprint,
+            defines=defines,
+        )
 
     def store_cached_worker_result(
         self,
@@ -456,31 +69,16 @@ class AnalysisStore:
         defines: list[str] | None = None,
         header_dependencies: list[dict[str, str]] | None = None,
     ) -> None:
-        key = selection_key(rule_selection, include_dirs, package_registry_fingerprint, defines=defines)
-        header_deps_json = json.dumps(
-            header_dependencies
-            if header_dependencies is not None
-            else worker_result.get("header_dependencies", [])
+        self.cache.store(
+            file_path=file_path,
+            file_hash=file_hash,
+            rule_selection=rule_selection,
+            worker_result=worker_result,
+            include_dirs=include_dirs,
+            package_registry_fingerprint=package_registry_fingerprint,
+            defines=defines,
+            header_dependencies=header_dependencies,
         )
-        with self._transaction() as conn:
-            conn.execute(
-                """
-                INSERT INTO cached_file_analysis(file_path, file_hash, selection_key, cached_at, worker_result_json, header_dependencies_json)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(file_path, file_hash, selection_key) DO UPDATE SET
-                    cached_at = excluded.cached_at,
-                    worker_result_json = excluded.worker_result_json,
-                    header_dependencies_json = excluded.header_dependencies_json
-                """,
-                (
-                    file_path,
-                    file_hash,
-                    key,
-                    utc_now_iso(),
-                    json.dumps(worker_result, sort_keys=True),
-                    header_deps_json,
-                ),
-            )
 
     def record_run(
         self,
@@ -495,164 +93,36 @@ class AnalysisStore:
         diagnostics: list[dict[str, Any]],
         symbol_table: SymbolTable,
     ) -> int:
-        with self._transaction() as conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO analysis_runs(created_at, cwd, format, report_kind, jobs, selection_key, baseline_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    utc_now_iso(),
-                    cwd,
-                    fmt,
-                    report_kind,
-                    jobs,
-                    selection_key(rule_selection),
-                    baseline_path,
-                ),
-            )
-            run_id = int(cursor.lastrowid)
-
-            for ordinal, record in enumerate(file_records):
-                conn.execute(
-                    """
-                    INSERT INTO analysis_run_files(run_id, ordinal, file_path, file_hash, cache_hit)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (
-                        run_id,
-                        ordinal,
-                        record["file_path"],
-                        record["file_hash"],
-                        1 if record["cache_hit"] else 0,
-                    ),
-                )
-
-            for ordinal, diagnostic in enumerate(diagnostics):
-                conn.execute(
-                    """
-                    INSERT INTO analysis_run_diagnostics(run_id, ordinal, code, category, severity, file, line, col, message)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        run_id,
-                        ordinal,
-                        diagnostic.get("code"),
-                        diagnostic.get("category"),
-                        diagnostic.get("severity"),
-                        diagnostic.get("file"),
-                        int(diagnostic.get("line", 0)),
-                        int(diagnostic.get("col", 0)),
-                        diagnostic.get("message"),
-                    ),
-                )
-
-            module_ordinal = 0
-            for module_name, scopes in symbol_table.modules.items():
-                for scope in scopes:
-                    loc = scope.location or {}
-                    conn.execute(
-                        """
-                        INSERT INTO analysis_run_modules(run_id, ordinal, module_name, file, line, col)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            run_id,
-                            module_ordinal,
-                            module_name,
-                            loc.get("file", scope.file),
-                            int(loc.get("line", 0)),
-                            int(loc.get("col", 0)),
-                        ),
-                    )
-                    module_ordinal += 1
-
-            for inst_ordinal, inst in enumerate(symbol_table.instantiations):
-                loc = dict(inst.get("location") or {})
-                conn.execute(
-                    """
-                    INSERT INTO analysis_run_instantiations(
-                        run_id, ordinal, parent_module, child_module, instance_name, file, line, col, connection_style
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        run_id,
-                        inst_ordinal,
-                        inst.get("parent_module"),
-                        inst.get("child_module"),
-                        inst.get("instance_name"),
-                        loc.get("file"),
-                        int(loc.get("line", 0)),
-                        int(loc.get("col", 0)),
-                        inst.get("connection_style"),
-                    ),
-                )
-                for conn_ordinal, connection in enumerate(inst.get("connections", [])):
-                    conn_loc = dict(connection.get("location") or {})
-                    conn.execute(
-                        """
-                        INSERT INTO analysis_run_connections(
-                            run_id, instantiation_ordinal, ordinal, kind, port_name, expr_text, expr_name,
-                            expr_width, expr_signed, file, line, col
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            run_id,
-                            inst_ordinal,
-                            conn_ordinal,
-                            connection.get("kind"),
-                            connection.get("port_name"),
-                            connection.get("expr_text"),
-                            connection.get("expr_name"),
-                            connection.get("expr_width"),
-                            1 if connection.get("expr_signed") is True else 0 if connection.get("expr_signed") is False else None,
-                            conn_loc.get("file"),
-                            int(conn_loc.get("line", 0)),
-                            int(conn_loc.get("col", 0)),
-                        ),
-                    )
-
-        return run_id
+        return self.history.record_run(
+            cwd=cwd,
+            fmt=fmt,
+            report_kind=report_kind,
+            jobs=jobs,
+            rule_selection=rule_selection,
+            baseline_path=baseline_path,
+            file_records=file_records,
+            diagnostics=diagnostics,
+            symbol_table=symbol_table,
+        )
 
     def prune_cache(self, *, older_than_days: int) -> int:
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).isoformat()
-        with self._transaction() as conn:
-            cursor = conn.execute(
-                "DELETE FROM cached_file_analysis WHERE cached_at < ?",
-                (cutoff,),
-            )
-            return cursor.rowcount
+        return self.cache.prune(older_than_days=older_than_days)
 
     def prune_runs(self, *, keep_last: int) -> int:
-        with self._transaction() as conn:
-            rows = conn.execute(
-                "SELECT id FROM analysis_runs ORDER BY id DESC LIMIT -1 OFFSET ?",
-                (keep_last,),
-            ).fetchall()
-            run_ids = [int(row["id"]) for row in rows]
-            for run_id in run_ids:
-                # ON DELETE CASCADE on the analysis_run_* child tables removes
-                # their rows for this run automatically.
-                conn.execute("DELETE FROM analysis_runs WHERE id = ?", (run_id,))
-            return len(run_ids)
+        return self.history.prune(keep_last=keep_last)
 
     def vacuum(self) -> None:
-        conn = self._connect()
+        conn = self.connection.connect()
         try:
             conn.execute("VACUUM")
         finally:
             conn.close()
 
     def status(self) -> dict[str, Any]:
-        with self._transaction() as conn:
-            cached_files = int(conn.execute("SELECT count(*) FROM cached_file_analysis").fetchone()[0])
-            runs = int(conn.execute("SELECT count(*) FROM analysis_runs").fetchone()[0])
         size_bytes = self.path.stat().st_size if self.path.exists() else 0
         return {
             "path": str(self.path),
             "size_bytes": size_bytes,
-            "cached_files": cached_files,
-            "recorded_runs": runs,
+            "cached_files": self.cache.count(),
+            "recorded_runs": self.history.count(),
         }

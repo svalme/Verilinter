@@ -146,6 +146,19 @@ verilinter --store .verilinter.sqlite --prune-cache-days 30 --prune-runs-keep 10
 run summaries and their associated rows. `--vacuum-store` preserves remaining data but may take longer for a
 large store, so it is most useful after pruning rather than on every lint run.
 
+## Code Layout
+
+`AnalysisStore` (`src/pkg/analysis_store.py`) is the object the pipeline and the CLI hold. It composes four parts in `src/pkg/store/`, each with one job:
+
+| Module | Job |
+|---|---|
+| `connection.py` | opens the store file: connections, transactions, the write-ahead-log switch and the busy timeout. It knows no tables. |
+| `schema.py` | creates the tables and migrates an older layout (`SCHEMA_VERSION`). |
+| `cache.py` | the per-file analysis cache (`cached_file_analysis`): load, store, prune by age. |
+| `history.py` | run history (`analysis_runs` and its child tables): record a run, prune by count. |
+
+`keys.py` holds `ANALYZER_CACHE_VERSION`, `selection_key` and `file_sha256`. The cache and the history do not import each other, and a test checks it.
+
 ## Single Store Design
 
 Separate databases for "input-file edits" versus "analyzer-version edits" are not required by the current

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import src.pkg.analysis_store as analysis_store_module
+import src.pkg.store.connection as connection_module
 from src.pkg.rules.rule_selection import RuleSelection
 import src.run_lint as run_lint_module
 from src.run_lint import analyze
@@ -154,7 +155,7 @@ def test_analyze_refreshes_when_analyzer_cache_version_changes(monkeypatch: pyte
         return real_parse(path)
 
     monkeypatch.setattr(run_lint_module, "parse_file", track_parse)
-    monkeypatch.setattr(analysis_store_module, "ANALYZER_CACHE_VERSION", "2026-08-28-test-bump")
+    monkeypatch.setattr("src.pkg.store.keys.ANALYZER_CACHE_VERSION", "2026-08-28-test-bump")
     result = analyze([source], store_path=store_path)
 
     assert result.cache_stats == {"hits": 0, "misses": 1}
@@ -434,9 +435,9 @@ def test_analyze_degrades_when_cache_writes_fail(monkeypatch: pytest.MonkeyPatch
 def test_connections_use_busy_timeout() -> None:
     tmp = _scratch_dir("busy_timeout")
     store = analysis_store_module.AnalysisStore(tmp / "verilinter.sqlite")
-    conn = store._connect()
+    conn = store.connection.connect()
     try:
         timeout_ms = conn.execute("PRAGMA busy_timeout").fetchone()[0]
     finally:
         conn.close()
-    assert timeout_ms == int(analysis_store_module.BUSY_TIMEOUT_SECONDS * 1000)
+    assert timeout_ms == int(connection_module.BUSY_TIMEOUT_SECONDS * 1000)

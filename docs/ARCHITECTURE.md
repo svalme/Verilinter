@@ -13,7 +13,7 @@ flowchart TD
         Discover --> DepTracker["Dependency & Header Tracking"]
     end
 
-    subgraph CacheLayer ["2. Storage & Analysis Cache (analysis_store.py)"]
+    subgraph CacheLayer ["2. Storage & Analysis Cache (analysis_store.py, store/)"]
         DepTracker --> CacheCheck{"Cache Hit in SQLite?<br/>(Path + Hash + Rules + CacheVersion)"}
         CacheCheck -- Yes --> LoadCache["Load Cached Worker Result JSON<br/>(Diagnostics, Modules, Instantiations)"]
         CacheCheck -- No --> FreshParse["Dispatch Worker for Fresh AST Parse"]

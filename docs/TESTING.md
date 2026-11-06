@@ -42,6 +42,7 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 
 **Storage & caching tests** (`tests/storage/`):
 - `test_analysis_store.py`: SQLite cache persistence, hash keys, warm/cold cache reads.
+- `test_store_structure.py`: the cache, the run history and the connection stay separate modules, and each works without the other.
 - `test_scope_execution_modes.py`: transitive header invalidation, include directory shadowing.
 
 **Meta & fixture-integrity tests** (`tests/meta/`):

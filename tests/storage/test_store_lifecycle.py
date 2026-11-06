@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from src.pkg.analysis_store import AnalysisStore, SCHEMA_VERSION
+import src.pkg.store.schema as schema_module
 from src.run_lint import analyze, main
 from tests.support.scratch import make_scratch
 
@@ -256,12 +257,12 @@ def test_interrupted_migration_rolls_back_and_can_be_retried(
 ) -> None:
     store_path = make_scratch("_tmp_store_lifecycle", f"interrupted_{fail_after}") / "verilinter.sqlite"
     _build_historical_store(store_path, "1", cascade=False)
-    original = AnalysisStore._migrate_schema_1_to_2
+    original = schema_module.migrate_1_to_2
 
     monkeypatch.setattr(
-        AnalysisStore,
-        "_migrate_schema_1_to_2",
-        staticmethod(lambda conn: original(_CrashingConnection(conn, fail_after))),
+        schema_module,
+        "migrate_1_to_2",
+        lambda conn: original(_CrashingConnection(conn, fail_after)),
     )
     with pytest.raises(RuntimeError, match="simulated crash"):
         AnalysisStore(store_path)
@@ -293,8 +294,9 @@ _KILLED_MIGRATION_SCRIPT = """
 import os, sys
 from pathlib import Path
 from src.pkg.analysis_store import AnalysisStore
+import src.pkg.store.schema as schema_module
 
-original = AnalysisStore._migrate_schema_1_to_2
+original = schema_module.migrate_1_to_2
 
 class Dying:
     def __init__(self, conn):
@@ -305,7 +307,7 @@ class Dying:
         self.left -= 1
         return self.conn.execute(*args, **kwargs)
 
-AnalysisStore._migrate_schema_1_to_2 = staticmethod(lambda conn: original(Dying(conn)))
+schema_module.migrate_1_to_2 = lambda conn: original(Dying(conn))
 AnalysisStore(Path(sys.argv[1]))
 """
 
@@ -402,7 +404,7 @@ def test_store_locked_by_another_writer_degrades_with_warning(
     store_path = make_scratch("_tmp_store_lifecycle", "locked") / "verilinter.sqlite"
     analyze([PORT_DATA], store_path=store_path)
     capsys.readouterr()
-    monkeypatch.setattr("src.pkg.analysis_store.BUSY_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr("src.pkg.store.connection.BUSY_TIMEOUT_SECONDS", 0.2)
 
     blocker = sqlite3.connect(store_path, isolation_level=None)
     try:
