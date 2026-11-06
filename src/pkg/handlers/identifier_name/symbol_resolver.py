@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 from ...parser.syntax import scoped_name_package_qualifier
-from ...semantic.symbol import Symbol
+from ...semantic.resolution import Resolution, ResolutionStatus
 
 if TYPE_CHECKING:
     from ...semantic.symbol_table import SymbolTable
@@ -12,10 +12,7 @@ if TYPE_CHECKING:
 
 
 class SymbolResolver:
-    """Resolves identifier names against scopes or packages, synthesizing implicit
-
-    nets or variables when appropriate.
-    """
+    """Looks an identifier up against scopes or packages. It reads the symbol table and never changes it."""
 
     def __init__(
         self,
@@ -23,41 +20,31 @@ class SymbolResolver:
     ) -> None:
         self._qualifier_fn = qualifier_fn if qualifier_fn is not None else scoped_name_package_qualifier
 
-    def resolve_or_create(
+    def resolve(
         self,
         name: str,
         vnode: IdentifierNameVNode,
         ctx: Context,
         symbol_table: SymbolTable,
-    ) -> Symbol | None:
-        """Resolve the symbol for the given identifier, or synthesize a new symbol
+    ) -> Resolution:
+        """Return how `name` resolves from the current scope.
 
-        in current scope if undeclared.
-
-        Returns None if the identifier is explicitly package-qualified but the
-        package or symbol is not found (avoiding false implicit-net creation).
+        A package-qualified name that this file cannot look into is UNRESOLVABLE_HERE: it is neither
+        declared nor undeclared as far as this file can tell. Any other miss is unresolved, and
+        `default_nettype` decides which kind.
         """
         package_qualifier = self._qualifier_fn(vnode.raw)
         if package_qualifier is not None:
             package_scope = symbol_table.lookup_package(package_qualifier)
             symbol = package_scope.lookup(name) if package_scope is not None else None
             if symbol is None:
-                # Either the package isn't declared in this file or this narrow
-                # same-file lookup didn't find the name in it. Skip rather than
-                # manufacture a false implicit net.
-                return None
-            return symbol
+                return Resolution(ResolutionStatus.UNRESOLVABLE_HERE)
+            return Resolution(ResolutionStatus.RESOLVED, symbol)
 
         symbol = symbol_table.lookup_from_scope(name, ctx.scope())
         if symbol is not None:
-            return symbol
+            return Resolution(ResolutionStatus.RESOLVED, symbol)
 
-        # Synthesize implicit net or variable according to current file default_nettype
         if symbol_table.current_file_uses_default_nettype_none():
-            symbol = Symbol(name=name, kind="variable")
-        else:
-            symbol = Symbol(name=name, kind="implicit_net")
-            symbol.is_implicit = True
-
-        ctx.scope().define(symbol)
-        return symbol
+            return Resolution(ResolutionStatus.UNRESOLVED_UNDECLARED)
+        return Resolution(ResolutionStatus.UNRESOLVED_IMPLICIT_NET)

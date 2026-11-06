@@ -1,16 +1,11 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import (
-    comparison_operands,
-    constant_integer_value,
-    is_width_bounded_operand,
-    natural_expression_width_and_signed,
-    unwrap_parentheses,
-)
+from ...parser.syntax import comparison_operands
 from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
+from .operand import classify_operand
 
 if TYPE_CHECKING:
     from ...walk.context import Context
@@ -48,13 +43,14 @@ def _comparison_always_constant(vnode: BaseVNode, ctx: "Context") -> bool:
 
     scope = ctx.scope() if callable(getattr(ctx, "scope", None)) else None
     for variable, constant_expr, effective_op in ((left, right, op), (right, left, _MIRRORED[op])):
-        constant = constant_integer_value(unwrap_parentheses(constant_expr))
-        if constant is None:
+        limit = classify_operand(scope, constant_expr, vnode.tree)
+        operand = classify_operand(scope, variable, vnode.tree)
+        if not limit.is_literal or operand.is_constant_symbol:
             continue
-        width, signed = natural_expression_width_and_signed(scope, variable, vnode.tree)
+        constant, width, signed = limit.value, operand.width, operand.signed
         if not isinstance(width, int) or width <= 0 or signed is not False:
             continue
-        bounded = is_width_bounded_operand(variable)
+        bounded = operand.is_width_bounded
         if 0 <= constant <= (1 << width) - 1 and _always_constant(effective_op, constant, (1 << width) - 1, bounded):
             return True
     return False

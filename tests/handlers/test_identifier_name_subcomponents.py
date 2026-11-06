@@ -8,6 +8,7 @@ from src.pkg.handlers.identifier_name import (
     StructuralReferenceFilter,
     SymbolResolver,
     UseEventContext,
+    UnresolvedNameRecorder,
     UseEventContextExtractor,
 )
 from src.pkg.handlers.identifier_name_handler import (
@@ -15,6 +16,8 @@ from src.pkg.handlers.identifier_name_handler import (
     _is_structural_name_reference,
 )
 from src.pkg.parser.syntax_kinds import IDENTIFIER_NAME_KIND
+from src.pkg.semantic.resolution import Resolution, ResolutionStatus
+from src.pkg.semantic.scope_kinds import ScopeKind
 from src.pkg.semantic.symbol import Symbol
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.vnodes.identifier_vnode import IdentifierNameVNode
@@ -45,52 +48,54 @@ class TestStructuralReferenceFilter:
         assert _is_structural_name_reference(mock_raw) is False
 
 
+def _vnode() -> Mock:
+    vnode = Mock(spec=IdentifierNameVNode)
+    vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
+    vnode.location = {"line": 1, "col": 1}
+    return vnode
+
+
 class TestSymbolResolver:
     def test_resolves_existing_symbol_in_scope(self) -> None:
         table = SymbolTable()
         ctx = Context(scope=table.global_scope)
-        existing_symbol = Symbol(name="clk", kind="wire")
+        existing_symbol = Symbol(name="clk", kind="variable")
         ctx.scope().define(existing_symbol)
 
-        vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
+        resolution = SymbolResolver().resolve("clk", _vnode(), ctx, table)
 
-        resolver = SymbolResolver()
-        resolved = resolver.resolve_or_create("clk", vnode, ctx, table)
-        assert resolved is existing_symbol
+        assert resolution.status is ResolutionStatus.RESOLVED
+        assert resolution.symbol is existing_symbol
 
-    def test_synthesizes_implicit_net_under_default_nettype(self) -> None:
+    def test_a_miss_is_an_implicit_net_under_default_nettype(self) -> None:
         table = SymbolTable()
         table.set_current_file("test.sv")
         ctx = Context(scope=table.global_scope)
 
-        vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
+        resolution = SymbolResolver().resolve("my_net", _vnode(), ctx, table)
 
-        resolver = SymbolResolver()
-        symbol = resolver.resolve_or_create("my_net", vnode, ctx, table)
-        assert symbol is not None
-        assert symbol.name == "my_net"
-        assert symbol.kind == "implicit_net"
-        assert symbol.is_implicit is True
-        assert ctx.scope().lookup("my_net") is symbol
+        assert resolution.status is ResolutionStatus.UNRESOLVED_IMPLICIT_NET
+        assert resolution.symbol is None
 
-    def test_synthesizes_variable_under_default_nettype_none(self) -> None:
+    def test_a_miss_is_undeclared_under_default_nettype_none(self) -> None:
         table = SymbolTable()
         table.set_current_file("test.sv")
         table.set_current_file_default_nettype_none(True)
         ctx = Context(scope=table.global_scope)
 
-        vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
+        resolution = SymbolResolver().resolve("my_var", _vnode(), ctx, table)
 
-        resolver = SymbolResolver()
-        symbol = resolver.resolve_or_create("my_var", vnode, ctx, table)
-        assert symbol is not None
-        assert symbol.name == "my_var"
-        assert symbol.kind == "variable"
-        assert symbol.is_implicit is False
-        assert ctx.scope().lookup("my_var") is symbol
+        assert resolution.status is ResolutionStatus.UNRESOLVED_UNDECLARED
+
+    def test_resolving_does_not_change_the_symbol_table(self) -> None:
+        table = SymbolTable()
+        table.set_current_file("test.sv")
+        ctx = Context(scope=table.global_scope)
+
+        SymbolResolver().resolve("my_net", _vnode(), ctx, table)
+
+        assert ctx.scope().lookup("my_net") is None
+        assert table.unresolved_references == []
 
     def test_package_qualified_resolution_existing_and_missing(self) -> None:
         table = SymbolTable()
@@ -103,22 +108,84 @@ class TestSymbolResolver:
         pkg_scope.define(pkg_symbol)
         table.register_package("my_pkg", pkg_scope)
 
-        vnode = Mock(spec=IdentifierNameVNode)
-        vnode.raw = FakeNode(IDENTIFIER_NAME_KIND)
+        vnode = _vnode()
 
         # Case 1: Injected qualifier finds registered package with matching symbol
         resolver = SymbolResolver(qualifier_fn=lambda raw: "my_pkg")
-        resolved = resolver.resolve_or_create("CONST_VAL", vnode, ctx, table)
-        assert resolved is pkg_symbol
+        resolved = resolver.resolve("CONST_VAL", vnode, ctx, table)
+        assert resolved.status is ResolutionStatus.RESOLVED
+        assert resolved.symbol is pkg_symbol
 
         # Case 2: Package exists, symbol does not exist in package
-        resolved_missing = resolver.resolve_or_create("UNKNOWN_VAL", vnode, ctx, table)
-        assert resolved_missing is None
+        assert resolver.resolve("UNKNOWN_VAL", vnode, ctx, table).status is ResolutionStatus.UNRESOLVABLE_HERE
 
         # Case 3: Injected qualifier returns unregistered package
         resolver_unregistered = SymbolResolver(qualifier_fn=lambda raw: "unregistered_pkg")
-        resolved_pkg_missing = resolver_unregistered.resolve_or_create("ANY", vnode, ctx, table)
-        assert resolved_pkg_missing is None
+        assert resolver_unregistered.resolve("ANY", vnode, ctx, table).status is ResolutionStatus.UNRESOLVABLE_HERE
+
+
+class TestUnresolvedNameRecorder:
+    def test_resolved_name_returns_its_symbol_and_records_nothing(self) -> None:
+        table = SymbolTable()
+        ctx = Context(scope=table.global_scope)
+        symbol = Symbol(name="clk", kind="variable")
+
+        placeholder = UnresolvedNameRecorder().record(
+            "clk", Resolution(ResolutionStatus.RESOLVED, symbol), _vnode(), ctx, table
+        )
+
+        assert placeholder is symbol
+        assert table.unresolved_references == []
+
+    def test_implicit_net_gets_a_placeholder_and_a_reference(self) -> None:
+        table = SymbolTable()
+        ctx = Context(scope=table.global_scope)
+
+        placeholder = UnresolvedNameRecorder().record(
+            "n", Resolution(ResolutionStatus.UNRESOLVED_IMPLICIT_NET), _vnode(), ctx, table
+        )
+
+        assert placeholder is not None
+        assert placeholder.kind == "implicit_net"
+        assert ctx.scope().lookup("n") is placeholder
+        assert [(r.name, r.status) for r in table.unresolved_references] == [("n", ResolutionStatus.UNRESOLVED_IMPLICIT_NET)]
+
+    def test_undeclared_name_gets_a_variable_placeholder(self) -> None:
+        table = SymbolTable()
+        ctx = Context(scope=table.global_scope)
+
+        placeholder = UnresolvedNameRecorder().record(
+            "v", Resolution(ResolutionStatus.UNRESOLVED_UNDECLARED), _vnode(), ctx, table
+        )
+
+        assert placeholder is not None
+        assert placeholder.kind == "variable"
+        assert table.unresolved_references[0].status is ResolutionStatus.UNRESOLVED_UNDECLARED
+
+    def test_unresolvable_name_is_recorded_without_a_placeholder(self) -> None:
+        table = SymbolTable()
+        ctx = Context(scope=table.global_scope)
+
+        placeholder = UnresolvedNameRecorder().record(
+            "FOO", Resolution(ResolutionStatus.UNRESOLVABLE_HERE), _vnode(), ctx, table
+        )
+
+        assert placeholder is None
+        assert ctx.scope().lookup("FOO") is None
+        assert not table.unresolved_references[0].is_unresolved
+
+    def test_placeholder_lives_in_the_enclosing_module_not_the_generate_block(self) -> None:
+        table = SymbolTable()
+        module = table.new_scope(ScopeKind.MODULE, name="m")
+        block = table.new_scope(ScopeKind.GENERATE_BLOCK, name="g")
+        ctx = Context(scope=block)
+
+        placeholder = UnresolvedNameRecorder().record(
+            "n", Resolution(ResolutionStatus.UNRESOLVED_IMPLICIT_NET), _vnode(), ctx, table
+        )
+
+        assert module.lookup("n") is placeholder
+        assert block.lookup("n") is None
 
 
 class TestUseEventContext:
@@ -171,7 +238,7 @@ class TestIdentifierNameHandlerOrchestration:
         res_ctx = handler.update_context(ctx, vnode, table)
         assert res_ctx is not ctx
         mock_filter.is_structural_reference.assert_not_called()
-        mock_resolver.resolve_or_create.assert_not_called()
+        mock_resolver.resolve.assert_not_called()
         mock_extractor.extract.assert_not_called()
 
     def test_skips_when_structural_reference(self) -> None:
@@ -195,14 +262,14 @@ class TestIdentifierNameHandlerOrchestration:
 
         res_ctx = handler.update_context(ctx, vnode, table)
         mock_filter.is_structural_reference.assert_called_once_with(vnode.raw)
-        mock_resolver.resolve_or_create.assert_not_called()
+        mock_resolver.resolve.assert_not_called()
         mock_extractor.extract.assert_not_called()
 
     def test_skips_when_symbol_unresolved_package_qualifier(self) -> None:
         mock_filter = Mock(spec=StructuralReferenceFilter)
         mock_filter.is_structural_reference.return_value = False
         mock_resolver = Mock(spec=SymbolResolver)
-        mock_resolver.resolve_or_create.return_value = None
+        mock_resolver.resolve.return_value = Resolution(ResolutionStatus.UNRESOLVABLE_HERE)
         mock_extractor = Mock(spec=UseEventContextExtractor)
 
         handler = IdentifierNameHandler(
@@ -219,7 +286,7 @@ class TestIdentifierNameHandlerOrchestration:
         table = SymbolTable()
 
         res_ctx = handler.update_context(ctx, vnode, table)
-        mock_resolver.resolve_or_create.assert_called_once_with("pkg_item", vnode, ctx, table)
+        mock_resolver.resolve.assert_called_once_with("pkg_item", vnode, ctx, table)
         mock_extractor.extract.assert_not_called()
 
     def test_full_successful_orchestration(self) -> None:
@@ -228,7 +295,7 @@ class TestIdentifierNameHandlerOrchestration:
 
         mock_symbol = Mock(spec=Symbol)
         mock_resolver = Mock(spec=SymbolResolver)
-        mock_resolver.resolve_or_create.return_value = mock_symbol
+        mock_resolver.resolve.return_value = Resolution(ResolutionStatus.RESOLVED, mock_symbol)
 
         event_context = UseEventContext(
             is_read=True,
@@ -260,7 +327,7 @@ class TestIdentifierNameHandlerOrchestration:
 
         res_ctx = handler.update_context(ctx, vnode, table)
         mock_filter.is_structural_reference.assert_called_once_with(vnode.raw)
-        mock_resolver.resolve_or_create.assert_called_once_with("valid_sig", vnode, ctx, table)
+        mock_resolver.resolve.assert_called_once_with("valid_sig", vnode, ctx, table)
         mock_extractor.extract.assert_called_once_with(vnode, ctx, table)
         mock_symbol.add_use.assert_called_once_with(
             vnode.location,

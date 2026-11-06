@@ -266,3 +266,36 @@ class TestConstantIndexOutOfRangeRule:
         )
         assert len(diagnostics) == 1
 
+    def test_unpacked_array_element_index_is_not_checked_against_packed_width(self) -> None:
+        assert _diagnostics(
+            """
+            module top;
+              wire [0:0] arr [0:2];
+              wire b;
+              assign b = arr[2];
+            endmodule
+            """
+        ) == []
+
+    def test_bit_select_of_an_unpacked_array_element_is_still_checked(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire [3:0] arr [0:2];
+              wire b;
+              assign b = arr[1][4];
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_part_select_of_an_overridable_parameter_is_not_checked(self) -> None:
+        assert _diagnostics(
+            """
+            module top #(parameter BASE = 0, parameter W = 4) (input x);
+              wire [W-1:0] z = BASE[0 +: W];
+            endmodule
+            """
+        ) == []
+

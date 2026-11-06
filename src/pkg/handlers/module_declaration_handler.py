@@ -5,6 +5,7 @@ from ..semantic.symbol_table import SymbolTable
 from ..vnodes.syntax_vnode import SyntaxVNode
 from ..parser.types import ModuleDeclarationNode
 from .syntax_node_handler import SyntaxNodeHandler
+from ..semantic.scope_kinds import ScopeKind
 
 
 @dispatch.register(ModuleDeclarationNode)
@@ -19,7 +20,7 @@ class ModuleDeclarationHandler(SyntaxNodeHandler):
         # UNDEFINED_MODULE/DUPLICATE_MODULE's module registry.
         if is_package_declaration_node(vnode.raw):
             package_scope = symbol_table.new_scope(
-                kind="package",
+                kind=ScopeKind.PACKAGE,
                 name=name,
                 parent=symbol_table.global_scope,
                 location=vnode.location,
@@ -28,7 +29,7 @@ class ModuleDeclarationHandler(SyntaxNodeHandler):
             return ctx.push(vnode).with_scope(package_scope)
 
         module_scope = symbol_table.new_scope(
-            kind="module",
+            kind=ScopeKind.MODULE,
             name=name,
             parent=symbol_table.global_scope,
             location=vnode.location,

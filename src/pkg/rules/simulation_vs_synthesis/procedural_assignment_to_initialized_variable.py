@@ -3,6 +3,7 @@ from typing import Any
 from ...semantic.symbol_table import SymbolTable
 from ..base_symbol_rule import BaseSymbolRule
 from ..symbol_rule_runner import symbol_rule_runner
+from ...semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS
 
 
 @symbol_rule_runner.register
@@ -15,16 +16,12 @@ class ProceduralAssignmentToInitializedVariableRule(BaseSymbolRule):
         diagnostics: list[dict[str, Any]] = []
 
         for scope in symbol_table.scopes:
-            if scope.kind in ("function", "task"):
+            if scope.kind in SUBROUTINE_SCOPE_KINDS:
                 continue
             for sym in scope.symbols.values():
                 if not sym.has_declaration_initializer:
                     continue
-                if sym.is_constant or sym.is_localparam or sym.is_port or sym.kind in (
-                    "parameter",
-                    "localparam",
-                    "enum_member",
-                ):
+                if sym.is_compile_time_constant or sym.is_port:
                     continue
 
                 decl_loc = sym.declarations[0] if sym.declarations else None

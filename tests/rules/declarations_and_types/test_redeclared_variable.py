@@ -51,18 +51,6 @@ class TestRedeclaredVariableRule:
 
         assert rule.run(st) == []
 
-    def test_does_not_flag_implicit_symbol(self, rule: RedeclaredVariableRule) -> None:
-        """A symbol first seen as a use (implicit) shouldn't be reported as redeclared
-        even if it later picks up multiple use-derived location entries."""
-        st = SymbolTable()
-        sym = Symbol(name="a", kind="variable")
-        sym.is_implicit = True
-        sym.add_declaration({"line": 1, "col": 1})
-        sym.add_declaration({"line": 2, "col": 1})
-        st.global_scope.define(sym)
-
-        assert rule.run(st) == []
-
     def test_three_declarations_flags_second_and_third(self, rule: RedeclaredVariableRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="x", kind="variable")
@@ -121,3 +109,48 @@ class TestRedeclaredVariableRule:
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
+
+
+def _walk_symbols(code: str) -> SymbolTable:
+    symbol_table = SymbolTable()
+    ctx = Context(scope=symbol_table.global_scope)
+    tree = parse_text(code)
+    assert_no_parse_errors("tests/rules/declarations_and_types/test_redeclared_variable.py", tree)
+    Walker(dispatch).walk(tree.root, tree, ctx, symbol_table)
+    return symbol_table
+
+
+class TestRedeclaredVariableInGenerateBlocks:
+    def test_same_name_in_separate_generate_branches_is_not_a_redeclaration(self) -> None:
+        table = _walk_symbols(
+            """
+            module m #(parameter T = 2) (input clk);
+              generate
+                if (T > 1) begin
+                  reg a = 0;
+                end else if (T == 1) begin
+                  reg a = 0;
+                end
+              endgenerate
+            endmodule
+            """
+        )
+
+        assert RedeclaredVariableRule().run(table) == []
+
+    def test_same_name_twice_in_one_generate_block_is_still_flagged(self) -> None:
+        table = _walk_symbols(
+            """
+            module m #(parameter T = 2) (input clk);
+              generate
+                if (T > 1) begin
+                  reg a;
+                  reg a;
+                end
+              endgenerate
+            endmodule
+            """
+        )
+
+        assert len(RedeclaredVariableRule().run(table)) == 1
+

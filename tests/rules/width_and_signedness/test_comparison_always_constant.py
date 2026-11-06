@@ -19,6 +19,7 @@ def _diagnostics(condition: str) -> list[dict]:
       bit [2:0] u;
       reg [3:0] r;
       int s;
+      localparam P = 3;
       initial begin
         if ({condition}) $stop;
       end
@@ -50,7 +51,7 @@ class TestComparisonAlwaysConstantRule:
 
     @pytest.mark.parametrize(
         "condition",
-        ["u > 6", "u < 7", "u >= 1", "u <= 6", "r < 15", "u == 0", "u != 7", "s < 0", "s >= 0", "u < r", "u > 8", "(u + u) > 7", "(r + r) <= 15", "(u * u) > 7"],
+        ["u > 6", "u < 7", "u >= 1", "u <= 6", "r < 15", "u == 0", "u != 7", "s < 0", "s >= 0", "u < r", "u > 8", "(u + u) > 7", "(r + r) <= 15", "(u * u) > 7", "P > 1", "P < 0"],
     )
     def test_ignores_comparison_that_can_vary_or_is_not_a_boundary(self, condition: str) -> None:
         assert _diagnostics(condition) == []

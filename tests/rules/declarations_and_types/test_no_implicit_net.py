@@ -7,6 +7,7 @@ from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.semantic.symbol import Symbol
+from src.pkg.semantic.resolution import ResolutionStatus, UnresolvedReference
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.declarations_and_types.no_implicit_net import NoImplicitNetRule
@@ -27,9 +28,11 @@ class TestNoImplicitNetRule:
     def test_flags_implicit_net_symbol(self, rule: NoImplicitNetRule) -> None:
         st = SymbolTable()
         sym = Symbol(name="a", kind="implicit_net")
-        sym.is_implicit = True
         sym.add_use({"line": 4, "col": 5}, read=True)
         st.global_scope.define(sym)
+        st.unresolved_references.append(
+            UnresolvedReference("a", ResolutionStatus.UNRESOLVED_IMPLICIT_NET, {"line": 4, "col": 5}, sym)
+        )
 
         diagnostics = rule.run(st)
 
@@ -44,6 +47,26 @@ class TestNoImplicitNetRule:
         sym.add_declaration({"line": 2, "col": 8})
         sym.add_use({"line": 4, "col": 5}, read=True)
         st.global_scope.define(sym)
+
+        assert rule.run(st) == []
+
+    def test_does_not_flag_a_reference_that_was_declared_later(self, rule: NoImplicitNetRule) -> None:
+        st = SymbolTable()
+        sym = Symbol(name="a", kind="implicit_net")
+        sym.add_use({"line": 4, "col": 5}, read=True)
+        sym.add_declaration({"line": 6, "col": 1})
+        st.global_scope.define(sym)
+        st.unresolved_references.append(
+            UnresolvedReference("a", ResolutionStatus.UNRESOLVED_IMPLICIT_NET, {"line": 4, "col": 5}, sym)
+        )
+
+        assert rule.run(st) == []
+
+    def test_does_not_flag_a_name_unresolvable_from_this_file(self, rule: NoImplicitNetRule) -> None:
+        st = SymbolTable()
+        st.unresolved_references.append(
+            UnresolvedReference("FOO", ResolutionStatus.UNRESOLVABLE_HERE, {"line": 4, "col": 5})
+        )
 
         assert rule.run(st) == []
 
@@ -238,3 +261,61 @@ class TestNoImplicitNetPackageScoping:
             }
         )
         result.expect_code_once("NO_IMPLICIT_NET")
+
+
+def test_type_parameter_used_in_header_body_and_generate_block_does_not_flag_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top #(parameter type data_t = logic, localparam type idx_t = logic [1:0])
+                    (input data_t a_i, output data_t y_o);
+          assign y_o = data_t'(a_i);
+          if (1) begin : gen
+            idx_t unused_idx;
+          end
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_type_parameter_forwarded_in_a_parameter_override_does_not_flag_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module child #(parameter type t = logic) (input t a_i);
+        endmodule
+
+        module top #(parameter type data_t = logic) (input data_t a_i);
+          child #(.t(data_t)) u_child (.a_i(a_i));
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_name_used_in_several_generate_blocks_is_reported_once():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top #(parameter int N = 2) (input logic a, output logic y);
+          if (N > 1) begin : g1
+            assign y = missing_net;
+          end else begin : g2
+            assign y = missing_net;
+          end
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_IMPLICIT_NET")
+
+
+def test_name_used_in_generate_block_and_module_body_is_reported_once():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top #(parameter int N = 2) (input logic a, output logic y, output logic z);
+          assign z = missing_net;
+          if (N > 1) begin : g1
+            assign y = missing_net;
+          end
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_IMPLICIT_NET")

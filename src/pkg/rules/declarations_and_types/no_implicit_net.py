@@ -1,6 +1,7 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.resolution import ResolutionStatus
 from ...semantic.symbol_table import SymbolTable
 from ..symbol_rule_runner import symbol_rule_runner
 
@@ -14,20 +15,21 @@ class NoImplicitNetRule(BaseSymbolRule):
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
 
-        for scope in symbol_table.scopes:
-            for sym in scope.symbols.values():
-                if not sym.is_implicit or sym.kind != "implicit_net" or not sym.uses:
-                    continue
+        for ref in symbol_table.unresolved_references:
+            if ref.status is not ResolutionStatus.UNRESOLVED_IMPLICIT_NET or not ref.is_unresolved:
+                continue
+            if not ref.symbol.uses:
+                continue
 
-                loc = sym.uses[0]
-                diagnostic = {
-                    "code": self.code,
-                    "line": loc["line"],
-                    "col": loc["col"],
-                    "message": f"Implicit net '{sym.name}' is not allowed",
-                }
-                if "file" in loc:
-                    diagnostic["file"] = loc["file"]
-                diagnostics.append(diagnostic)
+            loc = ref.symbol.uses[0]
+            diagnostic = {
+                "code": self.code,
+                "line": loc["line"],
+                "col": loc["col"],
+                "message": f"Implicit net '{ref.name}' is not allowed",
+            }
+            if "file" in loc:
+                diagnostic["file"] = loc["file"]
+            diagnostics.append(diagnostic)
 
         return diagnostics

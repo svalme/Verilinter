@@ -15,7 +15,7 @@ class RedeclaredVariableRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if not sym.is_implicit and len(sym.declarations) > 1:
+                if len(sym.declarations) > 1:
                     for loc in sym.declarations[1:]:
                         diagnostic = {
                             "code": self.code,

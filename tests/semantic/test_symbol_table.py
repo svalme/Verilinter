@@ -41,21 +41,20 @@ class TestSymbol:
 
     def test_symbol_initializes_with_correct_attributes(self, mock_location: Location) -> None:
         """Test that Symbol initializes with correct attributes."""
-        sym = Symbol(name="my_var", kind="wire")
+        sym = Symbol(name="my_var", kind="variable")
         sym.add_declaration(mock_location)
         
         assert sym.name == "my_var"
-        assert sym.kind == "wire"
+        assert sym.kind == "variable"
         assert sym.declarations == [mock_location]
         assert sym.uses == []
         assert sym.scope is None
 
-    def test_symbol_initializes_with_implicit_false(self, mock_location: Location) -> None:
-        """Test that Symbol initializes with is_implicit=False."""
+    def test_symbol_initializes_with_default_flags(self, mock_location: Location) -> None:
+        """Test that Symbol initializes with its flags cleared."""
         sym = Symbol(name="x", kind="variable")
         sym.add_declaration(mock_location)
         
-        assert sym.is_implicit is False
         assert sym.is_port is False
         assert sym.is_read is False
         assert sym.is_written is False
@@ -186,7 +185,6 @@ class TestScope:
     def test_define_upgrades_implicit_symbol_when_declaration_arrives(self, mock_location: Location) -> None:
         scope = Scope(kind="module", name="top")
         implicit = Symbol(name="sig", kind="implicit_net")
-        implicit.is_implicit = True
         implicit.add_use(mock_location, read=True)
         scope.define(implicit)
 
@@ -197,7 +195,7 @@ class TestScope:
         merged = scope.lookup("sig")
         assert merged is not None
         assert merged.kind == "variable"
-        assert merged.is_implicit is False
+        assert merged.is_declared
 
     def test_define_preserves_port_metadata_when_symbols_merge(self, mock_location: Location) -> None:
         scope = Scope(kind="module", name="top")
@@ -233,7 +231,7 @@ class TestScope:
         parent = Scope(kind="module", name="parent")
         child = Scope(kind="block", name="child")
 
-        sym_parent = Symbol(name="x", kind="wire")
+        sym_parent = Symbol(name="x", kind="variable")
         sym_parent.add_declaration(mock_location)
         sym_child = Symbol(name="x", kind="variable")
         sym_child.add_declaration(mock_location)
@@ -299,7 +297,7 @@ class TestSymbolTable:
         top = st.new_scope(kind="module", name="top")
         
         # Define global variables
-        clk = Symbol(name="clk", kind="wire")
+        clk = Symbol(name="clk", kind="variable")
         clk.add_declaration(mock_location)
         top.define(clk)
         
@@ -580,7 +578,7 @@ class TestLookupQualified:
     """Tests for SymbolTable.lookup_qualified."""
 
     def _sym(self, name: str) -> Symbol:
-        s = Symbol(name=name, kind="wire")
+        s = Symbol(name=name, kind="variable")
         s.add_declaration({"line": 1, "col": 1})
         return s
 
@@ -630,7 +628,7 @@ class TestLookupGlobal:
     """Tests for SymbolTable.lookup_global."""
 
     def _sym(self, name: str) -> Symbol:
-        s = Symbol(name=name, kind="wire")
+        s = Symbol(name=name, kind="variable")
         s.add_declaration({"line": 1, "col": 1})
         return s
 

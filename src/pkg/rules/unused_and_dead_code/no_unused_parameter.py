@@ -1,6 +1,8 @@
 from typing import Any
 
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
+from ...semantic.scope_kinds import ScopeKind
 from ..base_symbol_rule import BaseSymbolRule
 from ..symbol_rule_runner import symbol_rule_runner
 
@@ -17,11 +19,11 @@ class NoUnusedParameterRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if not sym.is_explicit_kind("parameter"):
+                if not sym.is_explicit_kind(SymbolKind.PARAMETER):
                     continue
                 if sym.is_read or sym.is_intentionally_unused:
                     continue
-                if getattr(sym.scope, "kind", None) == "package":
+                if getattr(sym.scope, "kind", None) == ScopeKind.PACKAGE:
                     continue
 
                 loc = sym.declarations[0]

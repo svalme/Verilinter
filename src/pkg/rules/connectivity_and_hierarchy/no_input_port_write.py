@@ -1,8 +1,10 @@
 from typing import Any
 
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
 from ..base_symbol_rule import BaseSymbolRule
 from ..symbol_rule_runner import symbol_rule_runner
+from ...semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS
 
 
 @symbol_rule_runner.register
@@ -17,10 +19,10 @@ class NoInputPortWriteRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             # Input formals are local copies and may legally be assigned.
-            if scope.kind in ("function", "task"):
+            if scope.kind in SUBROUTINE_SCOPE_KINDS:
                 continue
             for sym in scope.symbols.values():
-                if not sym.is_explicit_kind("variable"):
+                if not sym.is_explicit_kind(SymbolKind.VARIABLE):
                     continue
                 if sym.port_direction != "input":
                     continue

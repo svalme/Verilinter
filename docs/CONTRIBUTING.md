@@ -197,6 +197,19 @@ Two quality checks matter especially here:
 - avoid duplicating parser-shape logic across multiple rules when a helper can own it once
 - add at least one "near miss" test so the rule proves what it does *not* flag, not just what it does flag
 
+## Declarations, Scopes and Symbol Fields
+
+Three tables keep the symbol model consistent. Each is checked by a test, so a missed edit fails the suite.
+
+- **A construct that declares a name** needs an entry in `src/pkg/semantic/declaration_registry.py` with a sample that declares `qq_x` and uses it. `tests/semantic/test_declaration_registry.py` walks the sample under `` `default_nettype none `` and fails when the name is reported as undeclared or an implicit net. It also fails when pyslang defines a declaration-shaped `SyntaxKind` with no entry. A construct that does not resolve yet is recorded with `Coverage.GAP`; the test then fails when it starts to resolve, so the entry gets updated.
+- **A construct that opens a scope** needs an entry in `src/pkg/semantic/scope_kinds.py` and uses a `ScopeKind` member, not a string, when it creates the scope. The sample in the entry declares the same name in two siblings; `tests/semantic/test_scope_policy.py` checks the siblings do not collide. Scope-iterating rules read the shape through `ScopeKind`.
+- **A new attribute on `Symbol`** is serialized without further code: `src/pkg/semantic/symbol_serialization.py` takes its field list from the `Symbol` instance, because cross-file rules and cached runs only see serialized symbols. Scalar, list and pair-list values round-trip as they are; an attribute of another shape needs handling in that module. `tests/semantic/test_symbol_serialization.py` fails when an attribute is added without a sample value or is not preserved. Bump `ANALYZER_CACHE_VERSION` in `src/pkg/analysis_store.py` and the version named in `STORAGE.md` when the serialized shape changes.
+- **A question about a symbol's kind** uses `SymbolKind` from `src/pkg/semantic/symbol_kind.py`, or a property that already answers it (`Symbol.is_compile_time_constant`, `SymbolKind.is_type_name`), and never a kind string. A new kind is a new `SymbolKind` member; a new yes-or-no question about kinds is a property there, so rules do not each list the kinds that count. `tests/semantic/test_symbol_kind.py` fails on a kind string in source.
+- **A rule that depends on what an operand is** (a literal, a parameter, a bounded variable, a computed value) asks `classify_operand` in `src/pkg/rules/width_and_signedness/operand.py` and reads the `Operand` it returns. A new case, such as another kind of constant, is added to the classifier so every rule that asks gets it. `selectors_into_element_bits` in the same module separates the selectors that pick an array element from those that index bits.
+- **A name with no declaration** is recorded by `UnresolvedNameRecorder` on `SymbolTable.unresolved_references`; the resolver only looks names up. A rule that reports unresolved names reads the references, not the symbols.
+
+When a name unexpectedly shows up as an implicit net or undeclared variable, check the registry first: a missing entry is the usual cause. Do not add an exemption in the rule that reported it.
+
 ## CLI Change Checklist
 
 When adding or changing a command-line option, use this checklist by default:

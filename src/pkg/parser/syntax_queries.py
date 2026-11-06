@@ -126,6 +126,8 @@ from ._syntax_queries.declarators import (
     declarator_unpacked_dimension_texts,
     declarator_unpacked_dimension_widths,
     is_empty_non_ansi_port,
+    genvar_declaration_names_and_locations,
+    type_parameter_names_and_locations,
     typedef_declaration_name_and_location,
 )
 from ._syntax_queries.conditional_shapes import (
@@ -590,6 +592,8 @@ __all__ = [
     "sync_clock_signal_name",
     "system_task_name",
     "tree_has_package_declaration",
+    "genvar_declaration_names_and_locations",
+    "type_parameter_names_and_locations",
     "typedef_declaration_name_and_location",
     "unary_write_operand",
     "is_ascending_range_select",

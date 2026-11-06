@@ -10,6 +10,7 @@ from ..parser.syntax import (
 )
 from ..semantic.models import InstanceRecord, ParameterOverride, PortConnection
 from ..semantic.symbol import Symbol
+from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
 
 
@@ -120,7 +121,7 @@ def module_parameters_for(symbol_table: SymbolTable, module_name: str | None) ->
     scope = symbol_table.lookup_module(module_name)
     if scope is None:
         return []
-    return [symbol for symbol in scope.symbols.values() if symbol.kind == "parameter"]
+    return [symbol for symbol in scope.symbols.values() if symbol.kind is SymbolKind.PARAMETER]
 
 
 def named_parameter_overrides(instantiation: InstanceRecord | dict[str, object]) -> list[ParameterOverride | dict[str, object]]:
@@ -194,7 +195,7 @@ def instance_parameter_scope(
 
     child_params = [
         sym for sym in child_scope.symbols.values()
-        if sym.kind == "parameter"
+        if sym.kind is SymbolKind.PARAMETER
     ]
     if not child_params:
         return {}
@@ -312,6 +313,14 @@ def width_mismatch_details(
     return mismatches
 
 
+def _typed_by_type_parameter(port: object) -> bool:
+    """True when the port is declared with a type parameter (`input data_t d`), whose width no analysis can know."""
+    type_name = getattr(port, "interface_type_name", None)
+    lookup = getattr(getattr(port, "scope", None), "lookup_hierarchical", None)
+    symbol = lookup(type_name) if type_name and callable(lookup) else None
+    return bool(getattr(symbol, "is_type_parameter", False))
+
+
 def width_unknown_details(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
@@ -323,6 +332,8 @@ def width_unknown_details(
         conn_width = conn.get("expr_width")
         expr_text = str(conn.get("expr_text") or "<open>")
         if isinstance(conn_width, int) and isinstance(port.bit_width, int):
+            continue
+        if port.bit_width is None and _typed_by_type_parameter(port):
             continue
         unknowns.append((port.name, port.bit_width, expr_text, conn_width))
     return unknowns

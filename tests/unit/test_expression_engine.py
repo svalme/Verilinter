@@ -25,19 +25,19 @@ def test_scope():
     sym_d.value = 256
     scope.define(sym_d)
 
-    sym_a = Symbol("a", "wire")
+    sym_a = Symbol("a", "variable")
     sym_a.bit_width = 8
     sym_a.msb, sym_a.lsb = 7, 0
     sym_a.is_signed = False
     scope.define(sym_a)
 
-    sym_b = Symbol("b", "wire")
+    sym_b = Symbol("b", "variable")
     sym_b.bit_width = 4
     sym_b.msb, sym_b.lsb = 3, 0
     sym_b.is_signed = False
     scope.define(sym_b)
 
-    sym_s = Symbol("s", "wire")
+    sym_s = Symbol("s", "variable")
     sym_s.bit_width = 16
     sym_s.msb, sym_s.lsb = 15, 0
     sym_s.is_signed = True

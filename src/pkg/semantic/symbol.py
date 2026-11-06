@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from ..vnodes.base_vnode import Location
+from .symbol_kind import SymbolKind
 
 if TYPE_CHECKING:
     from .scope import Scope
@@ -25,16 +26,15 @@ class UseEvent(TypedDict):
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
 
-    def __init__(self, name: str, kind: str) -> None:
+    def __init__(self, name: str, kind: SymbolKind | str) -> None:
         self.name = name
-        self.kind = kind  # wire, reg, logic, variable, implicit_net, function, task
+        self.kind = SymbolKind(kind)
         self.scope: Scope | None = None
 
         self.declarations: list[Location] = []
         self.uses: list[Location] = []
         self.use_events: list[UseEvent] = []
 
-        self.is_implicit: bool = False
         self.is_port: bool = False
         self.is_function_return: bool = False
         self.port_direction: str | None = None  # "input" / "output" / "inout" / "ref" when is_port
@@ -58,6 +58,7 @@ class Symbol:
         self.is_used_in_port_connection: bool = False
         self.has_declaration_initializer: bool = False
         self.is_event: bool = False
+        self.is_type_parameter: bool = False  # a `parameter type t` name; its width is unknown until overridden
         self.interface_type_name: str | None = None  # declared type name; an interface only once resolved
 
     def set_scope(self, scope: Scope | None) -> None:
@@ -105,6 +106,12 @@ class Symbol:
         self.is_used_in_port_connection |= in_port_connection
 
     @property
+    def is_compile_time_constant(self) -> bool:
+        """True for a parameter, localparam or enum member: a value fixed at elaboration, so its declared
+        width and range do not bound how it is used."""
+        return self.kind.is_compile_time_constant or self.is_constant or self.is_localparam
+
+    @property
     def is_declared(self) -> bool:
         return bool(self.declarations)
 
@@ -114,16 +121,16 @@ class Symbol:
         designers use for signals kept on purpose without a reader."""
         return "unused" in self.name.lower()
 
-    def is_explicit_kind(self, kind: str) -> bool:
+    def is_explicit_kind(self, kind: SymbolKind) -> bool:
         """True when this is a genuine, explicitly-declared symbol of `kind`.
 
-        Filters out implicit nets and declaration-less placeholder symbols --
+        Filters out declaration-less placeholder symbols --
         the entry guard most symbol rules need before applying their own
-        condition (e.g. `sym.is_explicit_kind("variable")` for
+        condition (e.g. `sym.is_explicit_kind(SymbolKind.VARIABLE)` for
         `NO_UNDRIVEN_OUTPUT_PORT`/`READ_BEFORE_WRITE`/etc.,
-        `sym.is_explicit_kind("parameter")` for `NO_UNUSED_PARAMETER`).
+        `sym.is_explicit_kind(SymbolKind.PARAMETER)` for `NO_UNUSED_PARAMETER`).
         """
-        return self.kind == kind and self.is_declared and not self.is_implicit
+        return self.kind == kind and self.is_declared
 
     def has_sequential_driver(self, symbol_table: "SymbolTable | None" = None) -> bool:
         """True if the symbol has any non-blocking write or write within a sequential/clocked block."""

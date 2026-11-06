@@ -4,6 +4,7 @@ from ..base_symbol_rule import BaseSymbolRule
 from ...parser.syntax import is_mutually_exclusive_branch_pair
 from ...semantic.symbol import UseEvent
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
 from ...vnodes.base_vnode import Location
 from ..symbol_rule_runner import symbol_rule_runner
 
@@ -19,7 +20,7 @@ class NoMultipleDriversRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if not sym.is_explicit_kind("variable"):
+                if not sym.is_explicit_kind(SymbolKind.VARIABLE):
                     continue
 
                 seen_driver_ids: dict[str, tuple[UseEvent, Location]] = {}

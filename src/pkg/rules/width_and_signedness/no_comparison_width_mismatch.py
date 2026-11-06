@@ -1,15 +1,11 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import (
-    comparison_operands,
-    constant_integer_value,
-    natural_expression_width_and_signed,
-    unwrap_parentheses,
-)
+from ...parser.syntax import comparison_operands
 from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
+from .operand import classify_operand
 
 if TYPE_CHECKING:
     from ...walk.context import Context
@@ -31,8 +27,10 @@ def _comparison_width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, i
 
     scope = ctx.scope() if callable(getattr(ctx, "scope", None)) else None
 
-    wl, sl_l = natural_expression_width_and_signed(scope, left, vnode.tree)
-    wr, sl_r = natural_expression_width_and_signed(scope, right, vnode.tree)
+    operand_l = classify_operand(scope, left, vnode.tree)
+    operand_r = classify_operand(scope, right, vnode.tree)
+    wl, sl_l = operand_l.width, operand_l.signed
+    wr, sl_r = operand_r.width, operand_r.signed
 
     # Case A: Both operand widths are known
     if isinstance(wl, int) and isinstance(wr, int):
@@ -42,7 +40,7 @@ def _comparison_width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, i
 
     # Case B: Left operand width is known, right operand is a constant integer literal
     if isinstance(wl, int) and wl > 0:
-        val = constant_integer_value(unwrap_parentheses(right))
+        val = operand_r.value
         if val is not None:
             is_signed = bool(sl_l)
             if not is_signed:
@@ -62,7 +60,7 @@ def _comparison_width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, i
 
     # Case C: Right operand width is known, left operand is a constant integer literal
     if isinstance(wr, int) and wr > 0:
-        val = constant_integer_value(unwrap_parentheses(left))
+        val = operand_l.value
         if val is not None:
             is_signed = bool(sl_r)
             if not is_signed:

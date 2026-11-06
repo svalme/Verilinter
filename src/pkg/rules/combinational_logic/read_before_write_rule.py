@@ -3,6 +3,7 @@ from typing import Any
 from ..base_symbol_rule import BaseSymbolRule
 from ...semantic.symbol import Symbol, UseEvent
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
 from ..symbol_rule_runner import symbol_rule_runner
 
 
@@ -19,7 +20,7 @@ class ReadBeforeWriteRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if not sym.is_explicit_kind("variable"):
+                if not sym.is_explicit_kind(SymbolKind.VARIABLE):
                     continue
                 # A read with no local write is the normal, intended case for input and
                 # inout/ref ports (the value comes from outside this scope) -- mirrors the

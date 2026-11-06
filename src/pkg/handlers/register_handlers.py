@@ -17,7 +17,7 @@ from .procedural_block_handler import ProceduralBlockHandler
 from .case_statement_handler import CaseStatementHandler
 from .case_generate_handler import CaseGenerateHandler
 from .for_loop_statement_handler import ForLoopStatementHandler
-from .type_and_generate_scope_handler import StructUnionTypeHandler, LoopGenerateHandler
+from .type_and_generate_scope_handler import GenerateBlockHandler, GenvarDeclarationHandler, LoopGenerateHandler, StructUnionTypeHandler
 from .typedef_declaration_handler import TypedefDeclarationHandler
 
 #  variables

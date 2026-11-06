@@ -9,6 +9,7 @@ from ...parser.types import SELECT_EXPRESSION_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
+from ..width_and_signedness.operand import selectors_into_element_bits
 
 if TYPE_CHECKING:
     from ...walk.context import Context
@@ -34,6 +35,11 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
     symbol = ctx.scope().lookup_hierarchical(base_name)
     if symbol is None or not isinstance(symbol.bit_width, int):
         return False
+    # A parameter can be overridden with a value of any width, so its default does not bound a select.
+    if symbol.is_compile_time_constant:
+        return False
+    # Selectors on unpacked dimensions pick an array element; only what follows indexes the element's bits.
+    selectors = selectors_into_element_bits(symbol, selectors)
     bit_width = symbol.bit_width
     msb = getattr(symbol, "msb", None)
     lsb = getattr(symbol, "lsb", None)

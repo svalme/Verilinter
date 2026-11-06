@@ -1,35 +1,17 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import (
-    comparison_operands,
-    constant_integer_value,
-    identifier_name,
-    natural_expression_width_and_signed,
-    unwrap_parentheses,
-)
+from ...parser.syntax import comparison_operands
 from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
+from .operand import classify_operand
 
 if TYPE_CHECKING:
     from ...walk.context import Context
 
 _RELATIONAL = {"<", "<=", ">", ">="}
 _EQUALITY = {"==", "!=", "===", "!==", "==?", "!=?"}
-
-
-def _non_negative_constant(expr: object) -> bool:
-    value = constant_integer_value(unwrap_parentheses(expr))
-    return value is not None and value >= 0
-
-
-def _is_constant_symbol(scope: object, expr: object) -> bool:
-    """True for a parameter or enum member, whose signedness follows its value or type rather than a declaration."""
-    name = identifier_name(unwrap_parentheses(expr))
-    lookup = getattr(scope, "lookup_hierarchical", None)
-    symbol = lookup(name) if name and callable(lookup) else None
-    return getattr(symbol, "kind", None) in ("parameter", "enum_member")
 
 
 def _comparison_signedness_mismatch(vnode: BaseVNode, ctx: "Context") -> bool:
@@ -39,15 +21,16 @@ def _comparison_signedness_mismatch(vnode: BaseVNode, ctx: "Context") -> bool:
     left, right, op = operands
     if left is None or right is None or op not in _RELATIONAL | _EQUALITY:
         return False
-    # A non-negative constant has the same value read as signed or unsigned.
-    if _non_negative_constant(left) or _non_negative_constant(right):
-        return False
-
     scope = ctx.scope() if callable(getattr(ctx, "scope", None)) else None
-    if _is_constant_symbol(scope, left) or _is_constant_symbol(scope, right):
+    operand_l = classify_operand(scope, left, vnode.tree)
+    operand_r = classify_operand(scope, right, vnode.tree)
+    # A non-negative constant has the same value read as signed or unsigned.
+    if any(o.is_literal and o.value >= 0 for o in (operand_l, operand_r)):
         return False
-    width_l, signed_l = natural_expression_width_and_signed(scope, left, vnode.tree)
-    width_r, signed_r = natural_expression_width_and_signed(scope, right, vnode.tree)
+    if operand_l.is_constant_symbol or operand_r.is_constant_symbol:
+        return False
+    width_l, signed_l = operand_l.width, operand_l.signed
+    width_r, signed_r = operand_r.width, operand_r.signed
     if signed_l is None or signed_r is None or signed_l == signed_r:
         return False
     if op in _RELATIONAL:

@@ -2,6 +2,7 @@ from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
 from ..symbol_rule_runner import symbol_rule_runner
 
 
@@ -16,7 +17,7 @@ class NoUndrivenSignalRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if not sym.is_explicit_kind("variable") or sym.is_port:
+                if not sym.is_explicit_kind(SymbolKind.VARIABLE) or sym.is_port:
                     continue
                 if not sym.is_read or sym.is_written:
                     continue

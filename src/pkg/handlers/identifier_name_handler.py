@@ -13,6 +13,7 @@ from .identifier_name import (
     DEFAULT_STRUCTURAL_NAME_PREDICATES,
     StructuralReferenceFilter,
     SymbolResolver,
+    UnresolvedNameRecorder,
     UseEventContextExtractor,
 )
 
@@ -27,17 +28,19 @@ def _is_structural_name_reference(raw: object) -> bool:
 class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
     """Orchestrates identifier reference handling: filtering structural names,
 
-    resolving or synthesizing symbols, and extracting use-event context.
+    resolving names, recording the ones with no declaration, and extracting use-event context.
     """
 
     def __init__(
         self,
         filter: StructuralReferenceFilter | None = None,
         resolver: SymbolResolver | None = None,
+        recorder: UnresolvedNameRecorder | None = None,
         extractor: UseEventContextExtractor | None = None,
     ) -> None:
         self.filter = filter if filter is not None else StructuralReferenceFilter()
         self.resolver = resolver if resolver is not None else SymbolResolver()
+        self.recorder = recorder if recorder is not None else UnresolvedNameRecorder()
         self.extractor = extractor if extractor is not None else UseEventContextExtractor()
 
     def update_context(
@@ -53,7 +56,8 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
             self._record_interface_member_use(name, ctx, vnode, symbol_table)
             return ctx.push(vnode)
 
-        symbol = self.resolver.resolve_or_create(name, vnode, ctx, symbol_table)
+        resolution = self.resolver.resolve(name, vnode, ctx, symbol_table)
+        symbol = self.recorder.record(name, resolution, vnode, ctx, symbol_table)
         if symbol is None:
             return ctx.push(vnode)
 

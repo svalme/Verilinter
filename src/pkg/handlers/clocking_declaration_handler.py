@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..parser.syntax import clocking_declaration_event, clocking_declaration_signals
 from ..parser.types import ClockingDeclarationNode
 from ..semantic.symbol import Symbol
+from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.base_vnode import BaseVNode
 from ..vnodes.syntax_vnode import SyntaxVNode
@@ -27,7 +28,7 @@ class ClockingDeclarationHandler(SyntaxNodeHandler):
             lookup = getattr(scope, "lookup_hierarchical", None)
             symbol = lookup(name) if callable(lookup) else getattr(scope, "lookup", lambda _n: None)(name)
             if symbol is None:
-                symbol = Symbol(name=name, kind="variable")
+                symbol = Symbol(name=name, kind=SymbolKind.VARIABLE)
                 scope.add_symbol(symbol)
 
             if is_output:

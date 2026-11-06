@@ -293,7 +293,8 @@ Injected runners are executed identically across in-memory syntax trees (`analyz
 Complex AST handlers decompose disparate concerns into injectable strategy subcomponents:
 - **`IdentifierNameHandler`**:
   - `StructuralReferenceFilter`: Configurable predicates to filter non-referential identifier tokens.
-  - `SymbolResolver`: Resolves or synthesizes symbols across lexical/package scopes, with injectable `qualifier_fn`.
+  - `SymbolResolver`: Looks a name up across lexical/package scopes, with injectable `qualifier_fn`, and returns a `Resolution` (resolved, unresolved as an implicit net, unresolved as undeclared, or unresolvable from this file). It does not change the symbol table.
+  - `UnresolvedNameRecorder`: For a name with no declaration, creates the placeholder symbol that collects its uses in the enclosing module, package or subroutine scope and records an `UnresolvedReference` on `SymbolTable.unresolved_references`. `NO_IMPLICIT_NET` and `UNDECLARED_VARIABLE` read those references.
   - `UseEventContextExtractor`: Extracts access modes, driver blocks, and branch exclusivity signatures.
   - Interface members: a member selected through an interface port or instance (`b.req`) is recorded against the member's symbol in the interface declaration. Uses are queued on the `SymbolTable` and applied when the walk of the file ends, so an interface declared after its first use resolves. Only a plain `base.member` form on a port or instance declared in the same file is followed; array-of-interface indexing and interfaces declared in other files are not.
 - **`HierarchyInstantiationHandler`**:

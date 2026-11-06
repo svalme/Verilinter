@@ -1,6 +1,7 @@
 from typing import Any
 
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
 from ..base_symbol_rule import BaseSymbolRule
 from ..symbol_rule_runner import symbol_rule_runner
 
@@ -18,7 +19,7 @@ class NoWriteOnlyVariableRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
-                if not sym.is_explicit_kind("variable"):
+                if not sym.is_explicit_kind(SymbolKind.VARIABLE):
                     continue
                 if sym.is_port or sym.is_intentionally_unused:
                     continue

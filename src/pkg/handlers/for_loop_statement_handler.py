@@ -4,6 +4,7 @@ from ..semantic.symbol_table import SymbolTable
 from ..vnodes.syntax_vnode import SyntaxVNode
 from ..parser.types import ForLoopStatementNode
 from .syntax_node_handler import SyntaxNodeHandler
+from ..semantic.scope_kinds import ScopeKind
 
 
 @dispatch.register(ForLoopStatementNode)
@@ -20,7 +21,7 @@ class ForLoopStatementHandler(SyntaxNodeHandler):
     """
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
-        scope = symbol_table.new_scope(kind="for", location=vnode.location)
+        scope = symbol_table.new_scope(kind=ScopeKind.FOR, location=vnode.location)
         return ctx.push(vnode).with_scope(scope)
 
     def on_exit(self, _ctx: Context, _vnode: SyntaxVNode, symbol_table: SymbolTable) -> None:

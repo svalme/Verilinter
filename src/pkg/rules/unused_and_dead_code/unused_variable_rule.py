@@ -2,6 +2,7 @@ from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
 from ..symbol_rule_runner import symbol_rule_runner
 
 @symbol_rule_runner.register
@@ -18,7 +19,7 @@ class UnusedVariableRule(BaseSymbolRule):
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
                 if (
-                    sym.kind == "variable"
+                    sym.kind is SymbolKind.VARIABLE
                     and not sym.uses
                     and not sym.is_function_return
                     and not sym.is_intentionally_unused

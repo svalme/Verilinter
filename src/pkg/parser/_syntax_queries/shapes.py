@@ -140,12 +140,7 @@ def is_illegal_indexed_part_select_width(raw: object, scope: object = None) -> b
                 continue
             sym = scope.lookup_hierarchical(name)
             if sym is not None:
-                is_const = (
-                    getattr(sym, "is_constant", False)
-                    or getattr(sym, "is_localparam", False)
-                    or getattr(sym, "kind", "") == "parameter"
-                )
-                if not is_const:
+                if not getattr(sym, "is_compile_time_constant", False):
                     return True
             else:
                 return True

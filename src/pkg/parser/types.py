@@ -32,6 +32,8 @@ RangeSelectNode: TypeAlias = sl.RangeSelectSyntax
 StructUnionTypeNode: TypeAlias = sl.StructUnionTypeSyntax
 LoopGenerateNode: TypeAlias = sl.LoopGenerateSyntax
 TypedefDeclarationNode: TypeAlias = sl.TypedefDeclarationSyntax
+GenvarDeclarationNode: TypeAlias = sl.GenvarDeclarationSyntax
+TypeParameterDeclarationNode: TypeAlias = sl.TypeParameterDeclarationSyntax
 ForwardTypedefDeclarationNode: TypeAlias = sl.ForwardTypedefDeclarationSyntax
 
 IdentifierNameNode: TypeAlias = sl.IdentifierNameSyntax
@@ -165,6 +167,8 @@ __all__ = [
     "FunctionDeclarationNode",
     "FunctionPortNode",
     "GenerateBlockNode",
+    "GenvarDeclarationNode",
+    "TypeParameterDeclarationNode",
     "HierarchicalInstanceNode",
     "HierarchyInstantiationNode",
     "IDENTIFIER_NAME_NODE_TYPES",

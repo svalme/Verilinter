@@ -574,6 +574,32 @@ def clocking_declaration_event(raw: object) -> object | None:
     return getattr(raw, "event", None)
 
 
+def type_parameter_names_and_locations(
+    raw: object, tree: SyntaxTree | None = None
+) -> list[tuple[str, dict[str, object] | None]]:
+    """Return (name, location) for each name declared by `parameter type a = ..., b = ...;`."""
+    declared: list[tuple[str, dict[str, object] | None]] = []
+    for item in getattr(raw, "declarators", None) or []:
+        token = getattr(item, "name", None)  # the list also yields the comma tokens
+        name = identifier_name(token) if token is not None and not hasattr(item, "rawText") else None
+        if name:
+            declared.append((name, token_location(token, tree)))
+    return declared
+
+
+def genvar_declaration_names_and_locations(
+    raw: object, tree: SyntaxTree | None = None
+) -> list[tuple[str, dict[str, object] | None]]:
+    """Return (name, location) for each identifier declared by a `genvar a, b;` declaration."""
+    declared: list[tuple[str, dict[str, object] | None]] = []
+    for item in getattr(raw, "identifiers", None) or []:
+        token = getattr(item, "identifier", None)  # the list also yields the comma tokens
+        name = identifier_name(item) if token is not None else None
+        if name:
+            declared.append((name, token_location(token, tree)))
+    return declared
+
+
 def typedef_declaration_name_and_location(
     raw: object, tree: SyntaxTree | None = None
 ) -> tuple[str | None, dict[str, object] | None]:

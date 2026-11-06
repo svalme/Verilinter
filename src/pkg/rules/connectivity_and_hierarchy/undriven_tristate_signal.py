@@ -3,7 +3,9 @@ from typing import Any
 from ..base_symbol_rule import BaseSymbolRule
 from ..connection_analysis import signal_names_connected_to_instances
 from ...semantic.symbol_table import SymbolTable
+from ...semantic.symbol_kind import SymbolKind
 from ..symbol_rule_runner import symbol_rule_runner
+from ...semantic.scope_kinds import ScopeKind
 
 
 @symbol_rule_runner.register
@@ -16,12 +18,12 @@ class UndrivenTristateSignalRule(BaseSymbolRule):
         diagnostics: list[dict[str, Any]] = []
 
         for scope in symbol_table.scopes:
-            if scope.kind != "module" or not scope.name:
+            if scope.kind != ScopeKind.MODULE or not scope.name:
                 continue
             connected_names = signal_names_connected_to_instances(symbol_table, scope.name)
 
             for sym in scope.symbols.values():
-                if sym.kind != "variable" or sym.is_implicit or sym.is_port:
+                if sym.kind is not SymbolKind.VARIABLE or sym.is_port:
                     continue
                 if sym.name in connected_names:
                     continue

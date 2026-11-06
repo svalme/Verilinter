@@ -13,7 +13,7 @@ from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
 
 SCHEMA_VERSION = "3"
-ANALYZER_CACHE_VERSION = "2026-10-06-symbol-serialization-and-port-inheritance"
+ANALYZER_CACHE_VERSION = "2026-11-06-unresolved-references-and-no-implicit-flag"
 BUSY_TIMEOUT_SECONDS = 30.0
 _WAL_RETRY_DELAY_SECONDS = 0.02
 _WAL_RETRY_ATTEMPTS = int(BUSY_TIMEOUT_SECONDS / _WAL_RETRY_DELAY_SECONDS)
@@ -50,7 +50,7 @@ def selection_key(
         # pre-pass) -- a package changing in a DIFFERENT file can change what a
         # package-qualified/wildcard-imported name resolves to for this file, so
         # this must be part of the key too even though the file's own content
-        # didn't change. See `_seed_cross_file_packages`.
+        # didn't change. See `seed_cross_file_packages`.
         "package_registry_fingerprint": package_registry_fingerprint,
         # Preprocessor defines (-D) change macro expansion and conditional
         # compilation branches (`ifdef / `ifndef), so they must be part of the cache key.

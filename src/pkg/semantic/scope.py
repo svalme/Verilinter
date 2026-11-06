@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from ..vnodes.base_vnode import Location
+from .scope_kinds import NAME_OWNING_SCOPE_KINDS, ScopeKind
 from .symbol import Symbol
 
 class Scope:
@@ -50,7 +51,6 @@ class Scope:
             existing.write_count += symbol.write_count
             if symbol.declarations:
                 existing.kind = symbol.kind
-                existing.is_implicit = False
             return
 
         symbol.scope = self
@@ -80,11 +80,23 @@ class Scope:
         return f"Scope: kind={self.kind}, name={self.name}, file={self.file} \nsymbols={list(self.symbols.keys())}"
 
 
+def enclosing_name_owning_scope(scope: Scope) -> Scope:
+    """The nearest enclosing module, package, subroutine or global scope (the scope itself when it is one)."""
+    current: Scope | None = scope
+    depth = 0
+    while current is not None and depth < 64:
+        depth += 1
+        if current.kind in NAME_OWNING_SCOPE_KINDS:
+            return current
+        current = current.parent
+    return scope
+
+
 def enclosing_module_scope(scope: Scope | None) -> Scope | None:
     depth = 0
     while scope is not None and depth < 64:
         depth += 1
-        if getattr(scope, "kind", None) == "module":
+        if getattr(scope, "kind", None) == ScopeKind.MODULE:
             return scope
         scope = getattr(scope, "parent", None)
     return None

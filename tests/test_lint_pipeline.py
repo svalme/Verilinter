@@ -11,11 +11,10 @@ from src.pkg.parser.parse import parse_text
 from src.pkg.engine import (
     LintPipeline,
     WorkerResult,
-    _symbol_from_dict,
-    _symbol_to_dict,
     _worker_result_from_payload,
 )
 from src.pkg.semantic.symbol import Symbol, UseEvent
+from src.pkg.semantic.symbol_serialization import symbol_from_dict, symbol_to_dict
 from src.pkg.rules.rule_runner import RuleRunner
 from src.pkg.rules.rule_selection import RuleSelection
 from src.pkg.rules.symbol_rule_runner import SymbolRuleRunner
@@ -122,7 +121,7 @@ class TestLintPipeline:
                     "name": "parent",
                     "file": "top.sv",
                     "location": {"line": 1, "col": 1, "file": "top.sv"},
-                    "symbols": [{"name": "sys_clk", "kind": "wire", "is_port": True}],
+                    "symbols": [{"name": "sys_clk", "kind": "variable", "is_port": True}],
                 }
             ],
             primitives=["udp_gate"],
@@ -151,7 +150,7 @@ class TestLintPipeline:
         assert deserialized_inst.generate_branch_signature == (("gen_if", 0),)
 
     def test_symbol_use_event_roundtrip_preserves_all_fields(self) -> None:
-        """`_symbol_to_dict`/`_symbol_from_dict` back the cross-file SymbolTable
+        """`symbol_to_dict`/`symbol_from_dict` back the cross-file SymbolTable
         reconstruction (`_build_cross_file_symbol_table`) -- every `UseEvent`
         field must survive a real JSON round-trip (the SQLite cache path), not
         just the fields today's cross-file rules happen to read. The `keys()`
@@ -160,7 +159,6 @@ class TestLintPipeline:
         updated to cover it, or this test fails first."""
         symbol = Symbol(name="sig", kind="variable")
         symbol.add_declaration({"line": 1, "col": 3, "file": "top.sv"})
-        symbol.is_implicit = False
         symbol.is_port = True
         symbol.is_function_return = False
         symbol.port_direction = "output"
@@ -197,8 +195,8 @@ class TestLintPipeline:
             "call to cover it before trusting the round-trip assertion below."
         )
 
-        payload = json.loads(json.dumps(_symbol_to_dict(symbol)))
-        restored = _symbol_from_dict(payload)
+        payload = json.loads(json.dumps(symbol_to_dict(symbol)))
+        restored = symbol_from_dict(payload)
 
         assert restored.use_events == symbol.use_events
         expected_attrs = {k: v for k, v in symbol.__dict__.items() if k != "scope"}

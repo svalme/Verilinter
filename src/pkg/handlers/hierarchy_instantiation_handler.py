@@ -7,6 +7,7 @@ from ..walk.context import Context
 from ..semantic.models import InstanceRecord
 from ..semantic.scope import Scope, enclosing_module_scope
 from ..semantic.symbol import Symbol
+from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
 from ..parser.syntax import (
     branch_exclusivity_signature,
@@ -61,7 +62,7 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
 
             inst_name = hierarchical_instance_name(item)
             if inst_name:
-                sym = Symbol(name=inst_name, kind="instance")
+                sym = Symbol(name=inst_name, kind=SymbolKind.INSTANCE)
                 sym.interface_type_name = type_name
                 sym.add_declaration(vnode.location)
                 ctx.scope().define(sym)

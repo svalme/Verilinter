@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
@@ -22,7 +21,12 @@ from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_r
 from .rules.rule_selection import RuleSelection
 from .semantic.models import InstanceRecord
 from .semantic.scope import Scope
-from .semantic.symbol import Symbol, UseEvent
+from .semantic.package_registry import (
+    fingerprint_package_registry,
+    record_packages_from_symbol_table,
+    seed_cross_file_packages,
+)
+from .semantic.symbol_serialization import symbol_from_dict, symbol_to_dict
 from .semantic.symbol_table import SymbolTable
 from .walk.context import Context
 from .walk.dispatch import dispatch
@@ -32,6 +36,7 @@ from .vnodes.register_vnodes import *
 
 import inspect
 import sys
+from .semantic.scope_kinds import ScopeKind
 
 
 def _get_override(attr: str, default: Any) -> Any:
@@ -193,49 +198,8 @@ def _scan_packages(
         symbol_table.set_current_file(str(path))
         symbol_table.set_current_file_default_nettype_none(_file_uses_default_nettype_none(path))
         walker.walk(tree.root, tree, ctx, symbol_table)
-        _record_packages_from_symbol_table(str(path), symbol_table, registry)
+        record_packages_from_symbol_table(str(path), symbol_table, registry)
     return registry
-
-
-def _record_packages_from_symbol_table(
-    file_path: str,
-    symbol_table: SymbolTable,
-    registry: dict[str, list[dict[str, Any]]],
-) -> None:
-    for name, scopes in symbol_table.packages.items():
-        for scope in scopes:
-            symbols = [
-                {
-                    "name": symbol.name,
-                    "kind": symbol.kind,
-                    "value": symbol.value,
-                    "bit_width": symbol.bit_width,
-                    "is_signed": symbol.is_signed,
-                    "declarations": [dict(d) for d in symbol.declarations],
-                }
-                for symbol in scope.symbols.values()
-                if symbol.is_declared and not symbol.is_implicit
-            ]
-            subroutines = [
-                {
-                    "name": child.name,
-                    "kind": child.kind,
-                    "formals": [
-                        {
-                            "name": s.name,
-                            "direction": s.port_direction,
-                            "declarations": [dict(d) for d in s.declarations],
-                        }
-                        for s in child.symbols.values()
-                        if s.is_port and not s.is_function_return and s.name != child.name
-                    ],
-                }
-                for child in scope.children
-                if child.kind in ("task", "function")
-            ]
-            registry.setdefault(name, []).append(
-                {"file": file_path, "symbols": symbols, "subroutines": subroutines}
-            )
 
 
 def _scan_packages_from_trees(
@@ -253,254 +217,8 @@ def _scan_packages_from_trees(
             (default_nettype_none_by_file or {}).get(file_name, False)
         )
         walker.walk(tree.root, tree, ctx, symbol_table)
-        _record_packages_from_symbol_table(file_name, symbol_table, registry)
+        record_packages_from_symbol_table(file_name, symbol_table, registry)
     return registry
-
-
-def _fingerprint_package_registry(registry: dict[str, list[dict[str, Any]]]) -> str | None:
-    """Stable fingerprint of `_scan_packages`' output for the analysis-store cache
-    key: a cached per-file result was resolved against a specific corpus-wide set
-    of package declarations, and any of those changing (even in a different file)
-    can change what a package-qualified/wildcard-imported name resolves to for
-    the cached file -- see `_seed_cross_file_packages`."""
-    if not registry:
-        return None
-    payload = {
-        name: sorted(
-            (
-                entry["file"],
-                tuple(
-                    sorted(
-                        (s["name"], s["kind"], s.get("value"), s.get("bit_width"), s.get("is_signed"))
-                        for s in entry["symbols"]
-                    )
-                ),
-                tuple(
-                    sorted(
-                        (
-                            sub["name"],
-                            sub["kind"],
-                            tuple(sorted((f["name"], f.get("direction")) for f in sub.get("formals", []))),
-                        )
-                        for sub in entry.get("subroutines", [])
-                    )
-                ),
-            )
-            for entry in entries
-        )
-        for name, entries in registry.items()
-    }
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-
-
-def _seed_cross_file_packages(
-    symbol_table: SymbolTable,
-    package_registry: dict[str, list[dict[str, Any]]] | None,
-    current_file: str,
-) -> None:
-    """Seed `symbol_table.packages` with packages declared in OTHER input files
-    (from `_scan_packages`), so this file's own single-file walk can resolve
-    `import pkg::*;`/`pkg::name` against a package it doesn't declare itself.
-
-    Skips any entry declared in `current_file`: that package is about to be
-    (re)built with full fidelity by this file's own real walk, which must win
-    over the leaner prepass-only stand-in. These stand-in scopes are
-    deliberately never added to `symbol_table.scopes`, so they stay invisible
-    to rules that iterate every scope actually declared in this file
-    (NO_IMPLICIT_NET, NO_UNUSED_PARAMETER, ...).
-    """
-    if not package_registry:
-        return
-    for name, entries in package_registry.items():
-        for entry in entries:
-            if entry["file"] == current_file:
-                continue
-            scope = Scope(kind="package", name=name)
-            scope.file = entry["file"]
-            for symbol_data in entry["symbols"]:
-                symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
-                if symbol_data.get("value") is not None:
-                    try:
-                        symbol.value = int(symbol_data["value"])
-                    except (ValueError, TypeError):
-                        pass
-                if symbol_data.get("bit_width") is not None:
-                    try:
-                        symbol.bit_width = int(symbol_data["bit_width"])
-                    except (ValueError, TypeError):
-                        pass
-                if symbol_data.get("is_signed") is not None:
-                    symbol.is_signed = bool(symbol_data["is_signed"])
-                decls = symbol_data.get("declarations")
-                if decls:
-                    for d in decls:
-                        symbol.add_declaration(dict(d))
-                else:
-                    symbol.add_declaration({"file": entry["file"]})
-                scope.define(symbol)
-            for sub_data in entry.get("subroutines", []):
-                sub_scope = Scope(kind=str(sub_data.get("kind", "task")), name=str(sub_data.get("name", "")))
-                sub_scope.file = entry["file"]
-                for f in sub_data.get("formals", []):
-                    formal_sym = Symbol(name=str(f["name"]), kind="variable")
-                    formal_sym.is_port = True
-                    formal_sym.port_direction = f.get("direction")
-                    decls = f.get("declarations")
-                    if decls:
-                        for d in decls:
-                            formal_sym.add_declaration(dict(d))
-                    else:
-                        formal_sym.add_declaration({"file": entry["file"]})
-                    sub_scope.define(formal_sym)
-                sub_scope.set_parent(scope)
-            symbol_table.packages.setdefault(name, []).append(scope)
-
-
-def _symbol_to_dict(symbol: Symbol) -> dict[str, Any]:
-    """Serialize a `Symbol` (including its full `use_events`) to a plain,
-    JSON-safe dict -- the counterpart to `_symbol_from_dict`. This is the
-    per-symbol shape cached to SQLite and passed across the worker-process
-    boundary, so every field a cross-file (`module_rule_runner`) rule might
-    need has to round-trip through here faithfully, not just the fields
-    today's rules happen to read."""
-    return {
-        "name": symbol.name,
-        "kind": symbol.kind,
-        "declarations": [dict(d) for d in symbol.declarations],
-        "uses": [dict(u) for u in symbol.uses],
-        "is_implicit": symbol.is_implicit,
-        "is_port": symbol.is_port,
-        "is_function_return": symbol.is_function_return,
-        "direction": symbol.port_direction,
-        "bit_width": symbol.bit_width,
-        "msb": symbol.msb,
-        "lsb": symbol.lsb,
-        "is_signed": symbol.is_signed,
-        "value": symbol.value,
-        "is_constant": symbol.is_constant,
-        "is_localparam": symbol.is_localparam,
-        "initializer_text": symbol.initializer_text,
-        "has_declaration_initializer": symbol.has_declaration_initializer,
-        "is_event": symbol.is_event,
-        "packed_dimensions": [list(dim) for dim in symbol.packed_dimensions],
-        "packed_dimension_widths": list(symbol.packed_dimension_widths),
-        "unpacked_dimensions": [list(dim) for dim in symbol.unpacked_dimensions],
-        "unpacked_dimension_widths": list(symbol.unpacked_dimension_widths),
-        "is_read": symbol.is_read,
-        "is_written": symbol.is_written,
-        "use_count": symbol.use_count,
-        "read_count": symbol.read_count,
-        "write_count": symbol.write_count,
-        "is_used_in_port_connection": symbol.is_used_in_port_connection,
-        "use_events": [dict(event) for event in symbol.use_events],
-    }
-
-
-def _use_event_from_dict(data: dict[str, Any]) -> UseEvent:
-    """Reconstruct one `UseEvent` from its serialized dict, re-tupling
-    `branch_signature`/`loop_ids` -- a JSON round-trip (the SQLite cache path)
-    decays a tuple to a list, but callers compare/hash these as tuples."""
-    event: UseEvent = {
-        "location": data.get("location"),
-        "read": bool(data.get("read", False)),
-        "write": bool(data.get("write", False)),
-    }
-    driver_id = data.get("driver_id")
-    if driver_id is not None:
-        event["driver_id"] = str(driver_id)
-    driver_location = data.get("driver_location")
-    if driver_location is not None:
-        event["driver_location"] = driver_location
-    branch_signature = data.get("branch_signature")
-    if branch_signature is not None:
-        event["branch_signature"] = tuple(tuple(pair) for pair in branch_signature)
-    statement_id = data.get("statement_id")
-    if statement_id is not None:
-        event["statement_id"] = str(statement_id)
-    if data.get("in_port_connection"):
-        event["in_port_connection"] = True
-    if data.get("is_nonblocking_write"):
-        event["is_nonblocking_write"] = True
-    loop_ids = data.get("loop_ids")
-    if loop_ids:
-        event["loop_ids"] = tuple(loop_ids)
-    return event
-
-
-def _symbol_from_dict(symbol_data: dict[str, Any]) -> Symbol:
-    """Reconstruct a `Symbol` from its serialized dict -- the counterpart to
-    `_symbol_to_dict`. Used to rebuild the cross-file `SymbolTable` from every
-    worker's per-file JSON result."""
-    symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
-    symbol.declarations = [
-        dict(d)
-        for d in symbol_data.get("declarations", []) or []
-        if isinstance(d, dict)
-    ]
-    symbol.is_implicit = bool(symbol_data.get("is_implicit", False))
-    symbol.is_port = bool(symbol_data.get("is_port", False))
-    symbol.is_function_return = bool(symbol_data.get("is_function_return", False))
-    symbol.port_direction = (
-        str(symbol_data.get("direction")) if symbol_data.get("direction") else None
-    )
-    symbol.bit_width = (
-        int(symbol_data["bit_width"]) if symbol_data.get("bit_width") is not None else None
-    )
-    symbol.msb = int(symbol_data["msb"]) if symbol_data.get("msb") is not None else None
-    symbol.lsb = int(symbol_data["lsb"]) if symbol_data.get("lsb") is not None else None
-    signed = symbol_data.get("is_signed")
-    symbol.is_signed = bool(signed) if signed is not None else None
-    val = symbol_data.get("value")
-    symbol.value = int(val) if val is not None else None
-    symbol.is_constant = bool(symbol_data.get("is_constant", False))
-    symbol.is_localparam = bool(symbol_data.get("is_localparam", False))
-    init_text = symbol_data.get("initializer_text")
-    symbol.initializer_text = str(init_text) if init_text is not None else None
-    symbol.has_declaration_initializer = bool(symbol_data.get("has_declaration_initializer", False))
-    symbol.is_event = bool(symbol_data.get("is_event", False))
-    dims = symbol_data.get("packed_dimensions", [])
-    symbol.packed_dimensions = [
-        (str(d[0]), str(d[1]))
-        for d in dims
-        if isinstance(d, (list, tuple)) and len(d) == 2
-    ]
-    symbol.packed_dimension_widths = [
-        int(w) if isinstance(w, int) else None
-        for w in symbol_data.get("packed_dimension_widths", [])
-    ]
-    u_dims = symbol_data.get("unpacked_dimensions", [])
-    symbol.unpacked_dimensions = [
-        (str(d[0]), str(d[1]))
-        for d in u_dims
-        if isinstance(d, (list, tuple)) and len(d) == 2
-    ]
-    symbol.unpacked_dimension_widths = [
-        int(w) if isinstance(w, int) else None
-        for w in symbol_data.get("unpacked_dimension_widths", [])
-    ]
-    symbol.is_read = bool(symbol_data.get("is_read", False))
-    symbol.is_written = bool(symbol_data.get("is_written", False))
-    symbol.use_count = int(symbol_data.get("use_count", 0))
-    symbol.read_count = int(symbol_data.get("read_count", 0))
-    symbol.write_count = int(symbol_data.get("write_count", 0))
-    symbol.use_events = [
-        _use_event_from_dict(event)
-        for event in symbol_data.get("use_events", []) or []
-        if isinstance(event, dict)
-    ]
-    if "uses" in symbol_data and isinstance(symbol_data["uses"], list):
-        symbol.uses = [dict(u) for u in symbol_data["uses"] if isinstance(u, dict)]
-    else:
-        symbol.uses = [
-            dict(event["location"])
-            for event in symbol.use_events
-            if isinstance(event.get("location"), dict)
-        ]
-    symbol.is_used_in_port_connection = bool(
-        symbol_data.get("is_used_in_port_connection", False)
-        or any(bool(event.get("in_port_connection")) for event in symbol.use_events)
-    )
-    return symbol
 
 
 def _lint_single_tree(
@@ -529,7 +247,7 @@ def _lint_single_tree(
 
     symbol_table.set_current_file(file_name)
     symbol_table.set_current_file_default_nettype_none(default_nettype_none)
-    _seed_cross_file_packages(symbol_table, package_registry, file_name)
+    seed_cross_file_packages(symbol_table, package_registry, file_name)
 
     truncations: list[dict[str, Any]] = []
     with collect_truncations(file_name=file_name, tree=tree) as trunc_events:
@@ -542,7 +260,7 @@ def _lint_single_tree(
         for scope in scopes:
             symbols: list[dict[str, object]] = []
             for symbol in scope.symbols.values():
-                symbols.append(_symbol_to_dict(symbol))
+                symbols.append(symbol_to_dict(symbol))
             modules.append(
                 {
                     "name": name,
@@ -612,10 +330,10 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
             location = dict(module["location"])
             if module.get("file"):
                 location["file"] = module["file"]
-            scope = Scope(kind="module", name=module["name"], location=location)
+            scope = Scope(kind=ScopeKind.MODULE, name=module["name"], location=location)
             scope.file = module.get("file")
             for symbol_data in module.get("symbols", []):
-                symbol = _symbol_from_dict(symbol_data)
+                symbol = symbol_from_dict(symbol_data)
                 scope.define(symbol)
             symbol_table.modules.setdefault(module["name"], []).append(scope)
 
@@ -855,7 +573,7 @@ class LintPipeline:
                 raise FileNotFoundError(f"file not found: {path}")
 
         package_registry = _scan_packages(paths, include_dirs, defines=normalized_defines)
-        package_registry_fingerprint = _fingerprint_package_registry(package_registry)
+        package_registry_fingerprint = fingerprint_package_registry(package_registry)
 
         store = self._store
         if store is None and store_path is not None:

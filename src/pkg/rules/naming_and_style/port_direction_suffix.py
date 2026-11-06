@@ -5,6 +5,7 @@ from ...parser.types import DeclaratorNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
+from ...semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS
 
 if TYPE_CHECKING:
     from ...walk.context import Context
@@ -21,7 +22,7 @@ class PortDirectionSuffixRule(Rule):
     target_node_types = (DeclaratorNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        if ctx.scope().kind in ("function", "task"):
+        if ctx.scope().kind in SUBROUTINE_SCOPE_KINDS:
             return False
         if not isinstance(vnode.raw, DeclaratorNode):
             return False

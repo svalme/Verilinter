@@ -611,3 +611,40 @@ class TestPortConnectionSignednessMismatchRule:
         )
 
         result.expect_no_code("PORT_CONNECTION_SIGNEDNESS_MISMATCH")
+
+
+class TestPortConnectionWidthUnknownForTypeParameters:
+    def test_port_typed_by_a_type_parameter_is_not_reported_as_unknown_width(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter type data_t = logic) (input data_t a_i);
+                endmodule
+                module top (input logic [7:0] x_i);
+                  child u_child (.a_i(x_i));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
+
+    def test_port_with_an_unresolved_parameter_width_is_still_reported(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child #(parameter WIDTH) (input [WIDTH-1:0] d_i);
+                endmodule
+                module top;
+                  logic [7:0] b;
+                  child u_child (.d_i(b));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")

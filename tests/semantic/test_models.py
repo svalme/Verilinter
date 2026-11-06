@@ -6,10 +6,9 @@ import pytest
 
 from src.pkg.engine import (
     WorkerResult,
-    _record_packages_from_symbol_table,
-    _seed_cross_file_packages,
     _worker_result_from_payload,
 )
+from src.pkg.semantic.package_registry import record_packages_from_symbol_table, seed_cross_file_packages
 from src.pkg.semantic.models import InstanceRecord, ParameterOverride, PortConnection
 from src.pkg.semantic.scope import Scope
 from src.pkg.semantic.symbol import Symbol
@@ -310,7 +309,7 @@ class TestSymbolTableAndWorkerResultIntegration:
         task_scope.set_parent(pkg_scope)
 
         registry: dict[str, list[dict[str, Any]]] = {}
-        _record_packages_from_symbol_table("pkg.sv", st, registry)
+        record_packages_from_symbol_table("pkg.sv", st, registry)
 
         # Verify recorded registry contains real declarations
         assert "my_pkg" in registry
@@ -322,7 +321,7 @@ class TestSymbolTableAndWorkerResultIntegration:
 
         # Re-seed into a fresh symbol table for another file
         new_st = SymbolTable()
-        _seed_cross_file_packages(new_st, registry, current_file="top.sv")
+        seed_cross_file_packages(new_st, registry, current_file="top.sv")
 
         reseeded_pkg = new_st.packages["my_pkg"][0]
         reseeded_sym = reseeded_pkg.lookup("DATA_WIDTH")

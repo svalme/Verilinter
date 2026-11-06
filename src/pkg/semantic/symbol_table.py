@@ -3,15 +3,17 @@ from __future__ import annotations
 
 from ..vnodes.base_vnode import Location
 from .models.instance_record import InstanceRecord
+from .resolution import UnresolvedReference
 from .symbol import Symbol
 from .scope import Scope
+from .scope_kinds import ScopeKind
 
 
 class SymbolTable:
     """Manages multiple scopes and provides symbol lookup across the hierarchy."""
 
     def __init__(self) -> None:
-        self.global_scope: Scope = Scope(kind="global")
+        self.global_scope: Scope = Scope(kind=ScopeKind.GLOBAL)
         self.scopes: list[Scope] = [self.global_scope]  # registry - all scopes ever created
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name -> all scopes defining it, across files
@@ -27,6 +29,7 @@ class SymbolTable:
         self.tristate_driver_ids: set[str] = set()
         self.branch_constructs: dict[str, tuple[set[int] | None, tuple[tuple[str, int], ...]]] = {}
         self.pending_interface_member_uses: list[tuple[str, str, Location | None, dict[str, object]]] = []
+        self.unresolved_references: list[UnresolvedReference] = []  # names used with no declaration, in walk order
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
 

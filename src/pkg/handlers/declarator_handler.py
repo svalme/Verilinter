@@ -24,10 +24,12 @@ from ..parser.syntax import (
     source_text_for_node,
 )
 from ..semantic.symbol import Symbol
+from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
 from ..parser.types import DeclaratorNode
 from ..vnodes.syntax_vnode import SyntaxVNode
 from .syntax_node_handler import SyntaxNodeHandler
+from ..semantic.scope_kinds import ScopeKind
 
 
 @dispatch.register(DeclaratorNode)
@@ -37,17 +39,17 @@ class DeclaratorHandler(SyntaxNodeHandler):
         if not name:
             return ctx.push(vnode)
         if declarator_is_enum_member(ctx):
-            kind = "enum_member"
+            kind = SymbolKind.ENUM_MEMBER
         elif declarator_is_parameter(ctx):
-            kind = "parameter"
-        elif ctx.scope().kind == "aggregate":
-            kind = "field"
+            kind = SymbolKind.PARAMETER
+        elif ctx.scope().kind == ScopeKind.AGGREGATE:
+            kind = SymbolKind.FIELD
         else:
-            kind = "variable"
+            kind = SymbolKind.VARIABLE
         symbol = Symbol(name=name, kind=kind)
-        if kind == "parameter":
+        if kind is SymbolKind.PARAMETER:
             symbol.is_localparam = declarator_is_localparam(ctx)
-        elif kind == "enum_member":
+        elif kind is SymbolKind.ENUM_MEMBER:
             symbol.is_constant = True
         symbol.is_port = declarator_is_port(ctx)
         if symbol.is_port:
@@ -87,7 +89,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
             init_expr = declarator_initializer_expression(vnode.raw)
             if init_expr is not None and symbol.initializer_text is None:
                 symbol.initializer_text = source_text_for_node(init_expr, vnode.tree)
-            if kind in ("parameter", "enum_member"):
+            if kind.is_compile_time_constant:
                 symbol.value = declarator_initializer_value(vnode.raw, scope=ctx.scope())
         ctx.scope().define(symbol)
         return ctx.push(vnode)
