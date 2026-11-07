@@ -124,6 +124,14 @@ def module_parameters_for(symbol_table: SymbolTable, module_name: str | None) ->
     return [symbol for symbol in scope.symbols.values() if symbol.kind is SymbolKind.PARAMETER]
 
 
+def module_type_parameters_for(symbol_table: SymbolTable, module_name: str | None) -> list[Symbol]:
+    """The `parameter type t` names of a module; they are overridable like value parameters."""
+    scope = symbol_table.lookup_module(module_name) if module_name else None
+    if scope is None:
+        return []
+    return [symbol for symbol in scope.symbols.values() if symbol.is_type_parameter]
+
+
 def named_parameter_overrides(instantiation: InstanceRecord | dict[str, object]) -> list[ParameterOverride | dict[str, object]]:
     return [
         p
@@ -168,7 +176,9 @@ def unknown_named_parameter_override_names(
 ) -> list[str]:
     if module_scope_for(symbol_table, instantiation.get("child_module")) is None:
         return []
-    valid = {param.name for param in module_parameters_for(symbol_table, instantiation.get("child_module"))}
+    child_module = instantiation.get("child_module")
+    valid = {param.name for param in module_parameters_for(symbol_table, child_module)}
+    valid |= {param.name for param in module_type_parameters_for(symbol_table, child_module)}
     unknown: list[str] = []
     for override in named_parameter_overrides(instantiation):
         name = override.get("param_name")

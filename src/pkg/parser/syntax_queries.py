@@ -329,6 +329,7 @@ from ._syntax_queries.system_tasks import (
 )
 from ._syntax_queries.subroutines import (
     function_returns_value,
+    return_statement_has_value,
     subroutine_formal_direction,
     subroutine_name,
 )
@@ -390,6 +391,7 @@ __all__ = [
     "enclosing_continuous_assign",
     "enclosing_for_loop_ids",
     "function_returns_value",
+    "return_statement_has_value",
     "is_in_for_loop_header",
     "is_nonblocking_assignment_node",
     "loop_generate_genvar_name",

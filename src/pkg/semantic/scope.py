@@ -100,3 +100,13 @@ def enclosing_module_scope(scope: Scope | None) -> Scope | None:
             return scope
         scope = getattr(scope, "parent", None)
     return None
+
+
+def enclosing_function_scope(scope: Scope | None) -> Scope | None:
+    depth = 0
+    while scope is not None and depth < 64:
+        depth += 1
+        if getattr(scope, "kind", None) == ScopeKind.FUNCTION:
+            return scope
+        scope = getattr(scope, "parent", None)
+    return None

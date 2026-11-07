@@ -53,6 +53,11 @@ def function_returns_value(raw: object) -> bool:
     return getattr(return_type, "kind", None) != VOID_TYPE_KIND
 
 
+def return_statement_has_value(raw: object) -> bool:
+    """True if `raw` is a `return` statement that carries a value (`return expr;`)."""
+    return getattr(raw, "returnValue", None) is not None
+
+
 def extract_formals_from_subroutine_syntax(node: object) -> list[tuple[str, str]]:
     """Extract (formal_name, direction) list from a TaskDeclaration or FunctionDeclaration node,
     preserving declaration order and inherited port directions."""

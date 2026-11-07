@@ -26,9 +26,11 @@ class FunctionDeclarationHandler(SyntaxNodeHandler):
 
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         kind = ScopeKind.TASK if is_task_declaration_node(vnode.raw) else ScopeKind.FUNCTION
-        name = subroutine_name(vnode.raw) or "<anonymous>"
+        declared_name = subroutine_name(vnode.raw)
+        name = declared_name or "<anonymous>"
         scope = symbol_table.new_scope(kind=kind, name=name, location=vnode.location)
-        if kind == ScopeKind.FUNCTION and function_returns_value(vnode.raw):
+        # A class constructor (`function new`) has no name token and no result variable.
+        if kind == ScopeKind.FUNCTION and declared_name and function_returns_value(vnode.raw):
             # A non-void function has a local result variable bearing its name.
             result = Symbol(name=name, kind=SymbolKind.VARIABLE)
             result.is_function_return = True

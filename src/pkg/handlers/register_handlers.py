@@ -19,6 +19,7 @@ from .case_generate_handler import CaseGenerateHandler
 from .for_loop_statement_handler import ForLoopStatementHandler
 from .type_and_generate_scope_handler import GenerateBlockHandler, GenvarDeclarationHandler, LoopGenerateHandler, StructUnionTypeHandler
 from .typedef_declaration_handler import TypedefDeclarationHandler
+from .return_statement_handler import ReturnStatementHandler
 
 #  variables
 from .signal_event_expression_handler import SignalEventExpressionHandler

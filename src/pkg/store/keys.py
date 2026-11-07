@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..rules.rule_selection import RuleSelection
 
-ANALYZER_CACHE_VERSION = "2026-11-06-unresolved-references-and-no-implicit-flag"
+ANALYZER_CACHE_VERSION = "2026-11-07-return-writes-and-type-parameter-overrides"
 
 
 def file_sha256(path: Path) -> str:

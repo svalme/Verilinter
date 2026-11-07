@@ -85,3 +85,35 @@ endmodule
     def test_flags_class_method_output(self) -> None:
         code = "class c; function void m(output int mo); endfunction endclass"
         assert len(_diagnostics(code)) == 1
+
+    def test_return_statement_drives_the_result(self) -> None:
+        code = """
+module t;
+  function automatic int f(int a);
+    return a;
+  endfunction
+endmodule
+"""
+        assert _diagnostics(code) == []
+
+    def test_function_that_neither_assigns_nor_returns_is_flagged(self) -> None:
+        code = """
+module t;
+  function automatic int f(int a);
+    int x;
+    x = a;
+  endfunction
+endmodule
+"""
+        diags = _diagnostics(code)
+        assert len(diags) == 1
+        assert "function 'f'" in diags[0]["message"]
+
+    def test_class_constructor_has_no_result_to_drive(self) -> None:
+        code = """
+class c;
+  function new(int a);
+  endfunction
+endclass
+"""
+        assert _diagnostics(code) == []
