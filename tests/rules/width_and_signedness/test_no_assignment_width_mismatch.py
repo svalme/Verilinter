@@ -926,3 +926,15 @@ class TestConcatenatedAssignmentTarget:
         assert len(diagnostics) == 1
 
 
+class TestUntypedParameterRightHandSide:
+    def test_untyped_localparam_assigned_to_a_register_is_not_a_mismatch(self) -> None:
+        code = """
+module t;
+  localparam STATE_FETCH = 8'b00000100;
+  reg [7:0] state;
+  always @* begin
+    state = STATE_FETCH;
+  end
+endmodule
+"""
+        assert _diagnostics(code, "ASSIGNMENT_WIDTH_MISMATCH") == []

@@ -481,6 +481,9 @@ def declarator_bit_width(ctx: "Context") -> int | None:
             return 16
         if kw in ("byte",):
             return 8
+        if getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND and declarator_is_parameter(ctx):
+            # `parameter N = 4` has the width of its value, not a declared one.
+            return None
         if kw in ("logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
             return 1
 
@@ -500,6 +503,8 @@ def declarator_is_signed(ctx: "Context") -> bool | None:
         kw = getattr(getattr(dt, "keyword", None), "valueText", None)
         if kw in ("integer", "int", "shortint", "longint", "byte"):
             return True
+        if getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND and declarator_is_parameter(ctx):
+            return None
         if kw in ("time", "logic", "bit", "reg", "wire") or getattr(dt, "kind", None) == IMPLICIT_TYPE_KIND:
             return False
 

@@ -276,3 +276,44 @@ class TestComparisonWidthMismatchRule:
             """
         )
         assert len(diagnostics_in_range) == 0
+
+    def test_untyped_parameter_operand_has_no_declared_width(self) -> None:
+        code = """
+module t #(parameter DATA_WIDTH = 8, parameter KEEP_ENABLE = (DATA_WIDTH>8), parameter M = 4);
+  integer i;
+  reg [3:0] c;
+  always @* begin
+    for (i = 0; i < M; i = i + 1) begin
+    end
+    if (c > M) begin
+    end
+  end
+endmodule
+"""
+        assert _diagnostics(code) == []
+
+    def test_untyped_localparam_with_sized_literal_matches_a_same_width_register(self) -> None:
+        code = """
+module t;
+  localparam STATE_IDLE = 8'b00000001;
+  reg [7:0] state;
+  always @* begin
+    if (state == STATE_IDLE) begin
+    end
+  end
+endmodule
+"""
+        assert _diagnostics(code) == []
+
+    def test_typed_parameter_keeps_its_declared_width(self) -> None:
+        code = """
+module t;
+  parameter [7:0] LIMIT = 8'd3;
+  reg [3:0] c;
+  always @* begin
+    if (c == LIMIT) begin
+    end
+  end
+endmodule
+"""
+        assert len(_diagnostics(code)) == 1
