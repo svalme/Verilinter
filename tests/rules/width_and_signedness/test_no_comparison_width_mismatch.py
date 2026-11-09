@@ -317,3 +317,38 @@ module t;
 endmodule
 """
         assert len(_diagnostics(code)) == 1
+
+
+class TestNamedTypeElements:
+    def test_element_of_an_array_of_a_named_type_has_no_known_width(self) -> None:
+        code = """
+module t #(parameter int unsigned NumOut = 4, parameter int unsigned NumInp = 2);
+  typedef logic [1:0] sel_t;
+  sel_t [NumInp-1:0] sel;
+  logic flag;
+  assign flag = sel[0] < NumOut;
+endmodule
+"""
+        assert _diagnostics(code) == []
+
+    def test_element_of_an_unpacked_array_of_a_named_type_has_no_known_width(self) -> None:
+        code = """
+module t #(parameter int unsigned NumOut = 4);
+  typedef logic [1:0] sel_t;
+  sel_t sel [0:3];
+  logic flag;
+  assign flag = sel[0] < NumOut;
+endmodule
+"""
+        assert _diagnostics(code) == []
+
+    def test_array_of_a_declared_vector_keeps_its_element_width(self) -> None:
+        code = """
+module t;
+  logic [1:0] sel [0:3];
+  logic [3:0] wide;
+  logic flag;
+  assign flag = sel[0] == wide;
+endmodule
+"""
+        assert len(_diagnostics(code)) == 1

@@ -37,6 +37,7 @@ _SAMPLE_VALUES: dict[str, object] = {
     "is_event": True,
     "is_type_parameter": True,
     "interface_type_name": "data_t",
+    "named_type_dimension_count": 2,
 }
 
 # Attributes that are rebuilt from the scope tree and not stored on the symbol itself.

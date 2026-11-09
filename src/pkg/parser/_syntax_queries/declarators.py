@@ -14,6 +14,7 @@ from ..syntax_kinds import (
     EVENT_TYPE_KIND,
     FUNCTION_PORT_KIND,
     IDENTIFIER_NAME_KIND,
+    IDENTIFIER_SELECT_NAME_KIND,
     IDENTIFIER_TOKEN_KIND,
     IMPLICIT_TYPE_KIND,
     INTERFACE_PORT_HEADER_KIND,
@@ -295,6 +296,18 @@ def declarator_interface_type_name(ctx: "Context") -> str | None:
     if getattr(name, "kind", None) != IDENTIFIER_NAME_KIND:
         return None
     return identifier_name(name)
+
+
+def declarator_named_type_dimension_count(ctx: "Context") -> int | None:
+    """None unless the declaration uses a type name (`sel_t s`, `sel_t [N-1:0] s`, `pkg::t s`); then the
+    number of dimensions written after the name. The name's own width is not known from the declaration."""
+    data_type = _declarator_owner_data_type(ctx)
+    if getattr(data_type, "kind", None) != NAMED_TYPE_KIND:
+        return None
+    name = getattr(data_type, "name", None)
+    if getattr(name, "kind", None) == IDENTIFIER_SELECT_NAME_KIND:
+        return len([s for s in getattr(name, "selectors", ()) if isinstance(s, SyntaxNode)])
+    return 0
 
 
 def declarator_port_direction(ctx: "Context") -> str | None:

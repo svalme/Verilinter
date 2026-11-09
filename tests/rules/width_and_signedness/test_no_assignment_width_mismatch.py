@@ -938,3 +938,37 @@ module t;
 endmodule
 """
         assert _diagnostics(code, "ASSIGNMENT_WIDTH_MISMATCH") == []
+
+
+class TestNamedTypeElementRightHandSide:
+    def test_element_of_a_packed_array_of_a_named_type_is_not_a_mismatch(self) -> None:
+        code = """
+module t #(parameter int unsigned N = 2);
+  typedef logic [1:0] sel_t;
+  sel_t [N-1:0] sel;
+  logic [1:0] y;
+  assign y = sel[1];
+endmodule
+"""
+        assert _diagnostics(code, "ASSIGNMENT_WIDTH_MISMATCH") == []
+
+    def test_element_of_an_unpacked_array_of_a_named_type_is_not_a_mismatch(self) -> None:
+        code = """
+module t;
+  typedef logic [1:0] sel_t;
+  sel_t sel [0:3];
+  logic [1:0] y;
+  assign y = sel[1];
+endmodule
+"""
+        assert _diagnostics(code, "ASSIGNMENT_WIDTH_MISMATCH") == []
+
+    def test_element_of_an_array_of_a_declared_vector_is_still_compared(self) -> None:
+        code = """
+module t;
+  logic [1:0] sel [0:3];
+  logic [3:0] y;
+  assign y = sel[1];
+endmodule
+"""
+        assert len(_diagnostics(code, "ASSIGNMENT_WIDTH_MISMATCH")) == 1

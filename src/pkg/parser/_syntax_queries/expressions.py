@@ -530,6 +530,14 @@ def compute_sliced_width(
         if unpacked_widths and not packed_widths and isinstance(getattr(symbol, "bit_width", None), int):
             packed_widths = [symbol.bit_width]
 
+        # An element of a named type has the width of that type, which is not known here, and the
+        # dimensions written after the type name are not recorded.
+        named_dimensions = getattr(symbol, "named_type_dimension_count", None)
+        if named_dimensions:
+            return None
+        if named_dimensions == 0:
+            packed_widths = [*packed_widths, None]
+
     num_unpacked = len(unpacked_widths)
 
     # Compute single packed element bit width (product of all packed dimensions)

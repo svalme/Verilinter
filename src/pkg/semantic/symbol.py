@@ -60,6 +60,7 @@ class Symbol:
         self.is_event: bool = False
         self.is_type_parameter: bool = False  # a `parameter type t` name; its width is unknown until overridden
         self.interface_type_name: str | None = None  # declared type name; an interface only once resolved
+        self.named_type_dimension_count: int | None = None  # set when declared with a type name; the dimensions written after it
 
     def set_scope(self, scope: Scope | None) -> None:
         self.scope = scope
