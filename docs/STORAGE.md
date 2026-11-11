@@ -51,7 +51,7 @@ Severity overrides are applied after cached worker results are loaded, so they d
 The current schema version is `3`.
 
 Verilinter treats schema compatibility separately from cache compatibility:
-- `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse (currently `2026-11-08-named-type-elements-have-no-declared-width`)
+- `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse (currently `2026-11-09-unsized-decimal-literals-are-signed`)
 - `SCHEMA_VERSION` controls whether the SQLite table layout is still compatible with the current code
 
 If Verilinter opens a store with an older schema version and a supported migration path exists, it upgrades the

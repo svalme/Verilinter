@@ -80,11 +80,23 @@ class TestExpressionEngine:
         assert width_s == 16
         assert is_signed_s is True
 
-    def test_unsized_literals(self, test_scope):
+    def test_unsized_decimal_literal_is_signed(self, test_scope):
         rhs, tree = _get_rhs("assign w = 42;")
         width, is_signed = simple_expression_width_and_signed(test_scope, rhs, tree)
         assert width is None
+        assert is_signed is True
+
+    def test_unbased_unsized_literal_is_unsigned(self, test_scope):
+        rhs, tree = _get_rhs("assign w = '1;")
+        width, is_signed = simple_expression_width_and_signed(test_scope, rhs, tree)
+        assert width is None
         assert is_signed is False
+
+    def test_unsized_based_literal_is_unsigned_unless_signed_base(self, test_scope):
+        rhs, tree = _get_rhs("assign w = 'hFF;")
+        assert simple_expression_width_and_signed(test_scope, rhs, tree) == (None, False)
+        rhs, tree = _get_rhs("assign w = 'sd3;")
+        assert simple_expression_width_and_signed(test_scope, rhs, tree) == (None, True)
 
     def test_bit_select(self, test_scope):
         rhs, tree = _get_rhs("assign w = a[3];")

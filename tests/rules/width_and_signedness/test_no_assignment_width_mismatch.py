@@ -972,3 +972,51 @@ module t;
 endmodule
 """
         assert len(_diagnostics(code, "ASSIGNMENT_WIDTH_MISMATCH")) == 1
+
+
+class TestUnsizedLiteralSignedness:
+    def test_unsized_literal_assigned_to_an_unsigned_register_is_not_a_signedness_mismatch(self) -> None:
+        code = """
+module t;
+  reg r;
+  always @* begin
+    r = 0;
+  end
+endmodule
+"""
+        assert _diagnostics(code, "ASSIGNMENT_SIGNEDNESS_MISMATCH") == []
+
+    def test_unsized_literal_assigned_to_an_integer_is_not_a_signedness_mismatch(self) -> None:
+        code = """
+module t;
+  integer i;
+  always @* begin
+    i = 0;
+  end
+endmodule
+"""
+        assert _diagnostics(code, "ASSIGNMENT_SIGNEDNESS_MISMATCH") == []
+
+    def test_signed_vector_assigned_to_an_unsigned_register_is_still_a_mismatch(self) -> None:
+        code = """
+module t;
+  reg [3:0] r;
+  reg signed [3:0] s;
+  always @* begin
+    r = s;
+  end
+endmodule
+"""
+        assert len(_diagnostics(code, "ASSIGNMENT_SIGNEDNESS_MISMATCH")) == 1
+
+    def test_shifted_unsized_literal_is_not_a_signedness_mismatch(self) -> None:
+        code = """
+module t;
+  reg [31:0] mask;
+  reg [2:0] n;
+  always @* begin
+    mask = 1 << n;
+  end
+endmodule
+"""
+        assert _diagnostics(code, "ASSIGNMENT_SIGNEDNESS_MISMATCH") == []

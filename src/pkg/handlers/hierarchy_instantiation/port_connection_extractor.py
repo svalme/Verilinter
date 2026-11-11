@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from ...parser.syntax import (
     is_empty_port_connection,
+    is_sign_neutral_expression,
     is_named_port_connection,
     is_ordered_port_connection,
     is_wildcard_port_connection,
@@ -33,6 +34,11 @@ class PortConnectionExtractor:
             width_resolver if width_resolver is not None else simple_expression_width_and_signed
         )
 
+    def _expression_type(self, scope: Scope | None, expr: Any, tree: Any) -> tuple[int | None, bool | None]:
+        """Width and signedness of a connected expression; signedness is None where it cannot matter."""
+        width, signed = self.width_resolver(scope, expr, tree)
+        return width, None if is_sign_neutral_expression(expr) else signed
+
     def extract(
         self,
         item: Any,
@@ -51,7 +57,7 @@ class PortConnectionExtractor:
                 if expr is not None:
                     expr_text = source_text_for_node(expr, tree)
                     expr_name = simple_identifier_text(expr_text)
-                    expr_width, expr_signed = self.width_resolver(scope, expr, tree)
+                    expr_width, expr_signed = self._expression_type(scope, expr, tree)
                 elif is_shorthand:
                     expr_text = port_name
                     expr_name = port_name
@@ -81,7 +87,7 @@ class PortConnectionExtractor:
                 expr = port_connection_expression(conn)
                 expr_text = source_text_for_node(expr, tree) if expr is not None else None
                 expr_width, expr_signed = (
-                    self.width_resolver(scope, expr, tree)
+                    self._expression_type(scope, expr, tree)
                     if expr is not None
                     else (None, None)
                 )

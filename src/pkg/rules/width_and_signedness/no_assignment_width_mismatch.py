@@ -5,6 +5,7 @@ from ...parser.syntax import (
     element_select_index_or_range,
     evaluate_constant_text_expression,
     extract_assignment_target_and_selectors,
+    is_sign_neutral_expression,
     resolve_assignment_target_and_rhs,
     simple_expression_width_and_signed,
 )
@@ -155,7 +156,7 @@ def _signedness_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[bool, bool] 
     if lhs_symbol is None or right is None or lhs_symbol.is_signed is None:
         return None
 
-    if has_explicit_signedness_cast(right):
+    if has_explicit_signedness_cast(right) or is_sign_neutral_expression(right):
         return None
 
     _rhs_width, rhs_signed = simple_expression_width_and_signed(ctx.scope(), right, vnode.tree)

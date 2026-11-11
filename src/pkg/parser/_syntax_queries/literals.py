@@ -519,3 +519,32 @@ def has_case_overlapping_items(raw: object) -> bool:
                 seen_patterns.append(pat)
 
     return False
+
+
+# IEEE 1800 5.7.1: an unsized decimal number such as `5` is a signed integer of at least 32 bits.
+UNSIZED_DECIMAL_LITERAL_WIDTH = 32
+
+
+def literal_width_and_signed(raw: object) -> tuple[int | None, bool | None] | None:
+    """Self-determined `(width, signed)` of a numeric literal, or `None` when `raw` is not one.
+
+    A plain decimal (`5`) has no declared width and is signed. An unbased unsized literal (`'0`) has no
+    width and is unsigned. A based literal has the width written before the base (`8'hFF`, unknown when
+    omitted) and is signed only when the base carries `s` (`4'sd3`).
+    """
+    kind = getattr(raw, "kind", None)
+    if kind == INTEGER_LITERAL_EXPRESSION_KIND:
+        return None, True
+    if kind == UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND:
+        return None, False
+    if kind != INTEGER_VECTOR_EXPRESSION_KIND:
+        return None
+    base_text = (getattr(getattr(raw, "base", None), "rawText", None) or "").lower()
+    signed = "'s" in base_text
+    size_value = getattr(getattr(raw, "size", None), "value", None)
+    if size_value is not None:
+        try:
+            return int(size_value), signed
+        except (ValueError, TypeError):
+            pass
+    return None, signed

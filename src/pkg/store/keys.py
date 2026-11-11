@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..rules.rule_selection import RuleSelection
 
-ANALYZER_CACHE_VERSION = "2026-11-08-named-type-elements-have-no-declared-width"
+ANALYZER_CACHE_VERSION = "2026-11-09-unsized-decimal-literals-are-signed"
 
 
 def file_sha256(path: Path) -> str:

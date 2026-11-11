@@ -57,7 +57,12 @@ from ..syntax_kinds import (
 )
 from ..traversal_guard import guarded_traversal
 from ..types import SyntaxNode, SyntaxTree
-from .literals import constant_integer_value
+from .literals import (
+    UNSIZED_DECIMAL_LITERAL_WIDTH,
+    constant_integer_value,
+    is_unsized_literal,
+    literal_width_and_signed,
+)
 from .shapes import element_select_index_or_range
 from .shared import identifier_name
 
@@ -737,21 +742,9 @@ def simple_expression_width_and_signed(
                 all_signed = False
         return max_width, all_signed
 
-    if kind == INTEGER_VECTOR_EXPRESSION_KIND:
-        size_node = getattr(expr, "size", None)
-        size_val = getattr(size_node, "value", None)
-        base_node = getattr(expr, "base", None)
-        base_text = (getattr(base_node, "rawText", None) or "").lower()
-        if size_val is not None:
-            try:
-                size = int(size_val)
-                return size, "'s" in base_text
-            except (ValueError, TypeError):
-                pass
-        return None, "'s" in base_text
-
-    if kind in (INTEGER_LITERAL_EXPRESSION_KIND, UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND):
-        return None, False
+    literal_type = literal_width_and_signed(expr)
+    if literal_type is not None:
+        return literal_type
 
     if kind == IDENTIFIER_SELECT_NAME_KIND:
         name = identifier_name(expr)
@@ -794,8 +787,8 @@ def simple_expression_width_and_signed(
             total = 0
             for member in members:
                 unwrapped_member = unwrap_parentheses(member)
-                if getattr(unwrapped_member, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
-                    total += 32
+                if is_unsized_literal(unwrapped_member):
+                    total += UNSIZED_DECIMAL_LITERAL_WIDTH
                 else:
                     m_width, _ = simple_expression_width_and_signed(
                         scope, unwrapped_member, tree
@@ -811,8 +804,8 @@ def simple_expression_width_and_signed(
         concat_node = unwrap_parentheses(getattr(expr, "concatenation", None))
         count = evaluate_constant_expression(count_node, scope=scope)
         if count is not None and concat_node is not None:
-            if getattr(concat_node, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND:
-                inner_width = 32
+            if is_unsized_literal(concat_node):
+                inner_width = UNSIZED_DECIMAL_LITERAL_WIDTH
             else:
                 inner_width, _ = simple_expression_width_and_signed(
                     scope, concat_node, tree
@@ -869,6 +862,19 @@ def expression_width_and_signed(scope: object, expr: SyntaxNode, tree: SyntaxTre
                 all_signed = False
         return max_width, all_signed
     return simple_expression_width_and_signed(scope, expr, tree)
+
+
+def is_sign_neutral_expression(expr: object) -> bool:
+    """True when the signedness of `expr` cannot change what it means: an unsized decimal literal, which is
+    signed by the language but reads the same value in a signed or an unsigned context. Signedness-mismatch
+    rules ask this before comparing signedness, so each of them need not decide it again. A shift takes
+    its signedness from the shifted operand, so `1 << n` is neutral too."""
+    for _ in range(32):
+        expr = unwrap_parentheses(expr)
+        if getattr(expr, "kind", None) not in SHIFT_EXPRESSION_KINDS:
+            return is_unsized_literal(expr)
+        expr = getattr(expr, "left", None)
+    return False
 
 
 def _signedness_cast(expr: object) -> tuple[object, bool] | None:
