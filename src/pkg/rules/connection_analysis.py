@@ -382,7 +382,7 @@ def unread_instance_output_details(
         expr_name = conn.get("expr_name")
         if not isinstance(expr_name, str):
             continue
-        symbol = parent_scope.lookup(expr_name)
+        symbol = parent_scope.lookup_hierarchical(expr_name)
         if symbol is None:
             continue
         if symbol.is_port and symbol.port_direction in ("output", "inout"):
@@ -426,7 +426,7 @@ def instance_output_driver_conflicts(
         expr_name = conn.get("expr_name")
         if not isinstance(expr_name, str):
             continue
-        symbol = parent_scope.lookup(expr_name)
+        symbol = parent_scope.lookup_hierarchical(expr_name)
         if symbol is None or not symbol.is_written:
             continue
         # A write confined to a `generate if`/`else` branch mutually exclusive with
