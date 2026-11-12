@@ -14,6 +14,7 @@ from ..syntax_kinds import (
     BINARY_XOR_EXPRESSION_KIND,
     BIT_SELECT_KIND,
     CAST_EXPRESSION_KIND,
+    DOUBLE_COLON_TOKEN_KIND,
     INTEGER_TYPE_KINDS,
     SIGNED_CAST_EXPRESSION_KIND,
     BITWISE_BINARY_EXPRESSION_KINDS,
@@ -254,6 +255,18 @@ def evaluate_constant_expression(
                 val = getattr(symbol, "value", None)
                 if isinstance(val, int):
                     return val
+        return None
+
+    # 2b. A package-qualified name (`pkg::NAME`): the package's own constant.
+    if kind == SCOPED_NAME_KIND and getattr(getattr(expr, "separator", None), "kind", None) == DOUBLE_COLON_TOKEN_KIND:
+        package_name = identifier_name(getattr(expr, "left", None))
+        member_name = identifier_name(getattr(expr, "right", None))
+        lookup = getattr(scope, "lookup_package_member", None)
+        if package_name and member_name and callable(lookup):
+            symbol = lookup(package_name, member_name)
+            value = getattr(symbol, "value", None)
+            if isinstance(value, int):
+                return value
         return None
 
     # Type casts that keep the value: `unsigned'(x)`, `signed'(x)` and `int'(x)` of a small constant.

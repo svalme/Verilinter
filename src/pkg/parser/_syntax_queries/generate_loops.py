@@ -37,6 +37,10 @@ class _BoundScope:
         self._scope = scope
         self._values = values
 
+    def lookup_package_member(self, package_name: str, name: str) -> object:
+        lookup = getattr(self._scope, "lookup_package_member", None)
+        return lookup(package_name, name) if callable(lookup) else None
+
     def lookup_hierarchical(self, name: str) -> object:
         if name in self._values:
             return SimpleNamespace(value=self._values[name])

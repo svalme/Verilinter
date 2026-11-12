@@ -13,11 +13,12 @@ class SymbolTable:
     """Manages multiple scopes and provides symbol lookup across the hierarchy."""
 
     def __init__(self) -> None:
+        self.packages: dict[str, list[Scope]] = {}  # package name -> all scopes defining it, across files
         self.global_scope: Scope = Scope(kind=ScopeKind.GLOBAL)
+        self.global_scope.packages = self.packages
         self.scopes: list[Scope] = [self.global_scope]  # registry - all scopes ever created
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name -> all scopes defining it, across files
-        self.packages: dict[str, list[Scope]] = {}  # package name -> all scopes defining it, across files
         self.primitives: set[str] = set()  # user-defined primitive (UDP) names, across files
         self.module_references: list[tuple[str, Location]] = []
         self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
@@ -60,6 +61,7 @@ class SymbolTable:
 
         scope = Scope(kind=kind, name=name, location=location)
         scope.file = self.current_file
+        scope.packages = self.packages
         scope.set_parent(parent)
         self.scopes.append(scope)
         self._scope_stack.append(scope)
@@ -177,40 +179,11 @@ class SymbolTable:
         return len(self.modules.get(name, [])) > 1
 
     def lookup_from_scope(self, name: str, scope: Scope | None = None) -> Symbol | None:
-        """Lookup a symbol starting from the given scope upwards.
-
-        A local declaration always wins over an import (ordinary shadowing), so
-        the ancestor-chain walk runs to completion first. Only if that fails is
-        the same chain re-walked checking each scope's `imports` -- a name
-        brought in via `import pkg::*;`/`import pkg::name;` resolves into that
-        package's own scope (see `Scope.imports`/`register_package`). A package
-        declared in another file has no entry in `self.packages` yet, so it
-        simply isn't found here.
-        """
+        """Lookup a symbol starting from the given scope upwards, then through the imports in effect
+        there (see `Scope.lookup_hierarchical`, which is the one implementation)."""
         if scope is None:
             return None
-        node = scope
-        depth = 0
-        while node and depth < 64:
-            depth += 1
-            exists = getattr(node, "lookup", lambda _n: None)(name)
-            if exists:
-                return exists
-            node = getattr(node, "parent", None)
-
-        node = scope
-        depth = 0
-        while node and depth < 64:
-            depth += 1
-            for package_name, imported_name in getattr(node, "imports", ()):
-                if imported_name is not None and imported_name != name:
-                    continue
-                for package_scope in self.packages.get(package_name, ()):
-                    found = getattr(package_scope, "lookup", lambda _n: None)(name)
-                    if found:
-                        return found
-            node = getattr(node, "parent", None)
-        return None
+        return Scope.lookup_hierarchical(scope, name)
 
     def lookup_qualified(self, path: list[str]) -> Symbol | None:
         """Navigate scope tree by name path from global, then look up the final symbol.

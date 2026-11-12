@@ -213,7 +213,7 @@ If the semantic model only records scalar `bit_width = 6`, rules checking consta
 
 ### D. Lexical Scope vs. Upward Resolution
 Complex RTL constructs (such as `generate for` loops, unrolled procedural loops, and automatic functions) nest scopes. When rules evaluate expressions inside a child scope, looking only at the immediate scope fails to find module-level nets.
-- **Architecture Solution**: `Scope.lookup_hierarchical` traverses the parent pointer chain, resolving outer declarations while preserving inner shadowing.
+- **Architecture Solution**: `Scope.lookup_hierarchical` traverses the parent pointer chain, resolving outer declarations while preserving inner shadowing. It is the one name lookup: when the chain finds nothing it walks the chain again for `import pkg::*;` and `import pkg::name;` and looks in the package's own scope (`Scope.lookup_package_member`, which also serves `pkg::name`). `SymbolTable.lookup_from_scope` calls it, so the identifier resolver, the constant evaluator, the width estimators and the write regions all resolve an imported package constant or enum member the same way. Each scope shares the symbol table's package registry by reference.
 
 ---
 

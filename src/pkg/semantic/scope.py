@@ -20,6 +20,10 @@ class Scope:
         # statements appearing directly in this scope; `imported_name` is None for
         # the wildcard form. Consulted by SymbolTable.lookup_from_scope.
         self.imports: list[tuple[str, str | None]] = []
+        # The symbol table's package registry (package name -> every scope declaring it), shared by
+        # reference so an import resolves against packages declared in any file. None for a scope
+        # built outside a symbol table.
+        self.packages: dict[str, list[Scope]] | None = None
         self.fsm_models: list[object] = []
 
     def set_parent(self, parent: Scope | None = None) -> None:
@@ -62,7 +66,11 @@ class Scope:
         return None
 
     def lookup_hierarchical(self, name: str) -> Symbol | None:
-        """Lookup a symbol starting from this scope and walking up enclosing parent scopes."""
+        """The one name lookup: from this scope outward, then through imports.
+
+        A declaration in this scope or an enclosing one always wins (ordinary shadowing), so the chain
+        is walked to the end first. Only when that fails is the chain walked again for `import pkg::*;`
+        and `import pkg::name;`, which resolve into the package's own scope."""
         current: Scope | None = self
         depth = 0
         while current is not None and depth < 64:
@@ -71,6 +79,27 @@ class Scope:
             if symbol is not None:
                 return symbol
             current = getattr(current, "parent", None)
+
+        current = self
+        depth = 0
+        while current is not None and depth < 64:
+            depth += 1
+            for package_name, imported_name in current.imports:
+                if imported_name is not None and imported_name != name:
+                    continue
+                found = self.lookup_package_member(package_name, name)
+                if found is not None:
+                    return found
+            current = current.parent
+        return None
+
+    def lookup_package_member(self, package_name: str, name: str) -> Symbol | None:
+        """`package_name::name`: the symbol the package declares, or None when the package or the name is
+        not known to this scope's symbol table."""
+        for package_scope in (self.packages or {}).get(package_name, ()):
+            found = package_scope.lookup(name)
+            if found is not None:
+                return found
         return None
 
     def add_import(self, package_name: str, imported_name: str | None) -> None:
