@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from ...parser.syntax import (
     branch_exclusivity_signature,
+    driver_id_of,
     enclosing_assignment_expression,
     enclosing_continuous_assign,
     enclosing_for_loop_ids,
@@ -92,9 +93,7 @@ class UseEventContextExtractor:
         driver_location = None
         if driver_block is not None:
             loc = driver_block.location
-            driver_id = (
-                f"{driver_block.kind}:{loc.get('file', '')}:{loc['line']}:{loc['col']}"
-            )
+            driver_id = driver_id_of(driver_block)
             driver_location = loc
             if is_write and is_combinational_driver_block(driver_block):
                 symbol_table.mark_combinational_driver(driver_id)

@@ -13,6 +13,8 @@ class AssignmentTarget:
     part-selected targets (`assign a[i] = ...;`, `assign a[7:0] = ...;`), and
     concatenated assignment targets (`assign {a, b} = ...;`).
 
+    `write_region` is the part of the symbol written (see `semantic.write_region`); empty for the whole symbol.
+
     Delegates all other symbol attributes (declarations, uses, scope, etc.)
     transparently to `base_symbol` when `base_symbol` is present.
     """
@@ -26,6 +28,7 @@ class AssignmentTarget:
         is_concatenated: bool = False,
         elements: list[AssignmentTarget] | None = None,
         total_width: int | None = None,
+        write_region: tuple[tuple[object, ...], ...] = (),
     ) -> None:
         self.base_symbol = base_symbol
         self.slice_width = slice_width
@@ -34,6 +37,7 @@ class AssignmentTarget:
         self.is_concatenated = is_concatenated
         self.elements = list(elements or [])
         self.total_width = total_width
+        self.write_region = write_region
 
     @property
     def bit_width(self) -> int | None:
