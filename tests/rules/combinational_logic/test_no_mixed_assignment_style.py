@@ -162,3 +162,32 @@ class TestNoMixedAssignmentStyleRule:
         )
 
         assert diagnostics == []
+
+    def test_compound_assignment_is_a_blocking_assignment(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              logic [3:0] a, b;
+              always_comb begin
+                a = 1;
+                b += 2;
+              end
+            endmodule
+            """
+        )
+        assert diagnostics == []
+
+    def test_flags_compound_assignment_mixed_with_nonblocking(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input logic clk);
+              logic [3:0] a, b;
+              always @(posedge clk) begin
+                a += 1;
+                b <= 2;
+              end
+            endmodule
+            """
+        )
+        assert len(diagnostics) == 1
+

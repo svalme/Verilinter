@@ -31,7 +31,7 @@ def _diagnostics(statement: str) -> list[dict]:
 
 
 class TestNoSelfAssignment:
-    @pytest.mark.parametrize("statement", ["r <= r;", "r[3] <= r[3];", "q[i] <= q[i];", "r[3:0] <= r[3:0];", "q[0][1] <= q[0][1];"])
+    @pytest.mark.parametrize("statement", ["r <= r;", "r <= (r);", "r[3] <= r[3];", "q[i] <= q[i];", "r[3:0] <= r[3:0];", "q[0][1] <= q[0][1];"])
     def test_flags_a_target_assigned_to_itself(self, statement: str) -> None:
         assert len(_diagnostics(statement)) == 1
 
@@ -45,7 +45,28 @@ class TestNoSelfAssignment:
             "r[0] <= r[1];",
             "r <= r[3:0];",
             "q[0][1] <= q[0][2];",
+            "r <= r + 8'h1;",
+            "r += r;",
         ],
     )
     def test_ignores_a_different_part_of_the_same_variable(self, statement: str) -> None:
         assert _diagnostics(statement) == []
+
+    def test_continuous_and_blocking_forms_are_flagged_too(self) -> None:
+        code = """
+        module top(input logic clk);
+          logic [7:0] r;
+          logic x;
+          assign x = x;
+          always_comb r = r;
+        endmodule
+        """
+        symbol_table = SymbolTable()
+        walker = Walker(dispatch)
+        tree = parse_text(code)
+        walker.walk(tree.root, tree, Context(scope=symbol_table.global_scope), symbol_table)
+        found = [d for d in rule_runner.run(walker.results) if d["code"] == "NO_SELF_ASSIGNMENT"]
+        assert len(found) == 2
+
+    def test_concatenated_target_is_not_compared(self) -> None:
+        assert _diagnostics("{r[7:4], r[3:0]} <= {r[7:4], r[3:0]};") == []

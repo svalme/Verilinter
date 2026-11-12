@@ -32,6 +32,36 @@ def _base_reference(raw: object) -> object:
     return raw
 
 
+def assignment_kind_of(raw: object, continuous: bool = False):
+    """The `AssignmentKind` of an assignment expression node, or None for any other node. A compound
+    form (`x += y`) is its own kind; `continuous` says the assignment sits in a continuous assign."""
+    from ...semantic.models.assignment_record import AssignmentKind
+
+    if not is_assignment_expression(raw):
+        return None
+    if is_read_write_assignment_expression(raw):
+        return AssignmentKind.COMPOUND
+    if getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND:
+        return AssignmentKind.NONBLOCKING
+    return AssignmentKind.CONTINUOUS if continuous else AssignmentKind.BLOCKING
+
+
+@guarded_traversal(max_depth=64, default=())
+def target_leaves(left: object) -> tuple:
+    """The written references of a left-hand side as syntax nodes, in source order: the node itself,
+    or each member of a concatenation. Parentheses are removed."""
+    from ..syntax_queries import unwrap_parentheses
+
+    left = unwrap_parentheses(left)
+    if getattr(left, "kind", None) == CONCATENATION_EXPRESSION_KIND:
+        found: list = []
+        for member in getattr(left, "expressions", None) or ():
+            if isinstance(member, SyntaxNode):
+                found.extend(target_leaves(member))
+        return tuple(found)
+    return (left,)
+
+
 def _lookup(scope: object, name: str) -> object | None:
     lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
     return lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
@@ -54,23 +84,14 @@ def _leaf_target(raw: object, scope: object):
         slice_width=slice_width,
         is_sliced=is_sliced,
         selectors=selectors,
+        reference=raw,
         write_region=write_region_of_identifier(base, scope) if symbol is not None else (),
     )
 
 
-@guarded_traversal(max_depth=64, default=())
 def _targets_of(raw: object, scope: object) -> tuple:
-    """The written references of a left-hand side, flattened in source order."""
-    from ..syntax_queries import unwrap_parentheses
-
-    raw = unwrap_parentheses(raw)
-    if getattr(raw, "kind", None) == CONCATENATION_EXPRESSION_KIND:
-        found: list = []
-        for member in getattr(raw, "expressions", None) or ():
-            if isinstance(member, SyntaxNode):
-                found.extend(_targets_of(member, scope))
-        return tuple(found)
-    return (_leaf_target(raw, scope),)
+    """One `AssignmentTarget` per written reference of a left-hand side, in source order."""
+    return tuple(_leaf_target(leaf, scope) for leaf in target_leaves(raw))
 
 
 def _build_record(ctx: object, vnode: object):
@@ -86,14 +107,7 @@ def _build_record(ctx: object, vnode: object):
         left, right = assignment_left(raw), assignment_right(raw)
         if left is None or right is None:
             return None
-        if is_read_write_assignment_expression(raw):
-            kind = AssignmentKind.COMPOUND
-        elif getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND:
-            kind = AssignmentKind.NONBLOCKING
-        elif enclosing_continuous_assign(ctx) is not None:
-            kind = AssignmentKind.CONTINUOUS
-        else:
-            kind = AssignmentKind.BLOCKING
+        kind = assignment_kind_of(raw, continuous=enclosing_continuous_assign(ctx) is not None)
         targets = _targets_of(left, scope)
     elif declarator_has_initializer(raw) and not declarator_is_parameter(ctx):
         name = declarator_name(raw)

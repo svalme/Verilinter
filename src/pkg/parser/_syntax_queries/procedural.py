@@ -23,7 +23,7 @@ from ..types import (
     SyntaxNode,
     SyntaxTree,
 )
-from .shared import same_expression
+from .shared import identifier_name, same_expression
 
 
 def _node_syntax_children(node: object) -> Iterator[SyntaxNode]:
@@ -559,20 +559,6 @@ def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
         yield from iter_assignment_nodes(child)
 
 
-def mixed_assignment_trigger_node(block_raw: object) -> SyntaxNode | None:
-    if not isinstance(block_raw, SyntaxNode):
-        return None
-
-    seen_kinds: set[object] = set()
-
-    for node in iter_assignment_nodes(block_raw):
-        if node.kind not in seen_kinds and seen_kinds:
-            return node
-        seen_kinds.add(node.kind)
-
-    return None
-
-
 def _enclosing_statement_parent(node: object) -> object:
     """Return the syntax parent of `node`'s nearest enclosing `ExpressionStatement`.
 
@@ -608,76 +594,53 @@ def _is_repeated_sibling_write(
     return any(parent is earlier_parent and same_expression(target, earlier_target) for earlier_parent, earlier_target in seen)
 
 
-def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode]:
-    """Return {target_name: second_write_node} for targets written by two or more
-    *direct-sibling* nonblocking assignments -- see `_enclosing_statement_parent`
-    for exactly what "sibling" excludes (mutually exclusive branches, and the
-    unconditional-default-then-nested-override idiom), both deliberately not
-    flagged since only the sibling case is definitely dead code rather than
-    ordinary, correct RTL control flow.
-    """
-    if not isinstance(block_raw, SyntaxNode):
-        return {}
-
-    from .access import assignment_left, assignment_target_identifier_name
-
-    triggers: dict[str, SyntaxNode] = {}
-    seen_targets_by_name: dict[str, list[tuple[object, object]]] = {}
-
-    for node in iter_assignment_nodes(block_raw):
-        if getattr(node, "kind", None) not in SIMPLE_ASSIGNMENT_KINDS:
-            continue
-        if getattr(node, "kind", None) != NONBLOCKING_ASSIGNMENT_KIND:
-            continue
-        name = assignment_target_identifier_name(node)
-        if name is None:
-            continue
-
-        parent = _enclosing_statement_parent(node)
-        target = assignment_left(node)
-        seen = seen_targets_by_name.setdefault(name, [])
-        if name not in triggers and _is_repeated_sibling_write(seen, parent, target):
-            triggers[name] = node
-        seen.append((parent, target))
-
-    return triggers
-
-
 def procedural_block_assignment_triggers(
     block_raw: object,
 ) -> tuple[SyntaxNode | None, dict[str, SyntaxNode]]:
-    """Compute `(mixed_assignment_trigger_node, multiple_nonblocking_write_trigger_nodes)`
-    in a single `iter_assignment_nodes` pass over `block_raw`.
+    """Compute `(mixed_assignment_trigger_node, multiple_nonblocking_write_trigger_nodes)` for a block
+    in a single `iter_assignment_nodes` pass.
+
+    The mixed-style trigger is the first assignment whose blocking or non-blocking kind differs from the
+    block's first assignment (a compound `x += y` is a blocking assignment). The repeated-write
+    triggers are `{target_name: second_write_node}` for a target written by two *direct-sibling*
+    non-blocking assignments to the same reference -- see `_enclosing_statement_parent` for exactly what
+    "sibling" excludes (mutually exclusive branches, and the unconditional-default-then-nested-override
+    idiom), both deliberately not flagged since only the sibling case is definitely dead code rather
+    than ordinary, correct RTL control flow.
     """
     if not isinstance(block_raw, SyntaxNode):
         return None, {}
 
-    from .access import assignment_left, assignment_target_identifier_name
+    from ...semantic.models.assignment_record import AssignmentKind
+    from .access import assignment_left
+    from .assignment_records import assignment_kind_of, target_leaves
 
     mix_trigger: SyntaxNode | None = None
-    seen_kinds: set[object] = set()
+    first_is_nonblocking: bool | None = None
     nb_triggers: dict[str, SyntaxNode] = {}
     seen_targets_by_name: dict[str, list[tuple[object, object]]] = {}
 
     for node in iter_assignment_nodes(block_raw):
-        kind = getattr(node, "kind", None)
-        if mix_trigger is None:
-            if kind not in seen_kinds and seen_kinds:
-                mix_trigger = node
-            seen_kinds.add(kind)
+        kind = assignment_kind_of(node)
+        is_nonblocking = kind == AssignmentKind.NONBLOCKING
+        if first_is_nonblocking is None:
+            first_is_nonblocking = is_nonblocking
+        elif mix_trigger is None and is_nonblocking != first_is_nonblocking:
+            mix_trigger = node
 
-        if kind in SIMPLE_ASSIGNMENT_KINDS and kind == NONBLOCKING_ASSIGNMENT_KIND:
-            name = assignment_target_identifier_name(node)
-            if name is not None:
-                parent = _enclosing_statement_parent(node)
-                target = assignment_left(node)
-                seen = seen_targets_by_name.setdefault(name, [])
-                if name not in nb_triggers and _is_repeated_sibling_write(seen, parent, target):
-                    nb_triggers[name] = node
-                seen.append((parent, target))
+        if not is_nonblocking:
+            continue
+        parent = _enclosing_statement_parent(node)
+        for leaf in target_leaves(assignment_left(node)):
+            name = identifier_name(leaf)
+            if name is None:
+                continue
+            seen = seen_targets_by_name.setdefault(name, [])
+            if name not in nb_triggers and _is_repeated_sibling_write(seen, parent, leaf):
+                nb_triggers[name] = node
+            seen.append((parent, leaf))
 
     return mix_trigger, nb_triggers
-
 
 
 BranchSignature = tuple[tuple[str, int], ...]

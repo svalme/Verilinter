@@ -102,8 +102,8 @@ def test_specific_parent_traversal_cyclic_safety() -> None:
     # 2. Branch exclusivity signature
     assert sq.branch_exclusivity_signature(cyclic) == ()
 
-    # 3. Multiple nonblocking write trigger nodes
-    assert sq.multiple_nonblocking_write_trigger_nodes(cyclic) == {}
+    # 3. Mixed-style and repeated nonblocking write triggers
+    assert sq.procedural_block_assignment_triggers(cyclic) == (None, {})
 
     # 4. System task output argument
     assert sq.is_system_task_output_argument(cyclic) is False

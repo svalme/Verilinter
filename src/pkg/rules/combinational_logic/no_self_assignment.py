@@ -1,12 +1,6 @@
-from ...parser.syntax import (
-    assignment_left,
-    assignment_right,
-    identifier_name,
-    is_assignment_expression,
-    is_read_write_assignment_expression,
-    same_expression,
-)
+from ...parser.syntax import assignment_record, same_expression, unwrap_parentheses
 from ...parser.types import BinaryExpressionNode
+from ...semantic.models.assignment_record import AssignmentKind
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -20,15 +14,10 @@ class NoSelfAssignmentRule(Rule):
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = (BinaryExpressionNode,)
 
-    def applies(self, vnode: BaseVNode, _ctx: object) -> bool:
-        if not is_assignment_expression(vnode.raw) or is_read_write_assignment_expression(vnode.raw):
+    def applies(self, vnode: BaseVNode, ctx: object) -> bool:
+        record = assignment_record(ctx, vnode)
+        if record is None or record.kind in (AssignmentKind.COMPOUND, AssignmentKind.INITIALIZER):
             return False
-
-        left = assignment_left(vnode.raw)
-        right = assignment_right(vnode.raw)
-        if left is None or right is None:
+        if len(record.targets) != 1 or record.targets[0].reference is None or record.rhs is None:
             return False
-
-        left_name = identifier_name(left)
-        right_name = identifier_name(right)
-        return left_name is not None and left_name == right_name and same_expression(left, right)
+        return same_expression(record.targets[0].reference, unwrap_parentheses(record.rhs))

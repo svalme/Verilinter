@@ -13,6 +13,7 @@ class AssignmentTarget:
     part-selected targets (`assign a[i] = ...;`, `assign a[7:0] = ...;`), and
     concatenated assignment targets (`assign {a, b} = ...;`).
 
+    `reference` is the syntax node of the written reference (`v[3:0]`, `s.a`), None when there is none.
     `write_region` is the part of the symbol written (see `semantic.write_region`); empty for the whole symbol.
 
     Delegates all other symbol attributes (declarations, uses, scope, etc.)
@@ -29,6 +30,7 @@ class AssignmentTarget:
         elements: list[AssignmentTarget] | None = None,
         total_width: int | None = None,
         write_region: tuple[tuple[object, ...], ...] = (),
+        reference: object | None = None,
     ) -> None:
         self.base_symbol = base_symbol
         self.slice_width = slice_width
@@ -38,6 +40,7 @@ class AssignmentTarget:
         self.elements = list(elements or [])
         self.total_width = total_width
         self.write_region = write_region
+        self.reference = reference
 
     @property
     def bit_width(self) -> int | None:
