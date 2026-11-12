@@ -1,6 +1,6 @@
 from src.pkg.parser.parse import parse_text
 from src.pkg.parser.syntax import (
-    assignment_left,
+    assignment_view,
     contains_descendant,
     declarator_name,
     hierarchical_instance_name,
@@ -78,7 +78,7 @@ class TestSvAdapter:
         assert instantiation_type_name(instantiation_node) == "foo_mod"
         assert hierarchical_instance_name(instance_node) == "u_foo"
 
-    def test_assignment_left_returns_left_expression(self) -> None:
+    def test_assignment_view_gives_left_and_right_expressions(self) -> None:
         tree = parse_text(
             """
             module top;
@@ -89,7 +89,11 @@ class TestSvAdapter:
         )
         assign = _find_first(tree.root, is_assignment_expression)
         assert assign is not None
-        assert assignment_left(assign) is assign.left
+        view = assignment_view(assign)
+        assert view is not None
+        assert view.left is assign.left
+        assert view.rhs is assign.right
+        assert view.target_names == ("x",)
 
     def test_contains_descendant_finds_nested_identifier(self) -> None:
         tree = parse_text(

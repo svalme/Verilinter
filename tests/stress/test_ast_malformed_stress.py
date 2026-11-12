@@ -76,9 +76,8 @@ def test_queries_on_error_recovery_trees(snippet: str) -> None:
         _ = sq.unwrap_parentheses(node)
         _ = sq.is_conditional_statement(node)
         _ = sq.is_assignment_expression(node)
-        _ = sq.assignment_left(node)
-        _ = sq.assignment_right(node)
-        _ = sq.assignment_target_identifier_name(node)
+        _ = sq.assignment_view(node)
+        _ = sq.assignment_target_names(node)
         _ = sq.evaluate_constant_expression(node, scope=scope)
         _ = sq.simple_expression_width_and_signed(scope, node, tree)
         _ = sq.natural_expression_width_and_signed(scope, node, tree)
@@ -145,9 +144,8 @@ def test_queries_with_none_and_degenerate_types() -> None:
     for degenerate in (None, 0, 42, "", "   ", (), [], {}, object()):
         assert sq.is_conditional_statement(degenerate) is False
         assert sq.is_assignment_expression(degenerate) is False
-        assert sq.assignment_left(degenerate) is None
-        assert sq.assignment_right(degenerate) is None
-        assert sq.assignment_target_identifier_name(degenerate) is None
+        assert sq.assignment_view(degenerate) is None
+        assert sq.assignment_target_names(degenerate) == ()
         assert sq.constant_integer_value(degenerate) is None
         assert sq.evaluate_constant_expression(degenerate) is None
         assert sq.unwrap_parentheses(degenerate) is degenerate
@@ -164,9 +162,8 @@ def test_queries_with_mock_missing_attributes() -> None:
 
     assert sq.is_conditional_statement(bare_mock) is False
     assert sq.is_assignment_expression(bare_mock) is False
-    assert sq.assignment_left(bare_mock) is None
-    assert sq.assignment_right(bare_mock) is None
-    assert sq.assignment_target_identifier_name(bare_mock) is None
+    assert sq.assignment_view(bare_mock) is None
+    assert sq.assignment_target_names(bare_mock) == ()
     assert sq.constant_integer_value(bare_mock) is None
     assert sq.evaluate_constant_expression(bare_mock) is None
     assert sq.raw_node_children(bare_mock) == []

@@ -19,6 +19,7 @@ from ...parser.syntax import (
     is_sequential_driver_block,
     is_system_task_output_argument,
     is_tristate_continuous_assign,
+    statement_id_of,
     subroutine_formal_direction,
     write_region_of_identifier,
 )
@@ -111,10 +112,7 @@ class UseEventContextExtractor:
         assignment_node = enclosing_assignment_expression(ctx)
         statement_id = None
         if assignment_node is not None:
-            stmt_loc = assignment_node.location
-            statement_id = (
-                f"stmt:{stmt_loc.get('file', '')}:{stmt_loc['line']}:{stmt_loc['col']}"
-            )
+            statement_id = statement_id_of(assignment_node.location)
 
         in_port_connection = enclosing_port_connection(ctx) is not None
 

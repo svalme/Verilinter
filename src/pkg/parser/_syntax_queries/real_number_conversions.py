@@ -77,15 +77,12 @@ def declarator_is_implicit_real_conversion(raw: object) -> bool:
 def assignment_is_implicit_real_conversion(raw: object) -> bool:
     """Return True if an assignment right-hand side converts a real literal or fractional
     time literal to an integral target."""
-    from ..syntax_queries import assignment_left, assignment_right, is_assignment_expression
+    from ..syntax_queries import assignment_view
 
-    if not is_assignment_expression(raw):
+    view = assignment_view(raw)
+    if view is None:
         return False
-
-    left = assignment_left(raw)
-    right = assignment_right(raw)
-    if left is None or right is None:
-        return False
+    right = view.rhs
 
     right_kind = getattr(right, "kind", None)
     if right_kind == REAL_LITERAL_EXPRESSION_KIND:

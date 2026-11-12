@@ -320,12 +320,11 @@ def is_within_async_reset_conditional(ctx: "Context") -> bool:
 
 @guarded_traversal(max_depth=64, default=False)
 def _statement_assigns_register(raw: object, register_name: str) -> bool:
-    from ..syntax_queries import assignment_target_identifier_name, is_assignment_expression
+    from ..syntax_queries import assignment_target_names
 
     if (
-        is_assignment_expression(raw)
-        and getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
-        and assignment_target_identifier_name(raw) == register_name
+        getattr(raw, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND
+        and register_name in assignment_target_names(raw)
     ):
         return True
 
@@ -389,15 +388,6 @@ def is_state_register_reset_covered(block_raw: object, register_name: str) -> bo
 def identifier_is_assignment_lhs(ctx: "Context", raw_identifier: SyntaxNode) -> bool:
     _read, write = identifier_access_modes(ctx, raw_identifier)
     return write
-
-
-def assignment_target_identifier_name(raw: object) -> str | None:
-    from ..syntax_queries import identifier_name
-
-    left = assignment_left(raw)
-    if left is None:
-        return None
-    return identifier_name(left)
 
 
 def assignment_right(raw: object) -> SyntaxNode | None:

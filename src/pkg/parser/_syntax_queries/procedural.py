@@ -612,8 +612,7 @@ def procedural_block_assignment_triggers(
         return None, {}
 
     from ...semantic.models.assignment_record import AssignmentKind
-    from .access import assignment_left
-    from .assignment_records import assignment_kind_of, target_leaves
+    from .assignment_records import assignment_view
 
     mix_trigger: SyntaxNode | None = None
     first_is_nonblocking: bool | None = None
@@ -621,8 +620,10 @@ def procedural_block_assignment_triggers(
     seen_targets_by_name: dict[str, list[tuple[object, object]]] = {}
 
     for node in iter_assignment_nodes(block_raw):
-        kind = assignment_kind_of(node)
-        is_nonblocking = kind == AssignmentKind.NONBLOCKING
+        view = assignment_view(node)
+        if view is None:
+            continue
+        is_nonblocking = view.kind == AssignmentKind.NONBLOCKING
         if first_is_nonblocking is None:
             first_is_nonblocking = is_nonblocking
         elif mix_trigger is None and is_nonblocking != first_is_nonblocking:
@@ -631,7 +632,7 @@ def procedural_block_assignment_triggers(
         if not is_nonblocking:
             continue
         parent = _enclosing_statement_parent(node)
-        for leaf in target_leaves(assignment_left(node)):
+        for leaf in view.leaves:
             name = identifier_name(leaf)
             if name is None:
                 continue

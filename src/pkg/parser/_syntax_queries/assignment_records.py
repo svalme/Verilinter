@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from ..syntax_kinds import CONCATENATION_EXPRESSION_KIND, DOT_TOKEN_KIND, NONBLOCKING_ASSIGNMENT_KIND, SCOPED_NAME_KIND
 from ..traversal_guard import guarded_traversal
 from ..types import SyntaxNode
@@ -18,7 +20,8 @@ def driver_id_of(driver_block: object) -> str:
     return f"{driver_block.kind}:{location.get('file', '')}:{location['line']}:{location['col']}"  # type: ignore[attr-defined]
 
 
-def _statement_id(location: dict) -> str:
+def statement_id_of(location: dict) -> str:
+    """The id a use event and an assignment record give the statement at `location`."""
     return f"stmt:{location.get('file', '')}:{location['line']}:{location['col']}"
 
 
@@ -62,15 +65,46 @@ def target_leaves(left: object) -> tuple:
     return (left,)
 
 
-def assignment_target_names(raw: object) -> tuple[str, ...]:
-    """The names written by an assignment expression, one per written reference (a concatenation gives
-    each member); empty for any other node."""
-    from ..syntax_queries import identifier_name
+@dataclass(frozen=True)
+class AssignmentView:
+    """An assignment expression read from its syntax alone: no scope, so it can be built where a rule
+    has only a node (a module-wide scan, a block's trigger search). `AssignmentRecord` adds the resolved
+    symbols, driver and statement; both take their kind, left-hand side, right-hand side and written
+    references from here, so they cannot disagree."""
 
-    left = assignment_left(raw)
-    if left is None:
-        return ()
-    return tuple(name for name in (identifier_name(leaf) for leaf in target_leaves(left)) if name is not None)
+    node: object
+    kind: object
+    left: object
+    rhs: object
+    leaves: tuple
+
+    @property
+    def target_names(self) -> tuple[str, ...]:
+        """The name written by each reference of the left-hand side (a concatenation gives each member)."""
+        from ..syntax_queries import identifier_name
+
+        return tuple(name for name in (identifier_name(leaf) for leaf in self.leaves) if name is not None)
+
+
+def assignment_view(raw: object, continuous: bool = False) -> AssignmentView | None:
+    """The `AssignmentView` of an assignment expression node, or None for any other node or an
+    assignment with no left or right side."""
+    left, rhs = assignment_left(raw), assignment_right(raw)
+    if left is None or rhs is None:
+        return None
+    return AssignmentView(
+        node=raw,
+        kind=assignment_kind_of(raw, continuous=continuous),
+        left=left,
+        rhs=rhs,
+        leaves=target_leaves(left),
+    )
+
+
+def assignment_target_names(raw: object) -> tuple[str, ...]:
+    """The names written by an assignment expression; empty for any other node."""
+    view = assignment_view(raw)
+    return view.target_names if view is not None else ()
 
 
 def _lookup(scope: object, name: str) -> object | None:
@@ -115,11 +149,11 @@ def _build_record(ctx: object, vnode: object):
         return None
 
     if is_assignment_expression(raw):
-        left, right = assignment_left(raw), assignment_right(raw)
-        if left is None or right is None:
+        view = assignment_view(raw, continuous=enclosing_continuous_assign(ctx) is not None)
+        if view is None:
             return None
-        kind = assignment_kind_of(raw, continuous=enclosing_continuous_assign(ctx) is not None)
-        targets = assignment_targets(left, scope)
+        kind, right = view.kind, view.rhs
+        targets = tuple(_leaf_target(leaf, scope) for leaf in view.leaves)
     elif declarator_has_initializer(raw) and not declarator_is_parameter(ctx):
         name = declarator_name(raw)
         right = declarator_initializer_expression(raw)
@@ -141,7 +175,7 @@ def _build_record(ctx: object, vnode: object):
         rhs=right,
         driver_id=driver_id_of(driver) if driver is not None else None,
         driver_location=driver.location if driver is not None else None,
-        statement_id=_statement_id(location),
+        statement_id=statement_id_of(location),
         location=location,
     )
 

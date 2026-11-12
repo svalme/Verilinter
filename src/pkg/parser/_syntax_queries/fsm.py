@@ -56,12 +56,7 @@ def _module_member_write_summaries(
     module_raw: object,
     module_cache: dict[object, object] | None,
 ) -> tuple[_MemberWriteSummary, ...]:
-    from ..syntax_queries import (
-        assignment_right,
-        assignment_target_identifier_name,
-        classify_reset_style,
-        iter_assignment_nodes,
-    )
+    from ..syntax_queries import assignment_view, classify_reset_style, iter_assignment_nodes
 
     cached = node_cache_get(module_cache, "module_fsm_index", module_raw)
     if cached is not MISSING:
@@ -74,15 +69,16 @@ def _module_member_write_summaries(
         nb_targets: set[str] = set()
         nb_rhs: dict[str, set[str]] = {}
         for a in iter_assignment_nodes(member):
-            target = assignment_target_identifier_name(a)
-            if target is None:
+            view = assignment_view(a)
+            if view is None or not view.target_names:
                 continue
-            written.add(target)
+            written.update(view.target_names)
             if is_seq and getattr(a, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND:
-                nb_targets.add(target)
-                rhs_id = identifier_name(assignment_right(a))
+                nb_targets.update(view.target_names)
+                # The right-hand side names the next state only for a single-target assignment.
+                rhs_id = identifier_name(view.rhs) if len(view.target_names) == 1 else None
                 if rhs_id is not None:
-                    nb_rhs.setdefault(target, set()).add(rhs_id)
+                    nb_rhs.setdefault(view.target_names[0], set()).add(rhs_id)
         if written:
             summaries.append(
                 _MemberWriteSummary(
@@ -108,7 +104,7 @@ def state_machine_model(raw: object, ctx: "Context") -> FsmModel | None:
     subroutine scopes rather than guessing across them.
     """
     from ..syntax_queries import (
-        assignment_target_identifier_name, assignment_right,
+        assignment_target_names, assignment_view,
         classify_reset_style, enclosing_procedural_block,
         is_case_statement, is_combinational_style_always_block,
         iter_assignment_nodes, case_statement_items, case_item_expressions,
@@ -151,7 +147,7 @@ def state_machine_model(raw: object, ctx: "Context") -> FsmModel | None:
     next_state = None
     if classify_reset_style(block.raw) in ("sync", "async"):
         if not any(getattr(a, "kind", None) == NONBLOCKING_ASSIGNMENT_KIND and
-                   assignment_target_identifier_name(a) == state
+                   state in assignment_target_names(a)
                    for a in iter_assignment_nodes(block.raw)):
             return _finish(None)
         sequential = block.raw
@@ -175,7 +171,7 @@ def state_machine_model(raw: object, ctx: "Context") -> FsmModel | None:
         seq_summary = writers[0]
         sequential = seq_summary.member
         candidates = set(seq_summary.nonblocking_rhs_by_target.get(state, ()))
-        written = {assignment_target_identifier_name(a) for a in iter_assignment_nodes(raw)}
+        written = {name for a in iter_assignment_nodes(raw) for name in assignment_target_names(a)}
         if state in written:
             return _finish(None)
         candidates &= written
@@ -207,8 +203,8 @@ def state_machine_model(raw: object, ctx: "Context") -> FsmModel | None:
                         if (v := resolve_case_item_value(expr, ctx.scope())) is not None)
         values.update(sources)
         for assignment in iter_assignment_nodes(item):
-            if assignment_target_identifier_name(assignment) == destination_name:
-                rhs = assignment_right(assignment)
+            if destination_name in assignment_target_names(assignment):
+                rhs = assignment_view(assignment).rhs
                 destination = resolve_case_item_value(rhs, ctx.scope())
                 guards = []
                 child = assignment
