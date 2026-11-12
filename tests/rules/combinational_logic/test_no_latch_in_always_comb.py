@@ -123,6 +123,51 @@ class TestNoLatchInAlwaysComb:
         """
         assert _diagnostics(code) == []
 
+    def test_loop_variable_assigned_only_in_branch_is_not_a_latch(self) -> None:
+        code = """
+        module top(input logic c, input logic [3:0] d, output logic [3:0] y);
+            integer k;
+            always_comb begin
+                y = 4'd0;
+                if (c) begin
+                    for (k = 0; k < 4; k = k + 1) y[k] = d[k];
+                end
+            end
+        endmodule
+        """
+        assert _diagnostics(code) == []
+
+    def test_classic_always_star_with_missing_else_infers_latch(self) -> None:
+        code = """
+        module top(input logic c, d, output logic y);
+            always @* begin
+                if (c) y = d;
+            end
+        endmodule
+        """
+        assert len(_diagnostics(code)) == 1
+
+    def test_classic_always_with_name_list_and_default_has_no_latch(self) -> None:
+        code = """
+        module top(input logic c, d, output logic y);
+            always @(c or d) begin
+                y = 1'b0;
+                if (c) y = d;
+            end
+        endmodule
+        """
+        assert _diagnostics(code) == []
+
+    def test_edge_triggered_always_is_not_checked(self) -> None:
+        code = """
+        module top(input logic clk, c, d, output logic y);
+            always @(posedge clk) begin
+                if (c) y <= d;
+            end
+        endmodule
+        """
+        assert _diagnostics(code) == []
+
     def test_sequential_always_ff_ignored(self) -> None:
         code = """
         module top(input logic clk, input logic a, output logic y);

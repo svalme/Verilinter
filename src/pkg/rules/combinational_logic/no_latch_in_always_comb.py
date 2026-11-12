@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
     assignment_target_names,
+    FOR_LOOP_STATEMENT_KIND,
     case_item_clause,
     case_statement_items,
     conditional_statement_body,
@@ -10,6 +11,7 @@ from ...parser.syntax import (
     expression_statement_expression,
     has_default_case_item,
     is_always_comb_block,
+    is_combinational_style_always_block,
     is_block_statement,
     is_case_statement,
     is_conditional_statement,
@@ -44,9 +46,28 @@ def _unconditional_assignment_targets(statement: SyntaxNode) -> set[str]:
     return set(assignment_target_names(expr))
 
 
+_MAX_PARENT_STEPS = 128
+
+
+def _is_for_loop_header_assignment(assignment: object) -> bool:
+    """True for an assignment in the init or step clause of a `for` loop (`k = 0`, `k = k + 1`). A loop
+    variable is a temporary, not storage the block leaves unassigned."""
+    child = assignment
+    for _ in range(_MAX_PARENT_STEPS):
+        parent = getattr(child, "parent", None)
+        if parent is None:
+            return False
+        if getattr(parent, "kind", None) == FOR_LOOP_STATEMENT_KIND:
+            return child is not getattr(parent, "statement", None)
+        child = parent
+    return False
+
+
 def _conditional_assignment_targets(statement: SyntaxNode) -> set[str]:
     names: set[str] = set()
     for assignment in iter_assignment_nodes(statement):
+        if _is_for_loop_header_assignment(assignment):
+            continue
         names.update(assignment_target_names(assignment))
     return names
 
@@ -159,10 +180,13 @@ class NoLatchInAlwaysCombRule(Rule):
     target_node_types = (ProceduralBlockNode,)
 
     def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
-        if not is_always_comb_block(vnode.raw):
+        if is_always_comb_block(vnode.raw):
+            statement = procedural_block_statement(vnode.raw)
+        elif is_combinational_style_always_block(vnode.raw):
+            # A classic `always @*` or `always @(a or b)`: the body sits under the timing control.
+            statement = procedural_block_statement(procedural_block_statement(vnode.raw))
+        else:
             return False
-
-        statement = procedural_block_statement(vnode.raw)
         if statement is None:
             return False
 

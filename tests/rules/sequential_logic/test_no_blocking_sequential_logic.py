@@ -87,3 +87,34 @@ class TestNoBlockingAssignmentInSequentialRule:
         diags = _diagnostics(code)
         assert len(diags) == 1
         assert diags[0]["code"] == "NO_BLOCKING_SEQUENTIAL"
+
+    def test_flags_blocking_assignment_in_always_ff(self) -> None:
+        code = """
+        module test(input logic clk, input logic d, output logic q);
+            always_ff @(posedge clk) begin
+                q = d;
+            end
+        endmodule
+        """
+        assert len(_diagnostics(code)) == 1
+
+    def test_allows_nonblocking_assignment_in_always_ff(self) -> None:
+        code = """
+        module test(input logic clk, input logic d, output logic q);
+            always_ff @(posedge clk) begin
+                q <= d;
+            end
+        endmodule
+        """
+        assert _diagnostics(code) == []
+
+    def test_allows_for_loop_header_assignments_in_always_ff(self) -> None:
+        code = """
+        module test(input logic clk, input logic [3:0] d, output logic [3:0] q);
+            integer i;
+            always_ff @(posedge clk) begin
+                for (i = 0; i < 4; i = i + 1) q[i] <= d[i];
+            end
+        endmodule
+        """
+        assert _diagnostics(code) == []

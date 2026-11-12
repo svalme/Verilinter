@@ -12,8 +12,10 @@ def source_text_for_node(raw: object, tree: SyntaxTree | None) -> str | None:
         return None
 
     try:
-        source = tree.sourceManager.getSourceText(start.buffer)
-        snippet = source[start.offset:end.offset]
+        # Source offsets count bytes, so slice the encoded text: a non-ASCII character earlier in the file
+        # would otherwise shift every later slice.
+        source = tree.sourceManager.getSourceText(start.buffer).encode("utf-8")
+        snippet = source[start.offset:end.offset].decode("utf-8", errors="replace")
         normalized = " ".join(snippet.split())
         return normalized or None
     except (UnicodeDecodeError, Exception):

@@ -7,6 +7,7 @@ from ..vnodes.syntax_vnode import SyntaxVNode
 from ..parser.syntax import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
+    ALWAYS_FF_BLOCK_KIND,
     ALWAYS_LATCH_BLOCK_KIND,
     async_reset_signal_names,
     classify_reset_style,
@@ -30,6 +31,9 @@ class ProceduralBlockHandler(SyntaxNodeHandler):
 
         elif kind == ALWAYS_BLOCK_KIND:
             ctx = ctx.with_flag(ContextFlag.ALWAYS)
+
+        elif kind == ALWAYS_FF_BLOCK_KIND:
+            ctx = ctx.with_flag(ContextFlag.ALWAYS_FF)
 
         elif kind == ALWAYS_LATCH_BLOCK_KIND:
             ctx = ctx.with_flag(ContextFlag.ALWAYS_LATCH)

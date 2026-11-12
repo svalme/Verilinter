@@ -41,6 +41,7 @@ class ContextFlag(Enum):
 
     # --- Semantic classification ---
     ALWAYS = auto()        # always @(posedge/negedge ...)
+    ALWAYS_FF = auto()
     ALWAYS_COMB = auto()      # always_comb / always @*
     ALWAYS_LATCH = auto()
 

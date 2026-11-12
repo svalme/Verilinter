@@ -20,7 +20,7 @@ class NoBlockingAssignmentInSequentialRule(Rule):
     def applies(self, vnode: BaseVNode, ctx: Context) -> bool:
         if not is_blocking_assignment_token(vnode.raw):
             return False
-        if not ctx.has(ContextFlag.ALWAYS):
+        if not (ctx.has(ContextFlag.ALWAYS) or ctx.has(ContextFlag.ALWAYS_FF)):
             return False
         if is_in_for_loop_header(vnode.raw, ctx):
             return False
