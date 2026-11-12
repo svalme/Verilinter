@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from .symbol import Symbol, UseEvent
+from .write_region import normalize_region
 from .symbol_kind import SymbolKind
 
 _PROTOTYPE = Symbol(name="", kind=SymbolKind.VARIABLE)
@@ -72,6 +73,9 @@ def use_event_from_dict(data: dict[str, Any]) -> UseEvent:
     loop_ids = data.get("loop_ids")
     if loop_ids:
         event["loop_ids"] = tuple(loop_ids)
+    write_region = data.get("write_region")
+    if write_region:
+        event["write_region"] = normalize_region(write_region)
     return event
 
 

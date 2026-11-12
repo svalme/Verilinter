@@ -187,6 +187,7 @@ class TestLintPipeline:
             in_port_connection=True,
             is_nonblocking_write=True,
             loop_ids=("loop:1", "loop:2"),
+            write_region=(("index", 1), ("range", 2, 5), ("field", "mode")),
         )
         event = symbol.use_events[0]
         all_fields = UseEvent.__required_keys__ | UseEvent.__optional_keys__

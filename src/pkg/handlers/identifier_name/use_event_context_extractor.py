@@ -19,6 +19,7 @@ from ...parser.syntax import (
     is_system_task_output_argument,
     is_tristate_continuous_assign,
     subroutine_formal_direction,
+    write_region_of_identifier,
 )
 
 if TYPE_CHECKING:
@@ -40,6 +41,7 @@ class UseEventContext:
     in_port_connection: bool
     is_nonblocking_write: bool
     loop_ids: tuple[str, ...]
+    write_region: tuple[tuple[object, ...], ...] = ()
 
     def to_use_kwargs(self) -> dict[str, Any]:
         """Convert to keyword arguments expected by `Symbol.add_use`."""
@@ -53,6 +55,7 @@ class UseEventContext:
             "in_port_connection": self.in_port_connection,
             "is_nonblocking_write": self.is_nonblocking_write,
             "loop_ids": self.loop_ids,
+            "write_region": self.write_region,
         }
 
 
@@ -134,4 +137,5 @@ class UseEventContextExtractor:
             in_port_connection=in_port_connection,
             is_nonblocking_write=is_nonblocking_write,
             loop_ids=loop_ids,
+            write_region=write_region_of_identifier(vnode.raw, ctx.scope()) if is_write else (),
         )

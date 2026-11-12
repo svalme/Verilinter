@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from ..vnodes.base_vnode import Location
 from .symbol_kind import SymbolKind
+from .write_region import WriteRegion
 
 if TYPE_CHECKING:
     from .scope import Scope
@@ -22,6 +23,7 @@ class UseEvent(TypedDict):
     in_port_connection: NotRequired[bool]
     is_nonblocking_write: NotRequired[bool]
     loop_ids: NotRequired[tuple[str, ...]]
+    write_region: NotRequired[WriteRegion]
 
 class Symbol:
     """Represents a declared symbol (variable, signal, etc.) in the design."""
@@ -80,6 +82,7 @@ class Symbol:
         in_port_connection: bool = False,
         is_nonblocking_write: bool = False,
         loop_ids: tuple[str, ...] = (),
+        write_region: WriteRegion = (),
     ) -> None:
         if loc is not None:
             self.uses.append(loc)
@@ -98,6 +101,8 @@ class Symbol:
             event["is_nonblocking_write"] = True
         if loop_ids:
             event["loop_ids"] = loop_ids
+        if write_region:
+            event["write_region"] = write_region
         self.use_events.append(event)
         self.is_read |= read
         self.is_written |= write

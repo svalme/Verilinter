@@ -329,6 +329,7 @@ from ._syntax_queries.system_tasks import (
     is_vcd_dump_task,
     system_task_name,
 )
+from ._syntax_queries.write_regions import write_region_of_identifier
 from ._syntax_queries.subroutines import (
     function_returns_value,
     return_statement_has_value,
@@ -385,6 +386,7 @@ __all__ = [
     "element_select_index_or_range",
     "else_clause_body",
     "evaluate_constant_expression",
+    "write_region_of_identifier",
     "is_sign_neutral_expression",
     "evaluate_constant_text_expression",
     "evaluate_packed_dimension_bounds",

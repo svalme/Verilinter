@@ -213,6 +213,7 @@ class TestUseEventContext:
             "in_port_connection": False,
             "is_nonblocking_write": False,
             "loop_ids": ("for:test.sv:8:2",),
+            "write_region": (),
         }
 
 
