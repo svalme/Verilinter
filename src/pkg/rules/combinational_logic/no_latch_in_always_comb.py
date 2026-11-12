@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ...parser.syntax import (
-    assignment_target_identifier_name,
+    assignment_target_names,
     case_item_clause,
     case_statement_items,
     conditional_statement_body,
@@ -41,16 +41,13 @@ def _unconditional_assignment_targets(statement: SyntaxNode) -> set[str]:
     if expr is None:
         return set()
 
-    name = assignment_target_identifier_name(expr)
-    return {name} if name is not None else set()
+    return set(assignment_target_names(expr))
 
 
 def _conditional_assignment_targets(statement: SyntaxNode) -> set[str]:
     names: set[str] = set()
     for assignment in iter_assignment_nodes(statement):
-        name = assignment_target_identifier_name(assignment)
-        if name is not None:
-            names.add(name)
+        names.update(assignment_target_names(assignment))
     return names
 
 

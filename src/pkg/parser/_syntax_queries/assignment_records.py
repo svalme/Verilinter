@@ -62,6 +62,17 @@ def target_leaves(left: object) -> tuple:
     return (left,)
 
 
+def assignment_target_names(raw: object) -> tuple[str, ...]:
+    """The names written by an assignment expression, one per written reference (a concatenation gives
+    each member); empty for any other node."""
+    from ..syntax_queries import identifier_name
+
+    left = assignment_left(raw)
+    if left is None:
+        return ()
+    return tuple(name for name in (identifier_name(leaf) for leaf in target_leaves(left)) if name is not None)
+
+
 def _lookup(scope: object, name: str) -> object | None:
     lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
     return lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)

@@ -101,6 +101,28 @@ class TestNoLatchInAlwaysComb:
         assert len(diagnostics) == 1
         assert diagnostics[0]["code"] == "NO_LATCH_IN_ALWAYS_COMB"
 
+    def test_concatenation_target_counts_each_member(self) -> None:
+        code = """
+        module top(input logic c, input logic [1:0] d, output logic y, z);
+            always_comb begin
+                y = 1'b0;
+                if (c) {y, z} = d;
+            end
+        endmodule
+        """
+        assert len(_diagnostics(code)) == 1
+
+    def test_concatenation_target_assigned_in_both_branches_no_latch(self) -> None:
+        code = """
+        module top(input logic c, input logic [1:0] d, output logic y, z);
+            always_comb begin
+                if (c) {y, z} = d;
+                else {y, z} = 2'b00;
+            end
+        endmodule
+        """
+        assert _diagnostics(code) == []
+
     def test_sequential_always_ff_ignored(self) -> None:
         code = """
         module top(input logic clk, input logic a, output logic y);

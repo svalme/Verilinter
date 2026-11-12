@@ -327,7 +327,7 @@ from ._syntax_queries.system_tasks import (
     system_task_name,
 )
 from ._syntax_queries.write_regions import write_region_of_identifier
-from ._syntax_queries.assignment_records import assignment_record, assignment_target_and_rhs, assignment_targets, driver_id_of
+from ._syntax_queries.assignment_records import assignment_record, assignment_target_and_rhs, assignment_target_names, assignment_targets, driver_id_of
 from ._syntax_queries.subroutines import (
     function_returns_value,
     return_statement_has_value,
@@ -387,6 +387,7 @@ __all__ = [
     "write_region_of_identifier",
     "assignment_record",
     "assignment_target_and_rhs",
+    "assignment_target_names",
     "assignment_targets",
     "driver_id_of",
     "is_sign_neutral_expression",
