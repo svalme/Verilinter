@@ -36,6 +36,31 @@ def raw_node_children(raw: object) -> list[RawNode]:
         return []
 
 
+def same_expression(first: object, second: object, max_nodes: int = 4096) -> bool:
+    """True when two syntax nodes have the same shape and the same token at every leaf, so `r[i]` is the
+    same reference as `r[i]` and a different one from `r[i-1]`, `r[j]` or `r`. Whitespace and comments
+    do not count. Two nodes that are too large to compare in `max_nodes` steps are reported as different."""
+    pending: list[tuple[object, object]] = [(first, second)]
+    for _ in range(max_nodes):
+        if not pending:
+            return True
+        a, b = pending.pop()
+        a_is_token, b_is_token = isinstance(a, Token), isinstance(b, Token)
+        if a_is_token or b_is_token:
+            if not (a_is_token and b_is_token):
+                return False
+            if a.kind != b.kind or a.valueText != b.valueText:
+                return False
+            continue
+        if getattr(a, "kind", None) != getattr(b, "kind", None):
+            return False
+        a_children, b_children = raw_node_children(a), raw_node_children(b)
+        if len(a_children) != len(b_children):
+            return False
+        pending.extend(zip(a_children, b_children))
+    return False
+
+
 def simple_identifier_text(expr_text: str | None) -> str | None:
     if expr_text is None:
         return None

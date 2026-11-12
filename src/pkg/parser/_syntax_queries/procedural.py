@@ -23,6 +23,9 @@ from ..types import (
     SyntaxNode,
     SyntaxTree,
 )
+from .shared import same_expression
+
+
 def _node_syntax_children(node: object) -> Iterator[SyntaxNode]:
     try:
         children = iter(node)
@@ -597,6 +600,14 @@ def _enclosing_statement_parent(node: object) -> object:
     return getattr(stmt, "parent", None)
 
 
+def _is_repeated_sibling_write(
+    seen: list[tuple[object, object]], parent: object, target: object
+) -> bool:
+    """True when an earlier write in `seen` (statement parent, target expression) came from the same
+    statement parent and wrote the same target. `a[0] <= x; a[1] <= y;` writes different parts of `a`."""
+    return any(parent is earlier_parent and same_expression(target, earlier_target) for earlier_parent, earlier_target in seen)
+
+
 def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode]:
     """Return {target_name: second_write_node} for targets written by two or more
     *direct-sibling* nonblocking assignments -- see `_enclosing_statement_parent`
@@ -608,10 +619,10 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
     if not isinstance(block_raw, SyntaxNode):
         return {}
 
-    from .access import assignment_target_identifier_name
+    from .access import assignment_left, assignment_target_identifier_name
 
     triggers: dict[str, SyntaxNode] = {}
-    seen_parents_by_target: dict[str, list[object]] = {}
+    seen_targets_by_name: dict[str, list[tuple[object, object]]] = {}
 
     for node in iter_assignment_nodes(block_raw):
         if getattr(node, "kind", None) not in SIMPLE_ASSIGNMENT_KINDS:
@@ -623,10 +634,11 @@ def multiple_nonblocking_write_trigger_nodes(block_raw: object) -> dict[str, Syn
             continue
 
         parent = _enclosing_statement_parent(node)
-        seen_parents = seen_parents_by_target.setdefault(name, [])
-        if name not in triggers and any(parent is existing for existing in seen_parents):
+        target = assignment_left(node)
+        seen = seen_targets_by_name.setdefault(name, [])
+        if name not in triggers and _is_repeated_sibling_write(seen, parent, target):
             triggers[name] = node
-        seen_parents.append(parent)
+        seen.append((parent, target))
 
     return triggers
 
@@ -640,12 +652,12 @@ def procedural_block_assignment_triggers(
     if not isinstance(block_raw, SyntaxNode):
         return None, {}
 
-    from .access import assignment_target_identifier_name
+    from .access import assignment_left, assignment_target_identifier_name
 
     mix_trigger: SyntaxNode | None = None
     seen_kinds: set[object] = set()
     nb_triggers: dict[str, SyntaxNode] = {}
-    seen_parents_by_target: dict[str, list[object]] = {}
+    seen_targets_by_name: dict[str, list[tuple[object, object]]] = {}
 
     for node in iter_assignment_nodes(block_raw):
         kind = getattr(node, "kind", None)
@@ -658,10 +670,11 @@ def procedural_block_assignment_triggers(
             name = assignment_target_identifier_name(node)
             if name is not None:
                 parent = _enclosing_statement_parent(node)
-                seen_parents = seen_parents_by_target.setdefault(name, [])
-                if name not in nb_triggers and any(parent is existing for existing in seen_parents):
+                target = assignment_left(node)
+                seen = seen_targets_by_name.setdefault(name, [])
+                if name not in nb_triggers and _is_repeated_sibling_write(seen, parent, target):
                     nb_triggers[name] = node
-                seen_parents.append(parent)
+                seen.append((parent, target))
 
     return mix_trigger, nb_triggers
 

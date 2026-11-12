@@ -1,4 +1,11 @@
-from ...parser.syntax import assignment_left, assignment_right, identifier_name, is_assignment_expression, is_read_write_assignment_expression
+from ...parser.syntax import (
+    assignment_left,
+    assignment_right,
+    identifier_name,
+    is_assignment_expression,
+    is_read_write_assignment_expression,
+    same_expression,
+)
 from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -24,4 +31,4 @@ class NoSelfAssignmentRule(Rule):
 
         left_name = identifier_name(left)
         right_name = identifier_name(right)
-        return left_name is not None and left_name == right_name
+        return left_name is not None and left_name == right_name and same_expression(left, right)

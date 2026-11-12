@@ -40,10 +40,10 @@ class TestSelfComparisonRule:
         assert rule.code == "SELF_COMPARISON"
         assert rule.category == "rtl_correctness"
 
-    @pytest.mark.parametrize("condition", ['u == u', 'u != u', 'u < u', '(u) >= (u)', 's === s', 'u !== u'])
+    @pytest.mark.parametrize("condition", ['u == u', 'u != u', 'u < u', '(u) >= (u)', 's === s', 'u !== u', 'u[1] == u[1]', 'u[3:2] != u[3:2]'])
     def test_flags(self, condition: str) -> None:
         assert len(_diagnostics(condition)) == 1
 
-    @pytest.mark.parametrize("condition", ['u == v', 'u == w', "u < 4'd3", 'u[0] == v[0]'])
+    @pytest.mark.parametrize("condition", ['u == v', 'u == w', "u < 4'd3", 'u[0] == v[0]', 'u[0] == u[1]', 'u[3:2] == u[1:0]'])
     def test_ignores(self, condition: str) -> None:
         assert _diagnostics(condition) == []

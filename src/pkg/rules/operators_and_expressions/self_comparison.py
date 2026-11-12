@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import comparison_operands, identifier_name, unwrap_parentheses
+from ...parser.syntax import comparison_operands, identifier_name, same_expression, unwrap_parentheses
 from ...parser.types import BinaryExpressionNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -26,5 +26,6 @@ class SelfComparisonRule(Rule):
         left, right, _op = operands
         if left is None or right is None:
             return False
-        left_name = identifier_name(unwrap_parentheses(left))
-        return left_name is not None and left_name == identifier_name(unwrap_parentheses(right))
+        left, right = unwrap_parentheses(left), unwrap_parentheses(right)
+        left_name = identifier_name(left)
+        return left_name is not None and left_name == identifier_name(right) and same_expression(left, right)

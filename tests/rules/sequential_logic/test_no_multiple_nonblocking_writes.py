@@ -212,6 +212,34 @@ class TestNoMultipleNonblockingWritesRule:
 
         assert len(diagnostics) == 1
 
+    def test_writes_to_different_parts_of_one_variable_are_not_repeated_writes(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input logic clk, input logic a, input logic b, output logic [1:0] y);
+              always_ff @(posedge clk) begin
+                y[0] <= a;
+                y[1] <= b;
+              end
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_two_writes_to_the_same_bit_are_a_repeated_write(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input logic clk, input logic a, input logic b, output logic [1:0] y);
+              always_ff @(posedge clk) begin
+                y[0] <= a;
+                y[0] <= b;
+              end
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
     def test_report_returns_correct_format(self, rule: NoMultipleNonblockingWritesRule) -> None:
         from unittest.mock import Mock
 
