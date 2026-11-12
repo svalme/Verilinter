@@ -40,6 +40,10 @@ Two annotation situations that come up often in this codebase:
   it.
 - **`TypedDict` values with `NotRequired` keys**: don't subscript a `NotRequired` key directly (`event["driver_location"]`) — the type checker can't know from a dict lookup elsewhere that the key is actually present. Either use `.get(...)` and check for `None`, or — if you've already validated presence and need to keep using the value later — carry the validated value alongside the object explicitly (a tuple, a small local variable) rather than re-deriving it from an unsafe subscript. `NoMultipleDriversRule` does this: it captures `driver_location` once, right where it validates it's not `None`, and stores `(event, driver_location)` together instead of subscripting `event["driver_location"]` again later.
 
+## Records
+
+When two or more rules need the same facts about a construct (an assignment, an instantiation, a port connection), those facts belong in a record that one builder creates and every rule reads. Do not derive them again in a rule. [ARCHITECTURE.md](ARCHITECTURE.md#7-records-one-resolved-answer-per-construct) says what a record is, when to add one, and the steps for adding or changing one, including the meta test that keeps rules from reading the construct around the record.
+
 ## Design Patterns
 
 **The registry-plus-decorator pattern is how every extensible collection in this codebase works. New

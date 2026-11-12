@@ -200,7 +200,7 @@ Furthermore, the target (LHS) can take multiple structural shapes:
 
 When each lint rule parses these syntax patterns independently, coverage gaps inevitably occur (e.g. a width rule that checks continuous and procedural assignments but misses declarator initializers).
 - **Architecture Solution**: `assignment_records.assignment_target_and_rhs` standardizes the extraction of target and RHS across all syntactic constructs from the assignment record, providing a single point of enforcement.
-- **Assignment record**: `assignment_record(ctx, vnode)` (`assignment_records.py`) builds one `AssignmentRecord` (`semantic/models/assignment_record.py`) per assignment expression or declarator initializer and keeps it in the module cache. The record holds the kind (blocking, non-blocking, continuous, initializer, compound), one `AssignmentTarget` per written reference (a concatenation gives several, each with its `write_region`, the part of the symbol written), the right-hand side node, the enclosing driver, and the statement id. `assignment_view(raw)` gives the same kind, left-hand side, right-hand side and written references from the syntax alone, for code that has a node and no scope (the block-level triggers, the FSM scan, the real-number conversion check); the record is built from the view. The width and signedness rules read the record, the block-level rules and the latch rule read the view, and the use-event extractor takes its driver id and statement id from `driver_id_of` and `statement_id_of`. A meta test keeps `assignment_left`, `assignment_right` and `assignment_target_identifier_name` inside `access.py` and `assignment_records.py`, so no consumer can read a target by name alone.
+- **Assignment record**: one `AssignmentRecord` per assignment holds the kind, the written references with their write regions, the right-hand side, the driver and the statement; see section 7.
 
 ### C. Non-Zero and Descending Vector Bounds
 RTL designs frequently declare buses with non-zero or ascending ranges:
@@ -272,7 +272,51 @@ For static linting, structural width checking, constant folding, and rule verifi
 
 ---
 
-## 7. Dependency Injection & Modular Subcomponent Architecture
+## 7. Records: One Resolved Answer per Construct
+
+A **record** is the single, resolved description of one construct (an assignment, an instantiation, a port connection), built once and read by every rule that needs it. Records are an official part of the architecture: when several rules need the same facts about a construct, the facts live in a record, not in each rule.
+
+### A. Why records exist
+
+A rule that takes a construct apart for itself reads whatever it needs and drops the rest. Two rules reading the same assignment through different helpers disagreed about its selectors, its concatenation members and its kind, and each disagreement was a family of false findings. A record fixes the answer in one place, so a correction reaches every rule at once.
+
+### B. The records
+
+| Record | Construct | Built by | Read by |
+|---|---|---|---|
+| `AssignmentRecord` (`semantic/models/assignment_record.py`) with `AssignmentTarget` | an assignment expression or a declarator initializer | `assignment_record(ctx, vnode)` in `parser/_syntax_queries/assignment_records.py`, kept in the module cache | the width and signedness rules; the use-event extractor takes its driver and statement ids from the same builder |
+| `AssignmentView` | the same construct, from syntax alone | `assignment_view(raw)` | the block-level rules, the FSM scan, the latch rule |
+| `InstanceRecord` (`semantic/models/instance_record.py`) | a module instantiation | `HierarchyInstantiationHandler` | the connection, parameter-override and driver-conflict rules |
+| `PortConnection`, `ParameterOverride` | one connection or override of an instance | the extractors in `handlers/hierarchy_instantiation/` | through the `InstanceRecord` |
+
+### C. What a record is
+
+- **One builder.** A single function builds the record from the syntax and its context. No consumer builds a partial copy.
+- **Read-only to consumers.** A rule reads the record and never edits it. Fields hold resolved facts: symbols found through the shared name lookup (`Scope.lookup_hierarchical`), widths, the write region of a target, the driver and statement it belongs to.
+- **Two layers when the cache needs it.** A record that holds syntax nodes is rebuilt on every run and read by node rules. Symbol rules run on cached, cross-file data, so the facts they need (driver id, statement id, write region, branch signature) are copied into the use events by the same builder, and the two layers cannot disagree. A record that needs facts from more than one file is derived after the files are merged and is not stored in the cache.
+- **A scope-free view where a rule has only a node.** The view and the record are built from the same code, so they cannot differ in kind, sides or written references.
+- **Guarded.** Builders that descend a tree use the traversal guard and a depth ceiling (section 9).
+
+### D. When to add a record
+
+Add one when two or more rules need the same facts about a construct and each currently derives them, or when a family of false findings traces to rules deriving them differently. Do not add one for a fact a single rule uses.
+
+### E. Adding or changing a record
+
+1. Put the dataclass in `semantic/models/` and the builder next to the syntax queries it uses (or after the merge in `semantic/` if it needs several files).
+2. Resolve names through the shared lookup only, and keep the builder the only place that does so for this construct.
+3. Add a meta test, like `tests/meta/test_assignment_access_boundary.py`, that keeps the name-only accessors for the construct inside the builder's modules, so no consumer can read it around the record.
+4. Move consumers onto the record one rule at a time, running the full precision workflow for each rule that moves.
+5. If the record or its serialised form is stored, bump `ANALYZER_CACHE_VERSION` and update `STORAGE.md`.
+6. Add a row to the table in B.
+
+### F. The assignment record
+
+`assignment_record(ctx, vnode)` (`assignment_records.py`) builds one `AssignmentRecord` per assignment expression or declarator initializer. It holds the kind (blocking, non-blocking, continuous, initializer, compound), one `AssignmentTarget` per written reference (a concatenation gives several, each with its `write_region`, the part of the symbol written), the right-hand side node, the enclosing driver and the statement id. `assignment_view(raw)` gives the same kind, sides and written references from the syntax alone; the record is built from the view. A meta test keeps `assignment_left`, `assignment_right` and `assignment_target_identifier_name` inside `access.py` and `assignment_records.py`.
+
+---
+
+## 8. Dependency Injection & Modular Subcomponent Architecture
 
 Verilinter employs dependency injection (DI) across its analysis pipeline, walker, and AST handlers to enable isolated testing, mock backends, and decoupled extension:
 
@@ -309,7 +353,7 @@ Complex AST handlers decompose disparate concerns into injectable strategy subco
 
 ---
 
-## 8. AST Traversal Guard & Active-Path Cycle Immunity Subsystem
+## 9. AST Traversal Guard & Active-Path Cycle Immunity Subsystem
 
 To guarantee complete loop immunity, bound recursion depths, and eliminate manual boilerplate across AST query functions, Verilinter introduces the `TraversalGuard` subsystem (`traversal_guard.py`).
 
@@ -582,7 +626,7 @@ Below is the complete audit of every recursion limit, traversal depth ceiling, a
 
 ---
 
-## 9. MVP Supported RTL Subset, Semantic Capabilities & Known Limitations
+## 10. MVP Supported RTL Subset, Semantic Capabilities & Known Limitations
 
 Verilinter focuses on everyday synthesizable RTL correctness across Verilog-2001 and SystemVerilog (IEEE 1364-2001 and IEEE 1800-2017). This section defines the supported constructs, semantic analysis boundaries, and explicitly deferred post-MVP capabilities.
 
