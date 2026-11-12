@@ -75,6 +75,7 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
 @rule_runner.register
 class ConstantIndexOutOfRangeRule(Rule):
     code = "CONSTANT_INDEX_OUT_OF_RANGE"
+    skip_in_inactive_generate_branch = True
     message = "Constant bit-select or part-select index is out of the signal's declared range"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")

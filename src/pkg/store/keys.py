@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..rules.rule_selection import RuleSelection
 
-ANALYZER_CACHE_VERSION = "2026-11-10-use-events-record-write-region"
+ANALYZER_CACHE_VERSION = "2026-11-12-instance-inactive-generate-branch"
 
 
 def file_sha256(path: Path) -> str:

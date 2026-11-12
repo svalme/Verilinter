@@ -84,6 +84,7 @@ def _comparison_width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, i
 @rule_runner.register
 class ComparisonWidthMismatchRule(Rule):
     code = "COMPARISON_WIDTH_MISMATCH"
+    skip_in_inactive_generate_branch = True
     message = "Comparison operands have mismatched bit widths"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")

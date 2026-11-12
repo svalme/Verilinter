@@ -44,6 +44,7 @@ class ArithmeticResultTruncationRule(Rule):
     """
 
     code = "ARITHMETIC_RESULT_TRUNCATION"
+    skip_in_inactive_generate_branch = True
     message = "Arithmetic result is wider than its assignment target, causing implicit truncation"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")

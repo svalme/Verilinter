@@ -80,3 +80,61 @@ def duplicate_generate_branch_label(raw: object) -> bool:
         return False
 
     return len(labels) != len(set(labels))
+
+
+_MAX_GENERATE_ANCESTORS = 64
+
+
+def _taken_case_item(case_raw: object, scope: object) -> object | None:
+    """The item of a case-generate that the default parameter values select, or None when that cannot
+    be decided (a condition or label that is not constant, or a label list that is not understood)."""
+    from .expressions import evaluate_constant_expression
+    from ..syntax_kinds import DEFAULT_CASE_ITEM_KIND, STANDARD_CASE_ITEM_KIND
+
+    selector = evaluate_constant_expression(getattr(case_raw, "condition", None), scope=scope)
+    if selector is None:
+        return None
+    default_item = None
+    for item in getattr(case_raw, "items", None) or ():
+        kind = getattr(item, "kind", None)
+        if kind == DEFAULT_CASE_ITEM_KIND:
+            default_item = item
+        elif kind == STANDARD_CASE_ITEM_KIND:
+            for label in getattr(item, "expressions", None) or ():
+                value = evaluate_constant_expression(label, scope=scope)
+                if value is None:
+                    return None
+                if value == selector:
+                    return item
+        else:
+            return None
+    return default_item
+
+
+def in_inactive_generate_branch(raw: object, scope: object) -> bool:
+    """True when `raw` sits in an `if` or `case` generate branch that the default parameter values switch
+    off. Widths, indices and drivers inside such a branch are computed from values the branch is not
+    elaborated with, so a finding there describes code that does not exist for the default configuration.
+    A condition that cannot be evaluated leaves the branch active."""
+    from .expressions import evaluate_constant_expression
+    from .node_kind_checks import is_case_generate_node, is_if_generate_node
+
+    child = raw
+    for _ in range(_MAX_GENERATE_ANCESTORS):
+        parent = getattr(child, "parent", None)
+        if parent is None:
+            return False
+        if is_if_generate_node(parent):
+            condition = evaluate_constant_expression(getattr(parent, "condition", None), scope=scope)
+            if condition is not None:
+                else_clause = getattr(parent, "elseClause", None)
+                in_then = child is getattr(parent, "block", None)
+                in_else = else_clause is not None and child is else_clause
+                if (in_then and condition == 0) or (in_else and condition != 0):
+                    return True
+        elif is_case_generate_node(parent) and any(child is item for item in getattr(parent, "items", None) or ()):
+            taken = _taken_case_item(parent, scope)
+            if taken is not None and taken is not child:
+                return True
+        child = parent
+    return False

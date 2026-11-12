@@ -11,6 +11,7 @@ from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
 from ..parser.syntax import (
     branch_exclusivity_signature,
+    in_inactive_generate_branch,
     hierarchical_instance_name,
     hierarchical_instance_list,
     instantiation_type_name,
@@ -93,6 +94,7 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                     # branch_exclusivity_signature) as not a real simultaneous
                     # conflict.
                     generate_branch_signature=branch_exclusivity_signature(vnode.raw, vnode.tree),
+                    in_inactive_generate_branch=in_inactive_generate_branch(vnode.raw, ctx.scope()),
                 )
             )
 

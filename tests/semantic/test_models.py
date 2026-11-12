@@ -178,7 +178,7 @@ class TestInstanceRecord:
         assert inst.get("nonexistent", 42) == 42
         assert "instance_name" in inst
         assert "not_a_field" not in inst
-        assert len(inst) == 9
+        assert len(inst) == 10
 
         with pytest.raises(KeyError):
             _ = inst["unknown_key"]

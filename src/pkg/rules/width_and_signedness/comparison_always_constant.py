@@ -59,6 +59,7 @@ def _comparison_always_constant(vnode: BaseVNode, ctx: "Context") -> bool:
 @rule_runner.register
 class ComparisonAlwaysConstantRule(Rule):
     code = "COMPARISON_ALWAYS_CONSTANT"
+    skip_in_inactive_generate_branch = True
     message = "Comparison of an unsigned operand against the limit of its range always has the same result"
     category = "rtl_correctness"
     confidence = "heuristic"

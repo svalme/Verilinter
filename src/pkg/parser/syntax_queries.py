@@ -149,6 +149,7 @@ from ._syntax_queries.conditional_shapes import (
 )
 from ._syntax_queries.generate_blocks import (
     duplicate_generate_branch_label,
+    in_inactive_generate_branch,
     is_unlabeled_generate_block,
     loop_generate_genvar_name,
 )
@@ -381,6 +382,7 @@ __all__ = [
     "declarator_unpacked_dimension_texts",
     "declarator_unpacked_dimension_widths",
     "duplicate_generate_branch_label",
+    "in_inactive_generate_branch",
     "element_select_index_or_range",
     "else_clause_body",
     "evaluate_constant_expression",

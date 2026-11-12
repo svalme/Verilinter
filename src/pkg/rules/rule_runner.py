@@ -5,6 +5,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from typing import Any
 
+from ..parser.syntax import in_inactive_generate_branch
 from ..vnodes.base_vnode import BaseVNode
 from ..walk.context import Context
 from .base_rule import Rule
@@ -97,7 +98,14 @@ class RuleRunner:
         selection: RuleSelection | None = None,
     ) -> list[dict[str, Any]]:
         candidate_rules = self._get_applicable_rules(vnode, selection)
-        return [rule.report(vnode) for rule in candidate_rules if rule.applies(vnode, ctx)]
+        diagnostics: list[dict[str, Any]] = []
+        for rule in candidate_rules:
+            if not rule.applies(vnode, ctx):
+                continue
+            if rule.skip_in_inactive_generate_branch and in_inactive_generate_branch(vnode.raw, ctx.scope()):
+                continue
+            diagnostics.append(rule.report(vnode))
+        return diagnostics
 
     def for_selection(self, selection: RuleSelection | None) -> RuleRunner:
         if selection is None:

@@ -171,6 +171,7 @@ def _signedness_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[bool, bool] 
 @rule_runner.register
 class NoAssignmentWidthMismatchRule(Rule):
     code = "ASSIGNMENT_WIDTH_MISMATCH"
+    skip_in_inactive_generate_branch = True
     message = "Assignment right-hand side width does not match its target's declared width"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
@@ -183,6 +184,7 @@ class NoAssignmentWidthMismatchRule(Rule):
 @rule_runner.register
 class NoAssignmentSignednessMismatchRule(Rule):
     code = "ASSIGNMENT_SIGNEDNESS_MISMATCH"
+    skip_in_inactive_generate_branch = True
     message = "Assignment right-hand side signedness does not match its target's declared signedness"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
@@ -203,6 +205,7 @@ class NoAssignmentTruncationRule(Rule):
     """
 
     code = "ASSIGNMENT_TRUNCATION"
+    skip_in_inactive_generate_branch = True
     message = "Assignment right-hand side is wider than its target, causing implicit truncation"
     category = "rtl_correctness"
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")

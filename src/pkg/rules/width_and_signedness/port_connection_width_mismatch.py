@@ -19,6 +19,8 @@ class PortConnectionWidthMismatchRule(BaseSymbolRule):
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
         for inst in symbol_table.instantiations:
+            if inst.get("in_inactive_generate_branch"):
+                continue
             loc = dict(inst.get("location") or {})
             for port_name, port_width, expr_text, expr_width in width_mismatch_details(symbol_table, inst):
                 diagnostics.append(
@@ -46,6 +48,8 @@ class PortConnectionWidthUnknownRule(BaseSymbolRule):
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
         for inst in symbol_table.instantiations:
+            if inst.get("in_inactive_generate_branch"):
+                continue
             loc = dict(inst.get("location") or {})
             for port_name, port_width, expr_text, expr_width in width_unknown_details(symbol_table, inst):
                 diagnostics.append(
@@ -73,6 +77,8 @@ class PortConnectionSignednessMismatchRule(BaseSymbolRule):
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
         for inst in symbol_table.instantiations:
+            if inst.get("in_inactive_generate_branch"):
+                continue
             loc = dict(inst.get("location") or {})
             for port_name, port_signed, expr_text, expr_signed in signedness_mismatch_details(
                 symbol_table, inst

@@ -468,6 +468,8 @@ def multiple_instance_driver_conflicts(
     conflicts: list[tuple[dict[str, object], str, str, dict[str, object], str]] = []
     by_parent_module: dict[object, list[dict[str, object]]] = defaultdict(list)
     for inst in symbol_table.instantiations:
+        if inst.get("in_inactive_generate_branch"):
+            continue
         by_parent_module[inst.get("parent_module")].append(inst)
 
     for parent_module, instantiations in by_parent_module.items():

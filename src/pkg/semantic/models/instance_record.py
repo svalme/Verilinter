@@ -26,6 +26,8 @@ class InstanceRecord(Mapping[str, Any]):
     parameter_override_style: str = "none"
     parameter_overrides: list[ParameterOverride] = field(default_factory=list)
     generate_branch_signature: tuple[Any, ...] = ()
+    # True when the instance sits in a generate branch that the default parameter values switch off.
+    in_inactive_generate_branch: bool = False
 
     _FIELDS = (
         "parent_module",
@@ -37,6 +39,7 @@ class InstanceRecord(Mapping[str, Any]):
         "parameter_override_style",
         "parameter_overrides",
         "generate_branch_signature",
+        "in_inactive_generate_branch",
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,6 +53,7 @@ class InstanceRecord(Mapping[str, Any]):
             "parameter_override_style": self.parameter_override_style,
             "parameter_overrides": [p.to_dict() for p in self.parameter_overrides],
             "generate_branch_signature": self.generate_branch_signature,
+            "in_inactive_generate_branch": self.in_inactive_generate_branch,
         }
 
     @classmethod
@@ -96,6 +100,7 @@ class InstanceRecord(Mapping[str, Any]):
             parameter_override_style=str(data.get("parameter_override_style", "none")),
             parameter_overrides=overrides,
             generate_branch_signature=sig,
+            in_inactive_generate_branch=bool(data.get("in_inactive_generate_branch", False)),
         )
 
     def __getitem__(self, key: str) -> Any:
