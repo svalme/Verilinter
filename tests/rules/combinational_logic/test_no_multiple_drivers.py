@@ -358,3 +358,79 @@ class TestWritesToDifferentPartsOfOneVariable:
         declarations = "logic [3:0][7:0] w;"
         assert _diagnostics("assign w[1][0] = a; assign w[1][1] = b;", declarations) == []
         assert len(_diagnostics("assign w[1][0] = a; assign w[1][0] = b;", declarations)) == 1
+
+
+class TestGenerateLoopWrites:
+    _ARRAY = "logic [7:0] m [8];"
+    _BITS = "logic [7:0] g;"
+
+    @pytest.mark.parametrize(
+        "decls, body",
+        [
+            (_ARRAY, "assign m[0] = 8'h0; for (genvar k = 1; k < 8; k++) begin : g assign m[k] = 8'h1; end"),
+            (_ARRAY, "for (genvar k = 0; k < 7; k++) begin : g assign m[k] = 8'h1; end assign m[7] = 8'h0;"),
+            (_BITS, "for (genvar k = 0; k < 4; k++) begin : g assign g[k*2] = a; assign g[k*2+1] = b; end"),
+            (
+                _BITS,
+                "for (genvar k = 0; k < 4; k++) begin : g assign g[k] = a; end"
+                " for (genvar j = 0; j < 4; j++) begin : h assign g[4+j] = b; end",
+            ),
+            (_BITS, "for (genvar k = 0; k < 8; k += 2) begin : g assign g[k] = a; end assign g[1] = b;"),
+            (_BITS, "for (genvar k = 7; k >= 4; k--) begin : g assign g[k] = a; end assign g[0] = b;"),
+        ],
+    )
+    def test_loop_writes_with_disjoint_index_sets_are_not_multiple_drivers(self, decls: str, body: str) -> None:
+        assert _diagnostics(body, decls) == []
+
+    @pytest.mark.parametrize(
+        "decls, body",
+        [
+            (_ARRAY, "assign m[0] = 8'h0; for (genvar k = 0; k < 8; k++) begin : g assign m[k] = 8'h1; end"),
+            (_BITS, "for (genvar k = 0; k < 4; k++) begin : g assign g[k] = a; end assign g[3] = b;"),
+            (_BITS, "for (genvar k = 0; k < N; k++) begin : g assign g[k] = a; end assign g[0] = b;"),
+            (_BITS, "for (genvar k = 0; k < 4; k++) begin : g assign g[k] = a; assign g[k] = b; end"),
+        ],
+    )
+    def test_loop_writes_with_shared_or_unknown_indices_still_conflict(self, decls: str, body: str) -> None:
+        assert len(_diagnostics(body, decls)) == 1
+
+    def test_mutually_exclusive_conditions_inside_a_loop_are_not_multiple_drivers(self) -> None:
+        body = """
+        localparam W = 8;
+        for (genvar k = 0; k < W; k++) begin : g
+          if (k * 2 < W - 1) begin : reduce assign v[k] = a; end
+          if (k * 2 == W - 1) begin : base assign v[k] = b; end
+        end
+        """
+        assert _diagnostics(body) == []
+
+    def test_casted_genvar_in_a_condition_is_evaluated(self) -> None:
+        body = """
+        localparam W = 8;
+        for (genvar k = 0; k < W; k++) begin : g
+          if (unsigned'(k) * 2 < W - 1) begin : reduce assign v[k] = a; end
+          if (unsigned'(k) * 2 == W - 1) begin : base assign v[k] = b; end
+        end
+        """
+        assert _diagnostics(body) == []
+
+    def test_write_in_a_branch_the_defaults_switch_off_is_not_a_driver(self) -> None:
+        body = "localparam EN = 0; if (EN) begin : g assign v[0] = a; end assign v[0] = b;"
+        assert _diagnostics(body) == []
+
+    def test_write_in_a_branch_the_defaults_switch_on_is_a_driver(self) -> None:
+        body = "localparam EN = 1; if (EN) begin : g assign v[0] = a; end assign v[0] = b;"
+        assert len(_diagnostics(body)) == 1
+
+
+class TestStructMemberWrites:
+    _DECLS = "typedef struct packed { logic [3:0] lo; logic [3:0] hi; } pair_t; pair_t s;"
+
+    def test_distinct_members_are_not_multiple_drivers(self) -> None:
+        assert _diagnostics("assign s.lo = 4'h0; assign s.hi = 4'h1;", self._DECLS) == []
+
+    def test_same_member_from_two_drivers_conflicts(self) -> None:
+        assert len(_diagnostics("assign s.lo = 4'h0; assign s.lo = 4'h1;", self._DECLS)) == 1
+
+    def test_whole_struct_against_a_member_conflicts(self) -> None:
+        assert len(_diagnostics("assign s = 8'h0; assign s.hi = 4'h1;", self._DECLS)) == 1

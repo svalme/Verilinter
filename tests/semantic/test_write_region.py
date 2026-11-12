@@ -6,7 +6,7 @@ from src.pkg.handlers.register_handlers import *  # noqa: F401,F403
 from src.pkg.parser.parse import parse_text
 from src.pkg.semantic.symbol_serialization import use_event_from_dict
 from src.pkg.semantic.symbol_table import SymbolTable
-from src.pkg.semantic.write_region import normalize_region, regions_may_overlap
+from src.pkg.semantic.write_region import normalize_region, regions_may_overlap, span_step
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
 from src.pkg.walk.walker import Walker
@@ -125,3 +125,43 @@ class TestRegionSerialization:
 
     def test_normalize_accepts_none(self) -> None:
         assert normalize_region(None) == ()
+
+
+class TestSpanAndNeverSteps:
+    def test_span_step_merges_adjacent_values_and_keeps_gaps(self) -> None:
+        assert span_step([(0, 0), (1, 1), (2, 2)]) == ("range", 0, 2)
+        assert span_step([(0, 0), (2, 2)]) == ("span", ((0, 0), (2, 2)))
+        assert span_step([(3, 3)]) == ("index", 3)
+
+    def test_spans_with_no_common_value_are_disjoint(self) -> None:
+        even = (span_step([(0, 0), (2, 2), (4, 4)]),)
+        odd = (span_step([(1, 1), (3, 3), (5, 5)]),)
+        assert not regions_may_overlap(even, odd)
+        assert regions_may_overlap(even, (("index", 2),))
+        assert not regions_may_overlap(even, (("index", 3),))
+
+    def test_never_overlaps_nothing(self) -> None:
+        assert not regions_may_overlap((("never",),), ())
+        assert not regions_may_overlap((), (("never",),))
+
+    def test_span_survives_a_json_round_trip(self) -> None:
+        event = use_event_from_dict(
+            {"location": None, "read": False, "write": True, "write_region": [["span", [[0, 0], [2, 2]]]]}
+        )
+        assert event["write_region"] == (("span", ((0, 0), (2, 2))),)
+
+
+class TestRegionsInsideGenerateLoops:
+    def test_loop_index_gives_the_set_of_values(self) -> None:
+        regions = _regions(
+            "for (genvar k = 0; k < 4; k++) begin : g assign v[k*2] = 1'b0; end", "v"
+        )
+        assert regions == [(("span", ((0, 0), (2, 2), (4, 4), (6, 6))),)]
+
+    def test_bounds_that_are_not_constants_leave_the_index_unknown(self) -> None:
+        regions = _regions("for (genvar k = 0; k < N; k++) begin : g assign v[k] = 1'b0; end", "v")
+        assert regions == [(("index", None),)]
+
+    def test_branch_no_value_selects_gives_a_never_region(self) -> None:
+        regions = _regions("localparam EN = 0; if (EN) begin : g assign v[0] = 1'b0; end", "v")
+        assert regions == [(("never",),)]

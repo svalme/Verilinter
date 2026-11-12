@@ -86,7 +86,9 @@ class NoMultipleDriversRule(BaseSymbolRule):
         """The first write of the other driver that can drive the same bits at the same time as a write of the first."""
         for other in other_writes:
             for earlier in first_writes:
-                if regions_may_overlap(earlier.get("write_region", ()), other.get("write_region", ())) and not (
+                if regions_may_overlap(
+                    earlier.get("write_region", ()), other.get("write_region", ()), distinct_members_disjoint=True
+                ) and not (
                     is_mutually_exclusive_branch_pair(
                         earlier.get("branch_signature", ()), other.get("branch_signature", ())
                     )

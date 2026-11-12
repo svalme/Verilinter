@@ -13,6 +13,9 @@ from ..syntax_kinds import (
     BINARY_OR_EXPRESSION_KIND,
     BINARY_XOR_EXPRESSION_KIND,
     BIT_SELECT_KIND,
+    CAST_EXPRESSION_KIND,
+    INTEGER_TYPE_KINDS,
+    SIGNED_CAST_EXPRESSION_KIND,
     BITWISE_BINARY_EXPRESSION_KINDS,
     CONCATENATION_EXPRESSION_KIND,
     CONDITIONAL_EXPRESSION_KIND,
@@ -252,6 +255,13 @@ def evaluate_constant_expression(
                 if isinstance(val, int):
                     return val
         return None
+
+    # Type casts that keep the value: `unsigned'(x)`, `signed'(x)` and `int'(x)` of a small constant.
+    # A size cast (`8'(x)`) or a named type can change the value, so those are left unknown.
+    if kind == SIGNED_CAST_EXPRESSION_KIND:
+        return evaluate_constant_expression(getattr(expr, "inner", None), scope=scope, _visited=_visited)
+    if kind == CAST_EXPRESSION_KIND and getattr(getattr(expr, "left", None), "kind", None) in INTEGER_TYPE_KINDS:
+        return evaluate_constant_expression(getattr(expr, "right", None), scope=scope, _visited=_visited)
 
     # 3. Unary expressions
     if kind == UNARY_PLUS_EXPRESSION_KIND:

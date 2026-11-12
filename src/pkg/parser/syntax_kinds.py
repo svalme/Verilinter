@@ -232,6 +232,25 @@ PARAMETER_TOKEN_KIND = sl.TokenKind.ParameterKeyword
 
 ASSIGNMENT_EXPRESSION_KIND = _syntax_kind("AssignmentExpression")
 NONBLOCKING_ASSIGNMENT_KIND = _syntax_kind("NonblockingAssignmentExpression")
+SIGNED_CAST_EXPRESSION_KIND = _syntax_kind("SignedCastExpression")
+CAST_EXPRESSION_KIND = _syntax_kind("CastExpression")
+INTEGER_TYPE_KINDS = {
+    kind
+    for kind in (
+        _syntax_kind("IntType"),
+        _syntax_kind("IntegerType"),
+        _syntax_kind("LongIntType"),
+        _syntax_kind("ShortIntType"),
+        _syntax_kind("ByteType"),
+    )
+    if kind is not None
+}
+ADD_ASSIGNMENT_KIND = _syntax_kind("AddAssignmentExpression")
+SUBTRACT_ASSIGNMENT_KIND = _syntax_kind("SubtractAssignmentExpression")
+POSTINCREMENT_EXPRESSION_KIND = _syntax_kind("PostincrementExpression")
+PREINCREMENT_EXPRESSION_KIND = _syntax_kind("UnaryPreincrementExpression")
+POSTDECREMENT_EXPRESSION_KIND = _syntax_kind("PostdecrementExpression")
+PREDECREMENT_EXPRESSION_KIND = _syntax_kind("UnaryPredecrementExpression")
 
 SIMPLE_ASSIGNMENT_KINDS = {
     ASSIGNMENT_EXPRESSION_KIND,
@@ -717,6 +736,15 @@ EVENT_TRIGGER_STATEMENT_KIND = _syntax_kind("EventTriggerStatement")
 
 
 __all__ = [
+    "SIGNED_CAST_EXPRESSION_KIND",
+    "CAST_EXPRESSION_KIND",
+    "INTEGER_TYPE_KINDS",
+    "ADD_ASSIGNMENT_KIND",
+    "SUBTRACT_ASSIGNMENT_KIND",
+    "POSTINCREMENT_EXPRESSION_KIND",
+    "PREINCREMENT_EXPRESSION_KIND",
+    "POSTDECREMENT_EXPRESSION_KIND",
+    "PREDECREMENT_EXPRESSION_KIND",
     "ADD_EXPRESSION_KIND",
     "ADD_SUBTRACT_EXPRESSION_KINDS",
     "ALIAS_STATEMENT_KIND",

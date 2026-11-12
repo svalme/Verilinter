@@ -85,7 +85,7 @@ def duplicate_generate_branch_label(raw: object) -> bool:
 _MAX_GENERATE_ANCESTORS = 64
 
 
-def _taken_case_item(case_raw: object, scope: object) -> object | None:
+def taken_case_item(case_raw: object, scope: object) -> object | None:
     """The item of a case-generate that the default parameter values select, or None when that cannot
     be decided (a condition or label that is not constant, or a label list that is not understood)."""
     from .expressions import evaluate_constant_expression
@@ -133,7 +133,7 @@ def in_inactive_generate_branch(raw: object, scope: object) -> bool:
                 if (in_then and condition == 0) or (in_else and condition != 0):
                     return True
         elif is_case_generate_node(parent) and any(child is item for item in getattr(parent, "items", None) or ()):
-            taken = _taken_case_item(parent, scope)
+            taken = taken_case_item(parent, scope)
             if taken is not None and taken is not child:
                 return True
         child = parent

@@ -58,6 +58,21 @@ class TestExpressionEngine:
         unwrapped = unwrap_parentheses(rhs)
         assert unwrapped.kind == IDENTIFIER_NAME_KIND
 
+    @pytest.mark.parametrize(
+        "expression, expected",
+        [
+            ("unsigned'(WIDTH) * 2", 16),
+            ("signed'(WIDTH) - 1", 7),
+            ("int'(WIDTH) + 1", 9),
+            ("int unsigned'(WIDTH)", 8),
+            ("8'(WIDTH)", None),
+            ("mytype'(WIDTH)", None),
+        ],
+    )
+    def test_value_keeping_casts_are_evaluated(self, test_scope, expression, expected):
+        rhs, _ = _get_rhs(f"assign w = {expression};")
+        assert evaluate_constant_expression(rhs, scope=test_scope) == expected
+
     def test_identifier_lookup(self, test_scope):
         rhs, tree = _get_rhs("assign w = a;")
         width, is_signed = simple_expression_width_and_signed(test_scope, rhs, tree)
