@@ -6,7 +6,7 @@ from ...parser.syntax import (
     evaluate_constant_text_expression,
     extract_assignment_target_and_selectors,
     is_sign_neutral_expression,
-    resolve_assignment_target_and_rhs,
+    assignment_target_and_rhs,
     simple_expression_width_and_signed,
 )
 from ...parser.traversal_guard import guarded_traversal
@@ -124,7 +124,7 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
         node_cache_put(module_cache, "width_mismatch", cache_node, res)
         return res
 
-    lhs_symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)
+    lhs_symbol, right = assignment_target_and_rhs(ctx, vnode)
     if lhs_symbol is None or right is None or not isinstance(lhs_symbol.bit_width, int):
         return _store(None)
 
@@ -152,7 +152,7 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
 
 def _signedness_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[bool, bool] | None:
     """Sign-mismatch sibling of `_width_mismatch`, same recoverability limits."""
-    lhs_symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)
+    lhs_symbol, right = assignment_target_and_rhs(ctx, vnode)
     if lhs_symbol is None or right is None or lhs_symbol.is_signed is None:
         return None
 

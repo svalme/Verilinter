@@ -83,7 +83,7 @@ def test_queries_on_error_recovery_trees(snippet: str) -> None:
         _ = sq.simple_expression_width_and_signed(scope, node, tree)
         _ = sq.natural_expression_width_and_signed(scope, node, tree)
         _ = sq.extract_assignment_target_and_selectors(node)
-        _ = sq.resolve_assignment_target(node, scope, tree)
+        _ = sq.assignment_targets(node, scope)
         _ = sq.is_state_register_reset_covered(node, "dummy")
         _ = list(sq.iter_assignment_nodes(node))
         _ = list(sq.iter_identifier_reads(node))

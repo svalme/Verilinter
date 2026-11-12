@@ -89,7 +89,7 @@ def _leaf_target(raw: object, scope: object):
     )
 
 
-def _targets_of(raw: object, scope: object) -> tuple:
+def assignment_targets(raw: object, scope: object) -> tuple:
     """One `AssignmentTarget` per written reference of a left-hand side, in source order."""
     return tuple(_leaf_target(leaf, scope) for leaf in target_leaves(raw))
 
@@ -108,7 +108,7 @@ def _build_record(ctx: object, vnode: object):
         if left is None or right is None:
             return None
         kind = assignment_kind_of(raw, continuous=enclosing_continuous_assign(ctx) is not None)
-        targets = _targets_of(left, scope)
+        targets = assignment_targets(left, scope)
     elif declarator_has_initializer(raw) and not declarator_is_parameter(ctx):
         name = declarator_name(raw)
         right = declarator_initializer_expression(raw)
@@ -147,3 +147,17 @@ def assignment_record(ctx: object, vnode: object):
     record = _build_record(ctx, vnode)
     node_cache_put(cache, _RECORD_CACHE_TAG, raw, record)
     return record
+
+
+def assignment_target_and_rhs(ctx: object, vnode: object):
+    """`(target, rhs)` of a plain assignment for the width and signedness rules, read from the record:
+    the written value as one `AssignmentTarget` and the right-hand side node. `(None, None)` for a node
+    that is not an assignment, a compound assignment (its right-hand side is not the value transferred),
+    or a target that cannot be sized."""
+    from ...semantic.models.assignment_record import AssignmentKind
+
+    record = assignment_record(ctx, vnode)
+    if record is None or record.kind == AssignmentKind.COMPOUND or record.rhs is None:
+        return None, None
+    target = record.combined_target()
+    return (target, record.rhs) if target is not None else (None, None)

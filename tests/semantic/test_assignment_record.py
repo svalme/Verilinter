@@ -126,3 +126,22 @@ class TestRecordFields:
         tree = parse_text("module top; logic x; endmodule")
         walker.walk(tree.root, tree, Context(scope=table.global_scope), table)
         assert all(assignment_record(c, v) is None for v, c in walker.results)
+
+
+class TestCombinedTarget:
+    def test_single_reference_is_returned_as_it_is(self) -> None:
+        record = _only("assign v[3:0] = w[7:4];")
+        assert record.combined_target() is record.targets[0]
+
+    def test_concatenation_adds_the_member_widths(self) -> None:
+        target = _only("assign {x, v[7:4], y} = 6'h0;").combined_target()
+        assert target.is_concatenated and target.bit_width == 6
+        assert len(target.elements) == 3
+
+    def test_concatenation_with_a_member_of_unknown_width_cannot_be_sized(self) -> None:
+        assert _only("assign {s, x} = 2'h0;").combined_target() is None
+
+    def test_undeclared_target_is_a_target_of_unknown_width(self) -> None:
+        record = _only("assign x = y;", declarations="logic y;")
+        assert record.combined_target().bit_width is None
+

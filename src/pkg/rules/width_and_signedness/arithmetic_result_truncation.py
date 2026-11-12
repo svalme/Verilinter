@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from ...parser.syntax import (
     simple_expression_width_and_signed,
     natural_expression_width_and_signed,
-    resolve_assignment_target_and_rhs,
+    assignment_target_and_rhs,
 )
 from ...parser.types import BinaryExpressionNode, DeclaratorNode, ImplicitAnsiPortNode
 from ...vnodes.base_vnode import BaseVNode
@@ -21,7 +21,7 @@ def _natural_result_width(vnode: BaseVNode, ctx: "Context", rhs: object) -> int 
 
 
 def _arithmetic_result_truncation(vnode: BaseVNode, ctx: "Context") -> bool:
-    symbol, right = resolve_assignment_target_and_rhs(vnode, ctx)
+    symbol, right = assignment_target_and_rhs(ctx, vnode)
     if symbol is None or right is None or not isinstance(symbol.bit_width, int):
         return False
     # Ordinary value transfers belong to ASSIGNMENT_TRUNCATION. Keep direct

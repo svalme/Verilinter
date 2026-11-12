@@ -35,3 +35,18 @@ class AssignmentRecord:
     driver_location: Location | None
     statement_id: str
     location: Location | None
+
+    def combined_target(self) -> AssignmentTarget | None:
+        """The written value as one target for width and signedness checks, or None when it cannot be
+        sized: no target, a name with no symbol, or (for a concatenation) a member whose width is unknown.
+        A single reference is returned as it is; several are joined, widths added."""
+        from .assignment_target import AssignmentTarget
+
+        if not self.targets or any(target.base_symbol is None for target in self.targets):
+            return None
+        if len(self.targets) == 1:
+            return self.targets[0]
+        widths = [target.bit_width for target in self.targets]
+        if not all(isinstance(width, int) for width in widths):
+            return None
+        return AssignmentTarget(is_concatenated=True, elements=list(self.targets), total_width=sum(widths))

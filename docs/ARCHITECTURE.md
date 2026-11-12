@@ -29,7 +29,7 @@ flowchart TD
 
     subgraph QueryEngine ["4. Decoupled Query Engine (_syntax_queries/)"]
         Symbols --> RuleDispatch["Rule Walker Dispatch"]
-        RuleDispatch --> Shapes["shapes.py<br/>resolve_assignment_target_and_rhs()"]
+        RuleDispatch --> Shapes["assignment_records.py<br/>assignment_target_and_rhs()"]
         RuleDispatch --> ExprEngine["expressions.py<br/>simple_expression_width_and_signed()<br/>natural_expression_width_and_signed()"]
         RuleDispatch --> ScopeQuery["scope.py<br/>lookup_hierarchical()"]
     end
@@ -66,7 +66,7 @@ graph TD
     end
 
     subgraph ShapeResolution ["shapes.py"]
-        CA --> R_ASSIGN["resolve_assignment_target_and_rhs()"]
+        CA --> R_ASSIGN["assignment_target_and_rhs()"]
         PA --> R_ASSIGN
         VD --> R_ASSIGN
         R_ASSIGN --> OUT_TGT["Target Node (LHS)"]
@@ -117,7 +117,7 @@ graph TD
 
 ```mermaid
 flowchart TD
-    Start(["Assignment Encountered"]) --> Resolve["resolve_assignment_target_and_rhs(node)"]
+    Start(["Assignment Encountered"]) --> Resolve["assignment_target_and_rhs(ctx, node)"]
     
     Resolve --> CheckTarget{"Target has identifiable symbol?"}
     CheckTarget -- No --> Skip(["Skip Evaluation"])
@@ -199,7 +199,7 @@ Furthermore, the target (LHS) can take multiple structural shapes:
 - Struct / interface member select: `bundle.valid = ...`
 
 When each lint rule parses these syntax patterns independently, coverage gaps inevitably occur (e.g. a width rule that checks continuous and procedural assignments but misses declarator initializers).
-- **Architecture Solution**: `shapes.resolve_assignment_target_and_rhs` standardizes the extraction of target and RHS across all syntactic constructs, providing a single point of enforcement.
+- **Architecture Solution**: `assignment_records.assignment_target_and_rhs` standardizes the extraction of target and RHS across all syntactic constructs from the assignment record, providing a single point of enforcement.
 - **Assignment record**: `assignment_record(ctx, vnode)` (`assignment_records.py`) builds one `AssignmentRecord` (`semantic/models/assignment_record.py`) per assignment expression or declarator initializer and keeps it in the module cache. The record holds the kind (blocking, non-blocking, continuous, initializer, compound), one `AssignmentTarget` per written reference (a concatenation gives several, each with its `write_region`, the part of the symbol written), the right-hand side node, the enclosing driver, and the statement id. Rules are being moved onto it one at a time; until a rule is moved it still takes the assignment apart itself.
 
 ### C. Non-Zero and Descending Vector Bounds
@@ -396,8 +396,7 @@ All syntax query modules in `src/pkg/parser/_syntax_queries/` use the `Traversal
 | `_collect_sensitivity_events` (`procedural.py`) | `@guarded_traversal` | 64 | `None` |
 | `_inspect_edge_events` (`procedural.py`) | `@guarded_traversal` | 32 | `None` |
 | `extract_assignment_target_and_selectors` (`shapes.py`) | `@guarded_traversal` | 64 | `(None, [])` |
-| `resolve_assignment_target` (`shapes.py`) | `@guarded_traversal` | 32 | `None` |
-| `_targets_of` (`assignment_records.py`) | `@guarded_traversal` | 64 | `()` |
+| `target_leaves` (`assignment_records.py`) | `@guarded_traversal` | 64 | `()` |
 | `write_region_of_identifier` (`write_regions.py`) | `@guarded_traversal` | 64 | `()` |
 | `evaluate_constant_expression` (`expressions.py`) | `@guarded_traversal` | 16 | `None` |
 | `simple_expression_width_and_signed` (`expressions.py`) | `@guarded_traversal` (`node_arg="expr"`) | 32 | `(None, None)` |

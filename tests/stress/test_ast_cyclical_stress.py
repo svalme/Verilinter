@@ -282,7 +282,7 @@ def test_generator_traversals_on_child_cycle() -> None:
 
 
 def test_assignment_target_resolution_cyclical_shapes() -> None:
-    """Verifies resolve_assignment_target handles cyclical concats and element selects without recursion error."""
+    """Verifies assignment_targets handles cyclical concats and element selects without recursion error."""
     # 1. Cyclical ElementSelectExpression
     elem_select = Mock(spec=SyntaxNode)
     elem_select.kind = ELEMENT_SELECT_EXPRESSION_KIND
@@ -302,8 +302,7 @@ def test_assignment_target_resolution_cyclical_shapes() -> None:
     scope.lookup = Mock(return_value=None)
     scope.lookup_hierarchical = Mock(return_value=None)
 
-    target = sq.resolve_assignment_target(concat_node, scope)
-    assert target is None
+    assert sq.assignment_targets(concat_node, scope) == ()
 
     # 3. Cyclical MultipleConcatenationExpression
     mult_concat = Mock(spec=SyntaxNode)
@@ -311,8 +310,8 @@ def test_assignment_target_resolution_cyclical_shapes() -> None:
     mult_concat.expression = mult_concat
     mult_concat.concatenation = mult_concat
 
-    target_mult = sq.resolve_assignment_target(mult_concat, scope)
-    assert target_mult is None
+    (target_mult,) = sq.assignment_targets(mult_concat, scope)
+    assert target_mult.base_symbol is None
 
 
 def test_state_register_reset_covered_cycle_immunity() -> None:

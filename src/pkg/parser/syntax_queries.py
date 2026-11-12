@@ -94,8 +94,6 @@ from ._syntax_queries.shapes import (
     is_illegal_indexed_part_select_width,
     is_indexed_part_select,
     is_reversed_indexed_part_select,
-    resolve_assignment_target,
-    resolve_assignment_target_and_rhs,
 )
 from ._syntax_queries.loops import (
     has_loop_exit_or_timing_control,
@@ -329,7 +327,7 @@ from ._syntax_queries.system_tasks import (
     system_task_name,
 )
 from ._syntax_queries.write_regions import write_region_of_identifier
-from ._syntax_queries.assignment_records import assignment_record, driver_id_of
+from ._syntax_queries.assignment_records import assignment_record, assignment_target_and_rhs, assignment_targets, driver_id_of
 from ._syntax_queries.subroutines import (
     function_returns_value,
     return_statement_has_value,
@@ -388,6 +386,8 @@ __all__ = [
     "evaluate_constant_expression",
     "write_region_of_identifier",
     "assignment_record",
+    "assignment_target_and_rhs",
+    "assignment_targets",
     "driver_id_of",
     "is_sign_neutral_expression",
     "evaluate_constant_text_expression",
@@ -592,7 +592,6 @@ __all__ = [
     "procedural_block_statement",
     "procedural_block_top_level_reset_names",
     "procedural_nesting_depth",
-    "resolve_assignment_target",
     "resolve_case_item_value",
     "scoped_name_package_qualifier",
     "sized_literal_overflow",
