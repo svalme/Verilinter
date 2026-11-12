@@ -2,6 +2,7 @@ from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
 from ...parser.syntax import is_mutually_exclusive_branch_pair
+from ...semantic.write_region import regions_may_overlap
 from ...semantic.symbol import UseEvent
 from ...semantic.symbol_table import SymbolTable
 from ...semantic.symbol_kind import SymbolKind
@@ -23,7 +24,8 @@ class NoMultipleDriversRule(BaseSymbolRule):
                 if not sym.is_explicit_kind(SymbolKind.VARIABLE):
                     continue
 
-                seen_driver_ids: dict[str, tuple[UseEvent, Location]] = {}
+                writes_by_driver: dict[str, list[UseEvent]] = {}
+                driver_locations: dict[str, Location] = {}
 
                 for event in sym.use_events:
                     if not event["write"]:
@@ -34,28 +36,25 @@ class NoMultipleDriversRule(BaseSymbolRule):
                     if driver_id is None or driver_location is None:
                         continue
 
-                    if driver_id not in seen_driver_ids:
-                        seen_driver_ids[driver_id] = (event, driver_location)
-                        continue
+                    writes_by_driver.setdefault(driver_id, []).append(event)
+                    driver_locations.setdefault(driver_id, driver_location)
 
-                if len(seen_driver_ids) <= 1:
+                if len(writes_by_driver) <= 1:
                     continue
 
-                # Two drivers only conflict if they can both apply at once. A driver
-                # pair confined to mutually exclusive `if`/`else` branches -- most
-                # commonly a `generate if (PARAM) ... else ...` module/style choice --
-                # is never simultaneously live, so it is not a real multi-driver
-                # conflict.
+                # Two drivers only conflict if they can both apply at once to the same bits. A pair
+                # confined to mutually exclusive `if`/`else` branches -- most commonly a
+                # `generate if (PARAM) ... else ...` module/style choice -- is never simultaneously
+                # live, and writes to provably disjoint parts of the variable (`v[0]` and `v[1]`)
+                # do not drive the same bits.
                 # Report the first pair, in encounter order, that genuinely is.
-                ordered = list(seen_driver_ids.values())
+                ordered = list(writes_by_driver)
                 conflict: tuple[Location, UseEvent] | None = None
                 for i in range(len(ordered)):
-                    event_i, loc_i = ordered[i]
-                    for event_j, _loc_j in ordered[i + 1 :]:
-                        if not is_mutually_exclusive_branch_pair(
-                            event_i.get("branch_signature", ()), event_j.get("branch_signature", ())
-                        ):
-                            conflict = (loc_i, event_j)
+                    for other_id in ordered[i + 1 :]:
+                        second = self._first_conflicting_write(writes_by_driver[ordered[i]], writes_by_driver[other_id])
+                        if second is not None:
+                            conflict = (driver_locations[ordered[i]], second)
                             break
                     if conflict is not None:
                         break
@@ -81,3 +80,16 @@ class NoMultipleDriversRule(BaseSymbolRule):
                 diagnostics.append(diagnostic)
 
         return diagnostics
+
+    @staticmethod
+    def _first_conflicting_write(first_writes: list[UseEvent], other_writes: list[UseEvent]) -> UseEvent | None:
+        """The first write of the other driver that can drive the same bits at the same time as a write of the first."""
+        for other in other_writes:
+            for earlier in first_writes:
+                if regions_may_overlap(earlier.get("write_region", ()), other.get("write_region", ())) and not (
+                    is_mutually_exclusive_branch_pair(
+                        earlier.get("branch_signature", ()), other.get("branch_signature", ())
+                    )
+                ):
+                    return other
+        return None

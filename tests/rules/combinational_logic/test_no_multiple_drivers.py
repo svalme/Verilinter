@@ -309,3 +309,52 @@ class TestNoMultipleDriversRule:
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
+
+
+def _diagnostics(body: str, declarations: str = "logic [7:0] v; logic [3:0] i;") -> list[dict]:
+    symbol_table = SymbolTable()
+    walker = Walker(dispatch)
+    tree = parse_text(f"module top(input logic clk, input logic a, input logic b); {declarations} {body} endmodule")
+    assert_no_parse_errors("tests/rules/combinational_logic/test_no_multiple_drivers.py", tree)
+    walker.walk(tree.root, tree, Context(scope=symbol_table.global_scope), symbol_table)
+    return NoMultipleDriversRule().run(symbol_table)
+
+
+class TestWritesToDifferentPartsOfOneVariable:
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "assign v[0] = a; assign v[1] = b;",
+            "assign v[3:0] = 4'h0; assign v[7:4] = 4'h0;",
+            "assign v[7:4] = 4'h0; assign v[0] = a;",
+            "localparam P = 4; assign v[P-1:0] = 4'h0; assign v[7:P] = 4'h0;",
+            "assign v[0 +: 4] = 4'h0; assign v[4 +: 4] = 4'h0;",
+            "always_comb v[0] = a; assign v[1] = b;",
+        ],
+    )
+    def test_provably_disjoint_writes_are_not_multiple_drivers(self, body: str) -> None:
+        assert _diagnostics(body) == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "assign v[0] = a; assign v[0] = b;",
+            "assign v[3:0] = 4'h0; assign v[4:1] = 4'h0;",
+            "assign v = 8'h0; assign v[1] = b;",
+            "assign v[i] = a; assign v[0] = b;",
+            "assign v[i +: 2] = 2'h0; assign v[4 +: 4] = 4'h0;",
+            "always_comb v[0] = a; always_comb v[0] = b;",
+        ],
+    )
+    def test_overlapping_or_unknown_writes_still_conflict(self, body: str) -> None:
+        assert len(_diagnostics(body)) == 1
+
+    def test_array_elements_with_constant_indices(self) -> None:
+        declarations = "logic [7:0] m [4];"
+        assert _diagnostics("assign m[0] = 8'h0; assign m[1] = 8'h0;", declarations) == []
+        assert len(_diagnostics("assign m[2] = 8'h0; assign m[2] = 8'h1;", declarations)) == 1
+
+    def test_second_dimension_decides_when_the_first_is_the_same(self) -> None:
+        declarations = "logic [3:0][7:0] w;"
+        assert _diagnostics("assign w[1][0] = a; assign w[1][1] = b;", declarations) == []
+        assert len(_diagnostics("assign w[1][0] = a; assign w[1][0] = b;", declarations)) == 1
