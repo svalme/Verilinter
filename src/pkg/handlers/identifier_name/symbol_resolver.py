@@ -35,8 +35,7 @@ class SymbolResolver:
         """
         package_qualifier = self._qualifier_fn(vnode.raw)
         if package_qualifier is not None:
-            package_scope = symbol_table.lookup_package(package_qualifier)
-            symbol = package_scope.lookup(name) if package_scope is not None else None
+            symbol = ctx.scope().lookup_package_member(package_qualifier, name)
             if symbol is None:
                 return Resolution(ResolutionStatus.UNRESOLVABLE_HERE)
             return Resolution(ResolutionStatus.RESOLVED, symbol)

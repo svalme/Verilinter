@@ -168,9 +168,9 @@ class SymbolTable:
         return scopes[0] if scopes else None
 
     def lookup_package(self, name: str) -> Scope | None:
-        """Return the first scope for a named package declared in this file, or
-        None if it isn't (either genuinely undeclared, or declared in a
-        different file -- cross-file package resolution isn't supported)."""
+        """Return the first scope for a named package, or None if no walked or seeded file declares it.
+        Name resolution goes through `Scope.lookup_package_member`, which looks in every scope declaring
+        the package; this returns one scope for callers that need the package itself (its subroutines)."""
         scopes = self.packages.get(name)
         return scopes[0] if scopes else None
 
