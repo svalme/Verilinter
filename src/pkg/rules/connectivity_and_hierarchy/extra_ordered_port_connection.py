@@ -2,7 +2,7 @@ from typing import Any
 
 from ...semantic.symbol_table import SymbolTable
 from ..base_symbol_rule import BaseSymbolRule
-from ..connection_analysis import extra_ordered_connections, module_ports_for
+from ..connection_analysis import child_port_count, extra_ordered_connections
 from ..module_rule_runner import module_rule_runner
 
 
@@ -18,7 +18,7 @@ class ExtraOrderedPortConnectionRule(BaseSymbolRule):
             extras = extra_ordered_connections(symbol_table, inst)
             if not extras:
                 continue
-            port_count = len(module_ports_for(symbol_table, inst.get("child_module")))
+            port_count = child_port_count(symbol_table, inst)
             loc = dict(inst.get("location") or {})
             diagnostics.append(
                 {

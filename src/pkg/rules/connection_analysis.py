@@ -10,12 +10,9 @@ from ..parser.syntax import (
 )
 from ..semantic.models import InstanceRecord, ParameterOverride, PortConnection
 from ..semantic.instance_ports import (
-    instance_parameter_scope,
-    module_ports_for,
     module_scope_for,
     named_parameter_overrides,
     ordered_parameter_overrides,
-    specialized_port_symbol,
 )
 from ..semantic.connection_records import connection_records_of
 from ..semantic.symbol import Symbol
@@ -154,35 +151,9 @@ def unknown_named_parameter_override_names(
     return unknown
 
 
-def bound_port_pairs(
-    symbol_table: SymbolTable,
-    instantiation: dict[str, object],
-) -> list[tuple[Symbol, dict[str, object] | None]]:
-    if has_wildcard_port_connections(instantiation):
-        # `.*` is an implicit binding form; this first-pass connection analysis
-        # only reasons about explicit named / ordered entries. Don't invent a
-        # fake port map here and cascade misleading correctness diagnostics.
-        return []
-    ports = module_ports_for(symbol_table, instantiation.get("child_module"))
-    param_scope = instance_parameter_scope(symbol_table, instantiation)
-    if param_scope:
-        ports = [specialized_port_symbol(port, param_scope) for port in ports]
-
-    style = instantiation.get("connection_style")
-
-    if style == "named":
-        conn_map = {
-            str(conn.get("port_name")): conn
-            for conn in named_connections(instantiation)
-            if conn.get("port_name") is not None
-        }
-        return [(port, conn_map.get(port.name)) for port in ports]
-
-    ord_conns = ordered_connections(instantiation)
-    return [
-        (port, ord_conns[index] if index < len(ord_conns) else None)
-        for index, port in enumerate(ports)
-    ]
+def child_port_count(symbol_table: SymbolTable, instantiation: dict[str, object]) -> int:
+    """How many ports the child module declares (0 when it is declared in no input file)."""
+    return sum(1 for record in connection_records_of(symbol_table, instantiation) if record.port is not None)
 
 
 def unconnected_port_names(
@@ -278,8 +249,9 @@ def unread_instance_output_details(
     if parent_scope is None:
         return details
 
-    for port, conn in bound_port_pairs(symbol_table, instantiation):
-        if port.port_direction != "output" or conn is None or conn.get("kind") == "empty":
+    for record in connection_records_of(symbol_table, instantiation):
+        port, conn = record.port, record.connection
+        if port is None or port.port_direction != "output" or conn is None or conn.get("kind") == "empty":
             continue
         expr_name = conn.get("expr_name")
         if not isinstance(expr_name, str):
