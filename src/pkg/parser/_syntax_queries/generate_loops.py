@@ -18,7 +18,7 @@ from ..syntax_kinds import (
     PREINCREMENT_EXPRESSION_KIND,
     SUBTRACT_ASSIGNMENT_KIND,
 )
-from .expressions import evaluate_constant_expression
+from .expressions import evaluate_constant_expression, evaluate_constant_text_expression
 from .generate_blocks import loop_generate_genvar_name, taken_case_item
 from .node_kind_checks import is_case_generate_node, is_if_generate_node
 from .shared import identifier_name
@@ -31,11 +31,15 @@ Binding = dict[str, int]
 
 
 class _BoundScope:
-    """A scope that answers the bound names with their integer value and every other name from the wrapped scope."""
+    """A scope that answers the bound names with their integer value and every other name from the wrapped scope.
+
+    A parameter declared inside a loop body from the genvar (`localparam Cnt = i + BASE;`) has no value of its
+    own where it is declared, so it is evaluated here from its initializer with the genvars bound."""
 
     def __init__(self, scope: object, values: Binding) -> None:
         self._scope = scope
         self._values = values
+        self._resolving: set[str] = set()
 
     def lookup_package_member(self, package_name: str, name: str) -> object:
         lookup = getattr(self._scope, "lookup_package_member", None)
@@ -45,9 +49,26 @@ class _BoundScope:
         if name in self._values:
             return SimpleNamespace(value=self._values[name])
         lookup = getattr(self._scope, "lookup_hierarchical", None)
-        if callable(lookup):
-            return lookup(name)
-        return getattr(self._scope, "lookup", lambda _n: None)(name)
+        symbol = lookup(name) if callable(lookup) else getattr(self._scope, "lookup", lambda _n: None)(name)
+        return self._with_bound_value(name, symbol)
+
+    def _with_bound_value(self, name: str, symbol: object) -> object:
+        """`symbol`, or a stand-in carrying its value when it is a parameter whose value depends on the bound genvars."""
+        text = getattr(symbol, "initializer_text", None)
+        if (
+            symbol is None
+            or getattr(symbol, "value", None) is not None
+            or not text
+            or getattr(getattr(symbol, "kind", None), "name", None) != "PARAMETER"
+            or name in self._resolving
+        ):
+            return symbol
+        self._resolving.add(name)
+        try:
+            value = evaluate_constant_text_expression(text, scope=self)
+        finally:
+            self._resolving.discard(name)
+        return SimpleNamespace(value=value) if value is not None else symbol
 
 
 def _evaluate(expr: object, scope: object, binding: Binding) -> int | None:

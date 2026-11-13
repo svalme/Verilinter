@@ -8,9 +8,13 @@ is no longer open to an unknown driver. The signal is looked up from the scope t
 wire declared inside a generate block is the one found."""
 from __future__ import annotations
 
-from .models import InstanceRecord
+from typing import NamedTuple
+
+from .models import InstanceRecord, PortConnection
+from .scope import Scope
 from .symbol import Symbol
 from .symbol_table import SymbolTable
+from .write_region import WriteRegion
 
 _DRIVING = ("output", "inout")
 
@@ -51,13 +55,42 @@ def _child_ports(symbol_table: SymbolTable, child_module: str | None) -> PortLis
     return None
 
 
-def _connected_names(
-    instance: InstanceRecord, ports: PortList
-) -> list[tuple[str, str | None, bool, str | None, dict | None]]:
-    """`(signal name, port direction, listed, port name, location)` for each connection of the instance that
-    names a simple signal. A `.*` connection supplies a signal of the port's own name for each port the list
-    does not mention; `listed` is False for those, since the walk saw no identifier for them."""
-    pairs: list[tuple[str, str | None, bool, str | None, dict | None]] = []
+class _Connected(NamedTuple):
+    """One signal a connection names: the symbol, the part of it the connection covers (empty for the whole
+    symbol), the connected port's direction (None when unknown), whether the walk saw the connection's own
+    identifier, the port name and the connection's location."""
+
+    symbol: Symbol
+    region: WriteRegion
+    direction: str | None
+    listed: bool
+    port_name: str | None
+    location: dict | None
+
+
+def _expression_targets(conn: PortConnection, scope: Scope) -> list[tuple[Symbol, WriteRegion]]:
+    """The signals a connection's expression names and the part of each: a simple name is the whole signal;
+    a select (`bus[3]`, `bus[7:4]`, `s.field`) is that part; a concatenation is each of its members. An
+    expression that is not a reference (`a & b`, a literal, a call) names none."""
+    from ..parser.syntax import assignment_targets
+
+    if isinstance(conn.expr_name, str):
+        symbol = scope.lookup_hierarchical(conn.expr_name)
+        return [(symbol, ())] if symbol is not None else []
+    if conn.expr_node is None:
+        return []
+    return [
+        (target.base_symbol, target.write_region)
+        for target in assignment_targets(conn.expr_node, scope)
+        if target.base_symbol is not None
+    ]
+
+
+def _connected_signals(instance: InstanceRecord, ports: PortList, scope: Scope) -> list[_Connected]:
+    """Each signal the instance's connections name, with the port each is connected to. A `.*` connection
+    supplies a signal of the port's own name for each port the list does not mention; `listed` is False for
+    those, since the walk saw no identifier for them."""
+    found: list[_Connected] = []
     named = {str(conn.get("port_name")) for conn in instance.connections if conn.get("kind") == "named"}
     directions = dict(ports)
     ordered_index = 0
@@ -71,18 +104,18 @@ def _connected_names(
             direction = ports[ordered_index][1] if ordered_index < len(ports) else None
             ordered_index += 1
         elif kind == "wildcard":
-            pairs.extend(
-                (name, port_direction, False, name, instance.location)
-                for name, port_direction in ports
-                if name not in named
-            )
+            for name, port_direction in ports:
+                symbol = scope.lookup_hierarchical(name) if name not in named else None
+                if symbol is not None:
+                    found.append(_Connected(symbol, (), port_direction, False, name, instance.location))
             continue
         else:
             continue
-        expr_name = conn.get("expr_name")
-        if isinstance(expr_name, str):
-            pairs.append((expr_name, direction, True, port_name, conn.get("location")))
-    return pairs
+        found.extend(
+            _Connected(symbol, region, direction, True, port_name, conn.get("location"))
+            for symbol, region in _expression_targets(conn, scope)
+        )
+    return found
 
 
 def _symbol_key(instance: InstanceRecord, symbol: Symbol) -> tuple[object, ...]:
@@ -103,24 +136,34 @@ def apply_instance_port_effects(symbol_table: SymbolTable) -> None:
             scope = symbol_table.lookup_module(instance.parent_module)
         if ports is None or scope is None:
             continue
-        for name, direction, listed, port_name, location in _connected_names(instance, ports):
-            symbol = scope.lookup_hierarchical(name)
-            if symbol is None or direction is None:
+        for connected in _connected_signals(instance, ports, scope):
+            symbol, direction, port_name = connected.symbol, connected.direction, connected.port_name
+            if direction is None:
                 continue
             if direction in _DRIVING and port_name is not None:
                 symbol.is_driven_by_instance = True
                 symbol.add_use(
-                    location,
+                    connected.location,
                     write=True,
                     driver_id=instance_driver_id(instance, port_name),
                     driver_location=instance.location,
                     branch_signature=instance.generate_branch_signature,
+                    write_region=connected.region,
                 )
             key = _symbol_key(instance, symbol)
             known, count = classified.get(key, (symbol, 0))
-            classified[key] = (known, count + (1 if listed else 0))
+            classified[key] = (known, count + (1 if connected.listed else 0))
 
     for symbol, count in classified.values():
         wired = sum(1 for event in symbol.use_events if event.get("in_port_connection"))
         if wired == count:
             symbol.in_unclassified_port_connection = False
+
+
+def release_walk_state(symbol_table: SymbolTable) -> None:
+    """Drop what the instance effect needed only while the file was walked: the scope each instance sits in
+    and the syntax node of each connection. A worker result keeps neither."""
+    for instance in symbol_table.instantiations:
+        instance.scope = None
+        for conn in instance.connections:
+            conn.expr_node = None

@@ -22,6 +22,9 @@ class PortConnection(Mapping[str, Any]):
     expr_width: int | None = None
     expr_signed: bool | None = None
     is_shorthand: bool = False
+    # The connected expression's syntax node, kept while its file is walked so that the instance effect can find
+    # the signals and the part of each one the connection names. Not stored, compared or shown.
+    expr_node: Any = field(default=None, compare=False, repr=False)
 
     _FIELDS = (
         "kind",

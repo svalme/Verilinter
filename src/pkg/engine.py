@@ -24,7 +24,7 @@ from .rules.rule_selection import RuleSelection
 from .semantic.models import InstanceRecord
 from .semantic.scope import Scope
 from .semantic.connection_records import resolve_connections
-from .semantic.instance_effects import apply_instance_port_effects
+from .semantic.instance_effects import apply_instance_port_effects, release_walk_state
 from .store.keys import MODULE_PORT_SCAN_FINGERPRINT
 from .semantic.module_registry import (
     fingerprint_module_ports,
@@ -339,8 +339,7 @@ def _lint_single_tree(
     with collect_truncations(file_name=file_name, tree=tree) as trunc_events:
         walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
         apply_instance_port_effects(symbol_table)
-        for instance in symbol_table.instantiations:
-            instance.scope = None
+        release_walk_state(symbol_table)
         diagnostics = ast_diagnostics + _symbol_rule_runner.run(symbol_table, rule_selection)
         truncations = [e.to_dict() for e in trunc_events]
 

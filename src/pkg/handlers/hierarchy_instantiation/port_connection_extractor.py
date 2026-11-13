@@ -80,6 +80,7 @@ class PortConnectionExtractor:
                         expr_signed=expr_signed,
                         location=node_location(conn, tree),
                         is_shorthand=is_shorthand,
+                        expr_node=expr,
                     )
                 )
                 connection_kinds.add("named")
@@ -99,6 +100,7 @@ class PortConnectionExtractor:
                         expr_width=expr_width,
                         expr_signed=expr_signed,
                         location=node_location(conn, tree),
+                        expr_node=expr,
                     )
                 )
                 connection_kinds.add("ordered")
