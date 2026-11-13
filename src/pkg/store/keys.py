@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from functools import lru_cache
+from importlib import metadata
 from pathlib import Path
 
 from ..rules.rule_selection import RuleSelection
@@ -13,6 +15,30 @@ ANALYZER_CACHE_VERSION = "2026-11-12-instance-driver-events"
 # package-registry fingerprint, which keeps it apart from the file's analysis result.
 MODULE_PORT_SCAN_FINGERPRINT = "module_ports"
 MODULE_PORT_SCAN_KEY_FRAGMENT = '"package_registry_fingerprint":"module_ports"'
+
+
+@lru_cache(maxsize=1)
+def pyslang_version() -> str:
+    """The installed pyslang version; a different parser can change the tree a stored result came from."""
+    try:
+        return metadata.version("pyslang")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+@lru_cache(maxsize=1)
+def analyzer_code_fingerprint() -> str:
+    """A hash of Verilinter's own source (every `.py` file under `src/pkg`).
+
+    A stored result is only valid for the code that produced it, so the key carries this alongside the
+    hand-set `ANALYZER_CACHE_VERSION`: a change to a rule, handler or helper invalidates old rows without
+    anyone having to remember to bump the token."""
+    root = Path(__file__).resolve().parents[1]
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*.py")):
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:16]
 
 
 def file_sha256(path: Path) -> str:
@@ -27,6 +53,8 @@ def selection_key(
 ) -> str:
     payload = {
         "analyzer_cache_version": ANALYZER_CACHE_VERSION,
+        "analyzer_code": analyzer_code_fingerprint(),
+        "pyslang": pyslang_version(),
         "enabled_codes": sorted(selection.enabled_codes) if selection and selection.enabled_codes else None,
         "enabled_categories": sorted(selection.enabled_categories)
         if selection and selection.enabled_categories

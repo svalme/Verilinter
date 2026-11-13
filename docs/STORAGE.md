@@ -25,6 +25,8 @@ The cache is keyed by:
 - file content SHA-256
 - rule-selection signature
 - analyzer cache version token
+- a fingerprint of Verilinter's own source (a hash of every `.py` file under `src/pkg`)
+- the installed pyslang version
 - include directory search order (`-I`)
 - preprocessor macro defines (`-D`)
 - package registry fingerprint (corpus package declarations and signatures)
@@ -35,14 +37,14 @@ That means a cached entry is reused only when:
 1. the file path is the same
 2. the file contents are unchanged
 3. the effective rule selection is unchanged
-4. the analyzer cache version is unchanged
+4. the analyzer cache version, Verilinter's source and the pyslang version are unchanged
 5. the include directory configuration and macro defines match
 6. corpus package declarations have not shifted, and the ports of the modules the file instantiates are unchanged
 7. all directly and transitively included header files exist on disk with unchanged SHA-256 hashes
 
 Each file also has a small cache row of its own (same table, keyed by the file's path, hash, `-I` and `-D` settings, and the header dependencies it was read with) holding the ports of the modules it declares and the names of the modules it instantiates. These are read from the syntax alone before any file is linted, so an unchanged file is not parsed again, and the ports of a module declared in another file are known when a file is walked. `store status` and `prune` count analysis results only.
 
-The analyzer cache version is a small internal compatibility token for Verilinter's own analysis pipeline.
+The source fingerprint means any edit to Verilinter's code, and any pyslang upgrade, refreshes cached rows on the next run without a manual step. The analyzer cache version is a small internal compatibility token that remains for changes the source hash cannot see, such as a deliberate change to what a row means.
 When parser behavior, symbol-building behavior, cached payload shape, or rule logic changes in a way that
 could make old worker results unsafe to reuse, this token should be bumped so cached per-file rows refresh
 on the next run even if the input files themselves did not change.
@@ -123,7 +125,8 @@ Connections wait up to 30 seconds for a competing writer before reporting a lock
 ## Retention and Maintenance
 
 Stores are created or migrated automatically when a lint run uses `--store PATH`. Cached file results and
-recorded run history are retained until you remove them; Verilinter does not apply automatic retention.
+recorded run history are retained until you remove them (rows written by an older Verilinter or pyslang
+never match again, so `--prune-cache-days` is how they are cleared); Verilinter does not apply automatic retention.
 
 Use the maintenance flags with `--store`; source paths are not required. Each command performs its work and then exits:
 
