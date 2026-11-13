@@ -66,7 +66,7 @@ The order below is fixed (`tests/meta/test_pipeline_order.py` fails when it chan
 | 3a | Walk with node rules | the file as it is built | the file's symbol table; node-rule diagnostics | inside a worker | with its worker |
 | 3b | Instance effects | the walked table, the module-port registry | symbols marked as driven by an instance, and connections whose direction is known | inside a worker, after the walk | with its worker |
 | 3c | Symbol rules | the file's complete table | symbol-rule diagnostics | inside a worker, after 3b | with its worker |
-| 4 | Merge | the results of every worker, cached or fresh | one table of module-level symbols and instances (no generate blocks, functions or packages) | after the last worker has finished | no |
+| 4 | Merge | the results of every worker, cached or fresh | one table of module-level symbols and instances (no generate blocks, functions or packages), and a `ConnectionRecord` for every port of every instance | after the last worker has finished | no |
 | 5 | Module rules | the merged table | cross-file diagnostics (connections, parameter overrides, duplicate and undefined modules, circular instantiation) | after the merge | no |
 | 6 | Output | all diagnostics | severity overrides, sort, baseline filter, store record, report | after pass 5 | the run is recorded in the store |
 
@@ -314,6 +314,7 @@ A rule that takes a construct apart for itself reads whatever it needs and drops
 | `AssignmentView` | the same construct, from syntax alone | `assignment_view(raw)` | the block-level rules, the FSM scan, the latch rule |
 | `InstanceRecord` (`semantic/models/instance_record.py`) | a module instantiation | `HierarchyInstantiationHandler` | the connection, parameter-override and driver-conflict rules |
 | `PortConnection`, `ParameterOverride` | one connection or override of an instance | the extractors in `handlers/hierarchy_instantiation/` | through the `InstanceRecord` |
+| `ConnectionRecord` (`semantic/models/connection_record.py`) | one port of an instance and what is connected to it | `resolve_connections` (`semantic/connection_records.py`), after the merge | the record is built; the connection rules still pair ports themselves |
 
 ### C. What a record is
 

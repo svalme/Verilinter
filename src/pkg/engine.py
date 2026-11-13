@@ -23,6 +23,7 @@ from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_r
 from .rules.rule_selection import RuleSelection
 from .semantic.models import InstanceRecord
 from .semantic.scope import Scope
+from .semantic.connection_records import resolve_connections
 from .semantic.instance_effects import apply_instance_port_effects
 from .store.keys import MODULE_PORT_SCAN_FINGERPRINT
 from .semantic.module_registry import (
@@ -430,6 +431,7 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
         symbol_table.instantiation_edges.extend(result.instantiation_edges)
         symbol_table.instantiations.extend(result.instantiations)
 
+    resolve_connections(symbol_table)
     return symbol_table
 
 

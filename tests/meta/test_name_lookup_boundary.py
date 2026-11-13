@@ -47,6 +47,8 @@ LOOKUP_FILES = {
     "pkg/rules/width_and_signedness/no_assignment_width_mismatch.py": "operand symbols for the width rules",
     "pkg/rules/width_and_signedness/operand.py": "operand symbols for the width rules",
     "pkg/rules/fsms/one_hot_encoding_violation.py": "the state variable",
+    "pkg/semantic/instance_ports.py": "the child module scope of an instance and its parameters",
+    "pkg/semantic/connection_records.py": "the signal a connection names, in the instantiating module",
     "pkg/semantic/instance_effects.py": "the child module and the signals a port connection names, to mark instance-driven signals",
     "pkg/rules/connection_analysis.py": "port and connection symbols, child module ports, type-parameter ports",
     "pkg/rules/connectivity_and_hierarchy/undefined_module.py": "module existence",

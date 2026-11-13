@@ -28,6 +28,9 @@ class InstanceRecord(Mapping[str, Any]):
     generate_branch_signature: tuple[Any, ...] = ()
     # True when the instance sits in a generate branch that the default parameter values switch off.
     in_inactive_generate_branch: bool = False
+    # Derived once every file is merged (`resolve_connections`): one ConnectionRecord per port. Not a stored
+    # field, so it is not serialised, compared or printed.
+    connection_records: list[Any] = field(default_factory=list, compare=False, repr=False)
 
     _FIELDS = (
         "parent_module",
