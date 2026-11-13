@@ -17,6 +17,7 @@ from ..semantic.instance_ports import (
     ordered_parameter_overrides,
     specialized_port_symbol,
 )
+from ..semantic.connection_records import connection_records_of
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
@@ -69,19 +70,15 @@ def unknown_named_port_names(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
 ) -> list[str]:
-    if module_scope_for(symbol_table, instantiation.get("child_module")) is None:
-        # Module isn't defined anywhere in the linted file set at all -- that's
-        # UNDEFINED_MODULE's concern; there's no real port list to check named
-        # connections against, so don't pile on a misleading "unknown port" per
-        # connection on top of it.
-        return []
-    valid = {port.name for port in module_ports_for(symbol_table, instantiation.get("child_module"))}
+    """The named connections whose port the child module does not have. A child declared in no input file
+    is UNDEFINED_MODULE's concern, so it gives none."""
     unknown: list[str] = []
-    for conn in named_connections(instantiation):
-        port_name = conn.get("port_name")
-        if not isinstance(port_name, str):
+    for record in connection_records_of(symbol_table, instantiation):
+        conn = record.connection
+        if not record.child_known or conn is None or record.port is not None or conn.get("kind") != "named":
             continue
-        if port_name not in valid and port_name not in unknown:
+        port_name = conn.get("port_name")
+        if isinstance(port_name, str) and port_name not in unknown:
             unknown.append(port_name)
     return unknown
 
@@ -89,23 +86,16 @@ def unknown_named_port_names(
 def extra_ordered_connections(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
-) -> list[dict[str, object]]:
-    """Return the trailing ordered/empty connections beyond the child module's
-    declared port count.
-
-    `bound_port_pairs` only ever zips as many connections as the module has ports
-    (`enumerate(ports)`), so an instantiation with more positional connections than
-    the module declares silently drops the extras from every check built on top of
-    it (unconnected ports, width/signedness mismatch, unread output). This surfaces
-    that dropped tail directly instead.
-    """
-    if module_scope_for(symbol_table, instantiation.get("child_module")) is None:
-        return []
-    ports = module_ports_for(symbol_table, instantiation.get("child_module"))
-    ord_conns = ordered_connections(instantiation)
-    if len(ord_conns) <= len(ports):
-        return []
-    return ord_conns[len(ports):]
+) -> list[PortConnection]:
+    """The trailing positional connections beyond the child module's declared port count."""
+    return [
+        record.connection
+        for record in connection_records_of(symbol_table, instantiation)
+        if record.child_known
+        and record.port is None
+        and record.connection is not None
+        and record.connection.get("kind") in ("ordered", "empty")
+    ]
 
 
 def module_parameters_for(symbol_table: SymbolTable, module_name: str | None) -> list[Symbol]:
@@ -199,10 +189,19 @@ def unconnected_port_names(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
 ) -> list[str]:
+    """The ports the instance leaves open: not listed, or listed with nothing in the parentheses. A port a
+    `.*` connection may supply by name is not reported."""
     names: list[str] = []
-    for port, conn in bound_port_pairs(symbol_table, instantiation):
-        if conn is None or conn.get("kind") == "empty" or conn.get("expr_text") is None:
-            names.append(port.name)
+    for record in connection_records_of(symbol_table, instantiation):
+        if record.port is None or record.port_name is None:
+            continue
+        conn = record.connection
+        if conn is None:
+            left_open = not record.implicit
+        else:
+            left_open = conn.get("kind") == "empty" or conn.get("expr_text") is None
+        if left_open and record.port_name not in names:
+            names.append(record.port_name)
     return names
 
 
@@ -210,16 +209,22 @@ def width_mismatch_details(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
 ) -> list[tuple[str, int, str, int]]:
+    """`(port, port width, expression text, expression width)` for each connection whose two widths are
+    known and differ. A `.*` connection compares the port with the signal of the same name."""
     mismatches: list[tuple[str, int, str, int]] = []
-    for port, conn in bound_port_pairs(symbol_table, instantiation):
-        if conn is None:
+    for record in connection_records_of(symbol_table, instantiation):
+        if record.port is None:
             continue
-        conn_width = conn.get("expr_width")
-        expr_text = conn.get("expr_text")
-        if not isinstance(conn_width, int) or not isinstance(port.bit_width, int):
+        if record.connection is not None:
+            expr_text = record.connection.get("expr_text")
+        elif record.implicit and record.signal is not None:
+            expr_text = record.signal.name
+        else:
             continue
-        if conn_width != port.bit_width:
-            mismatches.append((port.name, port.bit_width, str(expr_text), conn_width))
+        if not isinstance(record.expr_width, int) or not isinstance(record.port_width, int):
+            continue
+        if record.expr_width != record.port_width:
+            mismatches.append((record.port.name, record.port_width, str(expr_text), record.expr_width))
     return mismatches
 
 
@@ -236,16 +241,15 @@ def width_unknown_details(
     instantiation: dict[str, object],
 ) -> list[tuple[str, int | None, str, int | None]]:
     unknowns: list[tuple[str, int | None, str, int | None]] = []
-    for port, conn in bound_port_pairs(symbol_table, instantiation):
-        if conn is None or conn.get("kind") == "empty":
+    for record in connection_records_of(symbol_table, instantiation):
+        conn = record.connection
+        if record.port is None or conn is None or conn.get("kind") == "empty":
             continue
-        conn_width = conn.get("expr_width")
-        expr_text = str(conn.get("expr_text") or "<open>")
-        if isinstance(conn_width, int) and isinstance(port.bit_width, int):
+        if isinstance(record.expr_width, int) and isinstance(record.port_width, int):
             continue
-        if port.bit_width is None and _typed_by_type_parameter(port):
+        if record.port_width is None and _typed_by_type_parameter(record.port):
             continue
-        unknowns.append((port.name, port.bit_width, expr_text, conn_width))
+        unknowns.append((record.port.name, record.port_width, str(conn.get("expr_text") or "<open>"), record.expr_width))
     return unknowns
 
 
@@ -254,16 +258,14 @@ def signedness_mismatch_details(
     instantiation: dict[str, object],
 ) -> list[tuple[str, bool, str, bool]]:
     mismatches: list[tuple[str, bool, str, bool]] = []
-    for port, conn in bound_port_pairs(symbol_table, instantiation):
-        if conn is None:
+    for record in connection_records_of(symbol_table, instantiation):
+        conn = record.connection
+        if record.port is None or conn is None:
             continue
-        port_signed = port.is_signed
-        expr_signed = conn.get("expr_signed")
-        expr_text = conn.get("expr_text")
-        if port_signed is None or expr_signed is None:
+        if record.port_signed is None or record.expr_signed is None:
             continue
-        if bool(port_signed) != bool(expr_signed):
-            mismatches.append((port.name, bool(port_signed), str(expr_text), bool(expr_signed)))
+        if bool(record.port_signed) != bool(record.expr_signed):
+            mismatches.append((record.port.name, bool(record.port_signed), str(conn.get("expr_text")), bool(record.expr_signed)))
     return mismatches
 
 

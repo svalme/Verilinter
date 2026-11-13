@@ -17,7 +17,8 @@ class ConnectionRecord:
     (`port_width`, `port_signed` read from it); it is None when the child module is unknown or the
     connection names a port the child does not have. `connection` is None for a port the instance leaves
     off its list. `signal` is the parent-module symbol a simple identifier connection names, found through
-    the shared name lookup. `implicit` is True when the connection comes from `.*`."""
+    the shared name lookup. `implicit` is True when the connection comes from `.*`. `child_known` is False when
+    the child module is declared in no input file."""
 
     instance: InstanceRecord
     port_name: str | None
@@ -30,3 +31,4 @@ class ConnectionRecord:
     expr_width: int | None
     expr_signed: bool | None
     implicit: bool = False
+    child_known: bool = True

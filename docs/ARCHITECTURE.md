@@ -314,7 +314,7 @@ A rule that takes a construct apart for itself reads whatever it needs and drops
 | `AssignmentView` | the same construct, from syntax alone | `assignment_view(raw)` | the block-level rules, the FSM scan, the latch rule |
 | `InstanceRecord` (`semantic/models/instance_record.py`) | a module instantiation | `HierarchyInstantiationHandler` | the connection, parameter-override and driver-conflict rules |
 | `PortConnection`, `ParameterOverride` | one connection or override of an instance | the extractors in `handlers/hierarchy_instantiation/` | through the `InstanceRecord` |
-| `ConnectionRecord` (`semantic/models/connection_record.py`) | one port of an instance and what is connected to it | `resolve_connections` (`semantic/connection_records.py`), after the merge | the record is built; the connection rules still pair ports themselves |
+| `ConnectionRecord` (`semantic/models/connection_record.py`) | one port of an instance and what is connected to it | `resolve_connections` (`semantic/connection_records.py`), after the merge | the width, signedness, unconnected-port, unknown-port and extra-positional rules; the unread-output, driver-conflict and style rules still pair ports themselves |
 
 ### C. What a record is
 

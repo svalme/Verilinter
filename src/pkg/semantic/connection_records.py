@@ -29,6 +29,7 @@ def _record(
     port: Symbol | None,
     connection: PortConnection | None,
     implicit: bool,
+    child_known: bool = True,
 ) -> ConnectionRecord:
     expr_name = None
     expr_width = None
@@ -55,6 +56,7 @@ def _record(
         expr_width=expr_width,
         expr_signed=expr_signed,
         implicit=implicit,
+        child_known=child_known,
     )
 
 
@@ -65,33 +67,33 @@ def build_connection_records(symbol_table: SymbolTable, instance: InstanceRecord
 
     named = [conn for conn in instance.connections if conn.get("kind") == "named"]
     ordered = [conn for conn in instance.connections if conn.get("kind") in ("ordered", "empty")]
+    use_named = instance.connection_style == "named"
     wildcard = any(conn.get("kind") == "wildcard" for conn in instance.connections)
 
     if ports is None:
         for conn in named:
-            records.append(_record(instance, parent_scope, conn.get("port_name"), None, conn, False))
+            records.append(_record(instance, parent_scope, conn.get("port_name"), None, conn, False, child_known=False))
         for conn in ordered:
-            records.append(_record(instance, parent_scope, None, None, conn, False))
+            records.append(_record(instance, parent_scope, None, None, conn, False, child_known=False))
         return records
 
-    by_name = {port.name: port for port in ports}
-    connected: set[str] = set()
-    if named:
+    if use_named:
+        by_port: dict[str, list[PortConnection]] = {}
         for conn in named:
-            name = conn.get("port_name")
-            connected.add(str(name))
-            records.append(_record(instance, parent_scope, name, by_name.get(str(name)), conn, False))
-    else:
-        for index, conn in enumerate(ordered):
-            port = ports[index] if index < len(ports) else None
-            if port is not None:
-                connected.add(port.name)
-            records.append(_record(instance, parent_scope, port.name if port is not None else None, port, conn, False))
+            by_port.setdefault(str(conn.get("port_name")), []).append(conn)
+        for port in ports:
+            matched = by_port.pop(port.name, [])
+            if not matched:
+                records.append(_record(instance, parent_scope, port.name, port, None, wildcard))
+            records.extend(_record(instance, parent_scope, port.name, port, conn, False) for conn in matched)
+        for name, conns in by_port.items():
+            records.extend(_record(instance, parent_scope, name, None, conn, False) for conn in conns)
+        return records
 
-    for port in ports:
-        if port.name in connected:
-            continue
-        records.append(_record(instance, parent_scope, port.name, port, None, wildcard))
+    for index, port in enumerate(ports):
+        conn = ordered[index] if index < len(ordered) else None
+        records.append(_record(instance, parent_scope, port.name, port, conn, conn is None and wildcard))
+    records.extend(_record(instance, parent_scope, None, None, conn, False) for conn in ordered[len(ports):])
     return records
 
 
@@ -99,3 +101,12 @@ def resolve_connections(symbol_table: SymbolTable) -> None:
     """Build the connection records of every instance in the table and keep them on the instance."""
     for instance in symbol_table.instantiations:
         instance.connection_records = build_connection_records(symbol_table, instance)
+
+
+def connection_records_of(symbol_table: SymbolTable, instance: InstanceRecord | dict) -> list[ConnectionRecord]:
+    """The connection records of an instance: the ones built after the merge, or, for an instance registered
+    in a table that was never merged (a hand-built table), the ones the same builder gives now."""
+    record_instance = InstanceRecord.from_dict(instance)
+    if not record_instance.connection_records:
+        record_instance.connection_records = build_connection_records(symbol_table, record_instance)
+    return record_instance.connection_records
