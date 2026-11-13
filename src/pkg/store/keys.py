@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..rules.rule_selection import RuleSelection
 
-ANALYZER_CACHE_VERSION = "2026-11-12-instance-port-effects"
+ANALYZER_CACHE_VERSION = "2026-11-12-instance-driver-events"
 
 # The cache row that holds a file's module ports and instantiated modules carries this value in place of a
 # package-registry fingerprint, which keeps it apart from the file's analysis result.

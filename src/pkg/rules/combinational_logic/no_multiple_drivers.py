@@ -2,6 +2,7 @@ from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
 from ...parser.syntax import is_mutually_exclusive_branch_pair
+from ...semantic.instance_effects import is_instance_driver_id
 from ...semantic.write_region import regions_may_overlap
 from ...semantic.symbol import UseEvent
 from ...semantic.symbol_table import SymbolTable
@@ -34,6 +35,10 @@ class NoMultipleDriversRule(BaseSymbolRule):
                     driver_id = event.get("driver_id")
                     driver_location = event.get("driver_location")
                     if driver_id is None or driver_location is None:
+                        continue
+                    # An instance's output port is judged by INSTANCE_OUTPUT_DRIVER_CONFLICT and
+                    # MULTIPLE_INSTANCE_DRIVER_CONFLICT, so it is not counted twice here.
+                    if is_instance_driver_id(driver_id):
                         continue
 
                     writes_by_driver.setdefault(driver_id, []).append(event)

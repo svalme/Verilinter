@@ -95,6 +95,7 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
                     # conflict.
                     generate_branch_signature=branch_exclusivity_signature(vnode.raw, vnode.tree),
                     in_inactive_generate_branch=in_inactive_generate_branch(vnode.raw, ctx.scope()),
+                    scope=ctx.scope(),
                 )
             )
 

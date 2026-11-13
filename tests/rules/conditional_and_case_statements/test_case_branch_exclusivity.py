@@ -16,6 +16,7 @@ from src.pkg.rules.connectivity_and_hierarchy.instance_output_driver_conflict im
 from src.pkg.rules.connectivity_and_hierarchy.multiple_instance_driver_conflict import (
     MultipleInstanceDriverConflictRule,
 )
+from src.pkg.semantic.instance_effects import apply_instance_port_effects
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
@@ -174,6 +175,7 @@ def test_generate_case_different_branches_do_not_flag_multiple_drivers() -> None
     tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_different_branches_do_not_flag_multiple_drivers", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
+    apply_instance_port_effects(symbol_table)
 
     rule = NoMultipleDriversRule()
     diagnostics = rule.run(symbol_table)
@@ -203,6 +205,7 @@ def test_generate_case_same_branch_flags_multiple_drivers() -> None:
     tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_same_branch_flags_multiple_drivers", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
+    apply_instance_port_effects(symbol_table)
 
     rule = NoMultipleDriversRule()
     diagnostics = rule.run(symbol_table)
@@ -236,6 +239,7 @@ def test_generate_case_instance_driver_conflict_suppressed() -> None:
     tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_instance_driver_conflict_suppressed", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
+    apply_instance_port_effects(symbol_table)
 
     rule = MultipleInstanceDriverConflictRule()
     diagnostics = rule.run(symbol_table)
@@ -269,6 +273,7 @@ def test_generate_case_instance_driver_conflict_same_branch_flags() -> None:
     tree = parse_text(source)
     assert_no_parse_errors("test_generate_case_instance_driver_conflict_same_branch_flags", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
+    apply_instance_port_effects(symbol_table)
 
     rule = MultipleInstanceDriverConflictRule()
     diagnostics = rule.run(symbol_table)

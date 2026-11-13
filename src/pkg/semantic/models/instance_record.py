@@ -31,6 +31,10 @@ class InstanceRecord(Mapping[str, Any]):
     # Derived once every file is merged (`resolve_connections`): one ConnectionRecord per port. Not a stored
     # field, so it is not serialised, compared or printed.
     connection_records: list[Any] = field(default_factory=list, compare=False, repr=False)
+    # The scope the instantiation sits in, kept while its file is walked so that the signals it connects
+    # are found where they are declared (a generate block's own wire, not a module-level one of the same
+    # name). Not stored, compared or printed, and cleared before a worker returns.
+    scope: Any = field(default=None, compare=False, repr=False)
 
     _FIELDS = (
         "parent_module",

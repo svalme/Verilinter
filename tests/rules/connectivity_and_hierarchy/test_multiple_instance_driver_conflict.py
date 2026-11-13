@@ -3,6 +3,7 @@ import pytest
 
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch
+from src.pkg.semantic.instance_effects import apply_instance_port_effects
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
@@ -112,6 +113,7 @@ def _run(code: str) -> list[dict]:
     tree = parse_text(code)
     assert_no_parse_errors("tests/rules/connectivity_and_hierarchy/test_multiple_instance_driver_conflict.py", tree)
     walker.walk(tree.root, tree, ctx, symbol_table)
+    apply_instance_port_effects(symbol_table)
 
     return MultipleInstanceDriverConflictRule().run(symbol_table)
 
