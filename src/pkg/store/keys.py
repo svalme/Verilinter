@@ -7,7 +7,12 @@ from pathlib import Path
 
 from ..rules.rule_selection import RuleSelection
 
-ANALYZER_CACHE_VERSION = "2026-11-12-write-region-spans"
+ANALYZER_CACHE_VERSION = "2026-11-12-instance-port-effects"
+
+# The cache row that holds a file's module ports and instantiated modules carries this value in place of a
+# package-registry fingerprint, which keeps it apart from the file's analysis result.
+MODULE_PORT_SCAN_FINGERPRINT = "module_ports"
+MODULE_PORT_SCAN_KEY_FRAGMENT = '"package_registry_fingerprint":"module_ports"'
 
 
 def file_sha256(path: Path) -> str:

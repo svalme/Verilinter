@@ -14,7 +14,8 @@ flowchart TD
     end
 
     subgraph CacheLayer ["2. Storage & Analysis Cache (analysis_store.py, store/)"]
-        DepTracker --> CacheCheck{"Cache Hit in SQLite?<br/>(Path + Hash + Rules + CacheVersion)"}
+        DepTracker --> PreScans["Pre-scans, sequential, whole corpus<br/>package registry; module ports and instantiated modules"]
+        PreScans --> CacheCheck{"Cache Hit in SQLite?<br/>(Path + Hash + Rules + CacheVersion<br/>+ package and module-port fingerprints)"}
         CacheCheck -- Yes --> LoadCache["Load Cached Worker Result JSON<br/>(Diagnostics, Modules, Instantiations)"]
         CacheCheck -- No --> FreshParse["Dispatch Worker for Fresh AST Parse"]
     end
@@ -51,6 +52,31 @@ flowchart TD
         CrossRules --> Reporter["Diagnostics Aggregator & Formatter<br/>(Terminal, JSON, GitHub, SARIF)"]
     end
 ```
+
+
+### Passes, order and dependencies
+
+The order below is fixed (`tests/meta/test_pipeline_order.py` fails when it changes). A rule or pass can use only what the passes before it produced.
+
+| # | Pass | Reads | Produces | Runs | Cached |
+|---|---|---|---|---|---|
+| 1 | Package pre-scan | every file that contains the word `package` (parsed and walked) | package registry: each package's symbols, values, widths and subroutine formals | one file after another, before any worker | no; package files are parsed on every run |
+| 2 | Module-port pre-scan | every file (parsed, not walked) | for each module: its ports with directions; for each file: the modules it instantiates | one file after another, before any worker | yes, per file, keyed by the file hash, `-I`, `-D` and the headers it includes |
+| 3 | Worker, one per file | the file; both registries, read-only | the file's diagnostics, module-level symbols and instances | independent of every other worker, so all files can run at once with `--jobs N` (a process pool); a file with a valid cache row skips this pass | yes, keyed as in the cache model (`STORAGE.md`) |
+| 3a | Walk with node rules | the file as it is built | the file's symbol table; node-rule diagnostics | inside a worker | with its worker |
+| 3b | Instance effects | the walked table, the module-port registry | symbols marked as driven by an instance, and connections whose direction is known | inside a worker, after the walk | with its worker |
+| 3c | Symbol rules | the file's complete table | symbol-rule diagnostics | inside a worker, after 3b | with its worker |
+| 4 | Merge | the results of every worker, cached or fresh | one table of module-level symbols and instances (no generate blocks, functions or packages) | after the last worker has finished | no |
+| 5 | Module rules | the merged table | cross-file diagnostics (connections, parameter overrides, duplicate and undefined modules, circular instantiation) | after the merge | no |
+| 6 | Output | all diagnostics | severity overrides, sort, baseline filter, store record, report | after pass 5 | the run is recorded in the store |
+
+What follows from the order:
+- A **node rule** sees only the part of the file's table built so far, and no other file's modules.
+- A **symbol rule** sees its own file's complete table. Other files contribute only packages and the ports of modules the file instantiates, through the registries, so it cannot see another file's signals or a module's body.
+- A **module rule** sees every file's module-level symbols and every instance, and cannot see nested scopes.
+- Workers do not wait for each other, because everything they need from other files is in the registries that passes 1 and 2 finish first. Pass 4 is the only point that waits for all of them.
+- A fact about another file has to be added to a pre-scan (and to its cache-key part) to be usable in pass 3, or computed in pass 5 from the merged table. Adding it to the merge does not help a symbol rule, which has already run.
+- The in-memory path (`analyze_trees`, used by tests) runs the same passes in the same order, sequentially, without the store, severity overrides or baseline.
 
 ---
 

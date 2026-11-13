@@ -937,7 +937,8 @@ class TestRunJobsValidation:
         diagnostics = run([first, second], jobs=1)
 
         assert diagnostics == []
-        assert parse_calls == [str(first), str(second)]
+        # Each file is parsed once to record its module ports, then once for its own lint.
+        assert parse_calls == [str(first), str(second), str(first), str(second)]
         assert len(walked_roots) == 2
         assert all(root is tree.root for root, tree, _has_callback in walked_roots)
         assert all(has_callback for _root, _tree, has_callback in walked_roots)
@@ -1034,7 +1035,7 @@ class TestRunJobsValidation:
 
         diagnostics = run([first, second], jobs=1)
 
-        assert parse_calls == [str(first), str(second)]
+        assert parse_calls == [str(first), str(second), str(first), str(second)]
         assert walked_paths == [str(first), str(second)]
         assert sorted(d["code"] for d in diagnostics) == [
             "AST_FAKE",
@@ -1256,7 +1257,7 @@ class TestIncludeDirs:
 
         run([DATA], include_dirs=["/some/vendored/headers"])
 
-        assert received == [["/some/vendored/headers"]]
+        assert received == [["/some/vendored/headers"]] * 2
 
 
 class TestMain:

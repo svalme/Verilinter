@@ -299,6 +299,7 @@ from ._syntax_queries.keywords_and_tokens import (
     is_while_token,
     is_defparam_token,
 )
+from ._syntax_queries.module_ports import instantiated_module_names, module_ports_in_file
 from ._syntax_queries.module_file import (
     has_timescale_directive_before,
     is_extra_module_declaration_in_file,
@@ -575,6 +576,8 @@ __all__ = [
     "missing_sensitivity_trigger_nodes",
     "module_declaration_name",
     "module_declaration_names_in_file",
+    "instantiated_module_names",
+    "module_ports_in_file",
     "module_declaration_file_stem",
     "module_async_reset_signals",
     "is_module_filename_mismatch",

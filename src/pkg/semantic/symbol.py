@@ -58,6 +58,10 @@ class Symbol:
         self.read_count: int = 0
         self.write_count: int = 0
         self.is_used_in_port_connection: bool = False
+        # Wired into a port connection whose port direction is not known, so an instance may drive it.
+        self.in_unclassified_port_connection: bool = False
+        # Connected to an output or inout port of an instance.
+        self.is_driven_by_instance: bool = False
         self.has_declaration_initializer: bool = False
         self.is_event: bool = False
         self.is_type_parameter: bool = False  # a `parameter type t` name; its width is unknown until overridden
@@ -110,6 +114,7 @@ class Symbol:
         self.read_count += 1 if read else 0
         self.write_count += 1 if write else 0
         self.is_used_in_port_connection |= in_port_connection
+        self.in_unclassified_port_connection |= in_port_connection
 
     @property
     def is_compile_time_constant(self) -> bool:

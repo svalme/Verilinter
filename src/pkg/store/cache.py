@@ -9,7 +9,7 @@ from typing import Any
 
 from ..rules.rule_selection import RuleSelection
 from .connection import StoreConnection
-from .keys import file_sha256, selection_key
+from .keys import MODULE_PORT_SCAN_KEY_FRAGMENT, file_sha256, selection_key
 from .timestamps import utc_now_iso
 
 CACHE_DDL = """
@@ -115,12 +115,20 @@ class FileAnalysisCache:
     def prune(self, *, older_than_days: int) -> int:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).isoformat()
         with self._connection.transaction() as conn:
-            cursor = conn.execute(
-                "DELETE FROM cached_file_analysis WHERE cached_at < ?",
-                (cutoff,),
+            removed = int(
+                conn.execute(
+                    "SELECT count(*) FROM cached_file_analysis WHERE cached_at < ? AND instr(selection_key, ?) = 0",
+                    (cutoff, MODULE_PORT_SCAN_KEY_FRAGMENT),
+                ).fetchone()[0]
             )
-            return cursor.rowcount
+            conn.execute("DELETE FROM cached_file_analysis WHERE cached_at < ?", (cutoff,))
+            return removed
 
     def count(self) -> int:
         with self._connection.transaction() as conn:
-            return int(conn.execute("SELECT count(*) FROM cached_file_analysis").fetchone()[0])
+            return int(
+                conn.execute(
+                    "SELECT count(*) FROM cached_file_analysis WHERE instr(selection_key, ?) = 0",
+                    (MODULE_PORT_SCAN_KEY_FRAGMENT,),
+                ).fetchone()[0]
+            )

@@ -504,6 +504,7 @@ PROPERTY_DECLARATION_KIND = _syntax_kind("PropertyDeclaration")
 FUNCTION_DECLARATION_KIND = _syntax_kind("FunctionDeclaration")
 FUNCTION_PROTOTYPE_KIND = _syntax_kind("FunctionPrototype")
 PRIMITIVE_INSTANTIATION_KIND = _syntax_kind("PrimitiveInstantiation")
+HIERARCHY_INSTANTIATION_KIND = _syntax_kind("HierarchyInstantiation")
 SCOPED_NAME_KIND = _syntax_kind("ScopedName")
 DEFPARAM_ASSIGNMENT_KIND = _syntax_kind("DefParamAssignment")
 DISABLE_STATEMENT_KIND = _syntax_kind("DisableStatement")
@@ -907,6 +908,7 @@ __all__ = [
     "POWER_EXPRESSION_KIND",
     "PRIORITY_KEYWORD_TOKEN_KIND",
     "PRIMITIVE_DECLARATION_KIND",
+    "HIERARCHY_INSTANTIATION_KIND",
     "PRIMITIVE_INSTANTIATION_KIND",
     "PROGRAM_DECLARATION_KIND",
     "PROCEDURAL_BLOCK_KINDS",

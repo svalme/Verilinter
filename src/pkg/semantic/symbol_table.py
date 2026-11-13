@@ -20,6 +20,7 @@ class SymbolTable:
         self._scope_stack: list[Scope] = [self.global_scope]  # traversal stack
         self.modules: dict[str, list[Scope]] = {}  # module name -> all scopes defining it, across files
         self.primitives: set[str] = set()  # user-defined primitive (UDP) names, across files
+        self.module_ports: dict[str, list[dict]] = {}  # modules declared in other files: name -> [{file, ports}]
         self.module_references: list[tuple[str, Location]] = []
         self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
         self.instantiations: list[InstanceRecord] = []

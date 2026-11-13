@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
@@ -15,12 +16,20 @@ from .parser.parse import (
     parse_file,
     tree_has_package_declaration,
 )
+from .parser.syntax import instantiated_module_names, module_ports_in_file
 from .parser.traversal_guard import collect_truncations
 from .rules.register_rules import *
 from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
 from .rules.rule_selection import RuleSelection
 from .semantic.models import InstanceRecord
 from .semantic.scope import Scope
+from .semantic.instance_effects import apply_instance_port_effects
+from .store.keys import MODULE_PORT_SCAN_FINGERPRINT
+from .semantic.module_registry import (
+    fingerprint_module_ports,
+    record_module_ports,
+    seed_cross_file_module_ports,
+)
 from .semantic.package_registry import (
     fingerprint_package_registry,
     record_packages_from_symbol_table,
@@ -221,6 +230,80 @@ def _scan_packages_from_trees(
     return registry
 
 
+def _scan_module_ports(
+    paths: list[Path],
+    include_dirs: list[str] | None = None,
+    defines: Sequence[str] | None = None,
+    store: Any = None,
+    use_cache: bool = True,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[str]]]:
+    """First pass over the corpus: record the ports of every module and the modules each file instantiates,
+    from the syntax alone, so a file's own walk knows the port directions of the modules it instantiates
+    (see `apply_instance_port_effects`). A file's result is kept in the analysis store under its hash, so an
+    unchanged file is not parsed again. Returns the port registry and the instantiated modules per file."""
+    registry: dict[str, list[dict[str, Any]]] = {}
+    children_by_path: dict[str, list[str]] = {}
+    _parse_file = _get_override("parse_file", parse_file)
+    for path in paths:
+        key = {
+            "file_path": str(path),
+            "file_hash": file_sha256(path) if store is not None else "",
+            "rule_selection": None,
+            "include_dirs": include_dirs,
+            "package_registry_fingerprint": MODULE_PORT_SCAN_FINGERPRINT,
+            "defines": list(defines) if defines is not None else None,
+        }
+        payload = store.load_cached_worker_result(**key) if store is not None and use_cache else None
+        if payload is not None and isinstance(payload.get("module_ports"), dict):
+            ports_by_module = {
+                name: [(port, direction) for port, direction in ports]
+                for name, ports in payload["module_ports"].items()
+            }
+            children = [str(name) for name in payload.get("instantiated", [])]
+        else:
+            tree = _call_parse_file(_parse_file, str(path), include_dirs=include_dirs, defines=defines)
+            if extract_parse_diagnostics(tree, str(path)):
+                continue
+            ports_by_module = module_ports_in_file(tree)
+            children = instantiated_module_names(tree)
+            if store is not None:
+                try:
+                    store.store_cached_worker_result(
+                        worker_result={
+                            "module_ports": {n: [list(p) for p in ps] for n, ps in ports_by_module.items()},
+                            "instantiated": children,
+                        },
+                        header_dependencies=extract_header_dependencies(tree),
+                        **key,
+                    )
+                except sqlite3.Error as exc:
+                    _warn_store_unavailable(store.path, exc)
+        record_module_ports(str(path), ports_by_module, registry)
+        children_by_path[str(path)] = children
+    return registry, children_by_path
+
+
+def _scan_module_ports_from_trees(file_inputs: Sequence[tuple[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    registry: dict[str, list[dict[str, Any]]] = {}
+    for file_name, tree in file_inputs:
+        record_module_ports(file_name, module_ports_in_file(tree), registry)
+    return registry
+
+
+def _file_fingerprint(
+    package_registry: dict[str, list[dict[str, Any]]] | None,
+    module_ports: dict[str, list[dict[str, Any]]] | None,
+    instantiated: list[str],
+) -> str | None:
+    """The cache-key fingerprint of what a file's walk reads from the other files: every package, and the
+    ports of the modules the file instantiates."""
+    packages = fingerprint_package_registry(package_registry) if package_registry else None
+    ports = fingerprint_module_ports({name: module_ports[name] for name in instantiated if name in (module_ports or {})})
+    if packages is None and ports is None:
+        return None
+    return json.dumps([packages, ports])
+
+
 def _lint_single_tree(
     file_name: str,
     tree: Any,
@@ -230,6 +313,7 @@ def _lint_single_tree(
     header_dependencies: list[dict[str, str]] | None = None,
     rule_runner_inst: Any = None,
     symbol_rule_runner_inst: Any = None,
+    module_ports: dict[str, list[dict[str, Any]]] | None = None,
 ) -> WorkerResult:
     _Walker = _get_override("Walker", Walker)
     _rule_runner = rule_runner_inst or _get_override("rule_runner", rule_runner)
@@ -248,10 +332,12 @@ def _lint_single_tree(
     symbol_table.set_current_file(file_name)
     symbol_table.set_current_file_default_nettype_none(default_nettype_none)
     seed_cross_file_packages(symbol_table, package_registry, file_name)
+    seed_cross_file_module_ports(symbol_table, module_ports, file_name)
 
     truncations: list[dict[str, Any]] = []
     with collect_truncations(file_name=file_name, tree=tree) as trunc_events:
         walker.walk(tree.root, tree, ctx, symbol_table, on_node=on_node)
+        apply_instance_port_effects(symbol_table)
         diagnostics = ast_diagnostics + _symbol_rule_runner.run(symbol_table, rule_selection)
         truncations = [e.to_dict() for e in trunc_events]
 
@@ -290,6 +376,7 @@ def _lint_single_file(
     defines: Sequence[str] | None = None,
     rule_runner_inst: Any = None,
     symbol_rule_runner_inst: Any = None,
+    module_ports: dict[str, list[dict[str, Any]]] | None = None,
 ) -> WorkerResult:
     _parse_file = _get_override("parse_file", parse_file)
     _file_uses_default_nettype_none = _get_override(
@@ -319,6 +406,7 @@ def _lint_single_file(
         header_dependencies=header_dependencies,
         rule_runner_inst=rule_runner_inst,
         symbol_rule_runner_inst=symbol_rule_runner_inst,
+        module_ports=module_ports,
     )
 
 
@@ -354,6 +442,7 @@ def _run_workers(
     defines: Sequence[str] | None = None,
     rule_runner_inst: Any = None,
     symbol_rule_runner_inst: Any = None,
+    module_ports: dict[str, list[dict[str, Any]]] | None = None,
 ) -> list[WorkerResult]:
     ordered_paths = [str(path) for path in paths]
 
@@ -367,6 +456,7 @@ def _run_workers(
                 defines,
                 rule_runner_inst=rule_runner_inst,
                 symbol_rule_runner_inst=symbol_rule_runner_inst,
+                module_ports=module_ports,
             )
             for path in ordered_paths
         ]
@@ -381,11 +471,14 @@ def _run_workers(
                     [include_dirs] * len(ordered_paths),
                     [package_registry] * len(ordered_paths),
                     [defines] * len(ordered_paths),
+                    [None] * len(ordered_paths),
+                    [None] * len(ordered_paths),
+                    [module_ports] * len(ordered_paths),
                 )
             )
     except (OSError, PermissionError):
         return [
-            _lint_single_file(path, rule_selection, include_dirs, package_registry, defines)
+            _lint_single_file(path, rule_selection, include_dirs, package_registry, defines, module_ports=module_ports)
             for path in ordered_paths
         ]
 
@@ -485,6 +578,8 @@ class LintPipeline:
             file_inputs, default_nettype_none_by_file=default_nettype_none_by_file
         )
 
+        module_ports = _scan_module_ports_from_trees(file_inputs)
+
         # Phase 2: Isolated per-file worker linting
         worker_results: list[WorkerResult] = []
         for file_name, tree in file_inputs:
@@ -508,6 +603,7 @@ class LintPipeline:
                     default_nettype_none=(default_nettype_none_by_file or {}).get(file_name, False),
                     rule_runner_inst=self._rule_runner,
                     symbol_rule_runner_inst=self._symbol_rule_runner,
+                    module_ports=module_ports,
                 )
                 if parse_errors and allow_parse_errors:
                     res = WorkerResult(
@@ -573,7 +669,6 @@ class LintPipeline:
                 raise FileNotFoundError(f"file not found: {path}")
 
         package_registry = _scan_packages(paths, include_dirs, defines=normalized_defines)
-        package_registry_fingerprint = fingerprint_package_registry(package_registry)
 
         store = self._store
         if store is None and store_path is not None:
@@ -581,6 +676,13 @@ class LintPipeline:
                 store = AnalysisStore(store_path)
             except sqlite3.Error as exc:
                 _warn_store_unavailable(store_path, exc)
+        module_ports, instantiated_by_path = _scan_module_ports(
+            paths, include_dirs, defines=normalized_defines, store=store, use_cache=use_cache
+        )
+
+        def file_fingerprint(path: Path) -> str | None:
+            return _file_fingerprint(package_registry, module_ports, instantiated_by_path.get(str(path), []))
+
         file_records: list[dict[str, Any]] = []
         results_by_path: dict[str, WorkerResult] = {}
         missed_paths: list[Path] = []
@@ -595,7 +697,7 @@ class LintPipeline:
                         file_hash=file_hash,
                         rule_selection=resolved_selection,
                         include_dirs=include_dirs,
-                        package_registry_fingerprint=package_registry_fingerprint,
+                        package_registry_fingerprint=file_fingerprint(path),
                         defines=normalized_defines,
                     )
                     if use_cache
@@ -631,6 +733,7 @@ class LintPipeline:
                 defines=normalized_defines,
                 rule_runner_inst=self._rule_runner,
                 symbol_rule_runner_inst=self._symbol_rule_runner,
+                module_ports=module_ports,
             )
             if missed_paths
             else []
@@ -645,7 +748,7 @@ class LintPipeline:
                         rule_selection=resolved_selection,
                         worker_result=asdict(result),
                         include_dirs=include_dirs,
-                        package_registry_fingerprint=package_registry_fingerprint,
+                        package_registry_fingerprint=file_fingerprint(path),
                         defines=normalized_defines,
                         header_dependencies=result.header_dependencies,
                     )

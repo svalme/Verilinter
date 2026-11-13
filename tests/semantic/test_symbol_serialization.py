@@ -33,6 +33,8 @@ _SAMPLE_VALUES: dict[str, object] = {
     "read_count": 3,
     "write_count": 1,
     "is_used_in_port_connection": True,
+    "in_unclassified_port_connection": True,
+    "is_driven_by_instance": True,
     "has_declaration_initializer": True,
     "is_event": True,
     "is_type_parameter": True,

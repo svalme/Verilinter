@@ -19,15 +19,12 @@ class NoUndrivenSignalRule(BaseSymbolRule):
             for sym in scope.symbols.values():
                 if not sym.is_explicit_kind(SymbolKind.VARIABLE) or sym.is_port:
                     continue
-                if not sym.is_read or sym.is_written:
+                if not sym.is_read or sym.is_written or sym.is_driven_by_instance:
                     continue
-                # A signal wired into any instance port connection may be driven by
-                # that instance's output/inout port -- always recorded as a plain
-                # read here since the connected port's direction generally isn't
-                # resolvable from a single-file walk (see
-                # enclosing_port_connection's docstring). Flagging it as never
-                # driven would misreport genuine instance-driven wiring.
-                if sym.is_used_in_port_connection:
+                # A signal wired into a port connection whose direction is not known (the
+                # child module is declared in no input file, or the signal is declared in a
+                # nested scope) may be driven by that instance, so it is left alone.
+                if sym.in_unclassified_port_connection:
                     continue
 
                 loc = sym.declarations[0]

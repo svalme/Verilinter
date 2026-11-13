@@ -297,6 +297,29 @@ down in one of the two places contributors will actually look:
 
 The goal is to preserve implementation rationale, not project history.
 
+## What a Rule Can Assume: Stage and Data
+
+A rule runs at one of three stages, set by the runner it is registered with (`rule_runner`, `symbol_rule_runner`, `module_rule_runner`). The stage decides what exists when it runs. The order of the passes is in [ARCHITECTURE.md](ARCHITECTURE.md#passes-order-and-dependencies).
+
+| Data | Node rule | Symbol rule | Module rule |
+|---|---|---|---|
+| The syntax node and its ancestors | yes | no | no |
+| Symbols of the file declared before this node | yes | yes | no |
+| Every symbol of the file, with all its uses and use events | no | yes | no |
+| Nested scopes of the file (generate blocks, functions, tasks) | those already opened | yes | no |
+| Instances of the file | those already walked | yes | yes |
+| Symbols of other files | no | no | module-level symbols only |
+| Packages from other files | yes (seeded before the walk) | yes | no |
+| Ports and directions of the modules the file instantiates, wherever declared | no | yes (symbols marked as instance-driven) | yes |
+| Nested scopes of other files | no | no | no |
+| Every file's instances | no | no | yes |
+
+Consequences for a new rule:
+- A fact about another file's module (its ports, its parameters) reaches a symbol rule only if a pre-scan puts it in a registry that is part of the file's cache key; otherwise the rule belongs at the module stage.
+- A module rule cannot look inside generate blocks or functions of any file; it sees module-level symbols.
+- A symbol rule that needs both its own nested scopes and another file's signals cannot be written today.
+- Per-file results are cached, and module rules are not; a rule at the module stage re-runs on every analysis.
+
 ## Mental Model
 
 Most rules in this repo fall into one of two buckets:

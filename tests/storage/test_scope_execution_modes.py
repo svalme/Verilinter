@@ -214,7 +214,8 @@ endmodule
     partial = analyze(paths, store_path=store)
     fresh = analyze(paths, use_cache=False)
 
-    assert partial.cache_stats == {"hits": 1, "misses": 1}
+    # The caller instantiates the renamed module, so its cached result no longer applies.
+    assert partial.cache_stats == {"hits": 0, "misses": 2}
     assert normalized(partial.diagnostics) == normalized(fresh.diagnostics)
 
     parent_codes = {d["code"] for d in partial.diagnostics if "parent.sv" in d.get("file", "")}

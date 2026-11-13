@@ -84,7 +84,7 @@ def test_analyze_can_disable_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(run_lint_module, "parse_file", track_parse)
     analyze([source], store_path=store_path, use_cache=False)
 
-    assert calls == [str(source)]
+    assert calls == [str(source), str(source)]
 
 
 def test_analyze_refreshes_when_file_contents_change(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -110,7 +110,7 @@ def test_analyze_refreshes_when_file_contents_change(monkeypatch: pytest.MonkeyP
     result = analyze([source], store_path=store_path)
 
     assert result.cache_stats == {"hits": 0, "misses": 1}
-    assert calls == [str(source)]
+    assert calls == [str(source), str(source)]
 
 
 def test_analyze_refreshes_when_rule_selection_changes(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -159,7 +159,7 @@ def test_analyze_refreshes_when_analyzer_cache_version_changes(monkeypatch: pyte
     result = analyze([source], store_path=store_path)
 
     assert result.cache_stats == {"hits": 0, "misses": 1}
-    assert calls == [str(source)]
+    assert calls == [str(source), str(source)]
 
 
 def test_analyze_rejects_incompatible_schema_version() -> None:
@@ -306,7 +306,8 @@ def test_prune_cache_keeps_entries_within_cutoff() -> None:
         remaining = conn.execute("SELECT COUNT(*) FROM cached_file_analysis").fetchone()[0]
     finally:
         conn.close()
-    assert remaining == 1
+    # One analysis row and one module-port scan row.
+    assert remaining == 2
 
 
 def test_prune_runs_keeps_last_n_and_removes_child_rows() -> None:

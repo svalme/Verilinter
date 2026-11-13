@@ -28,6 +28,7 @@ The cache is keyed by:
 - include directory search order (`-I`)
 - preprocessor macro defines (`-D`)
 - package registry fingerprint (corpus package declarations and signatures)
+- module port fingerprint (the port names and directions of the modules the file instantiates)
 - direct and transitive header dependencies (paths and SHA-256 hashes of all ` `include ` files)
 
 That means a cached entry is reused only when:
@@ -36,8 +37,10 @@ That means a cached entry is reused only when:
 3. the effective rule selection is unchanged
 4. the analyzer cache version is unchanged
 5. the include directory configuration and macro defines match
-6. corpus package declarations have not shifted
+6. corpus package declarations have not shifted, and the ports of the modules the file instantiates are unchanged
 7. all directly and transitively included header files exist on disk with unchanged SHA-256 hashes
+
+Each file also has a small cache row of its own (same table, keyed by the file's path, hash, `-I` and `-D` settings, and the header dependencies it was read with) holding the ports of the modules it declares and the names of the modules it instantiates. These are read from the syntax alone before any file is linted, so an unchanged file is not parsed again, and the ports of a module declared in another file are known when a file is walked. `store status` and `prune` count analysis results only.
 
 The analyzer cache version is a small internal compatibility token for Verilinter's own analysis pipeline.
 When parser behavior, symbol-building behavior, cached payload shape, or rule logic changes in a way that
@@ -51,7 +54,7 @@ Severity overrides are applied after cached worker results are loaded, so they d
 The current schema version is `3`.
 
 Verilinter treats schema compatibility separately from cache compatibility:
-- `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse (currently `2026-11-12-write-region-spans`)
+- `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse (currently `2026-11-12-instance-port-effects`)
 - `SCHEMA_VERSION` controls whether the SQLite table layout is still compatible with the current code
 
 If Verilinter opens a store with an older schema version and a supported migration path exists, it upgrades the
