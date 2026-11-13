@@ -29,7 +29,7 @@ The cache is keyed by:
 - preprocessor macro defines (`-D`)
 - package registry fingerprint (corpus package declarations and signatures)
 - module port fingerprint (the port names and directions of the modules the file instantiates)
-- direct and transitive header dependencies (paths and SHA-256 hashes of all ` `include ` files)
+- direct and transitive header dependencies (paths and SHA-256 hashes of all ` `include ` files), stored with the row and checked when it is read
 
 That means a cached entry is reused only when:
 1. the file path is the same

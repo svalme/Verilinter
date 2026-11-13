@@ -9,7 +9,7 @@ This document details the system architecture of Verilinter, the decoupled AST q
 ```mermaid
 flowchart TD
     subgraph Input ["1. Input & Discovery"]
-        CLI["CLI / Config (verilinter.toml)"] --> Discover["File Discovery & SHA-256 Hashing"]
+        CLI["CLI / Config (verilinter.toml)"] --> Discover["File Discovery"]
         Discover --> DepTracker["Dependency & Header Tracking"]
     end
 
@@ -76,7 +76,7 @@ What follows from the order:
 - A **module rule** sees every file's module-level symbols and every instance, and cannot see nested scopes.
 - Workers do not wait for each other, because everything they need from other files is in the registries that passes 1 and 2 finish first. Pass 4 is the only point that waits for all of them.
 - A fact about another file has to be added to a pre-scan (and to its cache-key part) to be usable in pass 3, or computed in pass 5 from the merged table. Adding it to the merge does not help a symbol rule, which has already run.
-- The in-memory path (`analyze_trees`, used by tests) runs the same passes in the same order, sequentially, without the store, severity overrides or baseline.
+- The in-memory path (`analyze_trees`, used by tests) runs the same passes in the same order, sequentially, without the store, severity overrides or baseline. It raises on a tree with parse errors unless told to allow them, walks every tree in the package pre-scan, and round-trips each worker result through its stored form before the merge.
 
 ---
 
