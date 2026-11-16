@@ -94,6 +94,16 @@ module top(output wire [3:0] o);
   assign o = 4'b0001 << 3;
 endmodule
 
+// breadth: clean | An unsized literal is 32 bits, but its shift is sized by the 64-bit target so shifting by 32 moves the bit into the upper half without loss.
+module top(output wire [63:0] o);
+  assign o = 1 << 32;
+endmodule
+
+// breadth: gap | An unsized literal is 32 bits and shifting it by 32 into a 32-bit target loses the bit; the rule does not report it.
+module top(output wire [31:0] o);
+  assign o = 1 << 32;
+endmodule
+
 // breadth: reports | A part-select as the shifted operand has the width of the selected slice.
 // pair: part-select-operand
 module top(input wire [7:0] a, output wire [3:0] o);

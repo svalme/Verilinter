@@ -58,6 +58,18 @@ module top(input wire [3:0] a, output wire o, p);
   assign p = a >= 15;
 endmodule
 
+// breadth: reports | A one-bit unsigned operand compared `<= 1` is always true.
+// pair: one-bit-limit
+module top(input wire f, output wire o);
+  assign o = f <= 1;
+endmodule
+
+// breadth: clean | The same one-bit operand compared `< 1` tests for zero.
+// pair: one-bit-limit
+module top(input wire f, output wire o);
+  assign o = f < 1;
+endmodule
+
 // breadth: clean | Constants strictly outside `[0, 2^W - 1]` belong to COMPARISON_WIDTH_MISMATCH rather than this boundary rule.
 module top(input wire [3:0] a, output wire o, p);
   assign o = a > 16;
@@ -138,7 +150,7 @@ module top(input wire [3:0] a, b, output wire o);
   assign o = (a + b) > 15;
 endmodule
 
-// breadth: clean | A constant symbol compared `>= 0` is skipped, although an unsigned one is always true.
+// breadth: gap | An unsigned constant symbol compared `>= 0` is always true whatever its value, but the rule skips comparisons with constant symbols, so it does not report it.
 module top(output wire o);
   localparam [3:0] P = 4'd3;
   assign o = P >= 0;
@@ -180,4 +192,14 @@ endmodule
 // breadth: gap | A part-select is unsigned, so `a[3:0] < 0` is always false; the rule does not report it.
 module top(input wire [7:0] a, output wire o);
   assign o = a[3:0] < 0;
+endmodule
+
+// breadth: gap | A signed 4-bit operand can never exceed 7, so this is always false; no rule reports it.
+module top(input wire signed [3:0] sa, output wire o);
+  assign o = sa > 7;
+endmodule
+
+// breadth: gap | A signed 4-bit operand is never below -8, so this is always true; the rule does not report it.
+module top(input wire signed [3:0] sa, output wire o);
+  assign o = sa >= -8;
 endmodule

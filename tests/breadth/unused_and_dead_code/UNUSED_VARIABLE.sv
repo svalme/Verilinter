@@ -93,6 +93,16 @@ module top(output logic o);
   assign o = 1'b0;
 endmodule
 
+// breadth: clean | A variable driven only through an instance output connection has a write use and belongs to NO_WRITE_ONLY_VARIABLE.
+module sub(output logic y);
+  assign y = 1'b0;
+endmodule
+module top(output logic o);
+  logic v;
+  sub u_sub(.y(v));
+  assign o = 1'b0;
+endmodule
+
 // breadth: gap | A wildcard port connection (.*) connects a matching input port without an identifier node in the instance, so the signal in the parent is still reported as unused.
 // expect: 0
 module sub(input logic a, output logic y);
@@ -162,6 +172,33 @@ module top(input logic i, output logic o);
   assign o = f(i, i);
 endmodule
 
+// breadth: clean | A variable read only inside a function body has a read.
+module top(input logic i, output logic o);
+  logic v;
+  assign v = i;
+  function automatic logic f(input logic x);
+    return x & v;
+  endfunction
+  assign o = f(i);
+endmodule
+
+// breadth: reports | An unreferenced local declared in a task body has zero uses.
+module top(input logic i, output logic o);
+  task automatic t(input logic x);
+    logic tmp;
+    o = x;
+  endtask
+  always_comb t(i);
+endmodule
+
+// breadth: reports | An unreferenced local in a named clocked block has zero uses.
+module top(input logic clk, input logic i, output logic o);
+  always_ff @(posedge clk) begin : blk
+    logic tmp;
+    o <= i;
+  end
+endmodule
+
 // breadth: reports | An unreferenced local variable declared inside a named procedural block has zero uses in its block scope.
 // pair: block-scope-local
 module top(output logic o);
@@ -218,6 +255,32 @@ endmodule
 module top(input logic a, output logic o);
   logic ev;
   always @(ev) o = a;
+endmodule
+
+// breadth: clean | A variable read only in an assertion has a read.
+module top(input logic clk, input logic i, output logic o);
+  logic v;
+  assign v = i;
+  assign o = i;
+  assert property (@(posedge clk) v);
+endmodule
+
+// breadth: clean | A package variable read through a scoped name from a module in the same source has a read.
+// pair: package-variable-use
+package p;
+  logic v;
+endpackage
+module top(output logic o);
+  assign o = p::v;
+endmodule
+
+// breadth: reports | An unreferenced variable declared in a package has zero uses.
+// pair: package-variable-use
+package p;
+  logic v;
+endpackage
+module top(output logic o);
+  assign o = 1'b0;
 endmodule
 
 // breadth: clean | Reading a member of a packed struct variable records a use on the struct variable.

@@ -95,6 +95,11 @@ module top(input wire [3:0] ua, input wire signed [3:0] sa, output wire o, p);
   assign p = sa < 5;
 endmodule
 
+// breadth: clean | A negative unsized literal compared with an unsigned operand is out of the unsigned operand's range and is reported by COMPARISON_WIDTH_MISMATCH on purpose.
+module top(input wire [3:0] ua, output wire o);
+  assign o = ua < -1;
+endmodule
+
 // breadth: clean | A typed parameter or localparam is a compile-time constant symbol whose signedness follows its value and is skipped.
 // pair: constant-symbol-versus-variable
 module top(input wire [3:0] ua, output wire o);
@@ -187,4 +192,14 @@ endmodule
 // expect: 0
 module top(input wire [3:0] ua, output wire o);
   assign o = ua < 4'sd1;
+endmodule
+
+// breadth: gap | A sized literal without `s` is unsigned, so the comparison is unsigned and a negative `sa` is read as a large value; the rule does not report it.
+module top(input wire signed [3:0] sa, output wire o);
+  assign o = sa < 4'd5;
+endmodule
+
+// breadth: gap | A negative signed literal against an unsigned operand mixes signedness; no rule reports it.
+module top(input wire [3:0] ua, output wire o);
+  assign o = ua < -4'sd1;
 endmodule

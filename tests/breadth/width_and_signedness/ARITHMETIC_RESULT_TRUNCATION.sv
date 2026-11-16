@@ -1,23 +1,24 @@
 // breadth: reports | An addition with an operand wider than the target has arithmetic capacity exceeding the target width.
-// pair: add-operand-capacity
 module top(input wire [7:0] a, input wire [3:0] b, output wire [3:0] o);
   assign o = a + b;
 endmodule
 
-// breadth: clean | An addition of operands as wide as the target is not reported: the rule counts the widest operand and ignores the carry bit (the documented capacity policy).
-// pair: add-operand-capacity
+// breadth: gap | The carry of a sum is lost when the target is only as wide as the operands (15 + 1 gives 0), but the rule counts the widest operand and ignores the carry, so it does not report it.
 module top(input wire [3:0] a, input wire [3:0] b, output wire [3:0] o);
   assign o = a + b;
 endmodule
 
+// breadth: clean | A target one bit wider than the operands holds the carry of a sum.
+module top(input wire [3:0] a, b, output wire [4:0] o);
+  assign o = a + b;
+endmodule
+
 // breadth: reports | A subtraction with an operand wider than the target exceeds the target width.
-// pair: sub-operand-capacity
 module top(input wire [7:0] a, input wire [3:0] b, output wire [3:0] o);
   assign o = a - b;
 endmodule
 
-// breadth: clean | A subtraction whose operands are no wider than the target.
-// pair: sub-operand-capacity
+// breadth: gap | A subtraction wraps when the target is only as wide as the operands (3 - 5 gives 14), but the rule counts the widest operand and ignores the borrow, so it does not report it.
 module top(input wire [3:0] a, input wire [3:0] b, output wire [3:0] o);
   assign o = a - b;
 endmodule
@@ -125,6 +126,11 @@ module top(input wire [7:0] a, output wire [3:0] o);
   assign o = a + 1;
 endmodule
 
+// breadth: gap | A subtraction with an unsized literal is skipped although the variable operand is already wider than the target.
+module top(input wire [7:0] a, output wire [3:0] o);
+  assign o = a - 1;
+endmodule
+
 // breadth: reports | A shift expression inside an addition contributes the shifted operand's width.
 module top(input wire [7:0] a, input wire [3:0] b, output wire [3:0] o);
   assign o = (a << 1) + b;
@@ -140,7 +146,13 @@ module top(input wire [3:0] a, b);
   wire [3:0] o = a * b;
 endmodule
 
-// breadth: reports | A port default expression is checked against the port's declared width.
+// breadth: reports | A port default expression whose value does not fit the port is reported (4'd15 * 4'd15 is 225).
+module top(input wire [3:0] a = 4'd15 * 4'd15, output wire [3:0] o);
+  assign o = a;
+endmodule
+
+// breadth: gap | A constant product whose value fits the port (4'd2 * 4'd3 is 6) loses nothing, but the rule reports it from the operand widths alone.
+// expect: 0
 module top(input wire [3:0] a = 4'd2 * 4'd3, output wire [3:0] o);
   assign o = a;
 endmodule
@@ -202,6 +214,11 @@ module top #(parameter W = 4)(input wire [W-1:0] a, b, output wire [3:0] o);
   if (W == 8) begin : g
     assign o = a * b;
   end
+endmodule
+
+// breadth: gap | Incrementing a counter wraps at its top value (15 + 1 gives 0), but the unsized literal hides the carry, so the rule does not report it.
+module top(input logic clk, output logic [3:0] c);
+  always_ff @(posedge clk) c <= c + 1;
 endmodule
 
 // breadth: gap | The return width of a function call is not recovered, so an addition with a wide function result is missed.
