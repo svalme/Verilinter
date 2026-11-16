@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from ..expr_type import ExprType
+
 if TYPE_CHECKING:
     from ..symbol import Symbol
     from .instance_record import InstanceRecord
@@ -28,7 +30,14 @@ class ConnectionRecord:
     signal: Symbol | None
     port_width: int | None
     port_signed: bool | None
-    expr_width: int | None
-    expr_signed: bool | None
+    expr_type: ExprType
     implicit: bool = False
     child_known: bool = True
+
+    @property
+    def expr_width(self) -> int | None:
+        return self.expr_type.width
+
+    @property
+    def expr_signed(self) -> bool | None:
+        return self.expr_type.signed

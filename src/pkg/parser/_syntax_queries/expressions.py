@@ -19,6 +19,7 @@ from ..syntax_kinds import (
     SIGNED_CAST_EXPRESSION_KIND,
     BITWISE_BINARY_EXPRESSION_KINDS,
     CONCATENATION_EXPRESSION_KIND,
+    CONTEXT_DETERMINED_EXPRESSION_KINDS,
     CONDITIONAL_EXPRESSION_KIND,
     DIVIDE_EXPRESSION_KIND,
     ELEMENT_SELECT_EXPRESSION_KIND,
@@ -98,6 +99,15 @@ _EVALUATABLE_BINARY_KINDS = (
     LOGICAL_AND_EXPRESSION_KIND,
     LOGICAL_OR_EXPRESSION_KIND,
 )
+
+
+def is_context_determined_expression(expr: object) -> bool:
+    """True when the outermost operator takes its operand width from the context it is used in.
+
+    An expression such as `a + b` assigned or connected to a wider target is evaluated at the target's
+    width, so its own estimated width being smaller than the target's is not a mismatch.
+    """
+    return getattr(unwrap_parentheses(expr), "kind", None) in CONTEXT_DETERMINED_EXPRESSION_KINDS
 
 
 def is_width_bounded_operand(expr: object) -> bool:

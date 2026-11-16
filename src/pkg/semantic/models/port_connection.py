@@ -4,6 +4,8 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..expr_type import ExprType, WidthDetermination
+
 
 @dataclass
 class PortConnection(Mapping[str, Any]):
@@ -22,6 +24,7 @@ class PortConnection(Mapping[str, Any]):
     expr_width: int | None = None
     expr_signed: bool | None = None
     is_shorthand: bool = False
+    expr_determination: WidthDetermination = WidthDetermination.SELF
     # The connected expression's syntax node, kept while its file is walked so that the instance effect can find
     # the signals and the part of each one the connection names. Not stored, compared or shown.
     expr_node: Any = field(default=None, compare=False, repr=False)
@@ -35,6 +38,7 @@ class PortConnection(Mapping[str, Any]):
         "expr_width",
         "expr_signed",
         "is_shorthand",
+        "expr_determination",
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,6 +51,7 @@ class PortConnection(Mapping[str, Any]):
             "expr_width": self.expr_width,
             "expr_signed": self.expr_signed,
             "is_shorthand": self.is_shorthand,
+            "expr_determination": str(self.expr_determination),
         }
 
     @classmethod
@@ -64,7 +69,12 @@ class PortConnection(Mapping[str, Any]):
             expr_width=data.get("expr_width"),
             expr_signed=data.get("expr_signed"),
             is_shorthand=bool(data.get("is_shorthand", False)),
+            expr_determination=WidthDetermination(data.get("expr_determination", WidthDetermination.SELF)),
         )
+
+    @property
+    def expr_type(self) -> ExprType:
+        return ExprType(self.expr_width, self.expr_signed, self.expr_determination)
 
     def __getitem__(self, key: str) -> Any:
         if key in self._FIELDS:

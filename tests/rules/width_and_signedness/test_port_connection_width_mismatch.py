@@ -443,6 +443,81 @@ class TestPortConnectionWidthUnknownRule:
 
         result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
 
+    def test_arithmetic_connection_narrower_than_the_port_is_extended(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        # `p + q` is evaluated at the 5-bit port's width, so nothing is lost.
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [4:0] a, input [4:0] b, input [4:0] c);
+                endmodule
+                module top;
+                  wire [3:0] p, q;
+                  wire s;
+                  child u1(.a(p + q), .b(s ? p : q), .c(p | q));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_ordered_arithmetic_connection_narrower_than_the_port_is_extended(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [4:0] a);
+                endmodule
+                module top;
+                  wire [3:0] p, q;
+                  child u1(p + q);
+                endmodule
+                """
+            }
+        )
+
+        result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_plain_signal_narrower_than_the_port_is_still_a_mismatch(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [4:0] a);
+                endmodule
+                module top;
+                  wire [3:0] p;
+                  child u1(.a(p));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_code_once("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_arithmetic_connection_wider_than_the_port_is_still_a_mismatch(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        # The 4 x 4 bit product has 8 bits of capacity; a 4-bit port loses the upper half.
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [3:0] a);
+                endmodule
+                module top;
+                  wire [3:0] p, q;
+                  child u1(.a(p * q));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_code_once("PORT_CONNECTION_WIDTH_MISMATCH")
+
     def test_flags_undeclared_identifier_connection(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
     ) -> None:

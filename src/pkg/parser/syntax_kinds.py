@@ -649,6 +649,25 @@ ONE_BIT_RESULT_EXPRESSION_KINDS = (
         if kind is not None
     }
 )
+# Operators whose operands are context-determined (IEEE 1800 11.6): the operation is carried out at the wider
+# of the operand width and the width of the target it is assigned or connected to, so a result narrower than
+# the target is extended and loses nothing.
+CONTEXT_DETERMINED_EXPRESSION_KINDS = {
+    kind
+    for kind in (
+        *ADD_SUBTRACT_EXPRESSION_KINDS,
+        *SHIFT_EXPRESSION_KINDS,
+        *BITWISE_BINARY_EXPRESSION_KINDS,
+        MULTIPLY_EXPRESSION_KIND,
+        DIVIDE_EXPRESSION_KIND,
+        MOD_EXPRESSION_KIND,
+        UNARY_MINUS_EXPRESSION_KIND,
+        UNARY_PLUS_EXPRESSION_KIND,
+        UNARY_BITWISE_NOT_EXPRESSION_KIND,
+        CONDITIONAL_EXPRESSION_KIND,
+    )
+    if kind is not None
+}
 TYPEDEF_DECLARATION_KIND = _syntax_kind("TypedefDeclaration")
 FORWARD_TYPEDEF_DECLARATION_KIND = _syntax_kind("ForwardTypedefDeclaration")
 
@@ -917,6 +936,7 @@ __all__ = [
     "RANDSEQUENCE_STATEMENT_KIND",
     "RANGE_DIMENSION_SPECIFIER_KIND",
     "ONE_BIT_RESULT_EXPRESSION_KINDS",
+    "CONTEXT_DETERMINED_EXPRESSION_KINDS",
     "RANGE_SELECT_KINDS",
     "REDUCTION_EXPRESSION_KINDS",
     "READ_WRITE_ASSIGNMENT_KINDS",

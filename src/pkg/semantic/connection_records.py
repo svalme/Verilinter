@@ -5,6 +5,7 @@ instead of matching names and positions itself. Named, positional, `.name` and `
 expanded here."""
 from __future__ import annotations
 
+from .expr_type import ExprType
 from .instance_ports import instance_parameter_scope, module_scope_for, specialized_port_symbol
 from .models import ConnectionRecord, InstanceRecord, PortConnection
 from .symbol import Symbol
@@ -32,18 +33,16 @@ def _record(
     child_known: bool = True,
 ) -> ConnectionRecord:
     expr_name = None
-    expr_width = None
-    expr_signed = None
+    expr_type = ExprType()
     if connection is not None:
         expr_name = connection.get("expr_name")
-        expr_width = connection.get("expr_width")
-        expr_signed = connection.get("expr_signed")
+        expr_type = PortConnection.from_dict(connection).expr_type
     lookup = getattr(parent_scope, "lookup_hierarchical", None)
     signal = lookup(expr_name) if callable(lookup) and isinstance(expr_name, str) else None
     if implicit and signal is None and port_name is not None and callable(lookup):
         signal = lookup(port_name)
     if implicit and signal is not None:
-        expr_width, expr_signed = signal.bit_width, signal.is_signed
+        expr_type = ExprType(signal.bit_width, signal.is_signed)
     return ConnectionRecord(
         instance=instance,
         port_name=port_name,
@@ -53,8 +52,7 @@ def _record(
         signal=signal,
         port_width=port.bit_width if port is not None else None,
         port_signed=port.is_signed if port is not None else None,
-        expr_width=expr_width,
-        expr_signed=expr_signed,
+        expr_type=expr_type,
         implicit=implicit,
         child_known=child_known,
     )

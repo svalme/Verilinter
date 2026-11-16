@@ -13,14 +13,20 @@ from ...parser.syntax import (
     node_location,
     port_connection_expression,
     port_connection_list,
+    is_context_determined_expression,
     natural_expression_width_and_signed,
     simple_identifier_text,
     source_text_for_node,
 )
+from ...semantic.expr_type import WidthDetermination
 from ...semantic.models import PortConnection
 
 if TYPE_CHECKING:
     from ...semantic.scope import Scope
+
+
+def _determination_of(expr: Any) -> WidthDetermination:
+    return WidthDetermination.CONTEXT if is_context_determined_expression(expr) else WidthDetermination.SELF
 
 
 class PortConnectionExtractor:
@@ -80,6 +86,7 @@ class PortConnectionExtractor:
                         expr_signed=expr_signed,
                         location=node_location(conn, tree),
                         is_shorthand=is_shorthand,
+                        expr_determination=_determination_of(expr),
                         expr_node=expr,
                     )
                 )
@@ -100,6 +107,7 @@ class PortConnectionExtractor:
                         expr_width=expr_width,
                         expr_signed=expr_signed,
                         location=node_location(conn, tree),
+                        expr_determination=_determination_of(expr),
                         expr_node=expr,
                     )
                 )

@@ -194,7 +194,7 @@ def width_mismatch_details(
             continue
         if not isinstance(record.expr_width, int) or not isinstance(record.port_width, int):
             continue
-        if record.expr_width != record.port_width:
+        if record.expr_type.differs_from(record.port_width):
             mismatches.append((record.port.name, record.port_width, str(expr_text), record.expr_width))
     return mismatches
 

@@ -57,7 +57,7 @@ class TestPortConnection:
         assert conn.get("missing", "default_val") == "default_val"
         assert "port_name" in conn
         assert "nonexistent" not in conn
-        assert len(conn) == 8
+        assert len(conn) == 9
 
         with pytest.raises(KeyError):
             _ = conn["nonexistent"]
