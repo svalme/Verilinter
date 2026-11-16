@@ -72,6 +72,18 @@ A test file stays under 700 lines (`tests/meta/test_file_size_limits.py` fails a
 - A test file that reads `tests/data/` builds the path from `Path(__file__)`, so moving it deeper needs one more `.parent` (or a higher `.parents[n]`).
 - After moving or splitting test files, regenerate `docs/FIXTURE_USAGE.md` (`UPDATE_EXPECTED=1 pytest tests/meta/test_fixture_usage_doc.py`) and update the test paths in the rule's row in `docs/RULES.md`.
 
+## Scenario catalog
+
+Each rule has one scenario file, `tests/scenarios/<rule category>/<RULE_CODE>.sv`, kept apart from the unit tests. It lists, as small SystemVerilog snippets, what the rule must report, what it must not report, and the boundary between them, so a change that makes the rule too narrow or too broad fails a named scenario. A scenario starts with a marker line:
+
+- `// scenario: reports | <what the rule must catch>`: a miss means the rule is too narrow.
+- `// scenario: clean | <what the rule must not report>`: a finding means the rule is too broad.
+- `// scenario: gap | <a case the rule should catch but does not yet>`: a strict expected failure; promote it to `reports` when the rule catches it.
+- `// pair: <name>` on one `reports` and one `clean` scenario ties a boundary: the two differ in the one detail that decides the outcome.
+- `// expect: N` gives the number of findings of the rule (default 1 for `reports` and `gap`, 0 for `clean`).
+
+`tests/scenarios/test_rule_scenarios.py` runs them; `tests/meta/test_scenario_coverage.py` requires every rule to have a file with at least one `reports` and one `clean` scenario, in its category folder. `tests/scenarios/PENDING_RULES.txt` lists the rules without a file yet; it only shrinks, so a new rule comes with its scenarios and is never added to it. When a fix or a verdict shows a case the catalog lacks (a false positive, a missed defect), add it to the rule's file in the same change.
+
 ## Pytest markers
 
 Markers registered in `pyproject.toml`:
