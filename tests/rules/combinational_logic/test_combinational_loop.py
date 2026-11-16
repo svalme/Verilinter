@@ -173,3 +173,46 @@ class TestCombinationalLoopRule:
         not same-block cycles in general."""
         diagnostics = _run(SAME_BLOCK_PING_PONG_CODE)
         assert len(diagnostics) == 1
+
+
+SEQUENTIAL_REUSE_CODE = """
+module top(input logic a, b, output logic [7:0] o);
+  logic [7:0] r, rev;
+  always_comb begin
+    r = {8{a}};
+    for (int unsigned i = 0; i < 8; i++) rev[i] = r[7-i];
+    r = b ? rev : r;
+    o = r;
+  end
+endmodule
+"""
+
+EXCLUSIVE_GENERATE_BRANCHES_CODE = """
+module top #(parameter bit BUF = 1) (input logic a, b, output logic x, y);
+  if (BUF) begin : g_buf
+    assign x = y | a;
+  end else begin : g_no
+    assign y = x | b;
+  end
+endmodule
+"""
+
+SAME_GENERATE_BRANCH_LOOP_CODE = """
+module top #(parameter bit BUF = 1) (input logic a, b, output logic x, y);
+  if (BUF) begin : g_buf
+    assign x = y | a;
+    assign y = x | b;
+  end
+endmodule
+"""
+
+
+class TestCombinationalLoopVersions:
+    def test_variable_reused_after_an_unconditional_write_is_not_a_loop(self) -> None:
+        assert _run(SEQUENTIAL_REUSE_CODE) == []
+
+    def test_edges_in_mutually_exclusive_generate_branches_are_not_a_loop(self) -> None:
+        assert _run(EXCLUSIVE_GENERATE_BRANCHES_CODE) == []
+
+    def test_edges_in_one_generate_branch_are_still_a_loop(self) -> None:
+        assert len(_run(SAME_GENERATE_BRANCH_LOOP_CODE)) == 1

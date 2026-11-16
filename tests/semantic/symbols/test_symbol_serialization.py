@@ -39,6 +39,7 @@ _SAMPLE_VALUES: dict[str, object] = {
     "is_event": True,
     "is_type_parameter": True,
     "interface_type_name": "data_t",
+    "member_widths": {"valid": 1, "data": 8},
     "named_type_dimension_count": 2,
 }
 

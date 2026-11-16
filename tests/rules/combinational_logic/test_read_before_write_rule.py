@@ -155,8 +155,8 @@ class TestReadBeforeWriteRule:
         st = SymbolTable()
         sym = Symbol(name="x", kind="variable")
         sym.add_declaration({"line": 2, "col": 8})
-        sym.add_use({"line": 4, "col": 5}, read=True)
-        sym.add_use({"line": 5, "col": 5}, write=True)
+        sym.add_use({"line": 4, "col": 5}, read=True, driver_id="comb_block")
+        sym.add_use({"line": 5, "col": 5}, write=True, driver_id="comb_block")
         st.global_scope.define(sym)
 
         diagnostics = rule.run(st)
@@ -578,4 +578,46 @@ class TestReadBeforeWriteRule:
         diagnostics = rule.run(symbol_table)
         assert not any("'spi_cmd'" in d["message"] for d in diagnostics)
 
+
+def test_module_variable_read_in_a_function_before_a_later_subroutine_writes_it_is_not_flagged():
+    from tests.support.lint_harness import run_inline_lint_case
+
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(input logic clk);
+          string decoded_str;
+          logic [9:0] data_accessed;
+          function automatic void dump(int fh);
+            if ((data_accessed & 10'd1) != 0) $display("%s", decoded_str);
+          endfunction
+          task automatic decode_one(input string mnemonic);
+            data_accessed = 10'd1;
+            decoded_str = mnemonic;
+          endtask
+          always @(posedge clk) begin
+            decode_one("add");
+            dump(1);
+          end
+        endmodule
+        """
+    })
+    result.expect_no_code("READ_BEFORE_WRITE")
+
+
+def test_function_local_read_before_its_write_is_still_flagged():
+    from tests.support.lint_harness import run_inline_lint_case
+
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(output logic [3:0] o);
+          function automatic logic [3:0] f(input logic [3:0] a);
+            logic [3:0] t;
+            f = t;
+            t = a;
+          endfunction
+          assign o = f(4'd1);
+        endmodule
+        """
+    })
+    result.expect_code_once("READ_BEFORE_WRITE")
 

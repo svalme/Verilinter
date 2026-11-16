@@ -138,8 +138,13 @@ class TestCombinedTarget:
         assert target.is_concatenated and target.bit_width == 6
         assert len(target.elements) == 3
 
+    def test_concatenation_with_a_packed_struct_member_adds_the_struct_width(self) -> None:
+        target = _only("assign {s, x} = 5'h0;").combined_target()
+        assert target.is_concatenated and target.bit_width == 5
+
     def test_concatenation_with_a_member_of_unknown_width_cannot_be_sized(self) -> None:
-        assert _only("assign {s, x} = 2'h0;").combined_target() is None
+        declarations = "typedef struct {logic a;} u_t; u_t u; logic x;"
+        assert _only("assign {u, x} = 2'h0;", declarations=declarations).combined_target() is None
 
     def test_undeclared_target_is_a_target_of_unknown_width(self) -> None:
         record = _only("assign x = y;", declarations="logic y;")

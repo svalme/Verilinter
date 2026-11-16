@@ -22,6 +22,7 @@ MAX_LINES = 700
 EXCEPTION_MARKER = "Exception to the 700-line rule:"
 EXEMPT = {
     "src/pkg/parser/syntax_kinds.py": "one table of pyslang syntax and token kinds",
+    "src/pkg/parser/syntax.py": "re-export facade: one import line and one __all__ line per exported query",
 }
 
 

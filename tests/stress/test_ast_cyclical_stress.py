@@ -359,9 +359,11 @@ def test_combinational_loop_deep_signal_graph_immunity() -> None:
 
     rule = CombinationalLoopRule()
     # Construct a 500-node linear DAG: sig_0 -> sig_1 -> ... -> sig_499
-    graph: dict[str, list[tuple[str, dict[str, Any], tuple[str, ...]]]] = {}
+    from src.pkg.rules.combinational_logic.combinational_loop import _Edge
+
+    graph: dict[str, list[_Edge]] = {}
     for i in range(500):
-        graph[f"sig_{i}"] = [(f"sig_{i+1}", {"line": 1, "col": 1}, ())]
+        graph[f"sig_{i}"] = [_Edge(f"sig_{i+1}", {"line": 1, "col": 1}, (), "drv", None, None, ((), ()))]
     graph["sig_500"] = []
 
     with terminates_within():

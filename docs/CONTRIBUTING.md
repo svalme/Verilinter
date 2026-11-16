@@ -178,6 +178,7 @@ An exception is for a file that is long without being several concerns, such as 
 Current exceptions:
 
 - `src/pkg/parser/syntax_kinds.py`: one table of pyslang syntax and token kinds; it has no logic to split.
+- `src/pkg/parser/syntax.py`: the re-export facade of the parser queries, one import line and one `__all__` line per name; it has no logic to split.
 
 ## Rule Policy Metadata
 

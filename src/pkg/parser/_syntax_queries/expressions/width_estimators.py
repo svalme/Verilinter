@@ -9,6 +9,7 @@ from ...syntax_kinds import (
     ELEMENT_SELECT_EXPRESSION_KIND,
     IDENTIFIER_NAME_KIND,
     IDENTIFIER_SELECT_NAME_KIND,
+    SCOPED_NAME_KIND,
     MULTIPLE_CONCATENATION_EXPRESSION_KIND,
     MULTIPLY_EXPRESSION_KIND,
     ONE_BIT_RESULT_EXPRESSION_KINDS,
@@ -20,6 +21,7 @@ from ...types import SyntaxNode, SyntaxTree
 from ..literals import UNSIZED_DECIMAL_LITERAL_WIDTH, is_unsized_literal, literal_width_and_signed
 from ..shared import identifier_name
 from .operand_shapes import unwrap_parentheses, signedness_cast
+from .member_selects import member_select_width_and_signed
 from .symbol_resolution import resolve_symbol_in_scope, is_constant_symbol_operand
 from .constant_evaluation import evaluate_constant_expression
 from .select_widths import compute_sliced_width
@@ -63,6 +65,9 @@ def simple_expression_width_and_signed(
                 width = whole_width if isinstance(whole_width, int) else getattr(symbol, "bit_width", None)
                 return width, getattr(symbol, "is_signed", None)
         return None, None
+
+    if kind == SCOPED_NAME_KIND:
+        return member_select_width_and_signed(scope, expr)
 
     cast = signedness_cast(expr)
     if cast is not None:

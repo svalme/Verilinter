@@ -5,6 +5,8 @@ from ...parser.syntax import (
     declarator_has_initializer,
     declarator_interface_type_name,
     declarator_named_type_dimension_count,
+    declarator_named_type_dimensions_width,
+    declarator_named_type_reference,
     declarator_initializer_expression,
     declarator_initializer_value,
     declarator_is_event,
@@ -65,6 +67,8 @@ class DeclaratorHandler(SyntaxNodeHandler):
         symbol.is_event = declarator_is_event(ctx)
         symbol.interface_type_name = declarator_interface_type_name(ctx)
         symbol.named_type_dimension_count = declarator_named_type_dimension_count(ctx)
+        if kind in (SymbolKind.VARIABLE, SymbolKind.FIELD) and symbol.bit_width is None:
+            self._inherit_named_type(symbol, ctx)
         symbol.add_declaration(vnode.location)
         if declarator_has_initializer(vnode.raw):
             symbol.has_declaration_initializer = True
@@ -95,6 +99,26 @@ class DeclaratorHandler(SyntaxNodeHandler):
                 symbol.value = declarator_initializer_value(vnode.raw, scope=ctx.scope())
         ctx.scope().define(symbol)
         return ctx.push(vnode)
+
+    @staticmethod
+    def _inherit_named_type(symbol: Symbol, ctx: Context) -> None:
+        """A variable declared with a typedef name takes the typedef's width, signedness and member widths;
+        packed dimensions written after the type name multiply the width."""
+        reference = declarator_named_type_reference(ctx)
+        if reference is None:
+            return
+        package, type_name = reference
+        scope = ctx.scope()
+        typedef = scope.lookup_package_member(package, type_name) if package else scope.lookup_hierarchical(type_name)
+        if typedef is None or typedef.kind is not SymbolKind.TYPEDEF or not isinstance(typedef.bit_width, int):
+            return
+        extra = declarator_named_type_dimensions_width(ctx)
+        if extra is None:
+            return
+        symbol.bit_width = typedef.bit_width * extra
+        if symbol.is_signed is None:
+            symbol.is_signed = typedef.is_signed
+        symbol.member_widths = typedef.member_widths
 
     def __str__(self) -> str:
         return "DeclaratorHandler"

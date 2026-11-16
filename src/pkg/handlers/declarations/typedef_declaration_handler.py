@@ -1,4 +1,4 @@
-from ...parser.syntax import type_parameter_names_and_locations, typedef_declaration_name_and_location
+from ...parser.syntax import type_parameter_names_and_locations, typedef_declaration_name_and_location, typedef_layout
 from ...parser.types import (
     ForwardTypedefDeclarationNode,
     TypedefDeclarationNode,
@@ -31,6 +31,8 @@ class TypedefDeclarationHandler(SyntaxNodeHandler):
             decl_loc = loc or vnode.location
             if decl_loc is not None:
                 symbol.add_declaration(decl_loc)
+            # A variable declared with this type takes its width, signedness and struct member widths.
+            symbol.bit_width, symbol.is_signed, symbol.member_widths = typedef_layout(vnode.raw, ctx.scope())
             ctx.scope().define(symbol)
         return ctx.push(vnode)
 

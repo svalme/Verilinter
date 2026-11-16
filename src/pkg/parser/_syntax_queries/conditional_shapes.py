@@ -12,6 +12,7 @@ from ..syntax_kinds import (
     DEFAULT_CASE_ITEM_KIND,
     ELSE_CLAUSE_KIND,
     EMPTY_STATEMENT_KIND,
+    MACRO_USAGE_KIND,
     PARALLEL_BLOCK_STATEMENT_KIND,
     STANDARD_CASE_ITEM_KIND,
     UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
@@ -164,6 +165,18 @@ def has_full_parallel_case_pragma(raw: object, tree: SyntaxTree) -> bool:
     return "full_case" in preceding_line or "parallel_case" in preceding_line
 
 
+def _block_holds_macro_usage(raw: object) -> bool:
+    """True when a macro was used inside the block and expanded to nothing: pyslang keeps the usage as
+    directive trivia on the `end` token."""
+    for token in (getattr(raw, "begin", None), getattr(raw, "end", None)):
+        for trivia in getattr(token, "trivia", ()) or ():
+            syntax = getattr(trivia, "syntax", None)
+            syntax = syntax() if callable(syntax) else syntax
+            if getattr(syntax, "kind", None) == MACRO_USAGE_KIND:
+                return True
+    return False
+
+
 def is_empty_conditional_or_case_branch(raw: object) -> bool:
     """True if `raw` is an empty `begin...end` block or a bare `;`
     (`EmptyStatementSyntax`) sitting directly in an if/else/case-item branch
@@ -177,6 +190,8 @@ def is_empty_conditional_or_case_branch(raw: object) -> bool:
     elif is_block_statement(raw):
         items = getattr(raw, "items", None)
         is_empty = next(iter(items), None) is None if items is not None else True
+        # A block whose only content is a macro that expands to nothing is source code, not an empty branch.
+        is_empty = is_empty and not _block_holds_macro_usage(raw)
     else:
         return False
     if not is_empty:

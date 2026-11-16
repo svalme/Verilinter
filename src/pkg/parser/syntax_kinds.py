@@ -80,6 +80,7 @@ CASE_ITEM_KINDS = {
     if kind is not None
 }
 TIMESCALE_DIRECTIVE_KIND = _syntax_kind("TimeScaleDirective")
+MACRO_USAGE_KIND = _syntax_kind("MacroUsage")
 DEFAULT_NETTYPE_DIRECTIVE_KIND = _syntax_kind("DefaultNetTypeDirective")
 CHECKER_DECLARATION_KIND = _syntax_kind("CheckerDeclaration")
 DO_WHILE_STATEMENT_KIND = _syntax_kind("DoWhileStatement")
@@ -962,6 +963,7 @@ __all__ = [
     "SUPPLY0_SUPPLY1_TOKEN_KINDS",
     "SWITCH_PRIMITIVE_TOKEN_KINDS",
     "TIME_LITERAL_EXPRESSION_KIND",
+    "MACRO_USAGE_KIND",
     "TIMESCALE_DIRECTIVE_KIND",
     "TIMING_CONTROL_STATEMENT_KIND",
     "TRANIF_RTRANIF_TOKEN_KINDS",

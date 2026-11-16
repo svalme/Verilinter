@@ -15,6 +15,7 @@ from ...syntax_kinds import (
     CONDITIONAL_EXPRESSION_KIND,
     DIVIDE_EXPRESSION_KIND,
     IDENTIFIER_NAME_KIND,
+    IDENTIFIER_SELECT_NAME_KIND,
     SCOPED_NAME_KIND,
     INVOCATION_EXPRESSION_KIND,
     LOGICAL_AND_EXPRESSION_KIND,
@@ -46,6 +47,7 @@ from ...types import SyntaxNode
 from ..literals import constant_integer_value
 from ..shared import identifier_name
 from .operand_shapes import unwrap_parentheses
+from .member_selects import member_select_width_and_signed
 from .symbol_resolution import resolve_package_member_in_scope, resolve_symbol_in_scope
 
 
@@ -95,6 +97,19 @@ def _extract_predicate_expression(predicate: object) -> object:
     if expr is not None:
         return expr
     return predicate
+
+
+def _declared_bits(argument: object, scope: object) -> int | None:
+    """`$bits` of a typedef or a declared variable (`$bits(status_t)`, `$bits(bus.addr)`), when its width is known."""
+    argument = unwrap_parentheses(argument)
+    kind = getattr(argument, "kind", None)
+    if kind == SCOPED_NAME_KIND:
+        width, _signed = member_select_width_and_signed(scope, argument)
+        return width
+    name = identifier_name(argument) if kind in (IDENTIFIER_NAME_KIND, IDENTIFIER_SELECT_NAME_KIND) else None
+    symbol = resolve_symbol_in_scope(scope, name) if name else None
+    whole_width = getattr(symbol, "whole_width", None)
+    return whole_width if isinstance(whole_width, int) else None
 
 
 @guarded_traversal(max_depth=64, default=None)
@@ -208,6 +223,10 @@ def evaluate_constant_expression(
                 arg_val = evaluate_constant_expression(arg_expr, scope=scope, _visited=_visited)
                 if arg_val is not None:
                     return (arg_val - 1).bit_length() if arg_val > 0 else 0
+        if fn_name == "$bits":
+            params = getattr(getattr(expr, "arguments", None), "parameters", None)
+            if params and len(params) == 1:
+                return _declared_bits(getattr(params[0], "expr", getattr(params[0], "expression", None)), scope)
         return None
 
     # 5. Conditional (ternary) expression: iteratively walk false-branch spine in O(1) recursion depth

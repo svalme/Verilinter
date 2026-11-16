@@ -20,6 +20,7 @@ from ..syntax_kinds import (
     INTERFACE_PORT_HEADER_KIND,
     LOCALPARAM_TOKEN_KIND,
     NAMED_TYPE_KIND,
+    SCOPED_NAME_KIND,
     NET_DECLARATION_KINDS,
     PARAMETER_DECLARATION_KIND,
     PARAMETER_DECLARATION_KINDS,
@@ -296,6 +297,31 @@ def declarator_interface_type_name(ctx: "Context") -> str | None:
     if getattr(name, "kind", None) != IDENTIFIER_NAME_KIND:
         return None
     return identifier_name(name)
+
+
+def declarator_named_type_reference(ctx: "Context") -> tuple[str | None, str] | None:
+    """`(package, type name)` of a declaration that uses a type name: `s_t x` and `s_t [1:0] x` give
+    `(None, "s_t")`, `pkg::s_t x` gives `("pkg", "s_t")`. None when the declaration has no type name."""
+    data_type = _declarator_owner_data_type(ctx)
+    if getattr(data_type, "kind", None) != NAMED_TYPE_KIND:
+        return None
+    name = getattr(data_type, "name", None)
+    if getattr(name, "kind", None) == SCOPED_NAME_KIND:
+        package, member = identifier_name(getattr(name, "left", None)), identifier_name(getattr(name, "right", None))
+        return (package, member) if package and member else None
+    type_name = identifier_name(name)
+    return (None, type_name) if type_name else None
+
+
+def declarator_named_type_dimensions_width(ctx: "Context") -> int | None:
+    """The bits that the packed dimensions after a type name give (`s_t [1:0] x` gives 2), 1 when there are
+    none, or None when the declaration has no type name or a dimension is unknown."""
+    from .expressions.type_widths import named_type_dimensions_width
+
+    data_type = _declarator_owner_data_type(ctx)
+    if getattr(data_type, "kind", None) != NAMED_TYPE_KIND:
+        return None
+    return named_type_dimensions_width(getattr(data_type, "name", None), getattr(ctx, "scope", lambda: None)())
 
 
 def declarator_named_type_dimension_count(ctx: "Context") -> int | None:

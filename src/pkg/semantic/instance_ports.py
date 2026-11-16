@@ -46,10 +46,19 @@ def ordered_parameter_overrides(
     ]
 
 
+class ParameterScope(dict[str, int]):
+    """Effective parameter values of an instance. `unknown` names the parameters the instance overrides with a
+    value that cannot be evaluated: they have no known value, and the child's default no longer applies."""
+
+    def __init__(self, values: Mapping[str, int] | None = None, unknown: frozenset[str] = frozenset()) -> None:
+        super().__init__(values or {})
+        self.unknown = frozenset(unknown)
+
+
 def instance_parameter_scope(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
-) -> dict[str, int]:
+) -> ParameterScope:
     """Compute effective parameter values for an instance by merging child module default
     parameters with the instance's parameter overrides (named and ordered). Re-evaluates
     dependent parameters and localparams in declaration order."""
@@ -57,35 +66,42 @@ def instance_parameter_scope(
 
     child_module = instantiation.get("child_module")
     if not isinstance(child_module, str) or not child_module:
-        return {}
+        return ParameterScope()
     child_scope = module_scope_for(symbol_table, child_module)
     if child_scope is None:
-        return {}
+        return ParameterScope()
 
     child_params = [
         sym for sym in child_scope.symbols.values()
         if sym.kind is SymbolKind.PARAMETER
     ]
     if not child_params:
-        return {}
+        return ParameterScope()
 
     overridable_params = [p for p in child_params if not getattr(p, "is_localparam", False)]
 
     effective: dict[str, int] = {}
+    # A parameter the instance overrides with a value that cannot be evaluated has no known value: it must not
+    # fall back to the child's default, which the override replaces.
+    overridden_unknown: set[str] = set()
     for ov in named_parameter_overrides(instantiation):
         p_name = ov.get("param_name")
         val = ov.get("expr_value")
         if isinstance(p_name, str) and isinstance(val, int):
             effective[p_name] = val
+        elif isinstance(p_name, str):
+            overridden_unknown.add(p_name)
 
     for index, ov in enumerate(ordered_parameter_overrides(instantiation)):
         if index < len(overridable_params):
             val = ov.get("expr_value")
             if isinstance(val, int):
                 effective[overridable_params[index].name] = val
+            else:
+                overridden_unknown.add(overridable_params[index].name)
 
     for param in child_params:
-        if param.name in effective:
+        if param.name in effective or param.name in overridden_unknown:
             continue
         init_text = getattr(param, "initializer_text", None)
         if init_text:
@@ -96,7 +112,7 @@ def instance_parameter_scope(
         if param.value is not None:
             effective[param.name] = param.value
 
-    return effective
+    return ParameterScope(effective, frozenset(overridden_unknown))
 
 
 def specialized_port_symbol(port: Symbol, param_scope: dict[str, int]) -> Symbol:
@@ -105,12 +121,14 @@ def specialized_port_symbol(port: Symbol, param_scope: dict[str, int]) -> Symbol
     from ..parser.syntax import evaluate_packed_dimension_bounds
 
     packed_dims = getattr(port, "packed_dimensions", [])
-    if not param_scope or not packed_dims:
+    unknown_overrides = getattr(param_scope, "unknown", frozenset())
+    if not packed_dims or not (param_scope or unknown_overrides):
         return port
 
     width, msb, lsb = evaluate_packed_dimension_bounds(packed_dims, scope=param_scope)
-    if width is None:
+    if width is None and not unknown_overrides:
         return port
+    # With an override that cannot be evaluated the width stays unknown: the child's default is replaced.
 
     specialized = Symbol(name=port.name, kind=port.kind)
     specialized.is_port = port.is_port

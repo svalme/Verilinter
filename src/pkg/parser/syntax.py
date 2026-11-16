@@ -1,3 +1,9 @@
+"""The parser package's public query surface: every syntax query that rules and handlers may call.
+
+Exception to the 700-line rule: this is a re-export facade, one import line and one `__all__` line per
+exported name, with no logic to split. A new query is added here once, from its themed module under
+`_syntax_queries/` (`tests/meta/test_file_size_limits.py` lists it).
+"""
 from .syntax_kinds import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_COMB_BLOCK_KIND,
@@ -81,6 +87,8 @@ from .syntax_queries import (
     declarator_packed_range,
     declarator_interface_type_name,
     declarator_named_type_dimension_count,
+    declarator_named_type_dimensions_width,
+    declarator_named_type_reference,
     declarator_port_direction,
     declarator_unpacked_dimension_texts,
     declarator_unpacked_dimension_widths,
@@ -102,6 +110,7 @@ from .syntax_queries import (
     is_sign_neutral_expression,
     evaluate_constant_text_expression,
     evaluate_packed_dimension_bounds,
+    typedef_layout,
     enclosing_assignment_expression,
     enclosing_case_statement,
     enclosing_combinational_style_always_block,
@@ -428,6 +437,8 @@ __all__ = [
     "declarator_packed_range",
     "declarator_interface_type_name",
     "declarator_named_type_dimension_count",
+    "declarator_named_type_dimensions_width",
+    "declarator_named_type_reference",
     "declarator_port_direction",
     "declarator_unpacked_dimension_texts",
     "declarator_unpacked_dimension_widths",
@@ -447,6 +458,7 @@ __all__ = [
     "is_sign_neutral_expression",
     "evaluate_constant_text_expression",
     "evaluate_packed_dimension_bounds",
+    "typedef_layout",
     "enclosing_assignment_expression",
     "enclosing_case_statement",
     "enclosing_combinational_style_always_block",

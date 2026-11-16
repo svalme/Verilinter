@@ -39,6 +39,7 @@ from ._syntax_queries.expressions.operand_shapes import (
     unwrap_parentheses,
 )
 from ._syntax_queries.expressions.select_widths import compute_sliced_width
+from ._syntax_queries.expressions.type_widths import typedef_layout
 from ._syntax_queries.expressions.constant_evaluation import (
     evaluate_constant_expression,
     evaluate_constant_text_expression,
@@ -126,6 +127,8 @@ from ._syntax_queries.declarators import (
     declarator_packed_range,
     declarator_interface_type_name,
     declarator_named_type_dimension_count,
+    declarator_named_type_dimensions_width,
+    declarator_named_type_reference,
     declarator_port_direction,
     declarator_unpacked_dimension_texts,
     declarator_unpacked_dimension_widths,
@@ -382,6 +385,8 @@ __all__ = [
     "declarator_packed_dimension_widths",
     "declarator_interface_type_name",
     "declarator_named_type_dimension_count",
+    "declarator_named_type_dimensions_width",
+    "declarator_named_type_reference",
     "declarator_port_direction",
     "declarator_unpacked_dimension_texts",
     "declarator_unpacked_dimension_widths",
@@ -401,6 +406,7 @@ __all__ = [
     "is_sign_neutral_expression",
     "evaluate_constant_text_expression",
     "evaluate_packed_dimension_bounds",
+    "typedef_layout",
     "enclosing_assignment_expression",
     "enclosing_case_statement",
     "enclosing_combinational_style_always_block",

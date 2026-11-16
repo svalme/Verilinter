@@ -20,7 +20,7 @@ def _child_ports(symbol_table: SymbolTable, instance: InstanceRecord) -> list[Sy
         return None
     ports = [symbol for symbol in scope.symbols.values() if symbol.is_port]
     parameters = instance_parameter_scope(symbol_table, instance)  # type: ignore[arg-type]
-    return [specialized_port_symbol(port, parameters) for port in ports] if parameters else ports
+    return [specialized_port_symbol(port, parameters) for port in ports] if (parameters or parameters.unknown) else ports
 
 
 def _record(

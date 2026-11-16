@@ -1,6 +1,7 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS
 from ...semantic.symbol import Symbol, UseEvent
 from ...semantic.symbol_table import SymbolTable
 from ...semantic.symbol_kind import SymbolKind
@@ -68,6 +69,10 @@ class ReadBeforeWriteRule(BaseSymbolRule):
             and not event.get("is_nonblocking_write")
             and event.get("driver_id") not in symbol_table.sequential_driver_ids
         }
+        if not self._is_local_to_subroutine(sym):
+            # An event with no driver sits in a function or task body. A module-level variable read there is
+            # read when the subroutine is called, so its position in the file says nothing about the order.
+            blocking_write_driver_ids.discard(None)
         seen_unconditional_write_by_driver: dict[object, bool] = {}
         seen_branch_write_signatures: dict[object, set[tuple[tuple[str, int], ...]]] = {}
         seen_write_for_none: bool = False
@@ -105,6 +110,17 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                             seen_unconditional_write_by_driver[driver_id] = True
 
         return None
+
+    @staticmethod
+    def _is_local_to_subroutine(sym: Symbol) -> bool:
+        scope = sym.scope
+        depth = 0
+        while scope is not None and depth < 64:
+            depth += 1
+            if scope.kind in SUBROUTINE_SCOPE_KINDS:
+                return True
+            scope = scope.parent
+        return False
 
     @staticmethod
     def _collapse_exhaustive_branches(
