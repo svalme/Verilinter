@@ -5,7 +5,8 @@ the next marker:
 
     // breadth: reports | one sentence on what the rule must catch
     // breadth: clean | one sentence on what the rule must not report (the rule would be too broad)
-    // breadth: gap | a breadth case the rule should report but does not yet (the rule is too narrow; strict xfail)
+    // breadth: gap | a known miss: the rule should report it but does not yet (too narrow), or with `// expect: 0`
+    //                the rule should stay quiet but still reports it (too broad); strict xfail
 
 Optional lines directly under the marker: `// pair: <name>` ties a `reports` breadth case to the `clean` breadth case that
 differs from it in the one detail that decides the outcome (a boundary), and `// expect: N` gives the number of

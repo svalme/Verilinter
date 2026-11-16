@@ -78,9 +78,9 @@ Each rule has one breadth file, `tests/breadth/<rule category>/<RULE_CODE>.sv`, 
 
 - `// breadth: reports | <what the rule must catch>`: a miss means the rule is too narrow.
 - `// breadth: clean | <what the rule must not report>`: a finding means the rule is too broad.
-- `// breadth: gap | <a breadth case the rule should catch but does not yet>`: a strict expected failure; promote it to `reports` when the rule catches it.
+- `// breadth: gap | <a known miss>`: a strict expected failure. Without `// expect:` it is a breadth case the rule should catch but does not yet; promote it to `reports` when the rule catches it. With `// expect: 0` it is one the rule should not report but still does (too broad); promote it to `clean` when the rule stops reporting it.
 - `// pair: <name>` on one `reports` and one `clean` breadth case ties a boundary: the two differ in the one detail that decides the outcome.
-- `// expect: N` gives the number of findings of the rule (default 1 for `reports` and `gap`, 0 for `clean`).
+- `// expect: N` gives the number of findings of the rule (default 1 for `reports` and `gap`, 0 for `clean`; `// expect: 0` on a `gap` marks a too-broad miss).
 
 `tests/breadth/test_rule_breadth.py` runs them; `tests/meta/test_breadth_coverage.py` requires every rule to have a file with at least one `reports` and one `clean` breadth case, in its category folder. `tests/breadth/PENDING_RULES.txt` lists the rules without a file yet; it only shrinks, so a new rule comes with its breadth cases and is never added to it. When a fix or a verdict shows a case the catalog lacks (a false positive, a missed defect), add it to the rule's file in the same change.
 
@@ -123,7 +123,7 @@ Rules with a breadth file (generated; regenerate with `UPDATE_EXPECTED=1 pytest 
 | `NO_IMPLICIT_NET` | `declarations_and_types` | 3 | 3 | 0 | 1 |
 | `REDECLARED_VARIABLE` | `declarations_and_types` | 3 | 3 | 0 | 1 |
 | `EMPTY_CONDITIONAL_BRANCH` | `maintainability_and_complexity` | 3 | 2 | 0 | 1 |
-| `ASSIGNMENT_TRUNCATION` | `width_and_signedness` | 19 | 13 | 1 | 7 |
+| `ASSIGNMENT_TRUNCATION` | `width_and_signedness` | 21 | 13 | 2 | 7 |
 | `ASSIGNMENT_WIDTH_MISMATCH` | `width_and_signedness` | 4 | 3 | 0 | 1 |
 | `PORT_CONNECTION_WIDTH_MISMATCH` | `width_and_signedness` | 3 | 4 | 0 | 1 |
 | `PORT_CONNECTION_WIDTH_UNKNOWN` | `width_and_signedness` | 3 | 7 | 0 | 1 |

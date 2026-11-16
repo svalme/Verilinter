@@ -26,7 +26,7 @@ def test_case(breadth) -> None:
 
 
 @pytest.mark.parametrize("breadth", [s for s in BREADTH_CASES if s.kind == "gap"], ids=lambda s: s.id)
-@pytest.mark.xfail(strict=True, reason="known gap: promote this breadth case to `reports` once the rule catches it")
+@pytest.mark.xfail(strict=True, reason="known gap: promote this breadth case to `reports` (or `clean`, when it expects 0) once the rule behaves as expected")
 def test_known_gap(breadth) -> None:
     assert _count(breadth) == breadth.expect
 

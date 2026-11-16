@@ -190,3 +190,19 @@ module top(input wire x, output wire [3:0] o);
   endfunction
   assign o = f(x);
 endmodule
+
+// breadth: reports | A right shift by a variable amount can drop non-zero bits, so the narrowing is reported.
+module top(input wire [7:0] r, input wire [2:0] n, output wire [3:0] o);
+  assign o = r >> n;
+endmodule
+
+// breadth: reports | A right shift by a constant smaller than the bits dropped still loses data.
+module top(input wire [7:0] r, output wire [3:0] o);
+  assign o = r >> 2;
+endmodule
+
+// breadth: gap | A right shift by a constant at least as large as the bits dropped leaves those bits zero, so nothing is lost; the rule still reports it.
+// expect: 0
+module top(input wire [7:0] r, output wire [3:0] o);
+  assign o = r >> 4;
+endmodule
