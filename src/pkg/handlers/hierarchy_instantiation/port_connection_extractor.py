@@ -13,7 +13,7 @@ from ...parser.syntax import (
     node_location,
     port_connection_expression,
     port_connection_list,
-    simple_expression_width_and_signed,
+    natural_expression_width_and_signed,
     simple_identifier_text,
     source_text_for_node,
 )
@@ -31,7 +31,7 @@ class PortConnectionExtractor:
         width_resolver: Callable[..., tuple[int | None, bool | None]] | None = None,
     ) -> None:
         self.width_resolver = (
-            width_resolver if width_resolver is not None else simple_expression_width_and_signed
+            width_resolver if width_resolver is not None else natural_expression_width_and_signed
         )
 
     def _expression_type(self, scope: Scope | None, expr: Any, tree: Any) -> tuple[int | None, bool | None]:

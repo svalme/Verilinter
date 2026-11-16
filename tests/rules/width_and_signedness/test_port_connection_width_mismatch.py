@@ -387,15 +387,11 @@ class TestPortConnectionWidthUnknownRule:
 
         result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
 
-    def test_flags_arithmetic_expression_connection(
+    def test_arithmetic_expression_of_known_operands_is_sized(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
     ) -> None:
-        # `simple_expression_width_and_signed` only resolves an identifier, a
-        # literal, a select, or a concatenation/replication of those -- an
-        # arithmetic connection expression like `p + q` isn't recognized at
-        # all. Unlike `ASSIGNMENT_WIDTH_MISMATCH` (which silently produces no
-        # diagnostic for the same unresolvable shape), this surfaces the gap
-        # explicitly as an unknown-width connection rather than staying silent.
+        # The connected expression is sized by `natural_expression_width_and_signed`,
+        # so `p + q` of two 4-bit operands is 4 bits and matches the 4-bit port.
         result = lint_inline_case(
             {
                 "top.sv": """
@@ -409,7 +405,43 @@ class TestPortConnectionWidthUnknownRule:
             }
         )
 
-        result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
+        result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
+
+    def test_logical_and_bitwise_connection_of_one_bit_operands_is_sized(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input a, input b);
+                endmodule
+                module top;
+                  wire v, iso;
+                  child u1(.a(v & !iso), .b(v && !iso));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
+
+    def test_named_empty_connection_is_not_width_unknown(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [3:0] a, output [3:0] y, output z);
+                endmodule
+                module top;
+                  wire [3:0] p;
+                  child u1(.a(p), .y(), .z());
+                endmodule
+                """
+            }
+        )
+
+        result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
 
     def test_flags_undeclared_identifier_connection(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]

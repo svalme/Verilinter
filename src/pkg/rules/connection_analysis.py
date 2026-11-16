@@ -170,7 +170,7 @@ def unconnected_port_names(
         if conn is None:
             left_open = not record.implicit
         else:
-            left_open = conn.get("kind") == "empty" or conn.get("expr_text") is None
+            left_open = _is_left_open(conn)
         if left_open and record.port_name not in names:
             names.append(record.port_name)
     return names
@@ -207,6 +207,11 @@ def _typed_by_type_parameter(port: object) -> bool:
     return bool(getattr(symbol, "is_type_parameter", False))
 
 
+def _is_left_open(conn: Mapping[str, object]) -> bool:
+    """A connection with no expression: a positional empty slot, or a named `.p()`."""
+    return conn.get("kind") == "empty" or conn.get("expr_text") is None
+
+
 def width_unknown_details(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
@@ -214,7 +219,7 @@ def width_unknown_details(
     unknowns: list[tuple[str, int | None, str, int | None]] = []
     for record in connection_records_of(symbol_table, instantiation):
         conn = record.connection
-        if record.port is None or conn is None or conn.get("kind") == "empty":
+        if record.port is None or conn is None or _is_left_open(conn):
             continue
         if isinstance(record.expr_width, int) and isinstance(record.port_width, int):
             continue

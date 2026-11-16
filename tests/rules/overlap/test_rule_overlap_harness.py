@@ -194,16 +194,12 @@ def test_xz_equality_comparison_also_flagged_as_explicit_xz_literal(
     result.expect_code_once("EXPLICIT_XZ_LITERAL")
 
 
-def test_named_empty_port_connection_also_flagged_as_width_unknown(
+def test_named_empty_port_connection_is_only_flagged_as_unconnected(
     lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
 ) -> None:
-    # `.a()` is a named connection with no expression, so `expr_text` is `None`:
-    # `unconnected_port_names` counts it as unconnected, and separately
-    # `width_unknown_details` doesn't exclude it the way it excludes an
-    # ordered/positional gap's "empty" connection kind (see
-    # `test_port_connection_width_mismatch.py`'s
-    # `test_does_not_flag_an_unconnected_ordered_port`), so both rules fire on
-    # the same connection.
+    # `.a()` is a named connection with no expression, so `expr_text` is `None`.
+    # `unconnected_port_names` counts it as unconnected, and `width_unknown_details`
+    # skips it, so only `NO_UNCONNECTED_INSTANCE_PORTS` fires on that connection.
     result = lint_inline_case(
         {
             "top.sv": """
@@ -216,9 +212,8 @@ def test_named_empty_port_connection_also_flagged_as_width_unknown(
             """
         }
     )
-
     result.expect_code_once("NO_UNCONNECTED_INSTANCE_PORTS")
-    result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
+    result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
 
 
 def test_assignment_truncation_also_flagged_as_assignment_width_mismatch(
