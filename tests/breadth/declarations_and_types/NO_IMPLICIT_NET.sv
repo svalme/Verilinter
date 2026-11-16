@@ -1,10 +1,10 @@
-// case: reports | A name that is never declared.
+// breadth: reports | A name that is never declared.
 // pair: undeclared-versus-path-base
 module top(input logic a, output logic o);
   assign o = missing_net & a;
 endmodule
 
-// case: clean | The first segment of a hierarchical path to a generate block is a scope, not a net.
+// breadth: clean | The first segment of a hierarchical path to a generate block is a scope, not a net.
 // pair: undeclared-versus-path-base
 module top(input logic a, output logic z);
   if (1) begin : g_blk
@@ -14,13 +14,13 @@ module top(input logic a, output logic z);
   assign z = g_blk.t;
 endmodule
 
-// case: reports | An undeclared name outside a path is a net even when the same name is also used as a path base.
+// breadth: reports | An undeclared name outside a path is a net even when the same name is also used as a path base.
 module top(output logic z);
   assign z = missing_net.t;
   assign z = missing_net;
 endmodule
 
-// case: clean | A task called with no arguments is a call, not a net.
+// breadth: clean | A task called with no arguments is a call, not a net.
 module top;
   reg clk;
   task spi_action;
@@ -31,12 +31,12 @@ module top;
   end
 endmodule
 
-// case: clean | A name an import could supply from a package no analysed file declares.
+// breadth: clean | A name an import could supply from a package no analysed file declares.
 module top import other_pkg::*; (output logic o);
   assign o = FROM_OTHER;
 endmodule
 
-// case: reports | An undeclared name when every imported package is known.
+// breadth: reports | An undeclared name when every imported package is known.
 package p_pkg;
   localparam int Known = 1;
 endpackage

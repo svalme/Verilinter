@@ -1,11 +1,11 @@
-// case: reports | A connected name that is not declared has no width, so the analysis cannot compare it with the port.
+// breadth: reports | A connected name that is not declared has no width, so the analysis cannot compare it with the port.
 module child(input [7:0] a);
 endmodule
 module top;
   child u1(.a(missing_name));
 endmodule
 
-// case: reports | A port typed by a type parameter has a width that depends on the instantiating module.
+// breadth: reports | A port typed by a type parameter has a width that depends on the instantiating module.
 module child #(parameter type data_t = logic) (input data_t [3:0] d);
 endmodule
 module top;
@@ -13,7 +13,7 @@ module top;
   child #(.data_t(logic [3:0])) u1(.d(x));
 endmodule
 
-// case: reports | A port sized by a parameter with no default and no override has no knowable width.
+// breadth: reports | A port sized by a parameter with no default and no override has no knowable width.
 // pair: parameter-without-value
 module child #(parameter int Width) (input [Width-1:0] d);
 endmodule
@@ -22,7 +22,7 @@ module top;
   child u1(.d(x));
 endmodule
 
-// case: clean | The same port with a parameter that has a value is sized.
+// breadth: clean | The same port with a parameter that has a value is sized.
 // pair: parameter-without-value
 module child #(parameter int Width = 6) (input [Width-1:0] d);
 endmodule
@@ -31,21 +31,21 @@ module top;
   child u1(.d(x));
 endmodule
 
-// case: clean | An unbased unsized literal fills the port, so there is no width to size.
+// breadth: clean | An unbased unsized literal fills the port, so there is no width to size.
 module child(input [7:0] a);
 endmodule
 module top;
   child u1(.a('0));
 endmodule
 
-// case: clean | An unsized decimal literal fits the port.
+// breadth: clean | An unsized decimal literal fits the port.
 module child(input b, input [4:0] c);
 endmodule
 module top;
   child u1(.b(0), .c(1));
 endmodule
 
-// case: clean | A named empty connection is left open on purpose; the unconnected-port rule covers it.
+// breadth: clean | A named empty connection is left open on purpose; the unconnected-port rule covers it.
 module child(input [3:0] a, output [3:0] y);
 endmodule
 module top;
@@ -53,7 +53,7 @@ module top;
   child u1(.a(p), .y());
 endmodule
 
-// case: clean | A variable declared with a typedef has the typedef width.
+// breadth: clean | A variable declared with a typedef has the typedef width.
 module child(input [4:0] d, input [3:0] h);
 endmodule
 module top;
@@ -62,7 +62,7 @@ module top;
   child u0(.d(sv), .h(sv.a));
 endmodule
 
-// case: clean | A logical or bitwise expression of one-bit operands is one bit.
+// breadth: clean | A logical or bitwise expression of one-bit operands is one bit.
 module child(input a, input b);
 endmodule
 module top;
@@ -70,7 +70,7 @@ module top;
   child u1(.a(v & !iso), .b(v && !iso));
 endmodule
 
-// case: clean | A port sized by a package parameter keeps its width when an unrelated override is unknown.
+// breadth: clean | A port sized by a package parameter keeps its width when an unrelated override is unknown.
 package p_pkg;
   localparam int unsigned IdxW = 3;
 endpackage

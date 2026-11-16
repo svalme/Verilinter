@@ -1,10 +1,10 @@
-// case: reports | One variable written by two always_comb blocks.
+// breadth: reports | One variable written by two always_comb blocks.
 module top(input logic a, b, output logic y);
   always_comb y = a;
   always_comb y = b;
 endmodule
 
-// case: clean | Variables with the same name declared inside two different blocks are two variables.
+// breadth: clean | Variables with the same name declared inside two different blocks are two variables.
 // pair: shared-versus-block-local
 module top(input logic [3:0] a, b, output logic [3:0] o1, o2);
   always_comb begin : blk_a
@@ -19,7 +19,7 @@ module top(input logic [3:0] a, b, output logic [3:0] o1, o2);
   end
 endmodule
 
-// case: reports | The same name written from two blocks when it is declared once, outside them.
+// breadth: reports | The same name written from two blocks when it is declared once, outside them.
 // pair: shared-versus-block-local
 module top(input logic [3:0] a, b, output logic [3:0] o1, o2);
   int unsigned shift;
@@ -33,7 +33,7 @@ module top(input logic [3:0] a, b, output logic [3:0] o1, o2);
   end
 endmodule
 
-// case: clean | An initial block and a final block each declare their own file handle.
+// breadth: clean | An initial block and a final block each declare their own file handle.
 module top;
   initial begin
     int fh;
@@ -45,7 +45,7 @@ module top;
   end
 endmodule
 
-// case: clean | Different bits of one vector written by different blocks.
+// breadth: clean | Different bits of one vector written by different blocks.
 module top(input logic a, b, output logic [1:0] y);
   always_comb y[0] = a;
   always_comb y[1] = b;

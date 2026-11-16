@@ -1,10 +1,10 @@
-// case: reports | Two continuous assignments that feed each other.
+// breadth: reports | Two continuous assignments that feed each other.
 module top(input logic a, b, output logic x, y);
   assign x = y | a;
   assign y = x | b;
 endmodule
 
-// case: reports | A swap attempt inside one block: the final value of q depends on the value q had before the block.
+// breadth: reports | A swap attempt inside one block: the final value of q depends on the value q had before the block.
 // pair: swap-versus-reuse
 module top(input logic a, output logic p, q);
   always_comb begin
@@ -13,7 +13,7 @@ module top(input logic a, output logic p, q);
   end
 endmodule
 
-// case: clean | A variable overwritten after it was used: the later read sees the new value, so the chain never returns to the old one.
+// breadth: clean | A variable overwritten after it was used: the later read sees the new value, so the chain never returns to the old one.
 // pair: swap-versus-reuse
 module top(input logic a, b, output logic [7:0] o);
   logic [7:0] r, rev;
@@ -25,7 +25,7 @@ module top(input logic a, b, output logic [7:0] o);
   end
 endmodule
 
-// case: clean | Edges in different branches of one generate construct are never active together.
+// breadth: clean | Edges in different branches of one generate construct are never active together.
 // pair: exclusive-versus-same-branch
 module top #(parameter bit BUF = 1) (input logic a, b, output logic x, y);
   if (BUF) begin : g_buf
@@ -35,7 +35,7 @@ module top #(parameter bit BUF = 1) (input logic a, b, output logic x, y);
   end
 endmodule
 
-// case: reports | The same two assignments in one generate branch do form a loop.
+// breadth: reports | The same two assignments in one generate branch do form a loop.
 // pair: exclusive-versus-same-branch
 module top #(parameter bit BUF = 1) (input logic a, b, output logic x, y);
   if (BUF) begin : g_buf
@@ -44,7 +44,7 @@ module top #(parameter bit BUF = 1) (input logic a, b, output logic x, y);
   end
 endmodule
 
-// case: clean | An accumulator written and read inside one for loop is an unrolled chain, not feedback.
+// breadth: clean | An accumulator written and read inside one for loop is an unrolled chain, not feedback.
 module top(input logic [3:0] a, output logic [3:0] o);
   logic [3:0] next_rd, next_rdt;
   always_comb begin

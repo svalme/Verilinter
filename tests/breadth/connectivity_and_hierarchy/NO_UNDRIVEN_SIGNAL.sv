@@ -1,17 +1,17 @@
-// case: reports | A signal that is read and never driven.
+// breadth: reports | A signal that is read and never driven.
 module top(output logic o);
   logic floating;
   assign o = floating;
 endmodule
 
-// case: reports | Part of a vector that nothing drives.
+// breadth: reports | Part of a vector that nothing drives.
 module top(output logic [1:0] o);
   logic [1:0] v;
   assign v[0] = 1'b1;
   assign o = v;
 endmodule
 
-// case: clean | A signal an instance output drives.
+// breadth: clean | A signal an instance output drives.
 module child(output logic y);
   assign y = 1'b1;
 endmodule
@@ -21,7 +21,7 @@ module top(output logic o);
   assign o = w;
 endmodule
 
-// case: clean | A string a system task writes.
+// breadth: clean | A string a system task writes.
 module top;
   string file_name;
   initial begin
@@ -30,7 +30,7 @@ module top;
   end
 endmodule
 
-// case: clean | Members of an interface with no user in the file: the connecting modules drive them.
+// breadth: clean | Members of an interface with no user in the file: the connecting modules drive them.
 interface stream_intf (input logic clk_i);
   logic data;
   logic valid;
@@ -38,7 +38,7 @@ interface stream_intf (input logic clk_i);
   assert property (@(posedge clk_i) valid && !ready |=> $stable(data));
 endinterface
 
-// case: reports | A member of an interface that a module reads and nothing drives.
+// breadth: reports | A member of an interface that a module reads and nothing drives.
 interface bus_if;
   logic req;
   logic gnt;
