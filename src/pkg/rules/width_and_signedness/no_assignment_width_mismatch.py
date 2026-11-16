@@ -5,6 +5,7 @@ from ...parser.syntax import (
     element_select_index_or_range,
     evaluate_constant_text_expression,
     extract_assignment_target_and_selectors,
+    is_context_determined_expression,
     is_sign_neutral_expression,
     assignment_target_and_rhs,
     simple_expression_width_and_signed,
@@ -17,6 +18,7 @@ from ...parser.types import (
     ImplicitAnsiPortNode,
     SyntaxNode,
 )
+from ...semantic.expr_type import ExprType, WidthDetermination
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
@@ -128,12 +130,13 @@ def _width_mismatch(vnode: BaseVNode, ctx: "Context") -> tuple[int, int] | None:
     if lhs_symbol is None or right is None or not isinstance(lhs_symbol.bit_width, int):
         return _store(None)
 
-    rhs_width, _rhs_signed = simple_expression_width_and_signed(ctx.scope(), right, vnode.tree)
+    rhs_width, rhs_signed = simple_expression_width_and_signed(ctx.scope(), right, vnode.tree)
     if not isinstance(rhs_width, int):
         return _store(None)
 
+    rhs_type = ExprType(rhs_width, rhs_signed, WidthDetermination.of(is_context_determined_expression(right)))
     intentional_extension = rhs_width < lhs_symbol.bit_width and has_explicit_signedness_cast(right)
-    if lhs_symbol.bit_width != rhs_width and not intentional_extension:
+    if rhs_type.differs_from(lhs_symbol.bit_width) and not intentional_extension:
         return _store((lhs_symbol.bit_width, rhs_width))
 
     # Check for index selector width mismatch in indexed array expressions

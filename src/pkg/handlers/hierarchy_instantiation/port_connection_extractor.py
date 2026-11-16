@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def _determination_of(expr: Any) -> WidthDetermination:
-    return WidthDetermination.CONTEXT if is_context_determined_expression(expr) else WidthDetermination.SELF
+    return WidthDetermination.of(is_context_determined_expression(expr))
 
 
 class PortConnectionExtractor:

@@ -65,7 +65,48 @@ def test_shift_expression_expansion():
     res = run_inline_lint_case({"top.sv": code})
     codes = [d["code"] for d in res.diagnostics]
     assert "ASSIGNMENT_TRUNCATION" not in codes
+    assert "ASSIGNMENT_WIDTH_MISMATCH" not in codes
+
+
+def test_shift_left_into_wider_target_with_single_bit_and_wide_slice_operands_is_not_a_mismatch():
+    code = """
+    module top (
+        input wire [31:0] r,
+        input wire b,
+        input wire [2:0] n,
+        output wire [31:0] o1,
+        output wire [3:0] o2,
+        output wire [7:0] o3
+    );
+        assign o1 = r[31:12] << 12;
+        assign o2 = b << n;
+        assign o3 = 1'b1 << n;
+    endmodule
+    """
+    res = run_inline_lint_case({"top.sv": code})
+    res.expect_no_code("ASSIGNMENT_WIDTH_MISMATCH")
+
+
+def test_shift_left_wider_than_the_target_is_still_reported():
+    code = """
+    module top (input wire [7:0] r, output wire [3:0] o);
+        assign o = r << 1;
+    endmodule
+    """
+    res = run_inline_lint_case({"top.sv": code})
+    codes = [d["code"] for d in res.diagnostics]
     assert "ASSIGNMENT_WIDTH_MISMATCH" in codes
+    assert "ASSIGNMENT_TRUNCATION" in codes
+
+
+def test_conditional_narrower_than_the_target_is_still_a_mismatch():
+    code = """
+    module top (input wire s, input wire [3:0] a, b, output wire [7:0] o);
+        assign o = s ? a : b;
+    endmodule
+    """
+    res = run_inline_lint_case({"top.sv": code})
+    res.expect_code_once("ASSIGNMENT_WIDTH_MISMATCH")
 
 
 def test_shift_expression_exact_match():

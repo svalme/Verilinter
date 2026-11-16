@@ -450,18 +450,37 @@ class TestPortConnectionWidthUnknownRule:
         result = lint_inline_case(
             {
                 "top.sv": """
-                module child(input [4:0] a, input [4:0] b, input [4:0] c);
+                module child(input [4:0] a, input [4:0] b, input [7:0] c);
                 endmodule
                 module top;
                   wire [3:0] p, q;
-                  wire s;
-                  child u1(.a(p + q), .b(s ? p : q), .c(p | q));
+                  child u1(.a(p + q), .b(p << 1), .c(p * q));
                 endmodule
                 """
             }
         )
 
         result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_conditional_and_bitwise_connection_narrower_than_the_port_is_still_a_mismatch(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        # Neither can need more bits than its operands, so this is the same extension a plain signal gets.
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [4:0] a, input [4:0] b);
+                endmodule
+                module top;
+                  wire [3:0] p, q;
+                  wire s;
+                  child u1(.a(s ? p : q), .b(p | q));
+                endmodule
+                """
+            }
+        )
+
+        result.expect_code_count("PORT_CONNECTION_WIDTH_MISMATCH", 2)
 
     def test_ordered_arithmetic_connection_narrower_than_the_port_is_extended(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]

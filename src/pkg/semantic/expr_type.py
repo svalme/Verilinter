@@ -11,7 +11,11 @@ from enum import StrEnum
 
 class WidthDetermination(StrEnum):
     SELF = "self"  # the width is the expression's own: a name, a select, a concatenation, a literal
-    CONTEXT = "context"  # an operator whose operands are widened to the width of the target (IEEE 1800 11.6)
+    CONTEXT = "context"  # a result that can outgrow its operands (`+`, `*`, `<<`): the target's width decides
+
+    @classmethod
+    def of(cls, grows_with_context: bool) -> WidthDetermination:
+        return cls.CONTEXT if grows_with_context else cls.SELF
 
 
 @dataclass(frozen=True)
@@ -27,8 +31,8 @@ class ExprType:
     def differs_from(self, target_width: int | None) -> bool:
         """True when both widths are known and the value would not simply fit the target.
 
-        An expression whose operands take the target's width is extended when it is narrower, so only a
-        wider one differs."""
+        A result that can outgrow its operands is computed at the target's width when that is wider, so
+        only a wider one differs."""
         if not isinstance(self.width, int) or not isinstance(target_width, int):
             return False
         if self.width == target_width:

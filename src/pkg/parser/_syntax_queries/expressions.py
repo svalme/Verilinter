@@ -102,10 +102,10 @@ _EVALUATABLE_BINARY_KINDS = (
 
 
 def is_context_determined_expression(expr: object) -> bool:
-    """True when the outermost operator takes its operand width from the context it is used in.
+    """True when the outermost operator is `+`, `-`, `*` or a left shift.
 
-    An expression such as `a + b` assigned or connected to a wider target is evaluated at the target's
-    width, so its own estimated width being smaller than the target's is not a mismatch.
+    Such a result can need more bits than its operands, and its operands are evaluated at the width of the
+    target, so a target wider than the estimated operand width is sized on purpose and is not a mismatch.
     """
     return getattr(unwrap_parentheses(expr), "kind", None) in CONTEXT_DETERMINED_EXPRESSION_KINDS
 

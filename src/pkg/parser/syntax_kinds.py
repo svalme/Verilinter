@@ -649,22 +649,18 @@ ONE_BIT_RESULT_EXPRESSION_KINDS = (
         if kind is not None
     }
 )
-# Operators whose operands are context-determined (IEEE 1800 11.6): the operation is carried out at the wider
-# of the operand width and the width of the target it is assigned or connected to, so a result narrower than
-# the target is extended and loses nothing.
+# Operators whose result can need more bits than their operands and whose operands are context-determined
+# (IEEE 1800 11.6): the operation is carried out at the wider of the operand width and the width of the target
+# it is assigned or connected to, so a target wider than the operands is sized on purpose to hold the result
+# (`a + b`, `a * b`, `a << n`). Bitwise operators, `?:`, division and right shifts never need more bits than
+# their operands, so a narrower one is the same extension a plain signal gets.
 CONTEXT_DETERMINED_EXPRESSION_KINDS = {
     kind
     for kind in (
         *ADD_SUBTRACT_EXPRESSION_KINDS,
-        *SHIFT_EXPRESSION_KINDS,
-        *BITWISE_BINARY_EXPRESSION_KINDS,
         MULTIPLY_EXPRESSION_KIND,
-        DIVIDE_EXPRESSION_KIND,
-        MOD_EXPRESSION_KIND,
-        UNARY_MINUS_EXPRESSION_KIND,
-        UNARY_PLUS_EXPRESSION_KIND,
-        UNARY_BITWISE_NOT_EXPRESSION_KIND,
-        CONDITIONAL_EXPRESSION_KIND,
+        LOGICAL_SHIFT_LEFT_EXPRESSION_KIND,
+        ARITHMETIC_SHIFT_LEFT_EXPRESSION_KIND,
     )
     if kind is not None
 }
