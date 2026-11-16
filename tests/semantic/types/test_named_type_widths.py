@@ -131,3 +131,38 @@ def test_override_that_cannot_be_evaluated_leaves_the_port_width_unknown():
         """
     })
     result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+
+def test_port_not_sized_by_the_unknown_override_keeps_its_width():
+    result = run_inline_lint_case({
+        "top.sv": """
+        package p_pkg;
+          localparam int unsigned IdxW = 3;
+        endpackage
+        module child import p_pkg::*; #(parameter int Width = 32, parameter int Other = 1) (
+          input logic [Width-1:0] d, input logic [IdxW-1:0] idx);
+        endmodule
+        module top;
+          logic [5:0] x;
+          logic [2:0] i;
+          child #(.Width(6), .Other($bits(missing_t))) u0 (.d(x), .idx(i));
+        endmodule
+        """
+    })
+    result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
+    result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+
+
+def test_port_sized_by_a_localparam_of_the_unknown_override_stays_unknown():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module child #(parameter int Width = 32) (input logic [W2-1:0] d);
+          localparam int W2 = Width * 2;
+        endmodule
+        module top;
+          logic [11:0] x;
+          child #(.Width($bits(missing_t))) u0 (.d(x));
+        endmodule
+        """
+    })
+    result.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")

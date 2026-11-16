@@ -62,7 +62,7 @@ def instance_parameter_scope(
     """Compute effective parameter values for an instance by merging child module default
     parameters with the instance's parameter overrides (named and ordered). Re-evaluates
     dependent parameters and localparams in declaration order."""
-    from ..parser.syntax import evaluate_constant_text_expression
+    from ..parser.syntax import constant_text_identifiers, evaluate_constant_text_expression
 
     child_module = instantiation.get("child_module")
     if not isinstance(child_module, str) or not child_module:
@@ -104,6 +104,9 @@ def instance_parameter_scope(
         if param.name in effective or param.name in overridden_unknown:
             continue
         init_text = getattr(param, "initializer_text", None)
+        if init_text and overridden_unknown and constant_text_identifiers(init_text) & overridden_unknown:
+            overridden_unknown.add(param.name)  # computed from a parameter whose value is unknown
+            continue
         if init_text:
             folded = evaluate_constant_text_expression(init_text, scope=effective)
             if folded is not None:
@@ -118,7 +121,7 @@ def instance_parameter_scope(
 def specialized_port_symbol(port: Symbol, param_scope: dict[str, int]) -> Symbol:
     """Return a specialized copy of `port` whose bit_width and packed range (msb, lsb)
     are re-evaluated against the instance's effective parameter scope."""
-    from ..parser.syntax import evaluate_packed_dimension_bounds
+    from ..parser.syntax import constant_text_identifiers, evaluate_packed_dimension_bounds
 
     packed_dims = getattr(port, "packed_dimensions", [])
     unknown_overrides = getattr(param_scope, "unknown", frozenset())
@@ -126,9 +129,14 @@ def specialized_port_symbol(port: Symbol, param_scope: dict[str, int]) -> Symbol
         return port
 
     width, msb, lsb = evaluate_packed_dimension_bounds(packed_dims, scope=param_scope)
-    if width is None and not unknown_overrides:
-        return port
-    # With an override that cannot be evaluated the width stays unknown: the child's default is replaced.
+    if width is None:
+        depends_on_unknown = any(
+            constant_text_identifiers(text) & unknown_overrides for dimension in packed_dims for text in dimension
+        )
+        if not depends_on_unknown:
+            return port
+        # The width depends on a parameter the instance overrides with an unknown value: the child's default
+        # no longer applies, so the width stays unknown.
 
     specialized = Symbol(name=port.name, kind=port.kind)
     specialized.is_port = port.is_port

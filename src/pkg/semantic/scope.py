@@ -54,6 +54,13 @@ class Scope:
                 existing.is_signed = symbol.is_signed
             if symbol.value is not None:
                 existing.value = symbol.value
+            if symbol.initializer_text is not None:
+                existing.initializer_text = symbol.initializer_text
+            existing.is_localparam |= symbol.is_localparam
+            existing.is_constant |= symbol.is_constant
+            existing.has_declaration_initializer |= symbol.has_declaration_initializer
+            if symbol.member_widths is not None:
+                existing.member_widths = symbol.member_widths
             existing.use_count += symbol.use_count
             existing.read_count += symbol.read_count
             existing.write_count += symbol.write_count

@@ -41,6 +41,7 @@ from ._syntax_queries.expressions.operand_shapes import (
 from ._syntax_queries.expressions.select_widths import compute_sliced_width
 from ._syntax_queries.expressions.type_widths import typedef_layout
 from ._syntax_queries.expressions.constant_evaluation import (
+    constant_text_identifiers,
     evaluate_constant_expression,
     evaluate_constant_text_expression,
     evaluate_packed_dimension_bounds,
@@ -406,6 +407,7 @@ __all__ = [
     "is_sign_neutral_expression",
     "evaluate_constant_text_expression",
     "evaluate_packed_dimension_bounds",
+    "constant_text_identifiers",
     "typedef_layout",
     "enclosing_assignment_expression",
     "enclosing_case_statement",

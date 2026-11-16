@@ -408,6 +408,22 @@ def evaluate_constant_text_expression(expr_text: str | None, scope: object = Non
         return None
 
 
+def constant_text_identifiers(expr_text: str | None) -> frozenset[str]:
+    """The names an expression text refers to, for telling whether it depends on a given parameter."""
+    if not expr_text or not expr_text.strip():
+        return frozenset()
+    try:
+        from ...parse import parse_text
+        from ..procedural.blocks import iter_identifier_nodes
+
+        tree = parse_text(expr_text.strip())
+        if tree is None or getattr(tree, "root", None) is None:
+            return frozenset()
+        return frozenset(name for name, _node in iter_identifier_nodes(tree.root))
+    except Exception:
+        return frozenset()
+
+
 def evaluate_packed_dimension_bounds(
     dimension_texts: list[tuple[str, str]],
     scope: object = None,
