@@ -107,6 +107,18 @@ def identifier_access_modes(ctx: "Context", raw_identifier: SyntaxNode) -> tuple
     return _identifier_access_modes_over_ancestors([a.raw for a in ctx.iter_ancestors()], raw_identifier)
 
 
+def syntax_identifier_access_modes(raw_identifier: SyntaxNode) -> tuple[bool, bool]:
+    """`(reads, writes)` of an identifier occurrence, from its syntax ancestors alone."""
+    ancestors: list[object] = []
+    current = getattr(raw_identifier, "parent", None)
+    for _ in range(256):
+        if current is None:
+            break
+        ancestors.append(current)
+        current = getattr(current, "parent", None)
+    return _identifier_access_modes_over_ancestors(ancestors, raw_identifier)
+
+
 def enclosing_procedural_block(ctx: "Context") -> "BaseVNode | None":
     from ..syntax_queries import is_procedural_block
 

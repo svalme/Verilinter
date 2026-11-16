@@ -87,7 +87,8 @@ from ._syntax_queries.procedural.branches import (
     iter_assignment_nodes,
     procedural_block_assignment_triggers,
 )
-from ._syntax_queries.procedural.blocks import iter_identifier_reads, procedural_nesting_depth
+from ._syntax_queries.procedural.blocks import block_declares_names, iter_identifier_reads, procedural_nesting_depth
+from ._syntax_queries.procedural.temporaries import is_block_local_temporary, unconditional_assignment_targets
 from ._syntax_queries.shapes import (
     element_select_index_or_range,
     extract_assignment_target_and_selectors,
@@ -581,6 +582,9 @@ __all__ = [
     "is_within_async_reset_conditional",
     "is_xz_equality_comparison",
     "iter_assignment_nodes",
+    "block_declares_names",
+    "is_block_local_temporary",
+    "unconditional_assignment_targets",
     "iter_identifier_reads",
     "iter_statement_nodes",
     "missing_sensitivity_trigger_nodes",

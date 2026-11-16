@@ -16,8 +16,10 @@ from ...parser.syntax import (
     is_case_statement,
     is_conditional_statement,
     iter_assignment_nodes,
+    is_block_local_temporary,
     iter_statement_nodes,
     procedural_block_statement,
+    unconditional_assignment_targets,
 )
 from ...parser.traversal_guard import guarded_traversal
 from ...parser.types import ProceduralBlockNode, SyntaxNode
@@ -27,23 +29,6 @@ from ..rule_runner import rule_runner
 
 if TYPE_CHECKING:
     from ...walk.context import Context
-
-
-@guarded_traversal(max_depth=64, default=set())
-def _unconditional_assignment_targets(statement: SyntaxNode) -> set[str]:
-    if is_block_statement(statement):
-        names: set[str] = set()
-        for child in iter_statement_nodes(statement):
-            if is_conditional_statement(child) or is_case_statement(child):
-                continue
-            names.update(_unconditional_assignment_targets(child))
-        return names
-
-    expr = expression_statement_expression(statement)
-    if expr is None:
-        return set()
-
-    return set(assignment_target_names(expr))
 
 
 _MAX_PARENT_STEPS = 128
@@ -158,12 +143,14 @@ def _analyze_statement_latch(statement: SyntaxNode, assigned_before: set[str]) -
             return False, always_all
         return False, set()
 
-    unconditional = _unconditional_assignment_targets(statement)
+    unconditional = unconditional_assignment_targets(statement)
     return False, unconditional
 
 
-def has_latch_pattern(statement: SyntaxNode) -> bool:
-    has_latch, _ = _analyze_statement_latch(statement, set())
+def has_latch_pattern(statement: SyntaxNode, assumed_assigned: frozenset[str] = frozenset()) -> bool:
+    """True when some path through `statement` leaves a variable unassigned. Names in `assumed_assigned` count
+    as assigned before the statement."""
+    has_latch, _ = _analyze_statement_latch(statement, set(assumed_assigned))
     return has_latch
 
 
@@ -190,4 +177,16 @@ class NoLatchInAlwaysCombRule(Rule):
         if statement is None:
             return False
 
-        return _has_latch_pattern(statement)
+        if not _has_latch_pattern(statement):
+            return False
+        temporaries = self._block_local_temporaries(vnode, ctx, statement)
+        return _has_latch_pattern(statement, temporaries) if temporaries else True
+
+    @staticmethod
+    def _block_local_temporaries(vnode: BaseVNode, ctx: "Context", statement: SyntaxNode) -> frozenset[str]:
+        """Conditionally assigned names that only this block reads or writes, each read after a write.
+
+        Such a name holds no value between evaluations, so leaving it unassigned on a path is not a latch."""
+        return frozenset(
+            name for name in _conditional_assignment_targets(statement) if is_block_local_temporary(vnode.raw, name)
+        )

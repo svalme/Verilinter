@@ -7,7 +7,7 @@ from src.pkg.semantic.instance_effects import apply_instance_port_effects
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.connectivity_and_hierarchy.instance_output_driver_conflict import InstanceOutputDriverConflictRule
+from src.pkg.rules.connectivity_and_hierarchy.drivers.instance_output_driver_conflict import InstanceOutputDriverConflictRule
 
 
 ASSIGN_PLUS_INSTANCE_OUTPUT_CODE = """

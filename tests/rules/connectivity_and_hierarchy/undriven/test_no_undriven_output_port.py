@@ -7,7 +7,7 @@ from src.pkg.semantic.symbol import Symbol
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.connectivity_and_hierarchy.no_undriven_output_port import NoUndrivenOutputPortRule
+from src.pkg.rules.connectivity_and_hierarchy.drivers.no_undriven_output_port import NoUndrivenOutputPortRule
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
 

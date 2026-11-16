@@ -13,6 +13,7 @@ from src.pkg.rules.combinational_logic.no_switch_primitive import NoSwitchPrimit
 from tests.support.fakes import FakeVNode, fake_vnode
 from tests.support.parse_diagnostics import assert_no_parse_errors
 from tests.support.syntax_context_builders import primitive_instantiation_context
+from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context, ContextFlag
 from src.pkg.vnodes.base_vnode import BaseVNode
 from tests.support.rule_node_helpers import _always_block_and_token, mock_vnode

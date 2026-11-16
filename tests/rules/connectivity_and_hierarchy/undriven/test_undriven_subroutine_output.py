@@ -2,7 +2,7 @@ import pytest
 
 from src.pkg.handlers.register_handlers import *
 from src.pkg.parser.parse import parse_text
-from src.pkg.rules.connectivity_and_hierarchy.undriven_subroutine_output import UndrivenSubroutineOutputRule
+from src.pkg.rules.connectivity_and_hierarchy.drivers.undriven_subroutine_output import UndrivenSubroutineOutputRule
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch

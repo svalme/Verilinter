@@ -1,21 +1,21 @@
 """Node rule tests for `simulation_vs_synthesis`: procedural blocks, loops and simulation-only statements."""
 import pytest
 from src.pkg.parser.syntax_kinds import ALWAYS_BLOCK_KIND, FINAL_BLOCK_KIND, INITIAL_BLOCK_KIND, WHILE_TOKEN_KIND, WAIT_TOKEN_KIND, SEQUENTIAL_BLOCK_STATEMENT_KIND, RETURN_KEYWORD_TOKEN_KIND, REPEAT_TOKEN_KIND, PARALLEL_BLOCK_STATEMENT_KIND, MINUS_DOUBLE_ARROW_TOKEN_KIND, MINUS_ARROW_TOKEN_KIND, LOOP_GENERATE_KIND, GREATER_THAN_TOKEN_KIND, FOREVER_KEYWORD_TOKEN_KIND, FOREACH_KEYWORD_TOKEN_KIND, FOR_KEYWORD_TOKEN_KIND, DO_WHILE_STATEMENT_KIND, DO_KEYWORD_TOKEN_KIND, DISABLE_KEYWORD_TOKEN_KIND, DISABLE_IFF_KIND, ASSIGN_KEYWORD_TOKEN_KIND, CONTINUOUS_ASSIGN_KIND, DEASSIGN_KEYWORD_TOKEN_KIND, DELAY3_KIND, DELAY_CONTROL_KIND, FORCE_KEYWORD_TOKEN_KIND, INITIAL_KEYWORD_TOKEN_KIND, PARAMETER_KEYWORD_TOKEN_KIND, RELEASE_KEYWORD_TOKEN_KIND
-from src.pkg.rules.simulation_vs_synthesis.no_disable_statement import NoDisableStatementRule
-from src.pkg.rules.simulation_vs_synthesis.no_do_while_loop import NoDoWhileLoopRule
-from src.pkg.rules.simulation_vs_synthesis.no_event_trigger import NoEventTriggerRule
-from src.pkg.rules.simulation_vs_synthesis.no_for_loop import NoForLoopRule
-from src.pkg.rules.simulation_vs_synthesis.no_foreach_loop import NoForeachLoopRule
-from src.pkg.rules.simulation_vs_synthesis.no_fork_join import NoForkJoinRule
-from src.pkg.rules.simulation_vs_synthesis.no_forever_loop import NoForeverLoopRule
-from src.pkg.rules.simulation_vs_synthesis.no_assign_deassign import NoAssignDeassignRule
-from src.pkg.rules.simulation_vs_synthesis.no_final_block import NoFinalBlockRule
-from src.pkg.rules.simulation_vs_synthesis.no_force_release import NoForceReleaseRule
-from src.pkg.rules.simulation_vs_synthesis.no_initial_block import NoInitialBlockRule
-from src.pkg.rules.simulation_vs_synthesis.no_repeat_loop import NoRepeatLoopRule
-from src.pkg.rules.simulation_vs_synthesis.no_while_loop import NoWhileLoopRule
-from src.pkg.rules.simulation_vs_synthesis.no_wait_statement import NoWaitStatementRule
-from src.pkg.rules.simulation_vs_synthesis.no_delay_control import NoDelayControlRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_disable_statement import NoDisableStatementRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_do_while_loop import NoDoWhileLoopRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_event_trigger import NoEventTriggerRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_for_loop import NoForLoopRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_foreach_loop import NoForeachLoopRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_fork_join import NoForkJoinRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_forever_loop import NoForeverLoopRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_assign_deassign import NoAssignDeassignRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_final_block import NoFinalBlockRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_force_release import NoForceReleaseRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_initial_block import NoInitialBlockRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_repeat_loop import NoRepeatLoopRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_while_loop import NoWhileLoopRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_wait_statement import NoWaitStatementRule
+from src.pkg.rules.simulation_vs_synthesis.procedural.no_delay_control import NoDelayControlRule
 from tests.support.fakes import fake_vnode
 from tests.support.syntax_context_builders import continuous_assign_context, event_trigger_statement_context, token_vnode
 from src.pkg.walk.context import Context

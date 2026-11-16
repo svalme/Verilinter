@@ -62,6 +62,8 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 
 ## File organization
 
+Place every new test file in the folder or subfolder that matches the code it covers, and create the folder (with an `__init__.py`) when none fits; test folders mirror the source folders (`tests/rules/<category>/<theme>/`). A directory with about 14 or more test files is the point to group them.
+
 A test file stays under 700 lines (`tests/meta/test_file_size_limits.py` fails above that) and covers one concern: one rule, one subsystem, or one group of closely related rules. Do not collect many rules' tests into one module that "everything reports to".
 
 - A file that grows past the limit is split by concern and the pieces are grouped in a folder named for the group, for example `tests/cli/run_lint/` (instance, signal, statement and net rules), `tests/semantic/symbols/`, `tests/rules/width_and_signedness/assignment/`, `tests/rules/connectivity_and_hierarchy/undriven/`.

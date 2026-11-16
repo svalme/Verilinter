@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from ...syntax_kinds import DATA_DECLARATION_KINDS, PARALLEL_BLOCK_STATEMENT_KIND, SEQUENTIAL_BLOCK_STATEMENT_KIND
 from ...traversal_guard import guarded_generator
 from ...types import ProceduralBlockNode, SyntaxNode
 from ..shared import identifier_name
@@ -15,6 +16,15 @@ def node_syntax_children(node: object) -> Iterator[SyntaxNode]:
     for child in children:
         if isinstance(child, SyntaxNode):
             yield child
+
+
+def block_declares_names(raw: object) -> bool:
+    """True for a `begin ... end` or `fork ... join` block that declares a variable of its own.
+
+    Such a block is a namespace: `automatic int idx;` in two blocks names two variables."""
+    if getattr(raw, "kind", None) not in (SEQUENTIAL_BLOCK_STATEMENT_KIND, PARALLEL_BLOCK_STATEMENT_KIND):
+        return False
+    return any(getattr(item, "kind", None) in DATA_DECLARATION_KINDS for item in getattr(raw, "items", ()))
 
 
 def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:

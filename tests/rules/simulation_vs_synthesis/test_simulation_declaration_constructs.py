@@ -2,19 +2,19 @@
 import pytest
 from src.pkg.parser.parse import parse_file
 from src.pkg.parser.syntax_kinds import MODULE_DECLARATION_KIND, MODPORT_DECLARATION_KIND, CLOCKING_DECLARATION_KIND, CLASS_DECLARATION_KIND, CONFIG_DECLARATION_KIND, DPI_EXPORT_KIND, DPI_IMPORT_KIND, FUNCTION_DECLARATION_KIND, INTERFACE_DECLARATION_KIND, LET_DECLARATION_KIND, PACKAGE_DECLARATION_KIND, PROGRAM_DECLARATION_KIND, SPECIFY_BLOCK_KIND, TASK_DECLARATION_KIND, VIRTUAL_INTERFACE_TYPE_KIND
-from src.pkg.rules.simulation_vs_synthesis.no_clocking_declaration import NoClockingDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_interface_declaration import NoInterfaceDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_modport_declaration import NoModportDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_package_declaration import NoPackageDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_program_declaration import NoProgramDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_task_declaration import NoTaskDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_specify_block import NoSpecifyBlockRule
-from src.pkg.rules.simulation_vs_synthesis.no_class_declaration import NoClassDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_function_declaration import NoFunctionDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_let_declaration import NoLetDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_config_declaration import NoConfigDeclarationRule
-from src.pkg.rules.simulation_vs_synthesis.no_virtual_interface import NoVirtualInterfaceRule
-from src.pkg.rules.simulation_vs_synthesis.no_dpi_import_export import NoDpiImportExportRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_clocking_declaration import NoClockingDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_interface_declaration import NoInterfaceDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_modport_declaration import NoModportDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_package_declaration import NoPackageDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_program_declaration import NoProgramDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_task_declaration import NoTaskDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_specify_block import NoSpecifyBlockRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_class_declaration import NoClassDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_function_declaration import NoFunctionDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_let_declaration import NoLetDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_config_declaration import NoConfigDeclarationRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_virtual_interface import NoVirtualInterfaceRule
+from src.pkg.rules.simulation_vs_synthesis.declarations.no_dpi_import_export import NoDpiImportExportRule
 from tests.support.fakes import FakeVNode, fake_vnode
 from src.pkg.walk.context import Context
 from src.pkg.vnodes.base_vnode import BaseVNode

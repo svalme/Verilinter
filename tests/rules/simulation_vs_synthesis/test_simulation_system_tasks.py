@@ -1,13 +1,13 @@
 """Node rule tests for `simulation_vs_synthesis`: system tasks and functions."""
 import pytest
 from src.pkg.parser.syntax_kinds import PROGRAM_DECLARATION_KIND
-from src.pkg.rules.simulation_vs_synthesis.no_display_system_task import NoDisplaySystemTaskRule
-from src.pkg.rules.simulation_vs_synthesis.no_simulation_control_task import NoSimulationControlTaskRule
-from src.pkg.rules.simulation_vs_synthesis.no_random_system_function import NoRandomSystemFunctionRule
-from src.pkg.rules.simulation_vs_synthesis.no_time_system_function import NoTimeSystemFunctionRule
-from src.pkg.rules.simulation_vs_synthesis.no_vcd_dump_task import NoVcdDumpTaskRule
-from src.pkg.rules.simulation_vs_synthesis.no_file_io_system_task import NoFileIoSystemTaskRule
-from src.pkg.rules.simulation_vs_synthesis.no_plusargs_system_function import NoPlusargsSystemFunctionRule
+from src.pkg.rules.simulation_vs_synthesis.system_tasks.no_display_system_task import NoDisplaySystemTaskRule
+from src.pkg.rules.simulation_vs_synthesis.system_tasks.no_simulation_control_task import NoSimulationControlTaskRule
+from src.pkg.rules.simulation_vs_synthesis.system_tasks.no_random_system_function import NoRandomSystemFunctionRule
+from src.pkg.rules.simulation_vs_synthesis.system_tasks.no_time_system_function import NoTimeSystemFunctionRule
+from src.pkg.rules.simulation_vs_synthesis.system_tasks.no_vcd_dump_task import NoVcdDumpTaskRule
+from src.pkg.rules.simulation_vs_synthesis.system_tasks.no_file_io_system_task import NoFileIoSystemTaskRule
+from src.pkg.rules.simulation_vs_synthesis.system_tasks.no_plusargs_system_function import NoPlusargsSystemFunctionRule
 from tests.support.fakes import fake_vnode
 from src.pkg.walk.context import Context
 from src.pkg.vnodes.base_vnode import BaseVNode

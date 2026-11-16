@@ -2,7 +2,7 @@ from src.pkg.parser.parse import parse_text
 import pytest
 
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.connectivity_and_hierarchy.no_input_port_write import NoInputPortWriteRule
+from src.pkg.rules.connectivity_and_hierarchy.drivers.no_input_port_write import NoInputPortWriteRule
 from src.pkg.semantic.symbol import Symbol
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context

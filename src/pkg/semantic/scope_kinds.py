@@ -21,6 +21,7 @@ class ScopeKind(StrEnum):
     FOR = "for"
     GENERATE_FOR = "generate_for"
     GENERATE_BLOCK = "generate_block"
+    BLOCK = "block"  # a begin-end or fork-join block that declares a variable of its own
     AGGREGATE = "aggregate"
 
 
@@ -92,19 +93,13 @@ SCOPE_POLICY: tuple[ScopePolicyEntry, ...] = (
         ScopeKind.AGGREGATE,
         "module m; struct packed {logic qq_dup;} s1; struct packed {logic qq_dup;} s2; endmodule",
     ),
-    # Constructs that are namespaces in IEEE 1800 but open no scope here. Each is a known gap.
     ScopePolicyEntry(
-        ("SequentialBlockStatement",),
-        None,
+        ("SequentialBlockStatement", "ParallelBlockStatement"),
+        ScopeKind.BLOCK,
         "module m;\n initial begin : b1 int qq_dup; end\n initial begin : b2 int qq_dup; end\nendmodule",
-        "named begin-end blocks are local namespaces",
+        "a begin-end or fork-join block opens a scope only when it declares a variable of its own",
     ),
-    ScopePolicyEntry(
-        ("ParallelBlockStatement",),
-        None,
-        "module m;\n initial fork : b1 int qq_dup; join\n initial fork : b2 int qq_dup; join\nendmodule",
-        "named fork-join blocks are local namespaces",
-    ),
+    # Constructs that are namespaces in IEEE 1800 but open no scope here. Each is a known gap.
     ScopePolicyEntry(
         ("ClassDeclaration",),
         None,

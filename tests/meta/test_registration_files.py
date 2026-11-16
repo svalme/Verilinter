@@ -68,10 +68,10 @@ def test_register_handlers_imports_all_handler_modules() -> None:
     register_file = HANDLERS_ROOT / "register_handlers.py"
     imported_handlers = _imported_module_stems(register_file, "")
 
-    expected_handlers = _python_module_stems(
-        HANDLERS_ROOT,
-        excluded={"__init__", "register_handlers", "base_handler", "syntax_node_handler", "token_handler"},
-    )
+    excluded = {"__init__", "register_handlers", "base_handler", "syntax_node_handler", "token_handler"}
+    expected_handlers: set[str] = set()
+    for folder in (HANDLERS_ROOT, HANDLERS_ROOT / "statements", HANDLERS_ROOT / "declarations"):
+        expected_handlers |= _python_module_stems(folder, excluded=excluded)
 
     imported_handlers.discard("dispatch")
     imported_handlers.discard("syntax_node_handler")

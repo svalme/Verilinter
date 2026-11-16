@@ -163,7 +163,21 @@ Follow these prefix and suffix conventions for helper functions:
 
 ## Module Size and Grouping
 
+Place every new or moved file in the folder or subfolder that fits its theme, and create the folder (with an `__init__.py`) when the theme has none. Do not leave related files side by side in a crowded directory; about 14 or more modules in one directory is the point to group them. Rule modules sit under their category and then a theme (`rules/simulation_vs_synthesis/procedural/`, `rules/connectivity_and_hierarchy/drivers/`), handlers under `handlers/statements/` or `handlers/declarations/`, and parser queries under `_syntax_queries/expressions/`, `procedural/` or `generate/`.
+
 A Python module stays under 700 lines (`tests/meta/test_file_size_limits.py`); the only exemption is a constants table (`parser/syntax_kinds.py`). A module that holds several concerns is split by concern, and related modules are grouped in a folder with an `__init__.py`: `parser/_syntax_queries/expressions/` (operand shapes, the one symbol lookup, constant evaluation, select widths, width estimators), `parser/_syntax_queries/procedural/` (block walking, sensitivity and reset, branches), `parser/_syntax_queries/generate/`. Keep one lookup mechanism per concern in one module (`expressions/symbol_resolution.py`) so a helper cannot reach for another; `tests/meta/test_name_lookup_boundary.py` lists the files allowed to call a name lookup.
+
+### Exceptions to the 700-line rule
+
+An exception is for a file that is long without being several concerns, such as a table. It is allowed only when all of these are done in the same change, and the maintainer is told in the commit message or the session:
+
+1. an entry in `EXEMPT` in `tests/meta/test_file_size_limits.py` with the reason;
+2. the sentence `Exception to the 700-line rule:` and the reason in the first 30 lines of the file;
+3. a line in the list below.
+
+Current exceptions:
+
+- `src/pkg/parser/syntax_kinds.py`: one table of pyslang syntax and token kinds; it has no logic to split.
 
 ## Rule Policy Metadata
 

@@ -8,6 +8,7 @@ from src.pkg.semantic.symbol import Symbol
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.declarations_and_types.redeclared_variable import RedeclaredVariableRule
+from tests.support.lint_harness import run_inline_lint_case
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
 REDECLARED_CODE = """
@@ -153,4 +154,67 @@ class TestRedeclaredVariableInGenerateBlocks:
         )
 
         assert len(RedeclaredVariableRule().run(table)) == 1
+
+
+def test_same_name_in_separate_procedural_blocks_is_not_a_redeclaration():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(input logic [3:0] a, b, output logic [3:0] o1, o2, o3);
+          always_comb begin : blk_a
+            automatic int unsigned shift;
+            shift = a;
+            o1 = shift[3:0];
+          end
+          always_comb begin : blk_b
+            automatic int unsigned shift;
+            shift = b;
+            o2 = shift[3:0];
+          end
+          initial begin
+            int fh;
+            fh = 1;
+          end
+          final begin
+            int fh;
+            fh = 2;
+          end
+          assign o3 = a;
+        endmodule
+        """
+    })
+    result.expect_no_code("REDECLARED_VARIABLE")
+    result.expect_no_code("NO_MULTIPLE_DRIVERS")
+
+
+def test_a_real_redeclaration_in_one_block_is_still_reported():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(output logic o);
+          always_comb begin
+            automatic int x;
+            automatic int x;
+            o = 1'b0;
+          end
+        endmodule
+        """
+    })
+    result.expect_code_once("REDECLARED_VARIABLE")
+
+
+def test_block_local_name_does_not_hide_a_module_signal_read_after_the_block():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(input logic a, output logic o);
+          logic t;
+          assign t = a;
+          always_comb begin : blk
+            automatic logic t2;
+            t2 = a;
+            o = t2 & t;
+          end
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+    result.expect_no_code("NO_UNDRIVEN_SIGNAL")
 

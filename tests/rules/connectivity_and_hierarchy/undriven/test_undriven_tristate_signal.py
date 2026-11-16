@@ -6,7 +6,7 @@ from src.pkg.walk.dispatch import dispatch
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
-from src.pkg.rules.connectivity_and_hierarchy.undriven_tristate_signal import UndrivenTristateSignalRule
+from src.pkg.rules.connectivity_and_hierarchy.drivers.undriven_tristate_signal import UndrivenTristateSignalRule
 
 
 from tests.support.parse_diagnostics import assert_no_parse_errors

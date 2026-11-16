@@ -16,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[2]
 MAX_LINES = 700
 
 # A file that is long for a reason that does not make it several concerns: a generated or hand-kept table.
+# An exception needs all of: an entry here with the reason, the sentence "Exception to the 700-line rule:" and the
+# same reason in the file's own header, and a line under "Exceptions" in docs/CONTRIBUTING.md. Tell the maintainer
+# in the commit message or the session that an exception was made.
+EXCEPTION_MARKER = "Exception to the 700-line rule:"
 EXEMPT = {
     "src/pkg/parser/syntax_kinds.py": "one table of pyslang syntax and token kinds",
 }
@@ -41,6 +45,18 @@ def test_no_python_file_exceeds_the_size_limit() -> None:
         f"These files are over {MAX_LINES} lines. Split each by concern into a folder of smaller modules "
         "(see docs/TESTING.md and docs/CONTRIBUTING.md) instead of raising the limit:\n" + "\n".join(too_long)
     )
+
+
+def test_every_exempt_file_states_its_exception_in_its_header_and_in_the_docs() -> None:
+    contributing = (ROOT / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    missing = []
+    for rel in EXEMPT:
+        header = " ".join((ROOT / rel).read_text(encoding="utf-8").splitlines()[:30])
+        if EXCEPTION_MARKER not in header:
+            missing.append(f"{rel}: header lacks '{EXCEPTION_MARKER}'")
+        if rel not in contributing:
+            missing.append(f"{rel}: not listed under Exceptions in docs/CONTRIBUTING.md")
+    assert not missing, "; ".join(missing)
 
 
 def test_every_exempt_file_exists_and_is_still_over_the_limit() -> None:

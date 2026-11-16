@@ -4,9 +4,7 @@ import pytest
 
 from src.pkg.handlers.register_handlers import *
 from src.pkg.parser.parse import parse_text
-from src.pkg.rules.simulation_vs_synthesis.procedural_assignment_to_initialized_variable import (
-    ProceduralAssignmentToInitializedVariableRule,
-)
+from src.pkg.rules.simulation_vs_synthesis.procedural.procedural_assignment_to_initialized_variable import ProceduralAssignmentToInitializedVariableRule
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
 from src.pkg.walk.dispatch import dispatch

@@ -4,7 +4,7 @@ import pytest
 
 from src.pkg.handlers.register_handlers import *
 from src.pkg.parser.parse import parse_text
-from src.pkg.rules.connectivity_and_hierarchy.null_port import NullPortRule
+from src.pkg.rules.connectivity_and_hierarchy.instance_connections.null_port import NullPortRule
 from src.pkg.rules.register_rules import rule_runner
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context

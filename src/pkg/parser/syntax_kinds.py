@@ -1,3 +1,8 @@
+"""pyslang syntax and token kinds, one named constant per kind.
+
+Exception to the 700-line rule: this is one table of constants. It has no logic to split by concern, and
+the kind names are looked up here and nowhere else (`tests/meta/test_file_size_limits.py` lists it).
+"""
 import pyslang as sl
 
 

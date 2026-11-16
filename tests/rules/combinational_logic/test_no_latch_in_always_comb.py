@@ -9,6 +9,7 @@ from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.register_rules import rule_runner
 from src.pkg.rules.combinational_logic.no_latch_in_always_comb import NoLatchInAlwaysCombRule
 
+from tests.support.lint_harness import run_inline_lint_case
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
 
@@ -387,3 +388,68 @@ class TestNoLatchInAlwaysComb:
         diagnostics = _diagnostics(code)
         assert len(diagnostics) == 1
         assert diagnostics[0]["code"] == "NO_LATCH_IN_ALWAYS_COMB"
+
+
+def test_scratch_variable_read_only_after_its_write_in_the_block_is_not_a_latch():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top #(parameter KEEP = 1) (input logic a, input logic [3:0] k, output logic [3:0] o);
+          integer i, bit_cnt;
+          always @* begin
+            o = 0;
+            if (a) begin
+              if (KEEP) begin
+                bit_cnt = 0;
+                for (i = 0; i < 4; i = i + 1) if (k[i]) bit_cnt = i;
+                o = o + bit_cnt;
+              end
+            end
+          end
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_LATCH_IN_ALWAYS_COMB")
+
+
+def test_conditionally_assigned_output_port_is_still_a_latch():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(input logic a, output logic y);
+          always_comb begin
+            if (a) y = 1'b1;
+          end
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_LATCH_IN_ALWAYS_COMB")
+
+
+def test_scratch_variable_read_outside_the_block_is_still_a_latch():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(input logic a, input logic [3:0] k, output logic [3:0] o);
+          reg [3:0] seen;
+          always_comb begin
+            if (a) seen = k;
+          end
+          assign o = seen;
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_LATCH_IN_ALWAYS_COMB")
+
+
+def test_scratch_variable_read_before_its_write_is_still_a_latch():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(input logic a, output logic [3:0] o);
+          reg [3:0] t;
+          always_comb begin
+            o = t;
+            if (a) t = 4'd1;
+          end
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_LATCH_IN_ALWAYS_COMB")
+

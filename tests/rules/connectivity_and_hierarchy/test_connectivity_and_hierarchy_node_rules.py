@@ -3,7 +3,7 @@ import pytest
 from src.pkg.parser.parse import parse_file, parse_text
 from src.pkg.parser.types import ImplicitAnsiPortNode, PortDeclarationNode
 from src.pkg.parser.syntax_kinds import BIND_DIRECTIVE_KIND, NET_ALIAS_KIND
-from src.pkg.rules.connectivity_and_hierarchy.no_inout_internal import NoInternalInoutRule
+from src.pkg.rules.connectivity_and_hierarchy.drivers.no_inout_internal import NoInternalInoutRule
 from src.pkg.rules.connectivity_and_hierarchy.no_alias_statement import NoAliasStatementRule
 from src.pkg.rules.connectivity_and_hierarchy.no_bind_directive import NoBindDirectiveRule
 from tests.support.fakes import FakeVNode, fake_vnode

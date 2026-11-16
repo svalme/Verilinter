@@ -10,12 +10,8 @@ from src.pkg.parser.syntax import (
 from src.pkg.parser.syntax_kinds import IDENTIFIER_NAME_KIND
 from src.pkg.parser.types import SyntaxNode, SyntaxTree
 from src.pkg.rules.combinational_logic.no_multiple_drivers import NoMultipleDriversRule
-from src.pkg.rules.connectivity_and_hierarchy.instance_output_driver_conflict import (
-    InstanceOutputDriverConflictRule,
-)
-from src.pkg.rules.connectivity_and_hierarchy.multiple_instance_driver_conflict import (
-    MultipleInstanceDriverConflictRule,
-)
+from src.pkg.rules.connectivity_and_hierarchy.drivers.instance_output_driver_conflict import InstanceOutputDriverConflictRule
+from src.pkg.rules.connectivity_and_hierarchy.drivers.multiple_instance_driver_conflict import MultipleInstanceDriverConflictRule
 from src.pkg.semantic.instance_effects import apply_instance_port_effects
 from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.context import Context
