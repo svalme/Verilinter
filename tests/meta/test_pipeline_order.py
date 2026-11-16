@@ -14,7 +14,9 @@ import pytest
 
 pytestmark = pytest.mark.meta
 
-ENGINE = Path(__file__).resolve().parents[2] / "src" / "pkg" / "engine.py"
+PKG = Path(__file__).resolve().parents[2] / "src" / "pkg"
+ENGINE = PKG / "engine.py"
+WORKERS = PKG / "workers.py"
 
 
 def _function(tree: ast.Module, name: str) -> ast.FunctionDef:
@@ -51,11 +53,16 @@ def engine_tree() -> ast.Module:
     return ast.parse(ENGINE.read_text(encoding="utf-8"))
 
 
+@pytest.fixture(scope="module")
+def workers_tree() -> ast.Module:
+    return ast.parse(WORKERS.read_text(encoding="utf-8"))
+
+
 def test_paths_pipeline_runs_prescans_then_workers_then_merge_then_module_rules(engine_tree: ast.Module) -> None:
     lines = _call_lines(_function(engine_tree, "analyze_paths"))
     _assert_order(
         lines,
-        ["_scan_packages", "_scan_module_ports", "_run_workers", "_build_cross_file_symbol_table", "run", "enrich_diagnostics"],
+        ["scan_packages", "scan_module_ports", "run_workers", "_build_cross_file_symbol_table", "run", "enrich_diagnostics"],
         "analyze_paths",
     )
 
@@ -64,22 +71,22 @@ def test_trees_pipeline_runs_prescans_then_workers_then_merge_then_module_rules(
     lines = _call_lines(_function(engine_tree, "analyze_trees"))
     _assert_order(
         lines,
-        ["_scan_packages_from_trees", "_scan_module_ports_from_trees", "_lint_single_tree", "_build_cross_file_symbol_table", "run"],
+        ["scan_packages_from_trees", "scan_module_ports_from_trees", "lint_single_tree", "_build_cross_file_symbol_table", "run"],
         "analyze_trees",
     )
 
 
-def test_a_file_is_walked_before_instance_effects_and_symbol_rules(engine_tree: ast.Module) -> None:
-    lines = _call_lines(_function(engine_tree, "_lint_single_tree"))
+def test_a_file_is_walked_before_instance_effects_and_symbol_rules(workers_tree: ast.Module) -> None:
+    lines = _call_lines(_function(workers_tree, "lint_single_tree"))
     _assert_order(
         lines,
         ["seed_cross_file_packages", "seed_cross_file_module_ports", "walk", "apply_instance_port_effects", "run"],
-        "_lint_single_tree",
+        "lint_single_tree",
     )
 
 
-def test_workers_receive_both_registries(engine_tree: ast.Module) -> None:
+def test_workers_receive_both_registries(workers_tree: ast.Module) -> None:
     """The worker pool gets the registries as arguments; a worker must not depend on another worker."""
-    workers = _function(engine_tree, "_run_workers")
+    workers = _function(workers_tree, "run_workers")
     argument_names = {arg.arg for arg in workers.args.args + workers.args.kwonlyargs}
     assert {"package_registry", "module_ports"} <= argument_names

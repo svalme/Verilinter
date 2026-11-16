@@ -24,7 +24,8 @@ from ..syntax_kinds import (
 )
 from ..traversal_guard import guarded_traversal
 from ..types import SyntaxNode
-from .expressions import evaluate_constant_expression, unwrap_parentheses
+from .expressions.constant_evaluation import evaluate_constant_expression
+from .expressions.operand_shapes import unwrap_parentheses
 from .literals import constant_integer_value
 from .shared import identifier_name
 from .subroutines import _find_subroutine_in_container_syntax

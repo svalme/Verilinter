@@ -1,7 +1,7 @@
 """Generate-block shape queries: labeled/unlabeled `begin...end` bodies of
 if/loop/case-generate branches, and duplicate branch-label detection."""
 
-from ..syntax_kinds import GENERATE_BLOCK_KIND, GENVAR_KEYWORD_KIND
+from ...syntax_kinds import GENERATE_BLOCK_KIND, GENVAR_KEYWORD_KIND
 
 
 def is_generate_block_node(raw: object) -> bool:
@@ -60,7 +60,7 @@ def duplicate_generate_branch_label(raw: object) -> bool:
     elaboration-time hierarchical-path collision too, but that needs
     module-wide generate-label collection this first pass doesn't attempt.
     """
-    from .node_kind_checks import is_case_generate_node, is_if_generate_node
+    from ..node_kind_checks import is_case_generate_node, is_if_generate_node
 
     labels: list[str] = []
     if is_if_generate_node(raw):
@@ -88,8 +88,8 @@ _MAX_GENERATE_ANCESTORS = 64
 def taken_case_item(case_raw: object, scope: object) -> object | None:
     """The item of a case-generate that the default parameter values select, or None when that cannot
     be decided (a condition or label that is not constant, or a label list that is not understood)."""
-    from .expressions import evaluate_constant_expression
-    from ..syntax_kinds import DEFAULT_CASE_ITEM_KIND, STANDARD_CASE_ITEM_KIND
+    from ..expressions.constant_evaluation import evaluate_constant_expression
+    from ...syntax_kinds import DEFAULT_CASE_ITEM_KIND, STANDARD_CASE_ITEM_KIND
 
     selector = evaluate_constant_expression(getattr(case_raw, "condition", None), scope=scope)
     if selector is None:
@@ -116,8 +116,8 @@ def in_inactive_generate_branch(raw: object, scope: object) -> bool:
     off. Widths, indices and drivers inside such a branch are computed from values the branch is not
     elaborated with, so a finding there describes code that does not exist for the default configuration.
     A condition that cannot be evaluated leaves the branch active."""
-    from .expressions import evaluate_constant_expression
-    from .node_kind_checks import is_case_generate_node, is_if_generate_node
+    from ..expressions.constant_evaluation import evaluate_constant_expression
+    from ..node_kind_checks import is_case_generate_node, is_if_generate_node
 
     child = raw
     for _ in range(_MAX_GENERATE_ANCESTORS):

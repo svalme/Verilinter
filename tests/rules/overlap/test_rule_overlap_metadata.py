@@ -8,7 +8,7 @@ a markdown doc no one is forced to open.
 
 This file is what actually makes the declaration mean something: every declared
 pair must (a) name a real, registered rule code, and (b) have at least one test
-in `tests/rules/overlap/test_rule_overlap_harness.py` that exercises both codes together. That
+in a `tests/rules/overlap/test_rule_overlap_*.py` file that exercises both codes together. That
 closes the gap docs/RULE_IMPLEMENTATION.md's Testing standard describes -- a
 declared overlap can no longer silently lose its regression coverage.
 """
@@ -21,7 +21,7 @@ from pathlib import Path
 from src.pkg.rules.base_diagnostic import BaseDiagnostic
 from src.pkg.rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
 
-OVERLAP_HARNESS_PATH = Path(__file__).parent / "test_rule_overlap_harness.py"
+OVERLAP_HARNESS_PATHS = sorted(Path(__file__).parent.glob("test_rule_overlap_*.py"))
 
 
 def _all_rules() -> list[BaseDiagnostic]:
@@ -51,7 +51,10 @@ def test_overlaps_with_only_references_known_rule_codes() -> None:
 
 
 def test_declared_overlaps_have_a_regression_test_in_the_overlap_harness() -> None:
-    strings_by_test = _string_constants_by_test_function(OVERLAP_HARNESS_PATH.read_text(encoding="utf-8"))
+    strings_by_test: dict[str, set[str]] = {}
+    for path in OVERLAP_HARNESS_PATHS:
+        for name, strings in _string_constants_by_test_function(path.read_text(encoding="utf-8")).items():
+            strings_by_test[f"{path.name}::{name}"] = strings
 
     missing = {
         f"{rule.code} <-> {other}"

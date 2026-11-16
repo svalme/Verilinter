@@ -31,7 +31,7 @@ flowchart TD
     subgraph QueryEngine ["4. Decoupled Query Engine (_syntax_queries/)"]
         Symbols --> RuleDispatch["Rule Walker Dispatch"]
         RuleDispatch --> Shapes["assignment_records.py<br/>assignment_target_and_rhs()"]
-        RuleDispatch --> ExprEngine["expressions.py<br/>simple_expression_width_and_signed()<br/>natural_expression_width_and_signed()"]
+        RuleDispatch --> ExprEngine["width_estimators.py<br/>simple_expression_width_and_signed()<br/>natural_expression_width_and_signed()"]
         RuleDispatch --> ScopeQuery["scope.py<br/>lookup_hierarchical()"]
     end
 
@@ -108,7 +108,7 @@ graph TD
         LOOKUP["Scope.lookup_hierarchical(name)"] --> SYM_OBJ
     end
 
-    subgraph ExpressionEngine ["expressions.py"]
+    subgraph ExpressionEngine ["width_estimators.py"]
         OUT_RHS --> EXPR_ENGINE{"AST Dispatch Evaluator"}
         EXPR --> EXPR_ENGINE
         
@@ -209,7 +209,7 @@ In Verilog and SystemVerilog (IEEE 1800-2017), expressions and assignments are n
 - For shifts (`<<`, `>>`, `<<<`, `>>>`), the shift amount is self-determined; the result width follows the left operand after applicable context sizing. The query reports the independently recoverable left-operand width, not a fully elaborated assignment-context type.
 - Conversely, binary arithmetic operations (`+`, `-`, `*`) are **context-determined**: when assigned to an LHS target or used in larger expressions, their bit width expands to match the largest operand or the target width.
 - When an individual rule attempts to evaluate an expression width on its own, it easily conflates self-determined width with natural/contextual width, causing either false positives (e.g. flagging a valid sign-extension) or false negatives (e.g. missing product overflow).
-- **Architecture Solution**: A single query layer (`expressions.py`) explicitly distinguishes `simple_expression_width_and_signed` (which only resolves self-determined, invariant widths) from `natural_expression_width_and_signed` (which models operation-specific bit-growth).
+- **Architecture Solution**: A single query layer (`width_estimators.py`) explicitly distinguishes `simple_expression_width_and_signed` (which only resolves self-determined, invariant widths) from `natural_expression_width_and_signed` (which models operation-specific bit-growth).
 
 ### B. Multiple Value-Transfer Shapes (LHS & RHS)
 Value transfer occurs across three fundamentally different syntax nodes:
@@ -347,7 +347,7 @@ Add one when two or more rules need the same facts about a construct and each cu
 
 Verilinter employs dependency injection (DI) across its analysis pipeline, walker, and AST handlers to enable isolated testing, mock backends, and decoupled extension:
 
-### A. Pipeline & Storage Dependency Injection (`engine.py`)
+### A. Pipeline & Storage Dependency Injection (`engine.py`, with `prescans.py` and `workers.py`)
 `LintPipeline` accepts optional dependency injection in its constructor:
 - `rule_runner`: Custom or filtered `RuleRunner` instance for syntax AST rules.
 - `symbol_rule_runner`: Custom `SymbolRuleRunner` instance for per-file symbol table rules.
@@ -469,8 +469,8 @@ All syntax query modules in `src/pkg/parser/_syntax_queries/` use the `Traversal
 | `extract_assignment_target_and_selectors` (`shapes.py`) | `@guarded_traversal` | 64 | `(None, [])` |
 | `target_leaves` (`assignment_records.py`) | `@guarded_traversal` | 64 | `()` |
 | `write_region_of_identifier` (`write_regions.py`) | `@guarded_traversal` | 64 | `()` |
-| `evaluate_constant_expression` (`expressions.py`) | `@guarded_traversal` | 16 | `None` |
-| `simple_expression_width_and_signed` (`expressions.py`) | `@guarded_traversal` (`node_arg="expr"`) | 32 | `(None, None)` |
+| `evaluate_constant_expression` (`constant_evaluation.py`) | `@guarded_traversal` | 16 | `None` |
+| `simple_expression_width_and_signed` (`width_estimators.py`) | `@guarded_traversal` (`node_arg="expr"`) | 32 | `(None, None)` |
 | `_unconditional_assignment_targets` (`no_latch_in_always_comb.py`) | `@guarded_traversal` | 64 | `set()` |
 | `_analyze_statement_latch` (`no_latch_in_always_comb.py`) | `@guarded_traversal` | 64 | `(False, set())` |
 | `_check_selects` (`no_assignment_width_mismatch.py`) | `@guarded_traversal` | 64 | `None` |
@@ -511,7 +511,7 @@ To ensure total transparency, Verilinter provides an integrated **Analysis Trunc
      - Defensively queries `tree.sourceManager` on raw `pyslang.syntax.SyntaxNode` using the active file context.
 
 4. **Multi-Process Pipeline Integration**:
-   - `_lint_single_tree` collects truncation records during worker analysis.
+   - `lint_single_tree` collects truncation records during worker analysis.
    - Records are serialized across worker process boundaries in `WorkerResult.truncations` and aggregated into `AnalysisResult.truncations`.
    - SQLite cache stores and retrieves truncation records seamlessly alongside file diagnostics.
 
@@ -616,10 +616,10 @@ Below is the complete audit of every recursion limit, traversal depth ceiling, a
 
 | Subsystem Layer | Target Operation / Function | Source Location | Ceiling Limit | Boundary Mechanism | Fallback / Abort Behavior | Telemetry Recorded |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Expression Evaluation** | `eval_constant_int` / `evaluate_constant_expression` | `_syntax_queries/expressions.py` | `max_depth = 64` | `@guarded_traversal` + Iterative spine flattening | Returns `None` | `max_depth` event with source line/col |
-| **Expression Evaluation** | `simple_expression_width_and_signed` | `_syntax_queries/expressions.py` | `max_depth = 64` | `@guarded_traversal` + Iterative ternary unrolling | Returns `(None, None)` | `max_depth` event with source line/col |
-| **Expression Evaluation** | `expression_width_and_signed` | `_syntax_queries/expressions.py` | `max_depth = 64` | `@guarded_traversal` + Iterative binary flattening | Returns `(None, None)` | `max_depth` event with source line/col |
-| **Expression Evaluation** | `natural_expression_width_and_signed` | `_syntax_queries/expressions.py` | `max_depth = 128` | `@guarded_traversal` + Iterative arithmetic/ternary flattening | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `eval_constant_int` / `evaluate_constant_expression` | `_syntax_queries/expressions/constant_evaluation.py` | `max_depth = 64` | `@guarded_traversal` + Iterative spine flattening | Returns `None` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `simple_expression_width_and_signed` | `_syntax_queries/expressions/width_estimators.py` | `max_depth = 64` | `@guarded_traversal` + Iterative ternary unrolling | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `expression_width_and_signed` | `_syntax_queries/expressions/width_estimators.py` | `max_depth = 64` | `@guarded_traversal` + Iterative binary flattening | Returns `(None, None)` | `max_depth` event with source line/col |
+| **Expression Evaluation** | `natural_expression_width_and_signed` | `_syntax_queries/expressions/width_estimators.py` | `max_depth = 128` | `@guarded_traversal` + Iterative arithmetic/ternary flattening | Returns `(None, None)` | `max_depth` event with source line/col |
 | **Identifier Access** | `contains_descendant` / `_involves_symbol` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
 | **Identifier Access** | `_expr_reads_symbol` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
 | **Identifier Access** | `_is_loop_index_var` | `_syntax_queries/access.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
@@ -628,11 +628,11 @@ Below is the complete audit of every recursion limit, traversal depth ceiling, a
 | **Shapes & Structure** | `extract_memory_dimensions` | `_syntax_queries/shapes.py` | `max_depth = 64` | `@guarded_traversal` | Returns `(None, [])` | `max_depth` / `cycle_detected` |
 | **Shapes & Structure** | `find_parent_of_type` | `_syntax_queries/shapes.py` | `max_depth = 32` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
 | **Loop Analysis** | `contains_loop` | `_syntax_queries/loops.py` | `max_depth = 64` | `@guarded_traversal` | Returns `False` | `max_depth` / `cycle_detected` |
-| **Procedural Logic** | `_collect_body` | `_syntax_queries/procedural.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
-| **Procedural Logic** | `_walk_procedural_events` | `_syntax_queries/procedural.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
-| **Procedural Logic** | `_walk_procedural_blocks` | `_syntax_queries/procedural.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
-| **Procedural Logic** | `_first_blocking_assignment_before` | `_syntax_queries/procedural.py` | `max_depth = 64` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
-| **Procedural Logic** | `_find_enclosing_loop` | `_syntax_queries/procedural.py` | `max_depth = 32` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_collect_body` | `_syntax_queries/procedural/blocks.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_walk_procedural_events` | `_syntax_queries/procedural/blocks.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_walk_procedural_blocks` | `_syntax_queries/procedural/blocks.py` | `max_depth = 128` | `@guarded_generator` | Halts yield iteration | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_first_blocking_assignment_before` | `_syntax_queries/procedural/blocks.py` | `max_depth = 64` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
+| **Procedural Logic** | `_find_enclosing_loop` | `_syntax_queries/procedural/blocks.py` | `max_depth = 32` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |
 | **Rule Checker** | `_find_blocking_assigned_vars` | `rules/combinational_logic/no_latch_in_always_comb.py` | `max_depth = 64` | `@guarded_traversal` | Returns `set()` | `max_depth` / `cycle_detected` |
 | **Rule Checker** | `_check_case_branches` | `rules/combinational_logic/no_latch_in_always_comb.py` | `max_depth = 64` | `@guarded_traversal` | Returns `(False, set())` | `max_depth` / `cycle_detected` |
 | **Rule Checker** | `_infer_expr_width` | `rules/width_and_signedness/no_assignment_width_mismatch.py` | `max_depth = 64` | `@guarded_traversal` | Returns `None` | `max_depth` / `cycle_detected` |

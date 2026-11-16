@@ -7,7 +7,7 @@ from ..syntax_kinds import (
 )
 from ..traversal_guard import guarded_traversal
 from ..types import ProceduralBlockNode, SyntaxNode
-from .expressions import simple_expression_width_and_signed
+from .expressions.width_estimators import simple_expression_width_and_signed
 from .shared import raw_node_children
 
 
@@ -245,7 +245,7 @@ def is_combinational_driver_block(driver_block: "BaseVNode") -> bool:
 
 
 def is_sequential_driver_block(driver_block: "BaseVNode") -> bool:
-    from .procedural import is_sequential_style_procedural_block
+    from .procedural.sensitivity_and_reset import is_sequential_style_procedural_block
 
     return is_sequential_style_procedural_block(driver_block.raw)
 
@@ -267,7 +267,7 @@ def enclosing_case_statement(ctx: "Context") -> "BaseVNode | None":
 
 
 def _conditional_references_any_name(raw: object, names: set[str] | frozenset[str]) -> bool:
-    from .procedural import _iter_identifier_nodes
+    from .procedural.blocks import iter_identifier_nodes
 
     predicate = getattr(raw, "predicate", None)
     conditions = getattr(predicate, "conditions", None) or []
@@ -275,7 +275,7 @@ def _conditional_references_any_name(raw: object, names: set[str] | frozenset[st
         expr = getattr(condition, "expr", None)
         if expr is None:
             continue
-        for name, _identifier in _iter_identifier_nodes(expr):
+        for name, _identifier in iter_identifier_nodes(expr):
             if name in names:
                 return True
     return False
@@ -399,6 +399,6 @@ def assignment_right(raw: object) -> SyntaxNode | None:
     return right if isinstance(right, SyntaxNode) else None
 
 
-# Re-exported from .expressions for backward compatibility
+# Re-exported from .width_estimators for backward compatibility
 __all_expressions = [simple_expression_width_and_signed]
 

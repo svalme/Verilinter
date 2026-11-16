@@ -364,7 +364,8 @@ def is_tristate_continuous_assign(raw: object) -> bool:
 
 
 def _extract_case_pattern(expr: object, wildcards: str) -> tuple[int, str] | None:
-    from .expressions import evaluate_constant_expression, unwrap_parentheses
+    from .expressions.constant_evaluation import evaluate_constant_expression
+    from .expressions.operand_shapes import unwrap_parentheses
 
     unwrapped = unwrap_parentheses(expr)
     kind = getattr(unwrapped, "kind", None)
@@ -475,7 +476,8 @@ def has_case_overlapping_items(raw: object) -> bool:
         case_statement_items,
         is_case_statement,
     )
-    from .expressions import evaluate_constant_expression, unwrap_parentheses
+    from .expressions.constant_evaluation import evaluate_constant_expression
+    from .expressions.operand_shapes import unwrap_parentheses
 
     if not is_case_statement(raw):
         return False

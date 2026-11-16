@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from ..syntax_kinds import (
+from ...syntax_kinds import (
     ADD_ASSIGNMENT_KIND,
     ASSIGNMENT_EXPRESSION_KIND,
     ELSE_CLAUSE_KIND,
@@ -18,10 +18,10 @@ from ..syntax_kinds import (
     PREINCREMENT_EXPRESSION_KIND,
     SUBTRACT_ASSIGNMENT_KIND,
 )
-from .expressions import evaluate_constant_expression, evaluate_constant_text_expression
-from .generate_blocks import loop_generate_genvar_name, taken_case_item
-from .node_kind_checks import is_case_generate_node, is_if_generate_node
-from .shared import identifier_name
+from ..expressions.constant_evaluation import evaluate_constant_expression, evaluate_constant_text_expression
+from .blocks import loop_generate_genvar_name, taken_case_item
+from ..node_kind_checks import is_case_generate_node, is_if_generate_node
+from ..shared import identifier_name
 
 _MAX_ITERATIONS = 256
 _MAX_BINDINGS = 1024

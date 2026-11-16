@@ -31,19 +31,23 @@ from ._syntax_queries.access import (
     is_within_async_reset_conditional,
     unary_write_operand,
 )
-from ._syntax_queries.expressions import (
+from ._syntax_queries.expressions.operand_shapes import (
     has_explicit_signedness_cast,
-    compute_sliced_width,
-    evaluate_constant_expression,
     is_sign_neutral_expression,
-    evaluate_constant_text_expression,
-    evaluate_packed_dimension_bounds,
-    expression_width_and_signed,
-    natural_expression_width_and_signed,
-    simple_expression_width_and_signed,
     is_width_bounded_operand,
     is_context_determined_expression,
     unwrap_parentheses,
+)
+from ._syntax_queries.expressions.select_widths import compute_sliced_width
+from ._syntax_queries.expressions.constant_evaluation import (
+    evaluate_constant_expression,
+    evaluate_constant_text_expression,
+    evaluate_packed_dimension_bounds,
+)
+from ._syntax_queries.expressions.width_estimators import (
+    expression_width_and_signed,
+    natural_expression_width_and_signed,
+    simple_expression_width_and_signed,
 )
 from ._syntax_queries.fsm import (
     state_machine_model,
@@ -60,29 +64,30 @@ from ._syntax_queries.package_scoping import (
     scoped_name_package_qualifier,
     tree_has_package_declaration,
 )
-from ._syntax_queries.procedural import (
+from ._syntax_queries.procedural.sensitivity_and_reset import (
     async_reset_signal_edges,
     async_reset_signal_names,
-    branch_exclusivity_signature,
     classify_reset_style,
-    construct_branch_metadata,
     enclosing_combinational_style_always_block,
     is_async_reset_read_as_data,
     is_combinational_style_always_block,
     is_multi_clock_procedural_block,
-    is_mutually_exclusive_branch_pair,
-    iter_assignment_nodes,
-    iter_identifier_reads,
     missing_sensitivity_trigger_nodes,
     module_async_reset_signals,
-    procedural_block_assignment_triggers,
     procedural_block_async_reset_signals,
     procedural_block_edge_events,
     procedural_block_sensitivity_names,
     procedural_block_top_level_reset_names,
-    procedural_nesting_depth,
     sync_clock_signal_name,
 )
+from ._syntax_queries.procedural.branches import (
+    branch_exclusivity_signature,
+    construct_branch_metadata,
+    is_mutually_exclusive_branch_pair,
+    iter_assignment_nodes,
+    procedural_block_assignment_triggers,
+)
+from ._syntax_queries.procedural.blocks import iter_identifier_reads, procedural_nesting_depth
 from ._syntax_queries.shapes import (
     element_select_index_or_range,
     extract_assignment_target_and_selectors,
@@ -146,7 +151,7 @@ from ._syntax_queries.conditional_shapes import (
     iter_statement_nodes,
     procedural_block_statement,
 )
-from ._syntax_queries.generate_blocks import (
+from ._syntax_queries.generate.blocks import (
     duplicate_generate_branch_label,
     in_inactive_generate_branch,
     is_unlabeled_generate_block,

@@ -123,14 +123,14 @@ def is_illegal_indexed_part_select_width(raw: object, scope: object = None) -> b
     if width_node is None:
         return True
 
-    from .expressions import evaluate_constant_expression
-    from .procedural import _iter_identifier_nodes
+    from .expressions.constant_evaluation import evaluate_constant_expression
+    from .procedural.blocks import iter_identifier_nodes
 
     val = evaluate_constant_expression(width_node, scope=scope)
     if val is not None:
         return val <= 0
 
-    idents = list(_iter_identifier_nodes(width_node))
+    idents = list(iter_identifier_nodes(width_node))
     if not idents:
         return True
 

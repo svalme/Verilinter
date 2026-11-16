@@ -60,6 +60,16 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `test_ast_malformed_stress.py`: malformed AST stress tests covering pathological parser error recovery trees, deep nesting beyond traversal limits, broken node attributes, cyclic scope hierarchies, cyclic context chains, and walker resilience.
 - `test_harness_nesting_stress.py`: end-to-end extreme nesting and stress tests through the full `LintPipeline` under `terminates_within` covering 60 levels of nested conditionals, 50 levels of nested case statements, 100-level parenthesized expressions, 80-level concatenations, 50-level generate blocks, and 50-module instantiation hierarchy chains.
 
+## File organization
+
+A test file stays under 700 lines (`tests/meta/test_file_size_limits.py` fails above that) and covers one concern: one rule, one subsystem, or one group of closely related rules. Do not collect many rules' tests into one module that "everything reports to".
+
+- A file that grows past the limit is split by concern and the pieces are grouped in a folder named for the group, for example `tests/cli/run_lint/` (instance, signal, statement and net rules), `tests/semantic/symbols/`, `tests/rules/width_and_signedness/assignment/`, `tests/rules/connectivity_and_hierarchy/undriven/`.
+- Node-rule tests live next to the rule's category: `tests/rules/<category>/test_<category>_node_rules.py`, one class per rule; a category with many rules is split by theme (`tests/rules/simulation_vs_synthesis/test_simulation_procedural_constructs.py`).
+- Helpers or fixtures used by more than one test file go in `tests/support/`; a helper used by one file stays in that file.
+- A test file that reads `tests/data/` builds the path from `Path(__file__)`, so moving it deeper needs one more `.parent` (or a higher `.parents[n]`).
+- After moving or splitting test files, regenerate `docs/FIXTURE_USAGE.md` (`UPDATE_EXPECTED=1 pytest tests/meta/test_fixture_usage_doc.py`) and update the test paths in the rule's row in `docs/RULES.md`.
+
 ## Pytest markers
 
 Markers registered in `pyproject.toml`:

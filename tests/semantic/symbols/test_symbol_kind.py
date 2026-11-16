@@ -9,7 +9,7 @@ import pytest
 from src.pkg.semantic.symbol import Symbol
 from src.pkg.semantic.symbol_kind import SymbolKind
 
-SRC_DIR = Path(__file__).resolve().parents[2] / "src" / "pkg"
+SRC_DIR = Path(__file__).resolve().parent.parents[2] / "src" / "pkg"
 KIND_VALUES = {kind.value for kind in SymbolKind}
 
 

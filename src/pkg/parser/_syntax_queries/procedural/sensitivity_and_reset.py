@@ -1,89 +1,28 @@
-from collections.abc import Iterator
+"""Sensitivity lists, edge events, clocks and resets of a procedural block, and the combinational or sequential style they decide."""
+from __future__ import annotations
 
-from ..syntax_kinds import (
+from ...syntax_kinds import (
     ALWAYS_BLOCK_KIND,
     ALWAYS_FF_BLOCK_KIND,
     BLOCK_ITEM_SKIP_KINDS,
-    CASE_ITEM_KINDS,
-    CASE_STATEMENT_KIND,
     EVENT_CONTROL_OR_EXPRESSION_KINDS,
-    EXPRESSION_STATEMENT_KIND,
     INVOCATION_EXPRESSION_KIND,
-    NONBLOCKING_ASSIGNMENT_KIND,
-    SIMPLE_ASSIGNMENT_KINDS,
     TIMING_CONTROL_STATEMENT_KIND,
 )
-from ..traversal_guard import guarded_generator, guarded_traversal
-from ..types import (
+from ...traversal_guard import guarded_traversal
+from ...types import (
     BinaryEventExpressionNode,
     ImplicitEventControlNode,
     ParenthesizedEventExpressionNode,
-    ProceduralBlockNode,
     SignalEventExpressionNode,
     SyntaxNode,
-    SyntaxTree,
 )
-from .shared import identifier_name, same_expression
-
-
-def _node_syntax_children(node: object) -> Iterator[SyntaxNode]:
-    try:
-        children = iter(node)
-    except TypeError:
-        return
-    for child in children:
-        if isinstance(child, SyntaxNode):
-            yield child
-
-
-def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
-    """Yield (name, raw_node) for every read-access identifier under `root`, in document
-    order. Does not descend into a nested procedural block."""
-
-    from ..syntax_queries import identifier_name, is_identifier_name_node
-    from .access import _identifier_access_modes_over_ancestors
-
-    if not isinstance(root, SyntaxNode):
-        return
-
-    @guarded_generator(max_depth=128)
-    def _walk(node: SyntaxNode, ancestors: list[object]) -> Iterator[tuple[str, SyntaxNode]]:
-        if is_identifier_name_node(node):
-            name = identifier_name(node)
-            if name:
-                is_read, _is_write = _identifier_access_modes_over_ancestors(ancestors, node)
-                if is_read:
-                    yield name, node
-
-        ancestors.append(node)
-        try:
-            for child in _node_syntax_children(node):
-                if not isinstance(child, ProceduralBlockNode):
-                    yield from _walk(child, ancestors)
-        finally:
-            ancestors.pop()
-
-    yield from _walk(root, [])
-
-
-@guarded_generator(max_depth=128)
-def _iter_identifier_nodes(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
-    from ..syntax_queries import identifier_name, is_identifier_name_node
-
-    if not isinstance(root, SyntaxNode):
-        return
-
-    if is_identifier_name_node(root):
-        name = identifier_name(root)
-        if name:
-            yield name, root
-
-    for child in _node_syntax_children(root):
-        yield from _iter_identifier_nodes(child)
+from ..shared import identifier_name
+from .blocks import iter_identifier_nodes, iter_identifier_reads
 
 
 def _collect_sensitivity_events(node: object) -> tuple[set[str], bool]:
-    from ..syntax_queries import is_negedge_event, is_posedge_event
+    from ...syntax_queries import is_negedge_event, is_posedge_event
 
     names: set[str] = set()
     has_edge = False
@@ -103,7 +42,7 @@ def _collect_sensitivity_events(node: object) -> tuple[set[str], bool]:
                 has_edge = True
             expr = getattr(current, "expr", None)
             if isinstance(expr, SyntaxNode):
-                for name, _identifier in _iter_identifier_nodes(expr):
+                for name, _identifier in iter_identifier_nodes(expr):
                     names.add(name)
 
     _collect(node)
@@ -162,12 +101,11 @@ def is_sequential_style_procedural_block(raw: object) -> bool:
     return has_edge
 
 
-
 def _inspect_edge_events(raw: object) -> tuple[int, list[tuple[str, str]]]:
     """Walk `raw`'s sensitivity-list event expression once, returning
     `(edge_clause_count, [(edge_kind, signal_name), ...])`.
     """
-    from ..syntax_queries import is_negedge_event, is_posedge_event
+    from ...syntax_queries import is_negedge_event, is_posedge_event
 
     if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
         return 0, []
@@ -204,7 +142,7 @@ def _inspect_edge_events(raw: object) -> tuple[int, list[tuple[str, str]]]:
                 edge_count += 1
                 expr = getattr(current, "expr", None)
                 if isinstance(expr, SyntaxNode):
-                    for name, _identifier in _iter_identifier_nodes(expr):
+                    for name, _identifier in iter_identifier_nodes(expr):
                         events.append((edge, name))
 
     _walk(getattr(event_control, "expr", None))
@@ -272,12 +210,11 @@ def procedural_block_edge_events(raw: object) -> list[tuple[str, str]]:
     return events
 
 
-
 def procedural_block_top_level_reset_names(raw: object) -> set[str]:
     """Return the set of signal names tested in the top-level `if` (and chained
     `else if`) condition predicates of procedural block `raw`.
     """
-    from ..syntax_queries import is_block_statement, is_conditional_statement
+    from ...syntax_queries import is_block_statement, is_conditional_statement
 
     if getattr(raw, "kind", None) not in (ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND):
         return set()
@@ -307,7 +244,7 @@ def procedural_block_top_level_reset_names(raw: object) -> set[str]:
         depth += 1
         pred = getattr(curr, "predicate", None)
         if isinstance(pred, SyntaxNode):
-            for name, _ in _iter_identifier_nodes(pred):
+            for name, _ in iter_identifier_nodes(pred):
                 reset_names.add(name)
         else_clause = getattr(curr, "elseClause", None)
         if else_clause is None:
@@ -394,7 +331,7 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
     signal as a data operand rather than in an event list, port connection,
     assertion, system task, or the top-level reset control predicate.
     """
-    from ..syntax_queries import (
+    from ...syntax_queries import (
         contains_descendant,
         enclosing_port_connection,
         enclosing_procedural_block,
@@ -407,7 +344,7 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
         is_immediate_assertion_node,
         system_task_name,
     )
-    from ..types import SignalEventExpressionNode
+    from ...types import SignalEventExpressionNode
 
     if not is_identifier_name_node(vnode.raw):
         return False
@@ -488,24 +425,6 @@ def is_async_reset_read_as_data(vnode: "BaseVNode", ctx: "Context") -> bool:
     return True
 
 
-def procedural_nesting_depth(ctx: "Context") -> int:
-    """Count block/conditional/case-statement ancestors above the current
-    position, back to (but not including) the nearest enclosing procedural
-    block. The current node itself is excluded -- callers add 1 back in for
-    it. Loop statements are deliberately not counted -- `DEEPLY_NESTED_BLOCK`
-    only tracks begin/end and if/case nesting, not loop-body nesting.
-    """
-    from ..syntax_queries import is_block_statement, is_case_statement, is_conditional_statement, is_procedural_block
-
-    depth = 0
-    for ancestor in ctx.iter_ancestors(include_self=False):
-        if is_procedural_block(ancestor.raw):
-            break
-        if is_block_statement(ancestor.raw) or is_conditional_statement(ancestor.raw) or is_case_statement(ancestor.raw):
-            depth += 1
-    return depth
-
-
 def enclosing_combinational_style_always_block(ctx: "Context") -> "BaseVNode | None":
     block_frame = getattr(ctx, "block_frame", None)
     ctx_data = getattr(ctx, "data", None)
@@ -525,7 +444,7 @@ def enclosing_combinational_style_always_block(ctx: "Context") -> "BaseVNode | N
 
 
 def missing_sensitivity_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode]:
-    from ..syntax_queries import procedural_block_statement
+    from ...syntax_queries import procedural_block_statement
 
     sensitivity_names = procedural_block_sensitivity_names(block_raw)
     if sensitivity_names is None:
@@ -541,268 +460,3 @@ def missing_sensitivity_trigger_nodes(block_raw: object) -> dict[str, SyntaxNode
         if name not in sensitivity_names and name not in missing:
             missing[name] = node
     return missing
-
-
-@guarded_generator(max_depth=128)
-def iter_assignment_nodes(node: SyntaxNode) -> Iterator[SyntaxNode]:
-    from ..syntax_queries import is_assignment_expression
-
-    if not isinstance(node, SyntaxNode):
-        return
-
-    if is_assignment_expression(node):
-        yield node
-
-    for child in _node_syntax_children(node):
-        if isinstance(child, ProceduralBlockNode):
-            continue
-        yield from iter_assignment_nodes(child)
-
-
-def _enclosing_statement_parent(node: object) -> object:
-    """Return the syntax parent of `node`'s nearest enclosing `ExpressionStatement`.
-
-    Two nonblocking writes to the same target sharing this identity are direct
-    siblings in the same straight-line statement list -- the second unconditionally
-    overwrites the first, making the first dead. Two writes in different branches
-    of the same `if`/`else`/`case` (or an unconditional default write followed by a
-    *nested* conditional override, the standard "default assignment" idiom) get
-    different parents here on purpose: `if`'s own body and its `ElseClause` are
-    distinct nodes even though both hang off the same `ConditionalStatement`, and a
-    conditionally-nested override's parent is the conditional, not the default
-    write's own enclosing block. A node with no `ExpressionStatement` ancestor (shouldn't
-    happen for an assignment used as a statement) gets a unique sentinel so it
-    never spuriously matches another write.
-    """
-    if not isinstance(node, SyntaxNode):
-        return object()
-    stmt = node
-    depth = 0
-    while stmt is not None and getattr(stmt, "kind", None) != EXPRESSION_STATEMENT_KIND and depth < 64:
-        depth += 1
-        stmt = getattr(stmt, "parent", None)
-    if stmt is None or depth >= 64:
-        return object()
-    return getattr(stmt, "parent", None)
-
-
-def _is_repeated_sibling_write(
-    seen: list[tuple[object, object]], parent: object, target: object
-) -> bool:
-    """True when an earlier write in `seen` (statement parent, target expression) came from the same
-    statement parent and wrote the same target. `a[0] <= x; a[1] <= y;` writes different parts of `a`."""
-    return any(parent is earlier_parent and same_expression(target, earlier_target) for earlier_parent, earlier_target in seen)
-
-
-def procedural_block_assignment_triggers(
-    block_raw: object,
-) -> tuple[SyntaxNode | None, dict[str, SyntaxNode]]:
-    """Compute `(mixed_assignment_trigger_node, multiple_nonblocking_write_trigger_nodes)` for a block
-    in a single `iter_assignment_nodes` pass.
-
-    The mixed-style trigger is the first assignment whose blocking or non-blocking kind differs from the
-    block's first assignment (a compound `x += y` is a blocking assignment). The repeated-write
-    triggers are `{target_name: second_write_node}` for a target written by two *direct-sibling*
-    non-blocking assignments to the same reference -- see `_enclosing_statement_parent` for exactly what
-    "sibling" excludes (mutually exclusive branches, and the unconditional-default-then-nested-override
-    idiom), both deliberately not flagged since only the sibling case is definitely dead code rather
-    than ordinary, correct RTL control flow.
-    """
-    if not isinstance(block_raw, SyntaxNode):
-        return None, {}
-
-    from ...semantic.models.assignment_record import AssignmentKind
-    from .assignment_records import assignment_view
-
-    mix_trigger: SyntaxNode | None = None
-    first_is_nonblocking: bool | None = None
-    nb_triggers: dict[str, SyntaxNode] = {}
-    seen_targets_by_name: dict[str, list[tuple[object, object]]] = {}
-
-    for node in iter_assignment_nodes(block_raw):
-        view = assignment_view(node)
-        if view is None:
-            continue
-        is_nonblocking = view.kind == AssignmentKind.NONBLOCKING
-        if first_is_nonblocking is None:
-            first_is_nonblocking = is_nonblocking
-        elif mix_trigger is None and is_nonblocking != first_is_nonblocking:
-            mix_trigger = node
-
-        if not is_nonblocking:
-            continue
-        parent = _enclosing_statement_parent(node)
-        for leaf in view.leaves:
-            name = identifier_name(leaf)
-            if name is None:
-                continue
-            seen = seen_targets_by_name.setdefault(name, [])
-            if name not in nb_triggers and _is_repeated_sibling_write(seen, parent, leaf):
-                nb_triggers[name] = node
-            seen.append((parent, leaf))
-
-    return mix_trigger, nb_triggers
-
-
-BranchSignature = tuple[tuple[str, int], ...]
-
-
-def _construct_identity(construct: object, tree: SyntaxTree | None = None) -> str:
-    """Return a deterministic string identity for an enclosing branching construct.
-
-    Uses `file:line:col` via the syntax tree's sourceManager when available. A
-    construct produced by a macro expansion reports line and column 0 of a
-    per-expansion buffer, so it is identified by its outermost expansion site
-    in the real file plus its offset inside the macro body: two expansions of
-    one macro, even on the same line, get different identities. Without a
-    resolvable location the object id is used, which cannot collide within the
-    one process a tree-less caller runs in.
-    """
-    source_range = getattr(construct, "sourceRange", None)
-    start = getattr(source_range, "start", None)
-    if start is not None and tree is not None and getattr(tree, "sourceManager", None) is not None:
-        sm = tree.sourceManager
-        try:
-            if sm.isMacroLoc(start):
-                expanded = sm.getFullyExpandedLoc(start)
-                original = sm.getFullyOriginalLoc(start)
-                return (
-                    f"{sm.getFileName(expanded)}:{sm.getLineNumber(expanded)}:"
-                    f"{sm.getColumnNumber(expanded)}@{expanded.offset}+{original.offset}"
-                )
-            return f"{sm.getFileName(start)}:{sm.getLineNumber(start)}:{sm.getColumnNumber(start)}"
-        except Exception:
-            pass
-    return f"id:{id(construct)}"
-
-
-def construct_branch_metadata(
-    construct: object, tree: SyntaxTree | None = None
-) -> tuple[set[int] | None, BranchSignature]:
-    """Return `(required_branches, parent_signature)` for a branching construct.
-
-    For `if`/`else` (`ConditionalStatement`, `IfGenerate`):
-        required_branches is `{0, 1}` if an `else` clause is present, else `None`.
-    For `case` (`CaseStatement`, `CaseGenerate`):
-        required_branches is `set(range(len(items)))` if a `default` case item or
-        `unique`/`priority` qualifier is present, else `None`.
-    """
-    from ..syntax_kinds import DEFAULT_CASE_ITEM_KIND
-    from ..syntax_queries import has_default_case_item, is_conditional_statement
-    from .node_kind_checks import is_case_generate_node, is_if_generate_node
-
-    parent_sig = branch_exclusivity_signature(construct, tree)
-
-    if is_conditional_statement(construct) or is_if_generate_node(construct):
-        else_clause = getattr(construct, "elseClause", None)
-        required_branches = {0, 1} if else_clause is not None else None
-        return required_branches, parent_sig
-
-    if getattr(construct, "kind", None) == CASE_STATEMENT_KIND or is_case_generate_node(construct):
-        items = getattr(construct, "items", ())
-        has_default = has_default_case_item(construct) or any(
-            getattr(it, "kind", None) == DEFAULT_CASE_ITEM_KIND for it in items
-        )
-        unique_or_priority = getattr(construct, "uniqueOrPriority", None)
-        has_unique_priority = bool(unique_or_priority)
-        required_branches = (
-            set(range(len(items))) if ((has_default or has_unique_priority) and len(items) > 0) else None
-        )
-        return required_branches, parent_sig
-
-    return None, parent_sig
-
-
-def branch_exclusivity_signature(
-    raw: object,
-    tree: SyntaxTree | None = None,
-    construct_registry: dict[str, tuple[set[int] | None, BranchSignature]] | None = None,
-) -> BranchSignature:
-    """Return `((construct_identity, branch_taken), ...)` for every enclosing
-    conditional construct (procedural `if`/`else`, generate `if`/`else`,
-    procedural `case`, or generate `case`, mixed freely in any nesting order)
-    between `raw` and the module root, outermost last.
-
-    Generalizes `_enclosing_statement_parent`'s sibling-vs-branch distinction from
-    "one target written twice in one block" to "any two nodes anywhere, possibly in
-    different blocks or different generate branches entirely" -- exactly what
-    `is_mutually_exclusive_branch_pair` needs to tell a real simultaneous conflict
-    (multiple drivers, a dependency cycle) from two mutually-exclusive alternatives
-    that can never both apply, whether the choice is made at elaboration time
-    (`generate if (PARAM) ... else ...`, `case generate`, e.g. choosing a multiplier implementation)
-    or at runtime (`if (rst) ... else ...`, procedural `case (state) ... endcase`).
-
-    An `else if` chain works out correctly without special-casing it: each
-    `ConditionalStatement`/`IfGenerate` in the chain is its own construct with its
-    own identity, so a deeper `else if`'s branches only share a construct identity
-    (and only conflict) with siblings under that same link of the chain.
-
-    Construct identities are location-based (`file:line:col` via `_construct_identity`),
-    making signatures deterministic across independent syntax trees, multi-process
-    workers, and persistent cache storage.
-    """
-    from ..syntax_queries import is_conditional_statement, is_else_clause_node
-    from .node_kind_checks import is_case_generate_node, is_if_generate_node
-
-    if not isinstance(raw, SyntaxNode):
-        return ()
-
-    signature: list[tuple[str, int]] = []
-    construct_nodes: list[object] = []
-    node = raw
-    parent = getattr(node, "parent", None)
-    depth = 0
-    while parent is not None and depth < 64:
-        depth += 1
-        if is_else_clause_node(parent):
-            construct = getattr(parent, "parent", None)
-            if construct is not None:
-                signature.append((_construct_identity(construct, tree), 1))
-                construct_nodes.append(construct)
-        elif is_conditional_statement(parent) or is_if_generate_node(parent):
-            primary = getattr(parent, "statement", None)
-            if primary is None:
-                primary = getattr(parent, "block", None)
-            if node is primary:
-                signature.append((_construct_identity(parent, tree), 0))
-                construct_nodes.append(parent)
-        elif getattr(parent, "kind", None) in CASE_ITEM_KINDS:
-            clause = getattr(parent, "clause", None)
-            if node is clause:
-                construct = getattr(parent, "parent", None)
-                if construct is not None and (
-                    getattr(construct, "kind", None) == CASE_STATEMENT_KIND or is_case_generate_node(construct)
-                ):
-                    items = getattr(construct, "items", ())
-                    branch_idx = next((i for i, it in enumerate(items) if it is parent), -1)
-                    if branch_idx >= 0:
-                        signature.append((_construct_identity(construct, tree), branch_idx))
-                        construct_nodes.append(construct)
-        node = parent
-        parent = getattr(parent, "parent", None)
-
-    sig_tuple = tuple(signature)
-    if construct_registry is not None:
-        for i, (cid, _bidx) in enumerate(signature):
-            if cid not in construct_registry:
-                construct_node = construct_nodes[i]
-                parent_sig = sig_tuple[i + 1:]
-                req_branches, _ = construct_branch_metadata(construct_node, tree)
-                construct_registry[cid] = (req_branches, parent_sig)
-
-    return sig_tuple
-
-
-def is_mutually_exclusive_branch_pair(sig_a: BranchSignature, sig_b: BranchSignature) -> bool:
-    """True if `sig_a`/`sig_b` (each from `branch_exclusivity_signature`) share an
-    enclosing `if`/`else` construct where they take different branches -- at most
-    one of the two nodes they came from can ever execute or be elaborated, so a
-    rule comparing them for a simultaneous conflict should treat the pair as safe
-    rather than flag it. No shared construct at all is *not* exclusive: with no
-    branching relationship between them, both can genuinely apply at once.
-    """
-    branch_by_construct = dict(sig_a)
-    return any(
-        construct_id in branch_by_construct and branch_by_construct[construct_id] != branch
-        for construct_id, branch in sig_b
-    )

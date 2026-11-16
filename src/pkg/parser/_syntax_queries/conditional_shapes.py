@@ -70,8 +70,9 @@ def is_conditional_constant_expression(raw: object) -> bool:
     if not conditions:
         return False
 
-    from .procedural import _iter_identifier_nodes
-    from .expressions import evaluate_constant_expression, unwrap_parentheses
+    from .procedural.blocks import iter_identifier_nodes
+    from .expressions.constant_evaluation import evaluate_constant_expression
+    from .expressions.operand_shapes import unwrap_parentheses
     from .literals import constant_integer_value
 
     for condition in conditions:
@@ -84,7 +85,7 @@ def is_conditional_constant_expression(raw: object) -> bool:
         val = constant_integer_value(unwrapped)
         if val is not None:
             return True
-        idents = list(_iter_identifier_nodes(unwrapped))
+        idents = list(iter_identifier_nodes(unwrapped))
         if not idents:
             eval_val = evaluate_constant_expression(unwrapped)
             if eval_val is not None:

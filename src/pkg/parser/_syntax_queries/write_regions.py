@@ -1,8 +1,8 @@
 from ..syntax_kinds import DOT_TOKEN_KIND, SCOPED_NAME_KIND
 from ...semantic.write_region import FIELD, INDEX, NEVER, RANGE, span_step
 from ..traversal_guard import guarded_traversal
-from .expressions import evaluate_constant_expression
-from .generate_loops import evaluate_under, generate_bindings
+from .expressions.constant_evaluation import evaluate_constant_expression
+from .generate.loops import evaluate_under, generate_bindings
 from .shapes import element_select_index_or_range
 from .shared import identifier_name
 

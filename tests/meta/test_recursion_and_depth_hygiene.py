@@ -187,7 +187,7 @@ def test_all_ast_traversal_while_loops_are_bounded() -> None:
     """Verifies that while loops in `src/pkg/` walking AST/graphs have explicit depth or iteration limits."""
     # Whitelist for non-AST scalar while loops
     ALLOWLIST_WHILE_LOOPS = {
-        ("engine.py", "True"),  # substring position search advancing pos = text.find()
+        ("prescans.py", "True"),  # substring position search advancing pos = text.find()
         ("store/schema.py", "version != SCHEMA_VERSION"),  # SQLite schema step migration
         ("store\\schema.py", "version != SCHEMA_VERSION"),
         ("parser/traversal_guard.py", "stack"),  # Iterative stack DFS popping each step

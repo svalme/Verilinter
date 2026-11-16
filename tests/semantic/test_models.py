@@ -4,9 +4,9 @@ from dataclasses import asdict
 
 import pytest
 
-from src.pkg.engine import (
+from src.pkg.workers import (
     WorkerResult,
-    _worker_result_from_payload,
+    worker_result_from_payload as _worker_result_from_payload,
 )
 from src.pkg.semantic.package_registry import record_packages_from_symbol_table, seed_cross_file_packages
 from src.pkg.semantic.models import InstanceRecord, ParameterOverride, PortConnection

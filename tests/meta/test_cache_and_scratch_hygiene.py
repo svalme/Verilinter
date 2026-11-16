@@ -28,9 +28,14 @@ ID_ALLOWLIST = {
     "walk/context.py",
     "walk/walker.py",
     "parser/_syntax_queries/node_cache.py",
-    "parser/_syntax_queries/expressions.py",
+    "parser/_syntax_queries/expressions/constant_evaluation.py",
+    "parser/_syntax_queries/expressions/symbol_resolution.py",
+    "parser/_syntax_queries/expressions/operand_shapes.py",
+    "parser/_syntax_queries/expressions/width_estimators.py",
     "parser/_syntax_queries/shapes.py",
-    "parser/_syntax_queries/procedural.py",
+    "parser/_syntax_queries/procedural/blocks.py",
+    "parser/_syntax_queries/procedural/branches.py",
+    "parser/_syntax_queries/procedural/sensitivity_and_reset.py",
     "parser/traversal_guard.py",
 }
 SCRATCH_ALLOWLIST = {

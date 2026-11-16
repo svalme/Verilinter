@@ -8,10 +8,10 @@ import pytest
 
 from src.pkg.parser.parse import parse_text
 
-from src.pkg.engine import (
-    LintPipeline,
+from src.pkg.engine import LintPipeline
+from src.pkg.workers import (
     WorkerResult,
-    _worker_result_from_payload,
+    worker_result_from_payload as _worker_result_from_payload,
 )
 from src.pkg.semantic.symbol import Symbol, UseEvent
 from src.pkg.semantic.symbol_serialization import symbol_from_dict, symbol_to_dict
