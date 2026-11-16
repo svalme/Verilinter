@@ -14,6 +14,7 @@ from ...parser.syntax import (
     port_connection_expression,
     port_connection_list,
     is_context_determined_expression,
+    is_width_adaptive_literal,
     natural_expression_width_and_signed,
     simple_identifier_text,
     source_text_for_node,
@@ -26,6 +27,8 @@ if TYPE_CHECKING:
 
 
 def _determination_of(expr: Any) -> WidthDetermination:
+    if is_width_adaptive_literal(expr):
+        return WidthDetermination.ADAPTS
     return WidthDetermination.of(is_context_determined_expression(expr))
 
 

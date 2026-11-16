@@ -15,6 +15,7 @@ from ..semantic.instance_ports import (
     ordered_parameter_overrides,
 )
 from ..semantic.connection_records import connection_records_of
+from ..semantic.expr_type import WidthDetermination
 from ..semantic.symbol import Symbol
 from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
@@ -220,6 +221,8 @@ def width_unknown_details(
     for record in connection_records_of(symbol_table, instantiation):
         conn = record.connection
         if record.port is None or conn is None or _is_left_open(conn):
+            continue
+        if record.expr_type.determination is WidthDetermination.ADAPTS:
             continue
         if isinstance(record.expr_width, int) and isinstance(record.port_width, int):
             continue

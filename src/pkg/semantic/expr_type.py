@@ -12,6 +12,7 @@ from enum import StrEnum
 class WidthDetermination(StrEnum):
     SELF = "self"  # the width is the expression's own: a name, a select, a concatenation, a literal
     CONTEXT = "context"  # a result that can outgrow its operands (`+`, `*`, `<<`): the target's width decides
+    ADAPTS = "adapts"  # a literal with no width of its own (`'0`, `0`): it fills the target, so there is nothing to size
 
     @classmethod
     def of(cls, grows_with_context: bool) -> WidthDetermination:

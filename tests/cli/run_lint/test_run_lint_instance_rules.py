@@ -63,8 +63,9 @@ class TestRunReportsInstanceRules:
         diagnostics = run([PORT_CONNECTION_ADVANCED_DATA], jobs=1)
 
         assert any(d["code"] == "PORT_CONNECTION_WIDTH_UNKNOWN" for d in diagnostics)
-        assert any("u_rep_mismatch" in d["message"] and "Cannot infer width confidently" in d["message"] for d in diagnostics)
         assert any("u_unknown" in d["message"] and "unknown port width" in d["message"] for d in diagnostics)
+        # `.u(5)` connects an unsized literal, which fills the port and has no width to size.
+        assert not any("u_rep_mismatch" in d["message"] and "Cannot infer width confidently" in d["message"] for d in diagnostics)
 
     def test_run_reports_unread_instance_output_rule(self) -> None:
         diagnostics = run([PORT_CONNECTION_ADVANCED_DATA], jobs=1)

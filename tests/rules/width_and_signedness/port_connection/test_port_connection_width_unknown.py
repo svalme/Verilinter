@@ -4,12 +4,10 @@ from ....support.lint_harness import LintCaseResult
 
 
 class TestPortConnectionWidthUnknownRule:
-    def test_flags_unsized_literal_connection(
+    def test_does_not_flag_unsized_literal_connection(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
     ) -> None:
-        # An unsized decimal literal resolves to `(None, False)`: its width is
-        # context-determined and unrecoverable from the connection expression
-        # alone, same limitation as `NO_UNSIZED_LITERAL`'s target audits.
+        # An unsized decimal literal has no width of its own: it fills the port, so there is nothing to size.
         result = lint_inline_case(
             {
                 "top.sv": """
@@ -22,7 +20,7 @@ class TestPortConnectionWidthUnknownRule:
             }
         )
 
-        result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
+        result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
 
     def test_arithmetic_expression_of_known_operands_is_sized(
         self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
@@ -308,4 +306,56 @@ class TestPortConnectionWidthUnknownForTypeParameters:
             }
         )
 
+        result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")
+
+
+class TestLiteralConnections:
+    """A literal with no width of its own fills the port; there is no width to size."""
+
+    def test_unbased_and_unsized_literals_are_not_width_unknown(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [7:0] a, input b, input [4:0] c);
+                endmodule
+                module top;
+                  child u1(.a('0), .b(0), .c(1));
+                endmodule
+                """
+            }
+        )
+        result.expect_no_code("PORT_CONNECTION_WIDTH_UNKNOWN")
+
+    def test_a_sized_literal_is_still_compared(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [7:0] a);
+                endmodule
+                module top;
+                  child u1(.a(4'd1));
+                endmodule
+                """
+            }
+        )
+        result.expect_code_once("PORT_CONNECTION_WIDTH_MISMATCH")
+
+    def test_an_expression_of_unknown_width_is_still_reported(
+        self, lint_inline_case: Callable[[dict[str, str]], LintCaseResult]
+    ) -> None:
+        result = lint_inline_case(
+            {
+                "top.sv": """
+                module child(input [7:0] a);
+                endmodule
+                module top;
+                  child u1(.a(missing_name));
+                endmodule
+                """
+            }
+        )
         result.expect_code_once("PORT_CONNECTION_WIDTH_UNKNOWN")

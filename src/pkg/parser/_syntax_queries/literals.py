@@ -68,6 +68,17 @@ def is_unsized_literal(raw: object) -> bool:
     return getattr(raw, "kind", None) == INTEGER_LITERAL_EXPRESSION_KIND
 
 
+def is_width_adaptive_literal(raw: object) -> bool:
+    """True for a literal with no width of its own: an unbased unsized fill (`'0`, `'1`, `'x`, `'z`) or an
+    unsized decimal (`0`). The width of what it is connected or assigned to decides how many bits it fills."""
+    from .expressions.operand_shapes import unwrap_parentheses
+
+    return getattr(unwrap_parentheses(raw), "kind", None) in (
+        INTEGER_LITERAL_EXPRESSION_KIND,
+        UNBASED_UNSIZED_LITERAL_EXPRESSION_KIND,
+    )
+
+
 def is_unsized_literal_in_flagged_value_context(raw: object) -> bool:
     """True if `raw` is a plain, unsized, unbased decimal literal (`5`, not
     `8'd5`/`'hFF`/`'0` -- those are different SyntaxKinds entirely) that is the
