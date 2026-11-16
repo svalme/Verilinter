@@ -22,12 +22,11 @@ class NoUndrivenSignalRule(BaseSymbolRule):
                     continue
                 if not sym.is_read:
                     continue
-                # A signal wired into a port connection whose direction is not known (the
-                # child module is declared in no input file, or the signal is declared in a
-                # nested scope) may be driven by that instance, so it is left alone.
-                if sym.in_unclassified_port_connection:
-                    continue
-                if sym.is_unobserved_interface_member:
+                # A signal wired into a port connection whose direction is not known (the child
+                # module is declared in no input file, or the signal is declared in a nested
+                # scope), or a member of an interface with no visible user, may be driven by
+                # something this file cannot see, so it is left alone.
+                if sym.may_have_unseen_driver:
                     continue
                 message = None
                 if sym.is_written or sym.is_driven_by_instance:

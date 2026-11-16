@@ -29,12 +29,12 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                 # before any local write there is the real "undriven output" bug shape.
                 if sym.is_port and sym.port_direction in ("input", "inout", "ref"):
                     continue
-                # A signal an instance drives, or one wired into a port connection whose
-                # direction is not known, is driven outside any locally visible assignment,
-                # so a read of it is not a read before write.
-                if sym.in_unclassified_port_connection or sym.is_driven_by_instance:
+                # A signal an instance drives, or one that something this file cannot see may
+                # drive, is driven outside any locally visible assignment, so a read of it is
+                # not a read before write.
+                if sym.may_have_unseen_driver or sym.is_driven_by_instance:
                     continue
-                if sym.is_event or sym.is_unobserved_interface_member:
+                if sym.is_event:
                     continue
 
                 event = self._disqualifying_read(sym, symbol_table)

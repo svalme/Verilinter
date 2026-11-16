@@ -117,6 +117,13 @@ class Symbol:
         self.in_unclassified_port_connection |= in_port_connection
 
     @property
+    def may_have_unseen_driver(self) -> bool:
+        """A driver may exist that this file cannot see: the symbol is wired into a port connection whose
+        direction is not known, or is a member of an interface whose users are not visible. A rule that
+        needs a driver to report a missing one leaves such a symbol alone."""
+        return self.in_unclassified_port_connection or self.is_unobserved_interface_member
+
+    @property
     def is_unobserved_interface_member(self) -> bool:
         """Declared inside an `interface` whose users are not visible in this file. Its drivers and
         readers are the modules that connect to it, so a missing driver here is not established."""

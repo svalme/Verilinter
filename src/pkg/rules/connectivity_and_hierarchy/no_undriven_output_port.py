@@ -24,9 +24,8 @@ class NoUndrivenOutputPortRule(BaseSymbolRule):
                     continue
                 if not sym.is_read or sym.is_written or sym.is_driven_by_instance:
                     continue
-                # A port wired into a port connection whose direction is not known may be
-                # driven by that instance, so it is left alone.
-                if sym.in_unclassified_port_connection:
+                # A port that something outside this file may drive is left alone.
+                if sym.may_have_unseen_driver:
                     continue
 
                 loc = sym.declarations[0]
