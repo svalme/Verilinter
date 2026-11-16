@@ -299,3 +299,45 @@ class TestConstantIndexOutOfRangeRule:
             """
         ) == []
 
+    def test_each_selector_of_a_multi_dimensional_packed_vector_uses_its_own_bounds(self) -> None:
+        assert _diagnostics(
+            """
+            module top (output logic [15:0] o1, output logic o2);
+              logic [2:0][15:0] a;
+              logic [1:0][7:0] b;
+              assign o1 = a[2][15:0];
+              assign o2 = b[1][7];
+            endmodule
+            """
+        ) == []
+
+    def test_outer_index_past_the_outer_dimension_is_reported(self) -> None:
+        assert len(_diagnostics(
+            """
+            module top (output logic o);
+              logic [2:0][7:0] a;
+              assign o = a[3][0];
+            endmodule
+            """
+        )) == 1
+
+    def test_inner_index_past_the_inner_dimension_is_reported(self) -> None:
+        assert len(_diagnostics(
+            """
+            module top (output logic o);
+              logic [2:0][7:0] a;
+              assign o = a[1][8];
+            endmodule
+            """
+        )) == 1
+
+    def test_inner_indexed_part_select_wider_than_the_inner_dimension_is_reported(self) -> None:
+        assert len(_diagnostics(
+            """
+            module top (output logic o);
+              logic [2:0][7:0] a;
+              assign o = a[0][0 +: 9];
+            endmodule
+            """
+        )) == 1
+

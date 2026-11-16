@@ -49,7 +49,8 @@ class AssignmentTarget:
         if self.is_sliced:
             return self.slice_width
         if self.base_symbol is not None:
-            return getattr(self.base_symbol, "bit_width", None)
+            whole_width = getattr(self.base_symbol, "whole_width", None)
+            return whole_width if isinstance(whole_width, int) else getattr(self.base_symbol, "bit_width", None)
         return None
 
     @property

@@ -69,7 +69,7 @@ class PortConnectionExtractor:
                     expr_name = port_name
                     sym = scope.lookup_hierarchical(port_name) if scope is not None and port_name is not None else None
                     if sym is not None:
-                        expr_width, expr_signed = sym.bit_width, sym.is_signed
+                        expr_width, expr_signed = sym.whole_width, sym.is_signed
                     else:
                         expr_width, expr_signed = None, None
                 else:

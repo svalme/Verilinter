@@ -736,7 +736,10 @@ def simple_expression_width_and_signed(
         if name is not None:
             symbol = _resolve_symbol_in_scope(scope, name)
             if symbol is not None:
-                return getattr(symbol, "bit_width", None), getattr(symbol, "is_signed", None)
+                # A bare unpacked array is the whole object, not one element.
+                whole_width = getattr(symbol, "whole_width", None)
+                width = whole_width if isinstance(whole_width, int) else getattr(symbol, "bit_width", None)
+                return width, getattr(symbol, "is_signed", None)
         return None, None
 
     cast = _signedness_cast(expr)

@@ -157,3 +157,45 @@ def test_constant_index_out_of_range_inside_loop():
     res = run_inline_lint_case({"top.sv": code})
     codes = [d["code"] for d in res.diagnostics]
     assert "CONSTANT_INDEX_OUT_OF_RANGE" in codes
+
+
+def test_whole_unpacked_array_and_array_element_assignments_are_not_width_mismatches():
+    code = """
+    module top (
+        output logic [31:0] o [10],
+        output logic [31:0] o2 [10],
+        input logic [31:0] i [10],
+        input logic [31:0] st [2][10]
+    );
+        assign o = i;
+        assign o2 = st[1];
+    endmodule
+    """
+    res = run_inline_lint_case({"top.sv": code})
+    res.expect_no_code("ASSIGNMENT_WIDTH_MISMATCH")
+    res.expect_no_code("ASSIGNMENT_TRUNCATION")
+
+
+def test_array_element_wider_than_the_target_is_still_truncation():
+    code = """
+    module top (output logic [7:0] x, input logic [15:0] one [4]);
+        assign x = one[1];
+    endmodule
+    """
+    res = run_inline_lint_case({"top.sv": code})
+    res.expect_code_once("ASSIGNMENT_TRUNCATION")
+
+
+def test_unpacked_array_port_connection_compares_whole_widths():
+    code = """
+    module child (output logic [33:0] d [2], input logic [33:0] q [2]);
+    endmodule
+    module top;
+        logic [33:0] d [2];
+        logic [33:0] q [2];
+        child u1 (.d(d), .q);
+    endmodule
+    """
+    res = run_inline_lint_case({"top.sv": code})
+    res.expect_no_code("PORT_CONNECTION_WIDTH_MISMATCH")
+

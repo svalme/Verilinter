@@ -11,6 +11,7 @@ from typing import Sequence
 
 from ...parser.syntax import (
     constant_integer_value,
+    evaluate_constant_text_expression,
     identifier_name,
     is_width_bounded_operand,
     natural_expression_width_and_signed,
@@ -77,6 +78,22 @@ def classify_operand(scope: object, expr: object, tree: object = None) -> Operan
 
     kind = OperandKind.WIDTH_BOUNDED if is_width_bounded_operand(expr) else OperandKind.COMPUTED
     return Operand(scope, expr, tree, kind, None)
+
+
+def packed_dimension_bounds(symbol: object, position: int, scope: object) -> tuple[int, int, int] | None:
+    """`(lowest index, highest index, width)` of the packed dimension that the `position`-th element-bit
+    selector indexes, outermost dimension first, or None when the dimension or its bounds are unknown.
+
+    In `a[1][7:0]` on `logic [2:0][7:0] a` the first selector indexes the `[2:0]` dimension and the second
+    the `[7:0]` one, so each is checked against its own bounds and not against the whole vector."""
+    dimensions = getattr(symbol, "packed_dimensions", ())
+    if not 0 <= position < len(dimensions):
+        return None
+    msb = evaluate_constant_text_expression(dimensions[position][0], scope)
+    lsb = evaluate_constant_text_expression(dimensions[position][1], scope)
+    if msb is None or lsb is None:
+        return None
+    return min(msb, lsb), max(msb, lsb), abs(msb - lsb) + 1
 
 
 def selectors_into_element_bits(symbol: object, selectors: Sequence[object]) -> Sequence[object]:

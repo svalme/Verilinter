@@ -42,7 +42,7 @@ def _record(
     if implicit and signal is None and port_name is not None and callable(lookup):
         signal = lookup(port_name)
     if implicit and signal is not None:
-        expr_type = ExprType(signal.bit_width, signal.is_signed)
+        expr_type = ExprType(signal.whole_width, signal.is_signed)
     return ConnectionRecord(
         instance=instance,
         port_name=port_name,
@@ -50,7 +50,7 @@ def _record(
         port=port,
         connection=connection,
         signal=signal,
-        port_width=port.bit_width if port is not None else None,
+        port_width=port.whole_width if port is not None else None,
         port_signed=port.is_signed if port is not None else None,
         expr_type=expr_type,
         implicit=implicit,

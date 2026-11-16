@@ -117,6 +117,19 @@ class Symbol:
         self.in_unclassified_port_connection |= in_port_connection
 
     @property
+    def whole_width(self) -> int | None:
+        """The width of the whole declared object: `bit_width` times every unpacked dimension, or None when
+        one is unknown. `bit_width` alone is the width of one element of an unpacked array."""
+        if not isinstance(self.bit_width, int):
+            return None
+        total = self.bit_width
+        for dimension_width in self.unpacked_dimension_widths:
+            if not isinstance(dimension_width, int):
+                return None
+            total *= dimension_width
+        return total
+
+    @property
     def may_have_unseen_driver(self) -> bool:
         """A driver may exist that this file cannot see: the symbol is wired into a port connection whose
         direction is not known, or is a member of an interface whose users are not visible. A rule that

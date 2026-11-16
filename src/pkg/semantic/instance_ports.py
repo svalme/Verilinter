@@ -121,5 +121,7 @@ def specialized_port_symbol(port: Symbol, param_scope: dict[str, int]) -> Symbol
     specialized.lsb = lsb
     specialized.value = port.value
     specialized.packed_dimensions = port.packed_dimensions
+    specialized.unpacked_dimensions = port.unpacked_dimensions
+    specialized.unpacked_dimension_widths = port.unpacked_dimension_widths
     specialized.declarations = list(port.declarations)
     return specialized

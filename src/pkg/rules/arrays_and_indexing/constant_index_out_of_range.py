@@ -9,7 +9,7 @@ from ...parser.types import SELECT_EXPRESSION_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
 from ..rule_runner import rule_runner
-from ..width_and_signedness.operand import selectors_into_element_bits
+from ..width_and_signedness.operand import packed_dimension_bounds, selectors_into_element_bits
 
 if TYPE_CHECKING:
     from ...walk.context import Context
@@ -46,13 +46,21 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
     has_range = isinstance(msb, int) and isinstance(lsb, int)
     min_bound = min(msb, lsb) if has_range else 0
     max_bound = max(msb, lsb) if has_range else bit_width - 1
+    has_packed_dimensions = bool(getattr(symbol, "packed_dimensions", ()))
 
     scope = ctx.scope()
-    for selector in selectors:
+    for position, selector in enumerate(selectors):
         unwrapped = element_select_index_or_range(selector)
         if unwrapped is None:
             continue
         shape, payload = unwrapped
+
+        # Each selector indexes its own packed dimension, so it is checked against that dimension's bounds.
+        if has_packed_dimensions:
+            dimension = packed_dimension_bounds(symbol, position, scope)
+            if dimension is None:
+                continue
+            min_bound, max_bound, bit_width = dimension
 
         if shape == "bit":
             index = evaluate_constant_expression(payload, scope=scope)
