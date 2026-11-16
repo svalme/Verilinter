@@ -1,4 +1,4 @@
-// scenario: reports | An if branch with an empty begin-end block.
+// case: reports | An if branch with an empty begin-end block.
 // pair: empty-versus-macro
 module top(input logic a, output logic y);
   always_comb begin
@@ -8,7 +8,7 @@ module top(input logic a, output logic y);
   end
 endmodule
 
-// scenario: clean | A branch whose only content is a macro that expands to nothing is source code, not an empty branch.
+// case: clean | A branch whose only content is a macro that expands to nothing is source code, not an empty branch.
 // pair: empty-versus-macro
 `define dbg(x)
 module top(input logic a, output logic y);
@@ -20,7 +20,7 @@ module top(input logic a, output logic y);
   end
 endmodule
 
-// scenario: reports | A case item with an empty begin-end block.
+// case: reports | A case item with an empty begin-end block.
 module top(input logic b, output logic y);
   always_comb begin
     y = 1'b0;
@@ -32,7 +32,7 @@ module top(input logic b, output logic y);
   end
 endmodule
 
-// scenario: reports | An else branch that is a bare semicolon.
+// case: reports | An else branch that is a bare semicolon.
 module top(input logic a, output logic y);
   always_comb begin
     if (a) y = 1'b1;
@@ -40,7 +40,7 @@ module top(input logic a, output logic y);
   end
 endmodule
 
-// scenario: clean | Branches that contain statements.
+// case: clean | Branches that contain statements.
 module top(input logic a, output logic y);
   always_comb begin
     if (a) begin

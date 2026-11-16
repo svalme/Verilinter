@@ -204,7 +204,7 @@ strings in multiple places. The CLI still does not expose profile selection.
 
 When adding a rule, use this checklist by default:
 
-- add or update the rule's scenario file `tests/scenarios/<category>/<CODE>.sv` (at least one `reports` and one `clean` scenario; boundary pairs with `// pair:`)
+- add or update the rule's case file `tests/cases/<category>/<CODE>.sv` (at least one `reports` and one `clean` case; boundary pairs with `// pair:`)
 - when changing a rule or a shared helper, state when the change applies and when it must not, phrase the condition in terms of what the result depends on (not that something is merely present), and add tests for the case fixed, the nearest case that must still be reported, and a case with the same mechanism but a different cause
 - choose the right rule family:
   syntax, symbol, or module

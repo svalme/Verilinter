@@ -1,10 +1,10 @@
-// scenario: reports | The same name declared twice in one module.
+// case: reports | The same name declared twice in one module.
 module top;
   logic [3:0] dup;
   logic [3:0] dup;
 endmodule
 
-// scenario: reports | The same name declared twice inside one block.
+// case: reports | The same name declared twice inside one block.
 // pair: one-block-versus-two-blocks
 module top(output logic o);
   always_comb begin
@@ -14,7 +14,7 @@ module top(output logic o);
   end
 endmodule
 
-// scenario: clean | The same name declared once in each of two blocks.
+// case: clean | The same name declared once in each of two blocks.
 // pair: one-block-versus-two-blocks
 module top(input logic [3:0] a, b, output logic [3:0] o1, o2);
   always_comb begin : blk_a
@@ -29,7 +29,7 @@ module top(input logic [3:0] a, b, output logic [3:0] o1, o2);
   end
 endmodule
 
-// scenario: clean | An initial block and a final block each declare a variable of the same name.
+// case: clean | An initial block and a final block each declare a variable of the same name.
 module top;
   initial begin
     int fh;
@@ -41,7 +41,7 @@ module top;
   end
 endmodule
 
-// scenario: clean | Loop variables of two separate for loops.
+// case: clean | Loop variables of two separate for loops.
 module top(output logic [3:0] o);
   always_comb begin
     for (int i = 0; i < 2; i++) o[i] = 1'b0;
@@ -49,7 +49,7 @@ module top(output logic [3:0] o);
   end
 endmodule
 
-// scenario: reports | A local variable that redeclares a module-level one in the same scope.
+// case: reports | A local variable that redeclares a module-level one in the same scope.
 module top(output logic o);
   logic t;
   logic t;

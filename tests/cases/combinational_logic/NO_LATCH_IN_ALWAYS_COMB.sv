@@ -1,4 +1,4 @@
-// scenario: reports | An output assigned only when a condition holds keeps its old value otherwise.
+// case: reports | An output assigned only when a condition holds keeps its old value otherwise.
 // pair: output-versus-scratch
 module top(input logic a, output logic y);
   always_comb begin
@@ -6,7 +6,7 @@ module top(input logic a, output logic y);
   end
 endmodule
 
-// scenario: clean | A scratch variable that only this block uses, written before each read, holds nothing between evaluations.
+// case: clean | A scratch variable that only this block uses, written before each read, holds nothing between evaluations.
 // pair: output-versus-scratch
 module top #(parameter KEEP = 1) (input logic a, input logic [3:0] k, output logic [3:0] o);
   integer i, bit_cnt;
@@ -22,7 +22,7 @@ module top #(parameter KEEP = 1) (input logic a, input logic [3:0] k, output log
   end
 endmodule
 
-// scenario: reports | A scratch variable that another statement reads outside the block is observed there.
+// case: reports | A scratch variable that another statement reads outside the block is observed there.
 module top(input logic a, input logic [3:0] k, output logic [3:0] o);
   reg [3:0] seen;
   always_comb begin
@@ -31,7 +31,7 @@ module top(input logic a, input logic [3:0] k, output logic [3:0] o);
   assign o = seen;
 endmodule
 
-// scenario: reports | A variable read before it is written in the block carries the previous value.
+// case: reports | A variable read before it is written in the block carries the previous value.
 module top(input logic a, output logic [3:0] o);
   reg [3:0] t;
   always_comb begin
@@ -40,7 +40,7 @@ module top(input logic a, output logic [3:0] o);
   end
 endmodule
 
-// scenario: clean | A default assignment before the condition covers every path.
+// case: clean | A default assignment before the condition covers every path.
 module top(input logic a, input logic b, output logic y);
   always_comb begin
     y = 1'b0;
@@ -48,7 +48,7 @@ module top(input logic a, input logic b, output logic y);
   end
 endmodule
 
-// scenario: reports | A case without a default leaves the output unassigned for other values.
+// case: reports | A case without a default leaves the output unassigned for other values.
 module top(input logic [1:0] s, output logic y);
   always_comb begin
     case (s)

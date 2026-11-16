@@ -1,4 +1,4 @@
-// scenario: reports | A local variable of a function read before its write.
+// case: reports | A local variable of a function read before its write.
 // pair: local-versus-module-variable
 module top(output logic [3:0] o);
   function automatic logic [3:0] f(input logic [3:0] a);
@@ -9,7 +9,7 @@ module top(output logic [3:0] o);
   assign o = f(4'd1);
 endmodule
 
-// scenario: clean | A module variable read in a function that a task writes: the order in the file says nothing, the call order decides.
+// case: clean | A module variable read in a function that a task writes: the order in the file says nothing, the call order decides.
 // pair: local-versus-module-variable
 module top(input logic clk);
   string decoded_str;
@@ -27,7 +27,7 @@ module top(input logic clk);
   end
 endmodule
 
-// scenario: reports | A variable read before its blocking write in one combinational block.
+// case: reports | A variable read before its blocking write in one combinational block.
 module top(input logic a, output logic y);
   logic t;
   always_comb begin
@@ -36,7 +36,7 @@ module top(input logic a, output logic y);
   end
 endmodule
 
-// scenario: clean | A variable written before it is read in the same block.
+// case: clean | A variable written before it is read in the same block.
 module top(input logic a, output logic y);
   logic t;
   always_comb begin
@@ -45,7 +45,7 @@ module top(input logic a, output logic y);
   end
 endmodule
 
-// scenario: clean | The members of an interface that no module in the file uses are driven by whoever connects to it.
+// case: clean | The members of an interface that no module in the file uses are driven by whoever connects to it.
 interface stream_intf (input logic clk_i);
   logic data;
   logic valid;
@@ -53,7 +53,7 @@ interface stream_intf (input logic clk_i);
   assert property (@(posedge clk_i) valid && !ready |=> $stable(data));
 endinterface
 
-// scenario: clean | A string written by $sformat is written, not read.
+// case: clean | A string written by $sformat is written, not read.
 module top;
   string file_name;
   initial begin
