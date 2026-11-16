@@ -319,3 +319,74 @@ def test_name_used_in_generate_block_and_module_body_is_reported_once():
         """
     })
     result.expect_code_once("NO_IMPLICIT_NET")
+
+
+def test_generate_block_label_as_path_prefix_is_not_an_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(input logic a, output logic z);
+          if (1) begin : g_blk
+            logic t;
+            assign t = a;
+          end
+          assign z = g_blk.t;
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_undeclared_name_outside_a_path_is_still_an_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(output logic z);
+          assign z = missing_net.t;
+          assign z = missing_net;
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_IMPLICIT_NET")
+
+
+def test_task_called_without_arguments_is_not_an_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top;
+          reg clk;
+          task spi_action;
+            clk = 1;
+          endtask
+          initial begin
+            spi_action;
+          end
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_name_that_a_wildcard_import_of_an_unseen_package_could_supply_is_not_an_implicit_net():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top import other_pkg::*; (output logic o);
+          assign o = FROM_OTHER;
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_IMPLICIT_NET")
+
+
+def test_undeclared_name_is_an_implicit_net_when_every_imported_package_is_known():
+    result = run_inline_lint_case({
+        "top.sv": """
+        package p_pkg;
+          localparam int Known = 1;
+        endpackage
+        module top import p_pkg::*; (output logic o);
+          assign o = Known;
+          assign o = missing_net;
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_IMPLICIT_NET")
+

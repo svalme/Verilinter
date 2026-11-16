@@ -3,6 +3,7 @@ from ..syntax_kinds import (
     COVER_CROSS_KIND,
     DEFPARAM_ASSIGNMENT_KIND,
     DISABLE_STATEMENT_KIND,
+    EXPRESSION_STATEMENT_KIND,
     EXTENDS_CLAUSE_KIND,
     FUNCTION_PROTOTYPE_KIND,
     INVOCATION_EXPRESSION_KIND,
@@ -105,6 +106,15 @@ def is_invocation_callee(raw: object) -> bool:
     banning rule at all) produces a false implicit net at the call site.
     """
     return _is_scoped_name_target(raw, INVOCATION_EXPRESSION_KIND, field="left")
+
+
+def is_bare_subroutine_call_statement(raw: object) -> bool:
+    """True if `raw` is a whole expression statement (`spi_action;`).
+
+    A lone name used as a statement can only call a task or void function that takes no arguments.
+    """
+    parent = getattr(raw, "parent", None)
+    return getattr(parent, "kind", None) == EXPRESSION_STATEMENT_KIND and getattr(parent, "expr", None) is raw
 
 
 def is_cover_cross_item(raw: object) -> bool:

@@ -177,9 +177,8 @@ DECLARATIONS: tuple[DeclarationEntry, ...] = (
     ),
     DeclarationEntry(
         ("GenerateBlock",),
-        Coverage.GAP,
-        sample="module m; if (1) begin : qq_x wire w; end wire v = qq_x.w; endmodule",
-        note="a generate block label is a scope name usable in hierarchical references; not matched by the declaration-shaped pattern",
+        Coverage.NOT_APPLICABLE,
+        note="a generate block label only appears as the first segment of a hierarchical path, and the resolver treats an undeclared path base as unresolvable here, so no symbol is needed",
     ),
     # --- constructs that declare no name usable in RTL expressions, or are outside the supported subset ---
     DeclarationEntry(

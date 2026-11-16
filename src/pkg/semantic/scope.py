@@ -102,6 +102,19 @@ class Scope:
                 return found
         return None
 
+    def may_come_from_unseen_package(self, name: str) -> bool:
+        """True when an `import pkg::*;` or `import pkg::name;` in this scope or an enclosing one could
+        supply `name` from a package that no analysed file declares."""
+        current: Scope | None = self
+        depth = 0
+        while current is not None and depth < 64:
+            depth += 1
+            for package_name, imported_name in current.imports:
+                if imported_name in (None, name) and package_name not in (self.packages or {}):
+                    return True
+            current = current.parent
+        return False
+
     def add_import(self, package_name: str, imported_name: str | None) -> None:
         self.imports.append((package_name, imported_name))
 

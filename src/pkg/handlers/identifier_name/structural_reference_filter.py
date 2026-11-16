@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 from ...parser.syntax import (
+    is_bare_subroutine_call_statement,
     is_bind_directive_target,
     is_cover_cross_item,
     is_defparam_target,
@@ -29,6 +30,7 @@ DEFAULT_STRUCTURAL_NAME_PREDICATES: tuple[Callable[[object], bool], ...] = (
     is_disable_statement_target,
     is_named_type_reference,
     is_invocation_callee,
+    is_bare_subroutine_call_statement,
     is_cover_cross_item,
     is_extends_clause_base_name,
     is_scoped_name_qualifier,

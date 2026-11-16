@@ -21,6 +21,17 @@ def is_member_selector(raw: object) -> bool:
             and getattr(parent, "right", None) is raw)
 
 
+def is_hierarchical_path_base(raw: object) -> bool:
+    """The first segment of a `.`-joined path (`g_blk` in `g_blk.t`).
+
+    The segment may be a variable, an instance, a generate-block label or a name this file cannot see.
+    """
+    parent = getattr(raw, "parent", None)
+    return (getattr(parent, "kind", None) == SCOPED_NAME_KIND
+            and getattr(getattr(parent, "separator", None), "kind", None) == DOT_TOKEN_KIND
+            and getattr(parent, "left", None) is raw)
+
+
 def member_selector_base_name(raw: object) -> str | None:
     """For the member in `base.member`, the name of a plain identifier `base`."""
     if not is_member_selector(raw):
