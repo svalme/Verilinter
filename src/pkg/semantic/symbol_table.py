@@ -161,6 +161,7 @@ class SymbolTable:
             scope = self.lookup_module(interface_type)
             symbol = scope.lookup(member) if scope is not None else None
             if symbol is not None:
+                scope.has_visible_interface_users = True  # type: ignore[union-attr]
                 symbol.add_use(location, **use_kwargs)  # type: ignore[arg-type]
 
     def lookup_module(self, name: str) -> Scope | None:

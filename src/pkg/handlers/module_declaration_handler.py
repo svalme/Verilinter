@@ -1,6 +1,6 @@
 from ..walk.dispatch import dispatch
 from ..walk.context import Context, ModuleFrame
-from ..parser.syntax import is_package_declaration_node, module_async_reset_signals, module_declaration_name
+from ..parser.syntax import is_interface_declaration_node, is_package_declaration_node, module_async_reset_signals, module_declaration_name
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.syntax_vnode import SyntaxVNode
 from ..parser.types import ModuleDeclarationNode
@@ -34,6 +34,7 @@ class ModuleDeclarationHandler(SyntaxNodeHandler):
             parent=symbol_table.global_scope,
             location=vnode.location,
         )
+        module_scope.is_interface = is_interface_declaration_node(vnode.raw)
         symbol_table.register_module(name, module_scope)
         async_resets = module_async_reset_signals(vnode.raw)
         module_frame = ModuleFrame(

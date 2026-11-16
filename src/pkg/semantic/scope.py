@@ -25,6 +25,10 @@ class Scope:
         # built outside a symbol table.
         self.packages: dict[str, list[Scope]] | None = None
         self.fsm_models: list[object] = []
+        # An `interface` definition: its signals are driven and read by the modules that connect to it.
+        self.is_interface: bool = False
+        # Set once a use of one of its members through a port or instance has been recorded in this file.
+        self.has_visible_interface_users: bool = False
 
     def set_parent(self, parent: Scope | None = None) -> None:
         self.parent = parent
@@ -100,6 +104,16 @@ class Scope:
             found = package_scope.lookup(name)
             if found is not None:
                 return found
+        return None
+
+    def enclosing_interface(self) -> Scope | None:
+        current: Scope | None = self
+        depth = 0
+        while current is not None and depth < 64:
+            depth += 1
+            if current.is_interface:
+                return current
+            current = current.parent
         return None
 
     def may_come_from_unseen_package(self, name: str) -> bool:

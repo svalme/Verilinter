@@ -34,7 +34,7 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                 # so a read of it is not a read before write.
                 if sym.in_unclassified_port_connection or sym.is_driven_by_instance:
                     continue
-                if sym.is_event:
+                if sym.is_event or sym.is_unobserved_interface_member:
                     continue
 
                 event = self._disqualifying_read(sym, symbol_table)

@@ -27,6 +27,8 @@ class NoUndrivenSignalRule(BaseSymbolRule):
                 # nested scope) may be driven by that instance, so it is left alone.
                 if sym.in_unclassified_port_connection:
                     continue
+                if sym.is_unobserved_interface_member:
+                    continue
                 message = None
                 if sym.is_written or sym.is_driven_by_instance:
                     runs = undriven_bits(sym)

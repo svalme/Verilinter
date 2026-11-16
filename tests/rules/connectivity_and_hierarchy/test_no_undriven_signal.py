@@ -8,6 +8,7 @@ from src.pkg.semantic.symbol_table import SymbolTable
 from src.pkg.walk.walker import Walker
 from src.pkg.handlers.register_handlers import *
 from src.pkg.rules.connectivity_and_hierarchy.no_undriven_signal import NoUndrivenSignalRule
+from tests.support.lint_harness import run_inline_lint_case
 from tests.support.parse_diagnostics import assert_no_parse_errors
 
 
@@ -146,3 +147,48 @@ class TestNoUndrivenSignalRule:
         walker.walk(tree.root, tree, ctx, symbol_table)
 
         assert rule.run(symbol_table) == []
+
+
+def test_string_written_by_sformat_is_not_undriven():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top;
+          string file_name;
+          initial begin
+            $sformat(file_name, "%s_%h.log", "a", 4);
+            $display("%s", file_name);
+          end
+        endmodule
+        """
+    })
+    result.expect_no_code("NO_UNDRIVEN_SIGNAL")
+    result.expect_no_code("READ_BEFORE_WRITE")
+
+
+def test_interface_signals_are_not_undriven_or_read_before_write():
+    result = run_inline_lint_case({
+        "intf.sv": """
+        interface stream_intf (input logic clk_i);
+          logic data;
+          logic valid;
+          logic ready;
+          modport in (input data, input valid, output ready);
+          assert property (@(posedge clk_i) valid && !ready |=> $stable(data));
+        endinterface
+        """
+    })
+    result.expect_no_code("NO_UNDRIVEN_SIGNAL")
+    result.expect_no_code("READ_BEFORE_WRITE")
+
+
+def test_module_signal_read_but_never_driven_is_still_reported():
+    result = run_inline_lint_case({
+        "top.sv": """
+        module top(output logic o);
+          logic floating;
+          assign o = floating;
+        endmodule
+        """
+    })
+    result.expect_code_once("NO_UNDRIVEN_SIGNAL")
+

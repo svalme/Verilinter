@@ -117,6 +117,13 @@ class Symbol:
         self.in_unclassified_port_connection |= in_port_connection
 
     @property
+    def is_unobserved_interface_member(self) -> bool:
+        """Declared inside an `interface` whose users are not visible in this file. Its drivers and
+        readers are the modules that connect to it, so a missing driver here is not established."""
+        interface = self.scope.enclosing_interface() if self.scope is not None else None
+        return interface is not None and not interface.has_visible_interface_users
+
+    @property
     def is_compile_time_constant(self) -> bool:
         """True for a parameter, localparam or enum member: a value fixed at elaboration, so its declared
         width and range do not bound how it is used."""

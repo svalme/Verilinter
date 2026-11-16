@@ -72,6 +72,13 @@ SYSTEM_TASK_OUTPUT_ARGUMENT_INDEX = {
     "$readmemh": 1,
     "$readmemb": 1,
     "$value$plusargs": 1,
+    "$sformat": 0,
+    "$swrite": 0,
+    "$swriteb": 0,
+    "$swriteh": 0,
+    "$swriteo": 0,
+    "$fgets": 0,
+    "$fread": 0,
 }
 
 
