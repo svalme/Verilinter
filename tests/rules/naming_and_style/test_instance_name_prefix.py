@@ -70,3 +70,29 @@ class TestInstanceNamePrefixRule:
         )
 
         assert diagnostics == []
+
+    def test_does_not_flag_gate_primitive_instance(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top(input a, input b, output o);
+              and a1(o, a, b);
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_module_instance_beside_gate_primitive(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module child;
+            endmodule
+
+            module top(input a, input b, output o);
+              and a1(o, a, b);
+              child my_child();
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ...parser.syntax import hierarchical_instance_name
+from ...parser.syntax import enclosing_primitive_instantiation, hierarchical_instance_name
 from ...parser.types import HierarchicalInstanceNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
@@ -18,8 +18,10 @@ class InstanceNamePrefixRule(Rule):
     default_profiles = ("rtl_strict", "sv_rtl_subset", "legacy_verilog")
     target_node_types = (HierarchicalInstanceNode,)
 
-    def applies(self, vnode: BaseVNode, _ctx: "Context") -> bool:
+    def applies(self, vnode: BaseVNode, ctx: "Context") -> bool:
         if not isinstance(vnode.raw, HierarchicalInstanceNode):
+            return False
+        if enclosing_primitive_instantiation(ctx) is not None:
             return False
         name = hierarchical_instance_name(vnode.raw)
         return name is not None and not name.startswith(("u_", "i_"))

@@ -204,7 +204,7 @@ Rules with a breadth file (generated; regenerate with `UPDATE_EXPECTED=1 pytest 
 | `NO_ELSE_WITHOUT_BEGIN_END` | `maintainability_and_complexity` | 4 | 6 | 1 | 4 |
 | `NO_IF_WITHOUT_BEGIN_END` | `maintainability_and_complexity` | 4 | 6 | 0 | 4 |
 | `CLOCK_SIGNAL_NAMING` | `naming_and_style` | 4 | 6 | 0 | 4 |
-| `INSTANCE_NAME_PREFIX` | `naming_and_style` | 4 | 4 | 1 | 4 |
+| `INSTANCE_NAME_PREFIX` | `naming_and_style` | 5 | 5 | 1 | 5 |
 | `MODULE_FILENAME_MISMATCH` | `naming_and_style` | 4 | 6 | 0 | 4 |
 | `MODULE_NAME_CASING` | `naming_and_style` | 4 | 6 | 0 | 4 |
 | `PARAMETER_NAME_CASING` | `naming_and_style` | 4 | 6 | 0 | 4 |

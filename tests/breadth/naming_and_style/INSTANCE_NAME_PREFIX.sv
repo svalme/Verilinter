@@ -62,8 +62,26 @@ module top;
   sub u_arr[1:0]();
 endmodule
 
-// breadth: gap | Gate primitive instantiations are reported although primitive gates are not module instances.
-// expect: 0
+// breadth: clean | A gate primitive instance is not a module instance and is not reported.
+// pair: gate-primitive
 module top(input a, input b, output o);
   and a1(o, a, b);
+endmodule
+
+// breadth: reports | A module instance in a module that also holds a gate primitive is reported by its own name.
+// pair: gate-primitive
+module sub;
+endmodule
+module top(input a, input b, output o);
+  and a1(o, a, b);
+  sub block_a();
+endmodule
+
+// breadth: gap | A user-defined primitive instance is reported because slang parses it as a module instantiation; the rule cannot tell it apart without resolving the name.
+// expect: 0
+primitive inv(output o, input a);
+  table 0 : 1; 1 : 0; endtable
+endprimitive
+module top(input a, output o);
+  inv i1x(o, a);
 endmodule
