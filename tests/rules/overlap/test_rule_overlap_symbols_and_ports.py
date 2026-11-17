@@ -450,3 +450,25 @@ def test_unassigned_task_output_reports_both_unused_variable_and_subroutine_outp
 
     result.expect_code_once("UNDRIVEN_SUBROUTINE_OUTPUT")
     result.expect_code_once("UNUSED_VARIABLE")
+
+
+def test_variable_driven_only_by_an_instance_output_is_reported_by_the_instance_rule_not_the_write_only_rule(
+    lint_inline_case: Callable[[dict[str, str]], LintCaseResult],
+) -> None:
+    result = lint_inline_case(
+        {
+            "instance_driven.sv": """
+            module sub(output logic p);
+              assign p = 1'b0;
+            endmodule
+            module top(output logic o);
+              logic a;
+              sub u(.p(a));
+              assign o = 1'b0;
+            endmodule
+            """
+        }
+    )
+
+    result.expect_code_once("UNREAD_INSTANCE_OUTPUT")
+    result.expect_no_code("NO_WRITE_ONLY_VARIABLE")

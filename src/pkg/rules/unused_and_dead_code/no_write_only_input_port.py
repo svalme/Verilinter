@@ -1,6 +1,7 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.driver_resolver import DriverResolver
 from ...semantic.symbol_table import SymbolTable
 from ...semantic.symbol_kind import SymbolKind
 from ..symbol_rule_runner import symbol_rule_runner
@@ -15,6 +16,7 @@ class NoWriteOnlyInputPortRule(BaseSymbolRule):
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
+        drivers = DriverResolver(symbol_table)
 
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
@@ -22,7 +24,7 @@ class NoWriteOnlyInputPortRule(BaseSymbolRule):
                     continue
                 if sym.port_direction != "input":
                     continue
-                if not sym.is_written or sym.is_read:
+                if not drivers.other_writes(sym) or sym.is_read:
                     continue
 
                 loc = sym.declarations[0]

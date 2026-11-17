@@ -76,7 +76,7 @@ module top(input logic i, output logic o);
   assign o = 1'b0;
 endmodule
 
-// breadth: gap | A variable driven only by an instance output port and never read is write-only; today only UNREAD_INSTANCE_OUTPUT reports it, because the port connection also records a read.
+// breadth: clean | A variable whose only writer is an instance output port and that nothing else reads is left to UNREAD_INSTANCE_OUTPUT, which names the instance and port.
 module sub(output logic p);
   assign p = 1'b0;
 endmodule
@@ -230,4 +230,15 @@ module top(output logic o);
   logic p;
   assign p = 1'b1;
   child u(.y(o));
+endmodule
+
+// breadth: gap | A variable written by a local assign and never read is write-only even when an instance output also drives it, but the output port connection is recorded as a read of the variable, so the rule does not report it.
+module sub(output logic p);
+  assign p = 1'b0;
+endmodule
+module top(input logic i, output logic o);
+  logic a;
+  assign a = i;
+  sub u(.p(a));
+  assign o = 1'b0;
 endmodule

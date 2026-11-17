@@ -271,7 +271,7 @@ Rules with a breadth file (generated; regenerate with `UPDATE_EXPECTED=1 pytest 
 | `ONE_MODULE_PER_FILE` | `syntax_and_structure` | 4 | 6 | 0 | 4 |
 | `NO_UNUSED_PARAMETER` | `unused_and_dead_code` | 6 | 10 | 1 | 3 |
 | `NO_WRITE_ONLY_INPUT_PORT` | `unused_and_dead_code` | 4 | 9 | 0 | 3 |
-| `NO_WRITE_ONLY_VARIABLE` | `unused_and_dead_code` | 7 | 19 | 1 | 3 |
+| `NO_WRITE_ONLY_VARIABLE` | `unused_and_dead_code` | 7 | 20 | 1 | 3 |
 | `UNUSED_VARIABLE` | `unused_and_dead_code` | 18 | 25 | 1 | 13 |
 | `ARITHMETIC_RESULT_TRUNCATION` | `width_and_signedness` | 21 | 11 | 9 | 9 |
 | `ASSIGNMENT_SIGNEDNESS_MISMATCH` | `width_and_signedness` | 10 | 7 | 2 | 3 |

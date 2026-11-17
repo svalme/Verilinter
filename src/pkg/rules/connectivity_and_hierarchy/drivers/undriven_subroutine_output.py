@@ -1,6 +1,7 @@
 from typing import Any
 
 from ...base_symbol_rule import BaseSymbolRule
+from ....semantic.driver_resolver import DriverResolver
 from ....semantic.symbol_table import SymbolTable
 from ...symbol_rule_runner import symbol_rule_runner
 
@@ -16,12 +17,13 @@ class UndrivenSubroutineOutputRule(BaseSymbolRule):
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
+        drivers = DriverResolver(symbol_table)
 
         for scope in symbol_table.scopes:
             if scope.kind not in SUBROUTINE_SCOPE_KINDS:
                 continue
             for sym in scope.symbols.values():
-                if sym.port_direction != "output" or sym.is_written or not sym.declarations:
+                if sym.port_direction != "output" or drivers.writes(sym) or not sym.declarations:
                     continue
 
                 loc = sym.declarations[0]

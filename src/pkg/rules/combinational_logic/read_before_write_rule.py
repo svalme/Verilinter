@@ -47,7 +47,7 @@ class ReadBeforeWriteRule(BaseSymbolRule):
         return diagnostics
 
     def _disqualifying_read(self, sym: Symbol, symbol_table: SymbolTable) -> UseEvent | None:
-        if not sym.is_written and not sym.has_declaration_initializer:
+        if sym.driver_evidence is DriverEvidence.NONE and not sym.has_declaration_initializer:
             # Never driven anywhere in this scope and has no declaration initializer --
             # the first read is a real uninitialized-read/undriven-signal bug, order aside.
             return next((event for event in sym.use_events if event["read"]), None)
