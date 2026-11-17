@@ -128,7 +128,7 @@ Rules with a breadth file (generated; regenerate with `UPDATE_EXPECTED=1 pytest 
 | `INSTANCE_NAME_PREFIX` | `naming_and_style` | 4 | 4 | 1 | 4 |
 | `RESET_SIGNAL_NAMING` | `naming_and_style` | 4 | 5 | 1 | 3 |
 | `MISSING_TIMESCALE_DIRECTIVE` | `simulation_vs_synthesis` | 3 | 5 | 0 | 3 |
-| `PROCASSINIT` | `simulation_vs_synthesis` | 4 | 6 | 1 | 3 |
+| `PROCASSINIT` | `simulation_vs_synthesis` | 5 | 11 | 1 | 4 |
 | `NO_WRITE_ONLY_VARIABLE` | `unused_and_dead_code` | 7 | 19 | 1 | 3 |
 | `UNUSED_VARIABLE` | `unused_and_dead_code` | 18 | 25 | 1 | 13 |
 | `ARITHMETIC_RESULT_TRUNCATION` | `width_and_signedness` | 21 | 11 | 9 | 9 |

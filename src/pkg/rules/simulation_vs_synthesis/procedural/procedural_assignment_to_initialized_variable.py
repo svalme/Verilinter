@@ -3,7 +3,7 @@ from typing import Any
 from ....semantic.symbol_table import SymbolTable
 from ...base_symbol_rule import BaseSymbolRule
 from ...symbol_rule_runner import symbol_rule_runner
-from ....semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS
+from ....semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS, ScopeKind
 
 
 @symbol_rule_runner.register
@@ -17,6 +17,10 @@ class ProceduralAssignmentToInitializedVariableRule(BaseSymbolRule):
 
         for scope in symbol_table.scopes:
             if scope.kind in SUBROUTINE_SCOPE_KINDS:
+                continue
+            # A variable declared in a for-loop header takes its initializer from the loop and is written by
+            # the loop step, so neither is a procedural write to a variable initialized at declaration.
+            if scope.kind == ScopeKind.FOR:
                 continue
             for sym in scope.symbols.values():
                 if not sym.has_declaration_initializer:
