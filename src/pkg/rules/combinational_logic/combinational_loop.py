@@ -3,6 +3,7 @@ from typing import Any
 
 from ...parser.syntax import is_mutually_exclusive_branch_pair
 from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.driver_resolver import DriverResolver
 from ...semantic.symbol_table import SymbolTable
 from ...vnodes.base_vnode import Location
 from ..symbol_rule_runner import symbol_rule_runner
@@ -36,15 +37,13 @@ class CombinationalLoopRule(BaseSymbolRule):
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
+        resolver = DriverResolver(symbol_table)
 
         for scope in symbol_table.scopes:
             Event = tuple[str, Location, str | None, tuple[str, ...], BranchSignature]
             buckets: dict[str, dict[str, list[Event]]] = {}
             for symbol in scope.symbols.values():
-                for event in symbol.use_events:
-                    driver_id = event.get("driver_id")
-                    if driver_id is None or driver_id not in symbol_table.combinational_driver_ids:
-                        continue
+                for driver_id, event in resolver.combinational_events(symbol):
                     bucket = buckets.setdefault(driver_id, {"reads": [], "writes": []})
                     key = "writes" if event["write"] else "reads"
                     bucket[key].append(

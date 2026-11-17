@@ -269,14 +269,15 @@ def is_initial_driver_block(driver_block: "BaseVNode") -> bool:
 
 
 def driver_block_category(driver_block: "BaseVNode") -> str:
-    """What owns the writes of a driver block: `continuous` (a continuous assign), `initial`, `sequential`
+    """What owns the writes of a driver block: `tristate_continuous` (a continuous assign through a tri-state
+    conditional), `continuous` (any other continuous assign), `initial`, `sequential`
     (a clocked block), `combinational` (`always_comb` or a level-sensitive `always`), `always` (any other
     always block, such as `always_latch`) or `other`. Decided from the syntax kind of the block."""
     from ..syntax_kinds import ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND, ALWAYS_LATCH_BLOCK_KIND
-    from ..syntax_queries import is_continuous_assign
+    from ..syntax_queries import is_continuous_assign, is_tristate_continuous_assign
 
     if is_continuous_assign(driver_block.raw):
-        return "continuous"
+        return "tristate_continuous" if is_tristate_continuous_assign(driver_block.raw) else "continuous"
     if is_initial_driver_block(driver_block):
         return "initial"
     if is_sequential_driver_block(driver_block):

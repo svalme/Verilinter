@@ -28,10 +28,6 @@ class SymbolTable:
         self.instantiation_edges: list[tuple[str, str, Location]] = []  # (from_module, to_module, location)
         self.instantiations: list[InstanceRecord] = []
         self.reset_style_events: list[tuple[str, str, Location]] = []  # (module_name, "sync"|"async", location)
-        self.combinational_driver_ids: set[str] = set()
-        self.sequential_driver_ids: set[str] = set()
-        self.initial_driver_ids: set[str] = set()
-        self.tristate_driver_ids: set[str] = set()
         self.driver_kinds: dict[str, DriverKind] = {}
         self.branch_constructs: dict[str, tuple[set[int] | None, tuple[tuple[str, int], ...]]] = {}
         self.pending_hierarchical_uses: list[tuple[Scope, list[str], str, Location | None, dict[str, object]]] = []
@@ -119,24 +115,10 @@ class SymbolTable:
         """Record what owns the writes of `driver_id`: a continuous assign or a kind of procedural block."""
         self.driver_kinds[driver_id] = kind
 
-    def mark_combinational_driver(self, driver_id: str) -> None:
-        """Record that `driver_id` (a continuous assign or combinational-style
-        procedural block) drives combinationally, for `COMBINATIONAL_LOOP`."""
-        self.combinational_driver_ids.add(driver_id)
-
-    def mark_sequential_driver(self, driver_id: str) -> None:
-        """Record that `driver_id` (an always_ff or clocked procedural block)
-        drives sequentially, for sequential register segregation."""
-        self.sequential_driver_ids.add(driver_id)
-
-    def mark_initial_driver(self, driver_id: str) -> None:
-        """Record that `driver_id` (an initial block) drives at time 0."""
-        self.initial_driver_ids.add(driver_id)
-
-    def mark_tristate_driver(self, driver_id: str) -> None:
-        """Record that `driver_id` (a continuous assign) drives via a tri-state
-        (`cond ? value : 'bz`) ternary, for `UNDRIVEN_TRISTATE_SIGNAL`."""
-        self.tristate_driver_ids.add(driver_id)
+    def driver_kind(self, driver_id: str | None) -> DriverKind | None:
+        """What owns the writes of `driver_id`, or None for an id that is not a continuous assign or a
+        procedural block (an instance port, a clocking block) or that was never recorded."""
+        return None if driver_id is None else self.driver_kinds.get(driver_id)
 
     def register_branch_construct(
         self,

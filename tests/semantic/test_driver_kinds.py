@@ -31,9 +31,11 @@ def test_a_continuous_assign_is_a_continuous_driver() -> None:
     assert _kinds_of("module top(input in); wire v; assign v = in; endmodule") == [DriverKind.CONTINUOUS]
 
 
-def test_a_tristate_continuous_assign_is_still_a_continuous_driver() -> None:
+def test_a_tristate_continuous_assign_is_a_tristate_continuous_driver() -> None:
     code = "module top(input en, input in); wire v; assign v = en ? in : 1'bz; endmodule"
-    assert _kinds_of(code) == [DriverKind.CONTINUOUS]
+    kinds = _kinds_of(code)
+    assert kinds == [DriverKind.TRISTATE_CONTINUOUS]
+    assert kinds[0].is_continuous
 
 
 def test_always_comb_and_a_level_sensitive_always_are_combinational() -> None:
@@ -63,6 +65,37 @@ def test_a_final_block_is_not_a_procedural_always_driver() -> None:
     kinds = _kinds_of("module top; logic v; final v = 1'b0; endmodule")
     assert kinds == [DriverKind.OTHER]
     assert not kinds[0].is_procedural_always
+
+
+def _combinational_driver_ids(code: str, name: str = "v") -> list[str]:
+    symbol_table = SymbolTable()
+    tree = parse_text(code)
+    assert_no_parse_errors("tests/semantic/test_driver_kinds.py", tree)
+    Walker(dispatch).walk(tree.root, tree, Context(scope=symbol_table.global_scope), symbol_table)
+    module = symbol_table.lookup_module("top")
+    assert module is not None
+    symbol = module.lookup(name)
+    assert symbol is not None
+    return [driver_id for driver_id, _event in DriverResolver(symbol_table).combinational_events(symbol)]
+
+
+def test_continuous_and_level_sensitive_drivers_are_combinational_logic() -> None:
+    assert _combinational_driver_ids("module top(input in); wire v; assign v = in; endmodule")
+    assert _combinational_driver_ids("module top(input en, input in); wire v; assign v = en ? in : 1'bz; endmodule")
+    assert _combinational_driver_ids("module top(input in); logic v; always_comb v = in; endmodule")
+    assert _combinational_driver_ids("module top(input in); logic v; always @* v = in; endmodule")
+
+
+def test_clocked_initial_latch_and_final_drivers_are_not_combinational_logic() -> None:
+    assert not _combinational_driver_ids("module top(input clk, input d); logic v; always_ff @(posedge clk) v <= d; endmodule")
+    assert not _combinational_driver_ids("module top; logic v; initial v = 1'b0; endmodule")
+    assert not _combinational_driver_ids("module top(input en, input d); logic v; always_latch if (en) v = d; endmodule")
+    assert not _combinational_driver_ids("module top; logic v; final v = 1'b0; endmodule")
+
+
+def test_a_read_in_a_combinational_block_is_a_combinational_event_too() -> None:
+    code = "module top(input a, output logic y); logic v; always_comb begin v = a; y = v; end endmodule"
+    assert len(_combinational_driver_ids(code)) == 2
 
 
 def test_only_always_blocks_are_procedural_always_drivers() -> None:

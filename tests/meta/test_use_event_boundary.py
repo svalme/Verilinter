@@ -23,8 +23,7 @@ READERS = {
     "pkg/semantic/scope.py": "merges the events of a redeclared symbol",
     "pkg/semantic/symbol_serialization.py": "stores and restores the events",
     "pkg/semantic/instance_effects.py": "counts the port-connection events it has to classify",
-    "pkg/rules/combinational_logic/combinational_loop.py": "groups events by combinational driver (moves with the driver kind)",
-    "pkg/rules/combinational_logic/read_before_write_rule.py": "orders reads against writes per driver (moves with the driver kind)",
+    "pkg/rules/combinational_logic/read_before_write_rule.py": "orders reads against writes per driver and block",
 }
 
 

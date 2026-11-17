@@ -11,13 +11,8 @@ from ...parser.syntax import (
     enclosing_port_connection,
     enclosing_procedural_block,
     identifier_access_modes,
-    is_combinational_driver_block,
-    is_continuous_assign,
-    is_initial_driver_block,
     is_nonblocking_assignment_node,
-    is_sequential_driver_block,
     is_system_task_output_argument,
-    is_tristate_continuous_assign,
     statement_id_of,
     subroutine_formal_direction,
     write_region_of_identifier,
@@ -95,14 +90,6 @@ class UseEventContextExtractor:
         driver_location = None
         if driver_block is not None:
             driver_id, driver_location = register_driver_block(driver_block, symbol_table)
-            if is_write and is_combinational_driver_block(driver_block):
-                symbol_table.mark_combinational_driver(driver_id)
-            if is_write and is_sequential_driver_block(driver_block):
-                symbol_table.mark_sequential_driver(driver_id)
-            if is_write and is_initial_driver_block(driver_block):
-                symbol_table.mark_initial_driver(driver_id)
-            if is_write and is_continuous_assign(driver_block.raw) and is_tristate_continuous_assign(driver_block.raw):
-                symbol_table.mark_tristate_driver(driver_id)
 
         branch_signature = branch_exclusivity_signature(
             vnode.raw, vnode.tree, construct_registry=symbol_table.branch_constructs

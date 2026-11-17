@@ -2,6 +2,7 @@ from typing import Any
 
 from ...base_symbol_rule import BaseSymbolRule
 from ...connection_analysis import signal_names_connected_to_instances
+from ....semantic.driver_kind import DriverKind
 from ....semantic.driver_resolver import DriverResolver
 from ....semantic.symbol_table import SymbolTable
 from ....semantic.symbol_kind import SymbolKind
@@ -34,7 +35,7 @@ class UndrivenTristateSignalRule(BaseSymbolRule):
                 if len(found) != 1:
                     continue
                 (driver,) = found
-                if driver.id not in symbol_table.tristate_driver_ids or driver.location is None:
+                if resolver.kind_of(driver.id) is not DriverKind.TRISTATE_CONTINUOUS or driver.location is None:
                     continue
 
                 loc = driver.location

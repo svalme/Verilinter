@@ -2,6 +2,7 @@ from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
 from ...semantic.driver_evidence import DriverEvidence
+from ...semantic.driver_kind import DriverKind
 from ...semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS
 from ...semantic.symbol import Symbol, UseEvent
 from ...semantic.symbol_table import SymbolTable
@@ -68,7 +69,7 @@ class ReadBeforeWriteRule(BaseSymbolRule):
             for event in sym.use_events
             if event["write"]
             and not event.get("is_nonblocking_write")
-            and event.get("driver_id") not in symbol_table.sequential_driver_ids
+            and symbol_table.driver_kind(event.get("driver_id")) is not DriverKind.SEQUENTIAL
         }
         if not self._is_local_to_subroutine(sym):
             # An event with no driver sits in a function or task body. A module-level variable read there is

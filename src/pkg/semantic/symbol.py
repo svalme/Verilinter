@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from ..vnodes.base_vnode import Location
 from .driver_evidence import DriverEvidence
+from .driver_kind import DriverKind
 from .symbol_kind import SymbolKind
 from .write_region import WriteRegion
 
@@ -195,7 +196,7 @@ class Symbol:
             if driver_id is not None:
                 if str(driver_id).startswith("clocking:"):
                     return True
-                if symbol_table is not None and driver_id in symbol_table.sequential_driver_ids:
+                if symbol_table is not None and symbol_table.driver_kind(driver_id) is DriverKind.SEQUENTIAL:
                     return True
         return False
 

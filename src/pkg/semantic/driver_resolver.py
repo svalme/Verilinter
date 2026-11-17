@@ -64,7 +64,18 @@ class DriverResolver:
     def kind_of(self, driver_id: str | None) -> DriverKind | None:
         """What owns the writes of a driver id, or None for a driver that is not a continuous assign or a
         procedural block (an instance port, a clocking block) and for an id the walk did not record."""
-        return None if driver_id is None else self._table.driver_kinds.get(driver_id)
+        return self._table.driver_kind(driver_id)
+
+    def combinational_events(self, symbol: Symbol) -> list[tuple[str, UseEvent]]:
+        """`(driver id, event)` for each read or write of the symbol made by combinational logic: a continuous
+        assign or a level-sensitive block."""
+        found: list[tuple[str, UseEvent]] = []
+        for event in symbol.use_events:
+            driver_id = event.get("driver_id")
+            kind = self._table.driver_kind(driver_id)
+            if driver_id is not None and kind is not None and kind.is_combinational_logic:
+                found.append((driver_id, event))
+        return found
 
     def drivers(self, symbol: Symbol, *, instance: bool | None = None, located: bool = False) -> list[Driver]:
         """The drivers of the symbol. `instance` keeps only instance drivers (True) or only the others
