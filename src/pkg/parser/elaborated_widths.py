@@ -99,5 +99,21 @@ class ElaboratedWidths:
             return None
         return ElaboratedWidth(frozenset(widths), frozenset(self._signed[key]))
 
+    def widths_for(self, node: object, tree: object) -> ElaboratedWidth | None:
+        """The widths of a syntax node of `tree`, read from the span of the node, or None when slang has no entry."""
+        span = getattr(node, "sourceRange", None)
+        manager = getattr(tree, "sourceManager", None)
+        if span is None or manager is None or span.start == sl.SourceLocation.NoLocation:
+            return None
+        return self.widths_at(manager.getFileName(span.start), span.start.offset, span.end.offset)
+
+    def is_macro_expansion(self, node: object, tree: object) -> bool:
+        """The node was produced by a macro expansion, so its span names no text of its own file."""
+        span = getattr(node, "sourceRange", None)
+        manager = getattr(tree, "sourceManager", None)
+        if span is None or manager is None:
+            return False
+        return bool(manager.isMacroLoc(span.start) or manager.isMacroLoc(span.end))
+
     def __len__(self) -> int:
         return len({span for span, _is_name in self._widths})
