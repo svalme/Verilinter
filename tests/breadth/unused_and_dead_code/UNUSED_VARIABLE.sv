@@ -319,3 +319,22 @@ module top(output logic o);
   end
   assign o = g.x;
 endmodule
+
+// breadth: gap | A variable written through a hierarchical path has a write use and is not unused.
+// expect: 0
+module top(output logic o);
+  if (1) begin : g
+    logic x;
+  end
+  assign g.x = 1'b1;
+  assign o = 1'b0;
+endmodule
+
+// breadth: gap | An indexed generate path counts as a use of the one shared declaration.
+// expect: 0
+module top(output logic o);
+  for (genvar i = 0; i < 2; i++) begin : g
+    logic x;
+  end
+  assign o = g[1].x;
+endmodule
