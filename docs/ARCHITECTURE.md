@@ -378,6 +378,17 @@ Complex AST handlers decompose disparate concerns into injectable strategy subco
 - **`CaseStatementFrame`**: Captures enclosing case statement AST and precomputed FSM transition models (`fsm_model`).
 - **`iter_ancestors(include_self=True)`**: Traverses parent pointers directly from innermost to outermost, eliminating $O(D)$ list allocations and reversals while enforcing cycle immunity and `< 256` depth bounds.
 
+### D. Resolvers: One Lookup Class per Area
+
+A resolver is to a lookup what a record is to a construct (section 7): the one place that answers a question about names, so every rule that asks gets the same answer and a correction reaches all of them.
+
+- **One question per resolver.** A resolver answers one kind of lookup: a name visible from a scope, a hierarchical name (`g.x`, `u.sig`), a module and its ports, a package member, the drivers and readers of a symbol. It returns a typed result, including the cases "not found" and "cannot be known from this file", and never changes the symbol table.
+- **Injected, not reached for.** It takes the scope, the symbol table or a qualifier function through its constructor, and is created at the entry point of its area and passed down. Rules and helpers do not build their own, and do not call the scope's lookup methods directly where a resolver exists for the question.
+- **Local to its area.** The resolver sits in the folder of the area that owns the question (`handlers/identifier_name/` for identifier occurrences, `parser/_syntax_queries/expressions/` for the width and constant code). Code in another area uses the resolver through its public method, not the helpers behind it.
+- **Pinned by a meta test.** `tests/meta/test_name_lookup_boundary.py` lists which files may call a lookup and, per area, which resolver they must use.
+
+`SymbolResolver` is the resolver for identifier occurrences. The lookups that are still free functions or `Scope` and `SymbolTable` methods called from several places become resolvers area by area, each in its own change with the boundary and breadth tests first.
+
 ---
 
 ## 9. AST Traversal Guard & Active-Path Cycle Immunity Subsystem

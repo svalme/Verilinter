@@ -167,6 +167,14 @@ Place every new or moved file in the folder or subfolder that fits its theme, an
 
 A Python module stays under 700 lines (`tests/meta/test_file_size_limits.py`); the only exemption is a constants table (`parser/syntax_kinds.py`). A module that holds several concerns is split by concern, and related modules are grouped in a folder with an `__init__.py`: `parser/_syntax_queries/expressions/` (operand shapes, the one symbol lookup, constant evaluation, select widths, width estimators), `parser/_syntax_queries/procedural/` (block walking, sensitivity and reset, branches), `parser/_syntax_queries/generate/`. Keep one lookup mechanism per concern in one module (`expressions/symbol_resolution.py`) so a helper cannot reach for another; `tests/meta/test_name_lookup_boundary.py` lists the files allowed to call a name lookup.
 
+### Lookups and Helpers Live with Their Area
+
+- A helper that one rule or one folder uses stays in that folder, in a module beside the rule or in the folder's own helper module, and no other area imports it. A rule never imports another rule's module.
+- A helper that two or more modules of one area need moves to that area's shared module (the category's common module under `rules/`, or the theme folder under `parser/_syntax_queries/`), not to a general utility file.
+- A lookup (a name, a module, a port, a package member, the child of an instance, the drivers or readers of a symbol) that two or more modules need is owned by a **resolver class** for its area, not copied into each module. A resolver gets what it needs through its constructor (a scope, the symbol table, a qualifier function), answers one kind of question, returns a value and changes no state. It is built at the area's entry point and passed down, so a test can give it a stub. `SymbolResolver` (`handlers/identifier_name/symbol_resolver.py`) is the model.
+- A new lookup call site is added to `tests/meta/test_name_lookup_boundary.py`. The test names the resolver an area may use, and a call that goes around it fails.
+- A module that grows a second kind of lookup moves the lookup into the area's resolver in the same change, as with any module that holds several concerns.
+
 ### Exceptions to the 700-line rule
 
 An exception is for a file that is long without being several concerns, such as a table. It is allowed only when all of these are done in the same change, and the maintainer is told in the commit message or the session:
