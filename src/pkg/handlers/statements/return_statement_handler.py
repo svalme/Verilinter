@@ -19,8 +19,8 @@ class ReturnStatementHandler(SyntaxNodeHandler):
     def update_context(self, ctx: Context, vnode: SyntaxVNode, symbol_table: SymbolTable) -> Context:
         if return_statement_has_value(vnode.raw):
             scope = enclosing_function_scope(ctx.scope())
-            result = scope.lookup(scope.name) if scope is not None and scope.name else None
-            if result is not None and result.is_function_return:
+            result = scope.function_result() if scope is not None else None
+            if result is not None:
                 result.add_use(vnode.location, write=True)
         return ctx.push(vnode)
 

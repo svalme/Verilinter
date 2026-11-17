@@ -10,6 +10,7 @@ from ...vnodes.syntax_vnode import SyntaxVNode
 from ...vnodes.vnode_factory import vnode_factory
 from ...walk.context import Context
 from ...walk.dispatch import dispatch
+from ..identifier_name.symbol_resolver import symbol_named
 from ..syntax_node_handler import SyntaxNodeHandler
 
 
@@ -25,8 +26,7 @@ class ClockingDeclarationHandler(SyntaxNodeHandler):
         scope = ctx.scope()
         signals = clocking_declaration_signals(vnode.raw, vnode.tree)
         for name, is_input, is_output, loc in signals:
-            lookup = getattr(scope, "lookup_hierarchical", None)
-            symbol = lookup(name) if callable(lookup) else getattr(scope, "lookup", lambda _n: None)(name)
+            symbol = symbol_named(scope, name)
             if symbol is None:
                 symbol = Symbol(name=name, kind=SymbolKind.VARIABLE)
                 scope.add_symbol(symbol)

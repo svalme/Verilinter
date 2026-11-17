@@ -18,6 +18,7 @@ from ..parser.syntax import (
 )
 from ..parser.types import HierarchicalInstanceNode, HierarchyInstantiationNode
 from ..vnodes.syntax_vnode import SyntaxVNode
+from .identifier_name.symbol_resolver import symbol_named
 from .syntax_node_handler import SyntaxNodeHandler
 from .hierarchy_instantiation import (
     ParameterOverrideExtractor,
@@ -74,7 +75,7 @@ class HierarchyInstantiationHandler(SyntaxNodeHandler):
 
             for conn in connections:
                 if getattr(conn, "is_shorthand", False) and conn.port_name:
-                    sym = symbol_table.lookup_from_scope(conn.port_name, ctx.scope())
+                    sym = symbol_named(ctx.scope(), conn.port_name)
                     if sym is not None:
                         sym.add_use(conn.location, read=True, in_port_connection=True)
 

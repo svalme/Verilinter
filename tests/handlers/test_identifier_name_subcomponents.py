@@ -334,3 +334,73 @@ class TestIdentifierNameHandlerOrchestration:
             vnode.location,
             **event_context.to_use_kwargs(),
         )
+
+
+class TestSymbolNamed:
+    """The one lookup a handler uses to ask which symbol a name refers to."""
+
+    def test_finds_a_name_from_the_scope_outward(self) -> None:
+        from src.pkg.handlers.identifier_name.symbol_resolver import symbol_named
+        from src.pkg.semantic.scope import Scope
+        from src.pkg.semantic.symbol import Symbol
+
+        outer = Scope("module", "m")
+        symbol = Symbol(name="a", kind="variable")
+        outer.define(symbol)
+        inner = Scope("block", "b")
+        inner.set_parent(outer)
+        assert symbol_named(inner, "a") is symbol
+        assert symbol_named(inner, "missing") is None
+
+    def test_a_package_qualified_name_is_looked_up_in_that_package_only(self) -> None:
+        from src.pkg.handlers.identifier_name.symbol_resolver import symbol_named
+        from src.pkg.parser.parse import parse_text
+        from src.pkg.semantic.symbol_table import SymbolTable
+        from src.pkg.walk.context import Context
+        from src.pkg.walk.dispatch import dispatch
+        from src.pkg.walk.walker import Walker
+
+        table = SymbolTable()
+        tree = parse_text(
+            """
+            package pkg; parameter int WIDTH = 8; endpackage
+            module top; localparam int OUTER = 1; endmodule
+            """
+        )
+        Walker(dispatch).walk(tree.root, tree, Context(scope=table.global_scope), table)
+        module = table.lookup_module("top")
+        assert module is not None
+        qualified = symbol_named(module, "WIDTH", "pkg")
+        assert qualified is not None and qualified.name == "WIDTH"
+        assert symbol_named(module, "WIDTH") is None
+        assert symbol_named(module, "OUTER", "pkg") is None
+        assert symbol_named(module, "WIDTH", "other") is None
+
+    def test_a_name_an_import_brings_in_is_found_without_a_qualifier(self) -> None:
+        from src.pkg.handlers.identifier_name.symbol_resolver import symbol_named
+        from src.pkg.parser.parse import parse_text
+        from src.pkg.semantic.symbol_table import SymbolTable
+        from src.pkg.walk.context import Context
+        from src.pkg.walk.dispatch import dispatch
+        from src.pkg.walk.walker import Walker
+
+        table = SymbolTable()
+        tree = parse_text(
+            """
+            package pkg; parameter int WIDTH = 8; endpackage
+            module top; import pkg::*; endmodule
+            """
+        )
+        Walker(dispatch).walk(tree.root, tree, Context(scope=table.global_scope), table)
+        module = table.lookup_module("top")
+        assert module is not None
+        found = symbol_named(module, "WIDTH")
+        assert found is not None and found.name == "WIDTH"
+
+    def test_an_empty_name_or_no_scope_gives_none(self) -> None:
+        from src.pkg.handlers.identifier_name.symbol_resolver import symbol_named
+        from src.pkg.semantic.scope import Scope
+
+        assert symbol_named(Scope("module", "m"), None) is None
+        assert symbol_named(Scope("module", "m"), "") is None
+        assert symbol_named(None, "a") is None

@@ -446,3 +446,23 @@ class TestLookupGlobal:
 
         found = st.lookup_global("nowhere")
         assert found is None
+
+
+class TestScopeFunctionResult:
+    """`Scope.function_result` is the variable that holds a function's result."""
+
+    def test_the_symbol_named_like_the_function_is_its_result_when_marked_as_the_return_variable(self) -> None:
+        scope = Scope("function", "f")
+        result = Symbol(name="f", kind="variable")
+        result.is_function_return = True
+        scope.define(result)
+        assert scope.function_result() is result
+
+    def test_a_symbol_named_like_the_function_that_is_not_the_return_variable_is_not_the_result(self) -> None:
+        scope = Scope("function", "f")
+        scope.define(Symbol(name="f", kind="variable"))
+        assert scope.function_result() is None
+
+    def test_a_scope_with_no_name_or_no_such_symbol_has_no_result(self) -> None:
+        assert Scope("function", None).function_result() is None
+        assert Scope("function", "f").function_result() is None

@@ -80,6 +80,12 @@ class Scope:
             return self.symbols[name]
         return None
 
+    def function_result(self) -> Symbol | None:
+        """The variable that holds this function's result: the symbol named like the function in its own scope,
+        when it is the function's return variable."""
+        result = self.lookup(self.name) if self.name else None
+        return result if result is not None and result.is_function_return else None
+
     def lookup_hierarchical(self, name: str) -> Symbol | None:
         """The one name lookup: from this scope outward, then through imports.
 

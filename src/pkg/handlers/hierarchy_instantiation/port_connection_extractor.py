@@ -20,6 +20,7 @@ from ...parser.syntax import (
     source_text_for_node,
 )
 from ...semantic.expr_type import WidthDetermination
+from ..identifier_name.symbol_resolver import symbol_named
 from ...semantic.models import PortConnection
 
 if TYPE_CHECKING:
@@ -70,7 +71,7 @@ class PortConnectionExtractor:
                 elif is_shorthand:
                     expr_text = port_name
                     expr_name = port_name
-                    sym = scope.lookup_hierarchical(port_name) if scope is not None and port_name is not None else None
+                    sym = symbol_named(scope, port_name)
                     if sym is not None:
                         expr_width, expr_signed = sym.whole_width, sym.is_signed
                     else:

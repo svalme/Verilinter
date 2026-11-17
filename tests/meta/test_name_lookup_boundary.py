@@ -58,12 +58,7 @@ LOOKUP_FILES: dict[str, Entry] = {
     "pkg/semantic/connection_records.py": _e("semantic", "lookup_hierarchical", "the signal a connection names, in the instantiating module"),
     "pkg/semantic/instance_effects.py": _e("semantic", "lookup_hierarchical", "the child module and the signals a port connection names, to mark instance-driven signals"),
     # handlers: the walk
-    "pkg/handlers/identifier_name/symbol_resolver.py": _e("handlers", "lookup_from_scope lookup_package_member", "resolves every identifier occurrence", "resolver"),
-    "pkg/handlers/hierarchy_instantiation_handler.py": _e("handlers", "lookup_from_scope", "symbol behind a shorthand port connection", "exception"),
-    "pkg/handlers/hierarchy_instantiation/port_connection_extractor.py": _e("handlers", "lookup_hierarchical", "a port by name in the child module scope", "exception"),
-    "pkg/handlers/declarations/clocking_declaration_handler.py": _e("handlers", "lookup lookup_hierarchical", "the signals of a clocking block", "exception"),
-    "pkg/handlers/declarations/declarator_handler.py": _e("handlers", "lookup_hierarchical lookup_package_member", "the typedef behind a variable's declared type name", "exception"),
-    "pkg/handlers/statements/return_statement_handler.py": _e("handlers", "lookup", "the function result variable in the function scope", "exception"),
+    "pkg/handlers/identifier_name/symbol_resolver.py": _e("handlers", "lookup_hierarchical lookup_package_member", "resolves every identifier occurrence and answers `symbol_named` for the other handlers", "resolver"),
     # parser_queries: syntax query helpers
     "pkg/parser/_syntax_queries/expressions/symbol_resolution.py": _e("parser_queries", "lookup lookup_hierarchical lookup_package_member", "the one lookup (scope, package member, or mapping) the constant evaluator and the width estimators use", "resolver"),
     "pkg/parser/_syntax_queries/generate/loops.py": _e("parser_queries", "lookup lookup_hierarchical lookup_package_member", "scope wrapper that binds genvars to their values and forwards every lookup"),
@@ -76,7 +71,7 @@ LOOKUP_FILES: dict[str, Entry] = {
 
 # The direct callers per area that should move onto the area's resolver. Lower a number when one moves; a new
 # exception fails the test and is the moment to ask for a resolver method instead.
-EXCEPTIONS_PER_AREA = {"semantic": 0, "handlers": 5, "parser_queries": 3, "rules": 0}
+EXCEPTIONS_PER_AREA = {"semantic": 0, "handlers": 0, "parser_queries": 3, "rules": 0}
 AREAS_WITH_A_RESOLVER = {"handlers", "parser_queries", "rules"}
 
 

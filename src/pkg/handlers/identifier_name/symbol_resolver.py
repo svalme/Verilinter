@@ -6,9 +6,22 @@ from ...parser.syntax import is_hierarchical_path_base, scoped_name_package_qual
 from ...semantic.resolution import Resolution, ResolutionStatus
 
 if TYPE_CHECKING:
+    from ...semantic.scope import Scope
+    from ...semantic.symbol import Symbol
     from ...semantic.symbol_table import SymbolTable
     from ...vnodes.identifier_vnode import IdentifierNameVNode
     from ...walk.context import Context
+
+
+def symbol_named(scope: Scope | None, name: str | None, package: str | None = None) -> Symbol | None:
+    """The symbol `name` refers to from `scope`: `package::name` when a package is given, otherwise the nearest
+    declaration outward and then a name an import brings in (`Scope.lookup_hierarchical`). An empty name or no
+    scope gives None. A handler asks here and never calls a scope lookup itself."""
+    if not name or scope is None:
+        return None
+    if package:
+        return scope.lookup_package_member(package, name)
+    return scope.lookup_hierarchical(name)
 
 
 class SymbolResolver:
@@ -37,12 +50,12 @@ class SymbolResolver:
         """
         package_qualifier = self._qualifier_fn(vnode.raw)
         if package_qualifier is not None:
-            symbol = ctx.scope().lookup_package_member(package_qualifier, name)
+            symbol = symbol_named(ctx.scope(), name, package_qualifier)
             if symbol is None:
                 return Resolution(ResolutionStatus.UNRESOLVABLE_HERE)
             return Resolution(ResolutionStatus.RESOLVED, symbol)
 
-        symbol = symbol_table.lookup_from_scope(name, ctx.scope())
+        symbol = symbol_named(ctx.scope(), name)
         if symbol is not None:
             return Resolution(ResolutionStatus.RESOLVED, symbol)
 

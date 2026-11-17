@@ -27,6 +27,7 @@ from ...parser.syntax import (
     source_text_for_node,
 )
 from ..identifier_name.driver_registration import register_driver_block
+from ..identifier_name.symbol_resolver import symbol_named
 from ...semantic.symbol import Symbol
 from ...semantic.symbol_kind import SymbolKind
 from ...semantic.symbol_table import SymbolTable
@@ -106,7 +107,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
             return
         package, type_name = reference
         scope = ctx.scope()
-        typedef = scope.lookup_package_member(package, type_name) if package else scope.lookup_hierarchical(type_name)
+        typedef = symbol_named(scope, type_name, package)
         if typedef is None or typedef.kind is not SymbolKind.TYPEDEF or not isinstance(typedef.bit_width, int):
             return
         extra = declarator_named_type_dimensions_width(ctx)
