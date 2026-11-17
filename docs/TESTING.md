@@ -82,7 +82,7 @@ Each rule has one breadth file, `tests/breadth/<rule category>/<RULE_CODE>.sv`, 
 - `// pair: <name>` on one `reports` and one `clean` breadth case ties a boundary: the two differ in the one detail that decides the outcome.
 - `// expect: N` gives the number of findings of the rule (default 1 for `reports` and `gap`, 0 for `clean`; `// expect: 0` on a `gap` marks a too-broad miss).
 
-`tests/breadth/test_rule_breadth.py` runs them; `tests/meta/test_breadth_coverage.py` requires every rule to have a file with at least one `reports` and one `clean` breadth case, in its category folder. `tests/breadth/PENDING_RULES.txt` lists the rules without a file yet; it only shrinks, so a new rule comes with its breadth cases and is never added to it. When a fix or a verdict shows a case the catalog lacks (a false positive, a missed defect), add it to the rule's file in the same change.
+`tests/breadth/test_rule_breadth.py` runs them; `tests/meta/test_breadth_coverage.py` requires every rule to have a file with at least one `reports` and one `clean` breadth case, in its category folder. `tests/breadth/RULE_BREADTH_STATUS.txt` lists every rule with `yes` or `no` for whether it has a breadth file, and the meta test checks each line against the files; a `no` only becomes `yes`, so a new rule is listed as `yes` together with its breadth cases. The table below gives the case counts of the rules that have a file. When a fix or a verdict shows a case the catalog lacks (a false positive, a missed defect), add it to the rule's file in the same change.
 
 Rules with a breadth file (generated; regenerate with `UPDATE_EXPECTED=1 pytest tests/meta/test_breadth_catalog_doc.py` after adding or changing a breadth file):
 
@@ -90,7 +90,7 @@ Rules with a breadth file (generated; regenerate with `UPDATE_EXPECTED=1 pytest 
 
 27 of 172 rules have a breadth file.
 
-| Category | Rules | With breadth cases | Pending |
+| Category | Rules | With breadth cases | Without a breadth file |
 |---|---|---|---|
 | `arrays_and_indexing` | 6 | 1 | 5 |
 | `assertions_and_verification` | 9 | 0 | 9 |
