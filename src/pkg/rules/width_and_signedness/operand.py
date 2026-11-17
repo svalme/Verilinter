@@ -17,6 +17,7 @@ from ...parser.syntax import (
     natural_expression_width_and_signed,
     unwrap_parentheses,
 )
+from ..name_lookup import named_symbol
 
 
 class OperandKind(StrEnum):
@@ -71,8 +72,7 @@ def classify_operand(scope: object, expr: object, tree: object = None) -> Operan
         return Operand(scope, expr, tree, OperandKind.LITERAL, value)
 
     name = identifier_name(inner)
-    lookup = getattr(scope, "lookup_hierarchical", None)
-    symbol = lookup(name) if name and callable(lookup) else None
+    symbol = named_symbol(scope, name)
     if symbol is not None and symbol.is_compile_time_constant:
         return Operand(scope, expr, tree, OperandKind.CONSTANT_SYMBOL, None)
 

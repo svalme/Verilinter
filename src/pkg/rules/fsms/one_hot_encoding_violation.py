@@ -7,6 +7,7 @@ from ...parser.syntax import (
 from ...parser.types import CaseStatementNode
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
+from ..name_lookup import named_symbol
 from ..rule_runner import rule_runner
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ def _is_one_hot_encoding_violation(vnode: BaseVNode, ctx: "Context") -> bool:
     model = state_machine_model(vnode.raw, ctx)
     if model is None:
         return False
-    symbol = ctx.scope().lookup_hierarchical(model.state_name)
+    symbol = named_symbol(ctx.scope(), model.state_name)
     if symbol is None or not isinstance(symbol.bit_width, int) or symbol.bit_width <= 1:
         return False
 

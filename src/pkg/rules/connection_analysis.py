@@ -8,6 +8,7 @@ from ..parser.syntax import (
     evaluate_packed_dimension_bounds,
     is_mutually_exclusive_branch_pair,
 )
+from .name_lookup import named_symbol
 from ..semantic.models import InstanceRecord, ParameterOverride, PortConnection
 from ..semantic.instance_ports import (
     named_parameter_overrides,
@@ -185,8 +186,7 @@ def width_mismatch_details(
 def _typed_by_type_parameter(port: object) -> bool:
     """True when the port is declared with a type parameter (`input data_t d`), whose width no analysis can know."""
     type_name = getattr(port, "interface_type_name", None)
-    lookup = getattr(getattr(port, "scope", None), "lookup_hierarchical", None)
-    symbol = lookup(type_name) if type_name and callable(lookup) else None
+    symbol = named_symbol(getattr(port, "scope", None), type_name)
     return bool(getattr(symbol, "is_type_parameter", False))
 
 
@@ -246,7 +246,7 @@ def unread_instance_output_details(
         expr_name = conn.get("expr_name")
         if not isinstance(expr_name, str):
             continue
-        symbol = parent_scope.lookup_hierarchical(expr_name)
+        symbol = named_symbol(parent_scope, expr_name)
         if symbol is None:
             continue
         if symbol.is_port and symbol.port_direction in ("output", "inout"):

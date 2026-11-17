@@ -71,16 +71,12 @@ LOOKUP_FILES: dict[str, Entry] = {
     "pkg/parser/_syntax_queries/shapes.py": _e("parser_queries", "lookup_hierarchical", "the base symbol of an element select", "exception"),
     "pkg/parser/_syntax_queries/fsm.py": _e("parser_queries", "lookup lookup_hierarchical", "state variables and case item constants", "exception"),
     # rules
-    "pkg/rules/connection_analysis.py": _e("rules", "lookup_hierarchical", "port and connection symbols, child module ports, type-parameter ports", "resolver"),
-    "pkg/rules/width_and_signedness/operand.py": _e("rules", "lookup_hierarchical", "operand symbols for the width rules", "resolver"),
-    "pkg/rules/arrays_and_indexing/constant_index_out_of_range.py": _e("rules", "lookup_hierarchical", "the indexed base symbol", "exception"),
-    "pkg/rules/width_and_signedness/no_assignment_width_mismatch.py": _e("rules", "lookup lookup_hierarchical", "operand symbols for the width rules", "exception"),
-    "pkg/rules/fsms/one_hot_encoding_violation.py": _e("rules", "lookup_hierarchical", "the state variable", "exception"),
+    "pkg/rules/name_lookup.py": _e("rules", "lookup lookup_hierarchical", "the one place a rule asks which symbol a name refers to from a scope", "resolver"),
 }
 
 # The direct callers per area that should move onto the area's resolver. Lower a number when one moves; a new
 # exception fails the test and is the moment to ask for a resolver method instead.
-EXCEPTIONS_PER_AREA = {"semantic": 0, "handlers": 5, "parser_queries": 3, "rules": 3}
+EXCEPTIONS_PER_AREA = {"semantic": 0, "handlers": 5, "parser_queries": 3, "rules": 0}
 AREAS_WITH_A_RESOLVER = {"handlers", "parser_queries", "rules"}
 
 

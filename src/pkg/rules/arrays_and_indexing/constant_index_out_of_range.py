@@ -8,6 +8,7 @@ from ...parser.syntax import (
 from ...parser.types import SELECT_EXPRESSION_NODE_TYPES
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
+from ..name_lookup import named_symbol
 from ..rule_runner import rule_runner
 from ..width_and_signedness.operand import packed_dimension_bounds, selectors_into_element_bits
 
@@ -32,7 +33,7 @@ def _is_constant_index_out_of_range(vnode: BaseVNode, ctx: "Context") -> bool:
         return False
     base_name, selectors = result
 
-    symbol = ctx.scope().lookup_hierarchical(base_name)
+    symbol = named_symbol(ctx.scope(), base_name)
     if symbol is None or not isinstance(symbol.bit_width, int):
         return False
     # A parameter can be overridden with a value of any width, so its default does not bound a select.

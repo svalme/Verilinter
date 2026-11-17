@@ -21,6 +21,7 @@ from ...parser.types import (
 from ...semantic.expr_type import ExprType, WidthDetermination
 from ...vnodes.base_vnode import BaseVNode
 from ..base_rule import Rule
+from ..name_lookup import named_symbol
 from ..rule_runner import rule_runner
 
 if TYPE_CHECKING:
@@ -91,8 +92,7 @@ def _check_selects(node: object, scope: object, ctx: "Context", tree: object) ->
         return None
     name, selectors = extract_assignment_target_and_selectors(node)
     if name and selectors:
-        lookup_hierarchical = getattr(scope, "lookup_hierarchical", None)
-        sym = lookup_hierarchical(name) if callable(lookup_hierarchical) else getattr(scope, "lookup", lambda _n: None)(name)
+        sym = named_symbol(scope, name)
         if sym is not None:
             mismatch = _check_index_selector_width_mismatch(selectors, sym, ctx, tree)
             if mismatch is not None:
