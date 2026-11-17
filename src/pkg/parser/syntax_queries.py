@@ -165,7 +165,7 @@ from ._syntax_queries.conditional_shapes import (
     procedural_block_statement,
 )
 from ._syntax_queries.generate.blocks import (
-    duplicate_generate_branch_label,
+    generate_label_redefined,
     in_inactive_generate_branch,
     is_unlabeled_generate_block,
     generate_block_label,
@@ -401,7 +401,7 @@ __all__ = [
     "declarator_port_direction",
     "declarator_unpacked_dimension_texts",
     "declarator_unpacked_dimension_widths",
-    "duplicate_generate_branch_label",
+    "generate_label_redefined",
     "in_inactive_generate_branch",
     "element_select_index_or_range",
     "else_clause_body",

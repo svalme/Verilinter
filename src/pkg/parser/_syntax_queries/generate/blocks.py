@@ -1,5 +1,5 @@
 """Generate-block shape queries: labeled/unlabeled `begin...end` bodies of
-if/loop/case-generate branches, and duplicate branch-label detection."""
+if/loop/case-generate branches, and label redefinition between generate constructs."""
 
 from ...syntax_kinds import GENERATE_BLOCK_KIND, GENVAR_KEYWORD_KIND
 
@@ -47,43 +47,77 @@ def generate_block_label(raw: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-def duplicate_generate_branch_label(raw: object) -> bool:
-    """True if `raw` (an `IfGenerateSyntax` or `CaseGenerateSyntax`) has two or
-    more direct generate-block branches sharing the same explicit label --
-    the `if`/`else` branches of one if-generate, or the case items of one
-    case-generate. An unlabeled branch (`MISSING_GENERATE_BLOCK_LABEL`'s own
-    concern) is never compared against anything here, since two unlabeled
-    branches are not a genuine name collision.
-
-    Deliberately per-construct, matching `is_unlabeled_generate_block`'s own
-    anchoring: two labels colliding across two separate top-level
-    `generate...endgenerate` regions in the same module are a real
-    elaboration-time hierarchical-path collision too, but that needs
-    module-wide generate-label collection this first pass doesn't attempt.
-    """
-    from ..node_kind_checks import is_case_generate_node, is_if_generate_node
-
-    labels: list[str] = []
-    if is_if_generate_node(raw):
-        block_label = generate_block_label(getattr(raw, "block", None))
-        if block_label is not None:
-            labels.append(block_label)
-        else_clause = getattr(raw, "elseClause", None)
-        else_label = generate_block_label(getattr(else_clause, "clause", None))
-        if else_label is not None:
-            labels.append(else_label)
-    elif is_case_generate_node(raw):
-        for item in getattr(raw, "items", None) or []:
-            label = generate_block_label(getattr(item, "clause", None))
-            if label is not None:
-                labels.append(label)
-    else:
-        return False
-
-    return len(labels) != len(set(labels))
-
-
 _MAX_GENERATE_ANCESTORS = 64
+
+
+def generate_construct_labels(raw: object) -> set[str]:
+    """The explicit labels the generate blocks of one construct can put in their scope: an if-generate
+    with its whole else and else-if chain, a case-generate, a loop-generate, or a bare generate block.
+
+    Only one branch of an if or case is elaborated, so the branches of one construct never coexist and may
+    share a label; the construct's labels are the names it can add to the scope that holds it."""
+    from ..node_kind_checks import is_case_generate_node, is_if_generate_node, is_loop_generate_node
+
+    found: list[str | None] = []
+    if is_if_generate_node(raw):
+        node: object = raw
+        for _ in range(_MAX_GENERATE_ANCESTORS):
+            found.append(generate_block_label(getattr(node, "block", None)))
+            clause = getattr(getattr(node, "elseClause", None), "clause", None)
+            if not is_if_generate_node(clause):
+                found.append(generate_block_label(clause))
+                break
+            node = clause
+    elif is_case_generate_node(raw):
+        found.extend(generate_block_label(getattr(item, "clause", None)) for item in getattr(raw, "items", None) or ())
+    elif is_loop_generate_node(raw):
+        found.append(generate_block_label(getattr(raw, "block", None)))
+    else:
+        found.append(generate_block_label(raw))
+    return {label for label in found if label is not None}
+
+
+def _scope_constructs(raw: object) -> list[object] | None:
+    """The generate constructs written directly in the scope that holds `raw`, in source order, or None when
+    `raw` is not itself one of them (a branch block, or the `else if` of a chain). A `generate ... endgenerate`
+    region adds its members to the scope that holds it."""
+    from ...syntax_kinds import GENERATE_REGION_KIND
+
+    parent = getattr(raw, "parent", None)
+    if getattr(parent, "members", None) is None:
+        return None
+    scope = parent
+    for _ in range(_MAX_GENERATE_ANCESTORS):
+        if getattr(scope, "kind", None) != GENERATE_REGION_KIND:
+            break
+        scope = getattr(scope, "parent", None)
+    members: list[object] = []
+    for member in getattr(scope, "members", None) or ():
+        if getattr(member, "kind", None) == GENERATE_REGION_KIND:
+            members.extend(getattr(member, "members", None) or ())
+        else:
+            members.append(member)
+    return members
+
+
+def generate_label_redefined(raw: object) -> bool:
+    """True if `raw` is a generate construct (an `if`, `case` or loop generate, or a bare generate block) that
+    gives a block an explicit label an earlier generate construct in the same scope already uses.
+
+    Two constructs in one scope are both elaborated, so their blocks coexist and a shared label is a
+    redefinition, even when their conditions exclude each other. The branches of one construct are not
+    compared with each other (see `generate_construct_labels`), and neither are labels in different scopes
+    (another module, or a block nested inside a generate block). An unlabeled block has no label to share.
+    """
+    labels = generate_construct_labels(raw)
+    if not labels:
+        return False
+    for member in _scope_constructs(raw) or ():
+        if member is raw:
+            return False
+        if labels & generate_construct_labels(member):
+            return True
+    return False
 
 
 def taken_case_item(case_raw: object, scope: object) -> object | None:

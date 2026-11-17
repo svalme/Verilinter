@@ -22,6 +22,7 @@ INITIAL_BLOCK_KIND = sl.SyntaxKind.InitialBlock
 FINAL_BLOCK_KIND = sl.SyntaxKind.FinalBlock
 CONTINUOUS_ASSIGN_KIND = sl.SyntaxKind.ContinuousAssign
 GENERATE_BLOCK_KIND = sl.SyntaxKind.GenerateBlock
+GENERATE_REGION_KIND = sl.SyntaxKind.GenerateRegion
 GENVAR_KEYWORD_KIND = _token_kind("GenVarKeyword")
 CLOCKING_DECLARATION_KIND = _syntax_kind("ClockingDeclaration")
 CONDITIONAL_STATEMENT_KIND = _syntax_kind("ConditionalStatement")
@@ -868,6 +869,7 @@ __all__ = [
     "FUNCTION_PROTOTYPE_KIND",
     "GATE_PRIMITIVE_TOKEN_KINDS",
     "GENERATE_BLOCK_KIND",
+    "GENERATE_REGION_KIND",
     "GENVAR_KEYWORD_KIND",
     "GREATER_THAN_EQUAL_EXPRESSION_KIND",
     "GREATER_THAN_EXPRESSION_KIND",
