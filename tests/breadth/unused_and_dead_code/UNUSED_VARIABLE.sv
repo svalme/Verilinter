@@ -311,8 +311,7 @@ module top(output logic [7:0] o);
   assign o = mem[0];
 endmodule
 
-// breadth: gap | A variable inside a generate block read via a hierarchical path (g.x) is used, but hierarchical lookup only resolves the base name and leaves the member with zero uses.
-// expect: 0
+// breadth: clean | A variable inside a generate block read via a hierarchical path (g.x) is used, but hierarchical lookup only resolves the base name and leaves the member with zero uses.
 module top(output logic o);
   if (1) begin : g
     logic x;
@@ -320,8 +319,7 @@ module top(output logic o);
   assign o = g.x;
 endmodule
 
-// breadth: gap | A variable written through a hierarchical path has a write use and is not unused.
-// expect: 0
+// breadth: clean | A variable written through a hierarchical path has a write use and is not unused.
 module top(output logic o);
   if (1) begin : g
     logic x;
@@ -330,8 +328,7 @@ module top(output logic o);
   assign o = 1'b0;
 endmodule
 
-// breadth: gap | An indexed generate path counts as a use of the one shared declaration.
-// expect: 0
+// breadth: clean | An indexed generate path counts as a use of the one shared declaration.
 module top(output logic o);
   for (genvar i = 0; i < 2; i++) begin : g
     logic x;

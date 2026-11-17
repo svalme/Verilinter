@@ -30,9 +30,9 @@ LOOKUP_NAMES = {
 
 LOOKUP_FILES = {
     "pkg/semantic/scope.py": "defines the single-scope lookup, the one name lookup and the package member lookup",
+    "pkg/semantic/hierarchical_resolver.py": "the one resolver for hierarchical paths: first segment, block and instance steps, the member",
     "pkg/semantic/symbol_table.py": "defines the table-level lookups; resolves queued interface member uses",
     "pkg/handlers/identifier_name/symbol_resolver.py": "resolves every identifier occurrence",
-    "pkg/handlers/identifier_name_handler.py": "base name of a selected name",
     "pkg/handlers/hierarchy_instantiation_handler.py": "symbol behind a shorthand port connection",
     "pkg/handlers/hierarchy_instantiation/port_connection_extractor.py": "a port by name in the child module scope",
     "pkg/handlers/declarations/clocking_declaration_handler.py": "the signals of a clocking block",

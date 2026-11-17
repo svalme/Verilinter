@@ -1,5 +1,5 @@
 """A begin-end or fork-join block that declares a variable is its own namespace."""
-from ...parser.syntax import block_declares_names
+from ...parser.syntax import block_declares_names, block_statement_label
 from ...parser.types import BlockStatementNode
 from ...semantic.scope_kinds import ScopeKind
 from ...walk.dispatch import dispatch
@@ -16,7 +16,7 @@ class BlockStatementHandler(SyntaxNodeHandler):
     def update_context(self, ctx, vnode, symbol_table):
         if not block_declares_names(vnode.raw):
             return ctx.push(vnode)
-        scope = symbol_table.new_scope(kind=ScopeKind.BLOCK, location=vnode.location)
+        scope = symbol_table.new_scope(kind=ScopeKind.BLOCK, name=block_statement_label(vnode.raw), location=vnode.location)
         return ctx.push(vnode).with_scope(scope)
 
     def on_exit(self, ctx, vnode, symbol_table):

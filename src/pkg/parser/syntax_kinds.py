@@ -596,6 +596,7 @@ CONCATENATION_EXPRESSION_KIND = _syntax_kind("ConcatenationExpression")
 MULTIPLE_CONCATENATION_EXPRESSION_KIND = _syntax_kind("MultipleConcatenationExpression")
 IDENTIFIER_NAME_KIND = _syntax_kind("IdentifierName")
 IDENTIFIER_SELECT_NAME_KIND = _syntax_kind("IdentifierSelectName")
+ROOT_SCOPE_KIND = _syntax_kind("RootScope")
 ELEMENT_SELECT_EXPRESSION_KIND = _syntax_kind("ElementSelectExpression")
 ADD_EXPRESSION_KIND = _syntax_kind("AddExpression")
 SUBTRACT_EXPRESSION_KIND = _syntax_kind("SubtractExpression")
@@ -872,6 +873,7 @@ __all__ = [
     "GREATER_THAN_EXPRESSION_KIND",
     "IDENTIFIER_NAME_KIND",
     "IDENTIFIER_SELECT_NAME_KIND",
+    "ROOT_SCOPE_KIND",
     "IF_GENERATE_KIND",
     "IMMEDIATE_ASSERTION_KINDS",
     "IMPLICIT_ANSI_PORT_KIND",

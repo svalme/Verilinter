@@ -76,7 +76,7 @@ module c(bus_if b); logic x; assign x = b.gnt; endmodule
 
     def test_member_selector_on_undeclared_interface_is_ignored(self) -> None:
         table = _walk("module sub(missing_if b); logic x; assign x = b.req; endmodule")
-        assert table.pending_interface_member_uses == []
+        assert table.pending_hierarchical_uses == []
 
     def test_struct_member_access_does_not_touch_interface_members(self) -> None:
         code = IFACE + """

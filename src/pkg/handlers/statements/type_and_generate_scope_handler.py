@@ -1,5 +1,5 @@
 """Keep aggregate fields and generate-block locals out of enclosing namespaces."""
-from ...parser.syntax import genvar_declaration_names_and_locations, loop_generate_genvar_name
+from ...parser.syntax import generate_block_label, genvar_declaration_names_and_locations, loop_generate_genvar_name
 from ...parser.types import GenerateBlockNode, GenvarDeclarationNode, StructUnionTypeNode, LoopGenerateNode
 from ...semantic.symbol import Symbol
 from ...semantic.symbol_kind import SymbolKind
@@ -38,7 +38,7 @@ class GenerateBlockHandler(SyntaxNodeHandler):
     """Each `begin ... end` body of an if/case/loop generate construct is its own scope."""
 
     def update_context(self, ctx, vnode, symbol_table):
-        scope = symbol_table.new_scope(kind=ScopeKind.GENERATE_BLOCK, location=vnode.location)
+        scope = symbol_table.new_scope(kind=ScopeKind.GENERATE_BLOCK, name=generate_block_label(vnode.raw), location=vnode.location)
         return ctx.push(vnode).with_scope(scope)
 
     def on_exit(self, ctx, vnode, symbol_table):

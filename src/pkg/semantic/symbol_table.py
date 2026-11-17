@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from ..vnodes.base_vnode import Location
+from .hierarchical_resolver import HierarchicalNameResolver
 from .models.instance_record import InstanceRecord
 from .resolution import UnresolvedReference
 from .symbol import Symbol
@@ -30,7 +31,7 @@ class SymbolTable:
         self.initial_driver_ids: set[str] = set()
         self.tristate_driver_ids: set[str] = set()
         self.branch_constructs: dict[str, tuple[set[int] | None, tuple[tuple[str, int], ...]]] = {}
-        self.pending_interface_member_uses: list[tuple[str, str, Location | None, dict[str, object]]] = []
+        self.pending_hierarchical_uses: list[tuple[Scope, list[str], str, Location | None, dict[str, object]]] = []
         self.unresolved_references: list[UnresolvedReference] = []  # names used with no declaration, in walk order
         self.current_file: str | None = None
         self._file_default_nettype_none: dict[str, bool] = {}
@@ -140,29 +141,30 @@ class SymbolTable:
         and enclosing parent branch signature) for control-flow analysis."""
         self.branch_constructs[construct_id] = (required_branches, parent_signature)
 
-    def record_interface_member_use(
+    def record_hierarchical_use(
         self,
-        interface_type: str,
+        scope: Scope,
+        segments: list[str],
         member: str,
         location: Location | None,
         use_kwargs: dict[str, object],
     ) -> None:
-        """Queue a read/write of `member` reached through a port or instance of `interface_type`.
+        """Queue a read/write of `member` reached through the path `segments` written in `scope`.
 
-        The interface may be declared later in the file, so the use is applied by
-        `resolve_interface_member_uses` once the whole file has been walked."""
-        self.pending_interface_member_uses.append((interface_type, member, location, use_kwargs))
+        The path may name a block, instance, interface or module declared later in the file, so the use is
+        applied by `resolve_hierarchical_uses` once the whole file has been walked."""
+        self.pending_hierarchical_uses.append((scope, segments, member, location, use_kwargs))
 
-    def resolve_interface_member_uses(self) -> None:
-        """Attach queued interface-member uses to the members' symbols; uses whose
-        interface is not declared in the walked files are dropped."""
-        pending, self.pending_interface_member_uses = self.pending_interface_member_uses, []
-        for interface_type, member, location, use_kwargs in pending:
-            scope = self.lookup_module(interface_type)
-            symbol = scope.lookup(member) if scope is not None else None
-            if symbol is not None:
-                scope.has_visible_interface_users = True  # type: ignore[union-attr]
-                symbol.add_use(location, **use_kwargs)  # type: ignore[arg-type]
+    def resolve_hierarchical_uses(self) -> None:
+        """Attach queued hierarchical uses to the symbols they name; a path that does not lead to a
+        symbol in the walked files is dropped."""
+        pending, self.pending_hierarchical_uses = self.pending_hierarchical_uses, []
+        resolver = HierarchicalNameResolver(self)
+        for scope, segments, member, location, use_kwargs in pending:
+            target = resolver.resolve(scope, segments, member)
+            if target is not None:
+                target.scope.has_visible_interface_users = True
+                target.symbol.add_use(location, **use_kwargs)  # type: ignore[arg-type]
 
     def lookup_module(self, name: str) -> Scope | None:
         """Return the first scope for a named module, or None if not yet seen."""

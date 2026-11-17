@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..parser.syntax import member_selector_base_name
+from ..parser.syntax import hierarchical_path_prefix
 from ..parser.types import IDENTIFIER_NAME_NODE_TYPES
 from ..semantic.symbol_table import SymbolTable
 from ..vnodes.base_vnode import BaseVNode
@@ -53,7 +53,7 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
         if not name:
             return ctx.push(vnode)
         if self.filter.is_structural_reference(vnode.raw):
-            self._record_interface_member_use(name, ctx, vnode, symbol_table)
+            self._record_hierarchical_use(name, ctx, vnode, symbol_table)
             return ctx.push(vnode)
 
         resolution = self.resolver.resolve(name, vnode, ctx, symbol_table)
@@ -66,22 +66,19 @@ class IdentifierNameHandler(BaseHandler[IdentifierNameVNode]):
 
         return ctx.push(vnode)
 
-    def _record_interface_member_use(
+    def _record_hierarchical_use(
         self,
         member: str,
         ctx: Context,
         vnode: IdentifierNameVNode,
         symbol_table: SymbolTable,
     ) -> None:
-        base_name = member_selector_base_name(vnode.raw)
-        if base_name is None:
-            return
-        base = symbol_table.lookup_from_scope(base_name, ctx.scope())
-        if base is None or base.interface_type_name is None:
+        segments = hierarchical_path_prefix(vnode.raw)
+        if not segments:
             return
         event_context = self.extractor.extract(vnode, ctx, symbol_table)
-        symbol_table.record_interface_member_use(
-            base.interface_type_name, member, vnode.location, event_context.to_use_kwargs()
+        symbol_table.record_hierarchical_use(
+            ctx.scope(), segments, member, vnode.location, event_context.to_use_kwargs()
         )
 
     def children(self, vnode: IdentifierNameVNode) -> list[BaseVNode]:

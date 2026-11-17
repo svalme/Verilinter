@@ -27,6 +27,14 @@ def block_declares_names(raw: object) -> bool:
     return any(getattr(item, "kind", None) in DATA_DECLARATION_KINDS for item in getattr(raw, "items", ()))
 
 
+def block_statement_label(raw: object) -> str | None:
+    """The `: label` of a `begin` or `fork` block, or None when it has none."""
+    if getattr(raw, "kind", None) not in (SEQUENTIAL_BLOCK_STATEMENT_KIND, PARALLEL_BLOCK_STATEMENT_KIND):
+        return None
+    value = getattr(getattr(getattr(raw, "blockName", None), "name", None), "value", None)
+    return value if isinstance(value, str) and value else None
+
+
 def iter_identifier_reads(root: SyntaxNode) -> Iterator[tuple[str, SyntaxNode]]:
     """Yield (name, raw_node) for every read-access identifier under `root`, in document
     order. Does not descend into a nested procedural block."""

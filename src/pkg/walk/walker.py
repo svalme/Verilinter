@@ -53,4 +53,4 @@ class Walker:
                 visited.remove(nid)
 
         _walk(raw_node, ctx)
-        symbol_table.resolve_interface_member_uses()
+        symbol_table.resolve_hierarchical_uses()

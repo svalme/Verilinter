@@ -3,8 +3,10 @@ from ..syntax_kinds import (
     DOT_TOKEN_KIND,
     DOUBLE_COLON_TOKEN_KIND,
     IDENTIFIER_NAME_KIND,
+    IDENTIFIER_SELECT_NAME_KIND,
     PACKAGE_DECLARATION_KIND,
     PACKAGE_IMPORT_DECLARATION_KIND,
+    ROOT_SCOPE_KIND,
     SCOPED_NAME_KIND,
     STAR_TOKEN_KIND,
 )
@@ -40,6 +42,56 @@ def member_selector_base_name(raw: object) -> str | None:
     if getattr(left, "kind", None) != IDENTIFIER_NAME_KIND:
         return None
     return identifier_name(left)
+
+
+ROOT_PATH_SEGMENT = "$root"
+
+
+def hierarchical_path_prefix(raw: object) -> list[str] | None:
+    """For the member in `a.b[1].member`, the segment names before it (`["a", "b"]`; an index is dropped).
+
+    `$root` is returned as `ROOT_PATH_SEGMENT`. None when `raw` is not the right side of a `.`-joined
+    path, or when a segment is not a plain name (a call, a cast, a package scope).
+    """
+    parent = getattr(raw, "parent", None)
+    if not (getattr(parent, "kind", None) == SCOPED_NAME_KIND
+            and getattr(getattr(parent, "separator", None), "kind", None) == DOT_TOKEN_KIND
+            and getattr(parent, "right", None) is raw):
+        return None
+    return _path_segments(getattr(parent, "left", None))
+
+
+_MAX_PATH_SEGMENTS = 64
+
+
+def _path_segments(node: object) -> list[str] | None:
+    """Segment names of a `.`-joined path, left to right, read by walking down the left side."""
+    names: list[str] = []
+    for _ in range(_MAX_PATH_SEGMENTS):
+        if getattr(node, "kind", None) != SCOPED_NAME_KIND:
+            first = _path_segment_name(node)
+            if first is None:
+                return None
+            names.append(first)
+            names.reverse()
+            return names
+        if getattr(getattr(node, "separator", None), "kind", None) != DOT_TOKEN_KIND:
+            return None
+        last = _path_segment_name(getattr(node, "right", None))
+        if last is None:
+            return None
+        names.append(last)
+        node = getattr(node, "left", None)
+    return None
+
+
+def _path_segment_name(node: object) -> str | None:
+    kind = getattr(node, "kind", None)
+    if kind == ROOT_SCOPE_KIND:
+        return ROOT_PATH_SEGMENT
+    if kind in (IDENTIFIER_NAME_KIND, IDENTIFIER_SELECT_NAME_KIND):
+        return identifier_name(node)
+    return None
 
 
 def _is_double_colon_scoped_name(node: object) -> bool:

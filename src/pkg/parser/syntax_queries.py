@@ -61,6 +61,8 @@ from ._syntax_queries.package_scoping import (
     is_scoped_name_qualifier,
     is_member_selector,
     is_hierarchical_path_base,
+    hierarchical_path_prefix,
+    ROOT_PATH_SEGMENT,
     member_selector_base_name,
     package_import_items,
     scoped_name_package_qualifier,
@@ -89,7 +91,12 @@ from ._syntax_queries.procedural.branches import (
     iter_assignment_nodes,
     procedural_block_assignment_triggers,
 )
-from ._syntax_queries.procedural.blocks import block_declares_names, iter_identifier_reads, procedural_nesting_depth
+from ._syntax_queries.procedural.blocks import (
+    block_declares_names,
+    block_statement_label,
+    iter_identifier_reads,
+    procedural_nesting_depth,
+)
 from ._syntax_queries.procedural.temporaries import is_block_local_temporary, unconditional_assignment_targets
 from ._syntax_queries.shapes import (
     element_select_index_or_range,
@@ -160,6 +167,7 @@ from ._syntax_queries.generate.blocks import (
     duplicate_generate_branch_label,
     in_inactive_generate_branch,
     is_unlabeled_generate_block,
+    generate_block_label,
     loop_generate_genvar_name,
 )
 from ._syntax_queries.instantiation import (
@@ -554,6 +562,8 @@ __all__ = [
     "is_scoped_name_qualifier",
     "is_member_selector",
     "is_hierarchical_path_base",
+    "hierarchical_path_prefix",
+    "ROOT_PATH_SEGMENT",
     "member_selector_base_name",
     "is_sequence_declaration_node",
     "is_sequential_driver_block",
@@ -578,6 +588,8 @@ __all__ = [
     "is_unique_if_token",
     "is_unique_priority_case_token",
     "is_unlabeled_generate_block",
+    "generate_block_label",
+    "block_statement_label",
     "is_unsized_literal",
     "is_width_adaptive_literal",
     "is_unsized_literal_in_flagged_value_context",

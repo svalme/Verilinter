@@ -108,8 +108,7 @@ module top(input logic i, output logic o);
   assign o = f(i);
 endmodule
 
-// breadth: gap | A variable declared in a generate block and read through the block name is read.
-// expect: 0
+// breadth: clean | A variable declared in a generate block and read through the block name is read.
 module top(output logic o);
   if (1) begin : g
     logic x;
@@ -118,8 +117,7 @@ module top(output logic o);
   assign o = g.x;
 endmodule
 
-// breadth: gap | An indexed generate-loop path reaches the shared declaration and counts as a read.
-// expect: 0
+// breadth: clean | An indexed generate-loop path reaches the shared declaration and counts as a read.
 module top(output logic o);
   for (genvar i = 0; i < 2; i++) begin : g
     logic x;
@@ -128,8 +126,7 @@ module top(output logic o);
   assign o = g[0].x;
 endmodule
 
-// breadth: gap | A hierarchical path through two module instances in the same source reaches the inner variable.
-// expect: 0
+// breadth: clean | A hierarchical path through two module instances in the same source reaches the inner variable.
 module leaf(input logic a);
   logic inner;
   assign inner = a;
@@ -152,8 +149,7 @@ module top(input logic i, output logic o);
   assign o = u.inner;
 endmodule
 
-// breadth: gap | An upward hierarchical reference by the enclosing module name reads the variable in that module.
-// expect: 0
+// breadth: clean | An upward hierarchical reference by the enclosing module name reads the variable in that module.
 module child(output logic y);
   assign y = top.p;
 endmodule
@@ -172,8 +168,7 @@ module top(output logic o);
   assign o = g.nope;
 endmodule
 
-// breadth: gap | A hierarchical read of a shadowed variable reads the member scope rather than the enclosing declaration.
-// expect: 1
+// breadth: reports | A hierarchical read of a shadowed variable reads the member scope rather than the enclosing declaration.
 module top(output logic o);
   logic x;
   assign x = 1'b0;
@@ -184,7 +179,7 @@ module top(output logic o);
   assign o = g.x;
 endmodule
 
-// breadth: gap | A variable written through a hierarchical path with no read is write-only.
+// breadth: reports | A variable written through a hierarchical path with no read is write-only.
 module top(output logic o);
   if (1) begin : g
     logic x;
@@ -193,8 +188,7 @@ module top(output logic o);
   assign o = 1'b0;
 endmodule
 
-// breadth: gap | A two-segment hierarchical path through nested generate blocks reaches the inner variable declaration.
-// expect: 0
+// breadth: clean | A two-segment hierarchical path through nested generate blocks reaches the inner variable declaration.
 module top(output logic o);
   if (1) begin : g1
     if (1) begin : g2
@@ -205,8 +199,7 @@ module top(output logic o);
   assign o = g1.g2.x;
 endmodule
 
-// breadth: gap | A hierarchical path through a named procedural block reaches its local variable.
-// expect: 0
+// breadth: clean | A hierarchical path through a named procedural block reaches its local variable.
 module top(input logic i, output logic o, output logic o2);
   always_comb begin : blk
     logic t;
@@ -229,8 +222,7 @@ module top(input logic i, output logic o);
   assign o = u.inner;
 endmodule
 
-// breadth: gap | An absolute hierarchical path from $root reads the variable in that module.
-// expect: 0
+// breadth: clean | An absolute hierarchical path from $root reads the variable in that module.
 module child(output logic y);
   assign y = $root.top.p;
 endmodule

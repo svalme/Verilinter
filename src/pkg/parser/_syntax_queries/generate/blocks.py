@@ -38,7 +38,8 @@ def is_unlabeled_generate_block(raw: object) -> bool:
     return is_generate_block_node(raw) and getattr(raw, "beginName", None) is None
 
 
-def _generate_block_label(raw: object) -> str | None:
+def generate_block_label(raw: object) -> str | None:
+    """The `: label` of a generate block's `begin`, or None when it has none."""
     if not is_generate_block_node(raw):
         return None
     begin_name = getattr(raw, "beginName", None)
@@ -64,16 +65,16 @@ def duplicate_generate_branch_label(raw: object) -> bool:
 
     labels: list[str] = []
     if is_if_generate_node(raw):
-        block_label = _generate_block_label(getattr(raw, "block", None))
+        block_label = generate_block_label(getattr(raw, "block", None))
         if block_label is not None:
             labels.append(block_label)
         else_clause = getattr(raw, "elseClause", None)
-        else_label = _generate_block_label(getattr(else_clause, "clause", None))
+        else_label = generate_block_label(getattr(else_clause, "clause", None))
         if else_label is not None:
             labels.append(else_label)
     elif is_case_generate_node(raw):
         for item in getattr(raw, "items", None) or []:
-            label = _generate_block_label(getattr(item, "clause", None))
+            label = generate_block_label(getattr(item, "clause", None))
             if label is not None:
                 labels.append(label)
     else:
