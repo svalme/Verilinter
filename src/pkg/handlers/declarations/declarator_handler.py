@@ -26,6 +26,7 @@ from ...parser.syntax import (
     enclosing_procedural_block,
     source_text_for_node,
 )
+from ..identifier_name.driver_registration import register_driver_block
 from ...semantic.symbol import Symbol
 from ...semantic.symbol_kind import SymbolKind
 from ...semantic.symbol_table import SymbolTable
@@ -81,11 +82,7 @@ class DeclaratorHandler(SyntaxNodeHandler):
             driver_id = None
             driver_location = None
             if driver_block is not None:
-                loc = driver_block.location
-                driver_id = (
-                    f"{driver_block.kind}:{loc.get('file', '')}:{loc['line']}:{loc['col']}"
-                )
-                driver_location = loc
+                driver_id, driver_location = register_driver_block(driver_block, symbol_table)
             symbol.add_use(
                 vnode.location,
                 write=True,

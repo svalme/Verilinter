@@ -1,5 +1,6 @@
 from typing import Any
 
+from ....semantic.driver_resolver import DriverResolver, write_events
 from ....semantic.symbol_table import SymbolTable
 from ...base_symbol_rule import BaseSymbolRule
 from ...symbol_rule_runner import symbol_rule_runner
@@ -14,6 +15,7 @@ class ProceduralAssignmentToInitializedVariableRule(BaseSymbolRule):
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
+        drivers = DriverResolver(symbol_table)
 
         for scope in symbol_table.scopes:
             if scope.kind in SUBROUTINE_SCOPE_KINDS:
@@ -33,26 +35,19 @@ class ProceduralAssignmentToInitializedVariableRule(BaseSymbolRule):
                     continue
 
                 has_proc_write = False
-                for ev in sym.use_events:
-                    if not ev.get("write"):
-                        continue
+                for ev in write_events(sym):
                     did = ev.get("driver_id")
                     if not did:
                         continue
-                    if did in symbol_table.initial_driver_ids:
-                        continue
-                    if did in symbol_table.tristate_driver_ids or did.startswith("ContinuousAssign:"):
+                    # Only a write made by an always block counts: a continuous assign, an initial block, a
+                    # final block and an instance port are not procedural writes to the declared variable.
+                    kind = drivers.kind_of(did)
+                    if kind is None or not kind.is_procedural_always:
                         continue
                     if ev.get("location") == decl_loc:
                         continue
-                    if (
-                        did in symbol_table.combinational_driver_ids
-                        or did in symbol_table.sequential_driver_ids
-                        or did.startswith("ProceduralBlock:")
-                        or did.startswith("SyntaxKind.Always")
-                    ):
-                        has_proc_write = True
-                        break
+                    has_proc_write = True
+                    break
 
                 if has_proc_write:
                     diagnostic: dict[str, Any] = {

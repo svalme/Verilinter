@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..vnodes.base_vnode import Location
+from .driver_kind import DriverKind
 from .instance_effects import is_instance_driver_id
 from .symbol import Symbol, UseEvent
 
@@ -59,6 +60,11 @@ class DriverResolver:
 
     def other_writes(self, symbol: Symbol) -> list[UseEvent]:
         return [event for event in write_events(symbol) if not is_instance_driver_id(event.get("driver_id"))]
+
+    def kind_of(self, driver_id: str | None) -> DriverKind | None:
+        """What owns the writes of a driver id, or None for a driver that is not a continuous assign or a
+        procedural block (an instance port, a clocking block) and for an id the walk did not record."""
+        return None if driver_id is None else self._table.driver_kinds.get(driver_id)
 
     def drivers(self, symbol: Symbol, *, instance: bool | None = None, located: bool = False) -> list[Driver]:
         """The drivers of the symbol. `instance` keeps only instance drivers (True) or only the others

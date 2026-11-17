@@ -25,7 +25,6 @@ READERS = {
     "pkg/semantic/instance_effects.py": "counts the port-connection events it has to classify",
     "pkg/rules/combinational_logic/combinational_loop.py": "groups events by combinational driver (moves with the driver kind)",
     "pkg/rules/combinational_logic/read_before_write_rule.py": "orders reads against writes per driver (moves with the driver kind)",
-    "pkg/rules/simulation_vs_synthesis/procedural/procedural_assignment_to_initialized_variable.py": "classifies writes by driver kind (moves with the driver kind)",
 }
 
 

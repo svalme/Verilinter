@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from ..vnodes.base_vnode import Location
+from .driver_kind import DriverKind
 from .hierarchical_resolver import HierarchicalNameResolver
 from .models.instance_record import InstanceRecord
 from .package_resolver import PackageResolver
@@ -31,6 +32,7 @@ class SymbolTable:
         self.sequential_driver_ids: set[str] = set()
         self.initial_driver_ids: set[str] = set()
         self.tristate_driver_ids: set[str] = set()
+        self.driver_kinds: dict[str, DriverKind] = {}
         self.branch_constructs: dict[str, tuple[set[int] | None, tuple[tuple[str, int], ...]]] = {}
         self.pending_hierarchical_uses: list[tuple[Scope, list[str], str, Location | None, dict[str, object]]] = []
         self.unresolved_references: list[UnresolvedReference] = []  # names used with no declaration, in walk order
@@ -112,6 +114,10 @@ class SymbolTable:
         """Record that a procedural block in `module_name` is edge-sensitive with
         reset style `style` ("sync" or "async"), for `NO_MIXED_RESET_STYLE`."""
         self.reset_style_events.append((module_name, style, location))
+
+    def record_driver_kind(self, driver_id: str, kind: DriverKind) -> None:
+        """Record what owns the writes of `driver_id`: a continuous assign or a kind of procedural block."""
+        self.driver_kinds[driver_id] = kind
 
     def mark_combinational_driver(self, driver_id: str) -> None:
         """Record that `driver_id` (a continuous assign or combinational-style

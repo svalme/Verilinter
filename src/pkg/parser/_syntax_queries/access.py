@@ -268,6 +268,31 @@ def is_initial_driver_block(driver_block: "BaseVNode") -> bool:
     return getattr(driver_block.raw, "kind", None) == INITIAL_BLOCK_KIND
 
 
+def driver_block_category(driver_block: "BaseVNode") -> str:
+    """What owns the writes of a driver block: `continuous` (a continuous assign), `initial`, `sequential`
+    (a clocked block), `combinational` (`always_comb` or a level-sensitive `always`), `always` (any other
+    always block, such as `always_latch`) or `other`. Decided from the syntax kind of the block."""
+    from ..syntax_kinds import ALWAYS_BLOCK_KIND, ALWAYS_FF_BLOCK_KIND, ALWAYS_LATCH_BLOCK_KIND
+    from ..syntax_queries import is_continuous_assign
+
+    if is_continuous_assign(driver_block.raw):
+        return "continuous"
+    if is_initial_driver_block(driver_block):
+        return "initial"
+    if is_sequential_driver_block(driver_block):
+        return "sequential"
+    if is_combinational_driver_block(driver_block):
+        return "combinational"
+    if getattr(driver_block.raw, "kind", None) in (
+        ALWAYS_BLOCK_KIND,
+        ALWAYS_COMB_BLOCK_KIND,
+        ALWAYS_FF_BLOCK_KIND,
+        ALWAYS_LATCH_BLOCK_KIND,
+    ):
+        return "always"
+    return "other"
+
+
 
 def enclosing_case_statement(ctx: "Context") -> "BaseVNode | None":
     from ..syntax_queries import is_case_statement

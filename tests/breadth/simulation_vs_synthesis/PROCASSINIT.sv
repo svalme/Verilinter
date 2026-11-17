@@ -72,11 +72,37 @@ module top(output logic out);
   assign out = v;
 endmodule
 
-// breadth: gap | The finding is wrong: a net initialized at declaration and driven by a continuous assignment has no procedural assignment, but it is reported as one (the double drive is a separate problem that no rule reports).
-// expect: 0
+// breadth: clean | A net initialized at declaration and driven by a continuous assignment has no procedural assignment, so it is not reported (the double drive is a separate problem that no rule reports).
+// pair: continuous-vs-procedural-write
 module top(input in);
   wire w = 1'b0;
   assign w = in;
+endmodule
+
+// breadth: reports | A variable initialized at declaration and written by an always_comb block is reported, unlike the same variable driven by a continuous assignment.
+// pair: continuous-vs-procedural-write
+module top(input in);
+  logic v = 1'b0;
+  always_comb v = in;
+endmodule
+
+// breadth: clean | A variable (not a net) initialized at declaration and driven by a continuous assignment is not reported either.
+module top(input in);
+  logic v = 1'b0;
+  assign v = in;
+endmodule
+
+// breadth: clean | A net initialized at declaration and driven by a tri-state continuous assignment is not reported.
+module top(input en, input in);
+  wire w = 1'b0;
+  assign w = en ? in : 1'bz;
+endmodule
+
+// breadth: reports | A variable written by both a continuous assignment and an always block is reported for the always block's write.
+module top(input in, input en);
+  logic v = 1'b0;
+  assign v = in;
+  always_comb if (en) v = in;
 endmodule
 
 // breadth: clean | A loop variable declared in a for-loop header is initialized by the loop itself, so the loop step is not a procedural write to an initialized variable.
