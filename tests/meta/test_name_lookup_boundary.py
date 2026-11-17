@@ -31,6 +31,7 @@ LOOKUP_NAMES = {
 LOOKUP_FILES = {
     "pkg/semantic/scope.py": "defines the single-scope lookup, the one name lookup and the package member lookup",
     "pkg/semantic/hierarchical_resolver.py": "the one resolver for hierarchical paths: first segment, block and instance steps, the member",
+    "pkg/semantic/package_resolver.py": "the one resolver for a package: its scopes, a member name and a subroutine",
     "pkg/semantic/module_resolver.py": "the one resolver for a module an instance names: its scope, ports and parameters",
     "pkg/semantic/symbol_table.py": "defines the table-level lookups; resolves queued interface member uses",
     "pkg/handlers/identifier_name/symbol_resolver.py": "resolves every identifier occurrence",
@@ -43,7 +44,6 @@ LOOKUP_FILES = {
     "pkg/parser/_syntax_queries/shapes.py": "the base symbol of an element select",
     "pkg/parser/_syntax_queries/fsm.py": "state variables and case item constants",
     "pkg/parser/_syntax_queries/generate/loops.py": "scope wrapper that binds genvars to their values",
-    "pkg/parser/_syntax_queries/subroutines.py": "the formals of a package subroutine",
     "pkg/rules/arrays_and_indexing/constant_index_out_of_range.py": "the indexed base symbol",
     "pkg/rules/width_and_signedness/no_assignment_width_mismatch.py": "operand symbols for the width rules",
     "pkg/rules/width_and_signedness/operand.py": "operand symbols for the width rules",

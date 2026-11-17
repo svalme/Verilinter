@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from ..vnodes.base_vnode import Location
+from .package_resolver import PackageResolver
 from .scope_kinds import NAME_OWNING_SCOPE_KINDS, ScopeKind
 from .symbol import Symbol
 
@@ -27,6 +28,9 @@ class Scope:
         self.fsm_models: list[object] = []
         # An `interface` definition: its signals are driven and read by the modules that connect to it.
         self.is_interface: bool = False
+        # A package scope rebuilt from the corpus-wide registry for a package another input file declares; it
+        # carries the package's names and subroutine formals but none of that file's uses.
+        self.is_stand_in: bool = False
         # Set once a use of one of its members through a port or instance has been recorded in this file.
         self.has_visible_interface_users: bool = False
 
@@ -107,11 +111,7 @@ class Scope:
     def lookup_package_member(self, package_name: str, name: str) -> Symbol | None:
         """`package_name::name`: the symbol the package declares, or None when the package or the name is
         not known to this scope's symbol table."""
-        for package_scope in (self.packages or {}).get(package_name, ()):
-            found = package_scope.lookup(name)
-            if found is not None:
-                return found
-        return None
+        return PackageResolver(self.packages).member(package_name, name)
 
     def enclosing_interface(self) -> Scope | None:
         current: Scope | None = self
@@ -126,12 +126,13 @@ class Scope:
     def may_come_from_unseen_package(self, name: str) -> bool:
         """True when an `import pkg::*;` or `import pkg::name;` in this scope or an enclosing one could
         supply `name` from a package that no analysed file declares."""
+        packages = PackageResolver(self.packages)
         current: Scope | None = self
         depth = 0
         while current is not None and depth < 64:
             depth += 1
             for package_name, imported_name in current.imports:
-                if imported_name in (None, name) and package_name not in (self.packages or {}):
+                if imported_name in (None, name) and not packages.is_declared(package_name):
                     return True
             current = current.parent
         return False

@@ -118,6 +118,7 @@ def seed_cross_file_packages(
             scope = Scope(kind=ScopeKind.PACKAGE, name=name)
             scope.file = entry["file"]
             scope.packages = symbol_table.packages
+            scope.is_stand_in = True
             for symbol_data in entry["symbols"]:
                 symbol = Symbol(name=str(symbol_data["name"]), kind=str(symbol_data.get("kind", "variable")))
                 if symbol_data.get("value") is not None:

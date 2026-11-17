@@ -105,6 +105,17 @@ def _find_subroutine_in_container_syntax(container: object, callee_name: str) ->
     return None
 
 
+
+def _formals_of_subroutine_scope(scope: object) -> list[tuple[str, str]]:
+    """`(name, direction)` of each formal of a task or function scope; the function result variable is not one."""
+    return [
+        (s.name, s.port_direction or "input")
+        for s in getattr(scope, "symbols", {}).values()
+        if getattr(s, "is_port", False)
+        and not getattr(s, "is_function_return", False)
+        and getattr(s, "name", None) != getattr(scope, "name", None)
+    ]
+
 def subroutine_formal_direction(
     raw: object, symbol_table: SymbolTable, ctx: Context
 ) -> str | None:
@@ -164,17 +175,11 @@ def subroutine_formal_direction(
     formals: list[tuple[str, str]] | None = None
 
     # 1. Resolve from SymbolTable scope hierarchy
+    packages = symbol_table.package_resolver()
     if package_qualifier is not None:
-        pkg_scope = symbol_table.lookup_package(package_qualifier)
-        if pkg_scope is not None:
-            for child in pkg_scope.children:
-                if child.kind in ("task", "function") and child.name == callee_name:
-                    formals = [
-                        (s.name, s.port_direction or "input")
-                        for s in child.symbols.values()
-                        if s.is_port and not getattr(s, "is_function_return", False) and s.name != child.name
-                    ]
-                    break
+        qualified = packages.subroutine(package_qualifier, callee_name)
+        if qualified is not None:
+            formals = _formals_of_subroutine_scope(qualified)
     else:
         # Search from current scope upwards (module, block, etc.)
         scope = getattr(ctx, "scope", lambda: None)()
@@ -195,20 +200,9 @@ def subroutine_formal_direction(
             for pkg_name, imported_name in getattr(scope, "imports", ()):
                 if imported_name is not None and imported_name != callee_name:
                     continue
-                for pkg_scope in getattr(symbol_table, "packages", {}).get(pkg_name, ()):
-                    for child in getattr(pkg_scope, "children", ()):
-                        if getattr(child, "kind", None) in ("task", "function") and getattr(child, "name", None) == callee_name:
-                            formals = [
-                                (s.name, s.port_direction or "input")
-                                for s in getattr(child, "symbols", {}).values()
-                                if getattr(s, "is_port", False)
-                                and not getattr(s, "is_function_return", False)
-                                and getattr(s, "name", None) != child.name
-                            ]
-                            break
-                    if formals is not None:
-                        break
-                if formals is not None:
+                imported = packages.subroutine(pkg_name, callee_name)
+                if imported is not None:
+                    formals = _formals_of_subroutine_scope(imported)
                     break
             scope = getattr(scope, "parent", None)
 

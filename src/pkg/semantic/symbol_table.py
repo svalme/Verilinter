@@ -4,6 +4,7 @@ from __future__ import annotations
 from ..vnodes.base_vnode import Location
 from .hierarchical_resolver import HierarchicalNameResolver
 from .models.instance_record import InstanceRecord
+from .package_resolver import PackageResolver
 from .resolution import UnresolvedReference
 from .symbol import Symbol
 from .scope import Scope
@@ -175,8 +176,11 @@ class SymbolTable:
         """Return the first scope for a named package, or None if no walked or seeded file declares it.
         Name resolution goes through `Scope.lookup_package_member`, which looks in every scope declaring
         the package; this returns one scope for callers that need the package itself (its subroutines)."""
-        scopes = self.packages.get(name)
-        return scopes[0] if scopes else None
+        return self.package_resolver().scope(name)
+
+    def package_resolver(self) -> PackageResolver:
+        """The resolver over this table's package registry."""
+        return PackageResolver(self.packages)
 
     def is_duplicate_module(self, name: str) -> bool:
         """Return True if more than one file defines a module with this name."""
