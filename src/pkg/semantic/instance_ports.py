@@ -8,24 +8,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .models import InstanceRecord, ParameterOverride
+from .module_resolver import ModuleResolver
 from .symbol import Symbol
 from .symbol_kind import SymbolKind
 from .symbol_table import SymbolTable
-
-
-def module_ports_for(symbol_table: SymbolTable, module_name: str | None) -> list[Symbol]:
-    if not module_name:
-        return []
-    scope = symbol_table.lookup_module(module_name)
-    if scope is None:
-        return []
-    return [symbol for symbol in scope.symbols.values() if symbol.is_port]
-
-
-def module_scope_for(symbol_table: SymbolTable, module_name: str | None):
-    if not module_name:
-        return None
-    return symbol_table.lookup_module(module_name)
 
 
 def named_parameter_overrides(instantiation: InstanceRecord | dict[str, object]) -> list[ParameterOverride | dict[str, object]]:
@@ -67,7 +53,7 @@ def instance_parameter_scope(
     child_module = instantiation.get("child_module")
     if not isinstance(child_module, str) or not child_module:
         return ParameterScope()
-    child_scope = module_scope_for(symbol_table, child_module)
+    child_scope = ModuleResolver(symbol_table).scope(child_module)
     if child_scope is None:
         return ParameterScope()
 

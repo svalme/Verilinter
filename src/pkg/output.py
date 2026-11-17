@@ -15,6 +15,7 @@ from .rules.connection_analysis import (
     width_mismatch_details,
     width_unknown_details,
 )
+from .semantic.module_resolver import ModuleResolver
 from .semantic.symbol_table import SymbolTable
 
 
@@ -146,12 +147,7 @@ def render_connection_report(symbol_table: SymbolTable) -> str:
     lines: list[str] = []
     lines.append("Module Connection Summary")
 
-    module_ports: dict[str, list[Any]] = {}
-    for name, scopes in symbol_table.modules.items():
-        if not scopes:
-            continue
-        scope = scopes[0]
-        module_ports[name] = [symbol for symbol in scope.symbols.values() if symbol.is_port]
+    modules = ModuleResolver(symbol_table)
 
     if not symbol_table.instantiations:
         lines.append("No instantiations found.")
@@ -171,7 +167,7 @@ def render_connection_report(symbol_table: SymbolTable) -> str:
         style = str(inst.get("connection_style") or "empty")
         lines.append(f"{parent} -> {child} ({instance_name}) [{style}]")
 
-        child_port_list = module_ports.get(child, [])
+        child_port_list = modules.port_symbols(child) or []
         named_ports = {conn.get("port_name"): conn for conn in inst.get("connections", []) if conn.get("kind") == "named"}
         ordered_connections = [conn for conn in inst.get("connections", []) if conn.get("kind") in {"ordered", "empty"}]
         wildcard_present = has_wildcard_port_connections(inst)

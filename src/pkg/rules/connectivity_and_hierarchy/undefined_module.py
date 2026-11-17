@@ -1,6 +1,7 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.module_resolver import ModuleResolver
 from ...semantic.symbol_table import SymbolTable
 from ..module_rule_runner import module_rule_runner
 
@@ -14,10 +15,9 @@ class UndefinedModuleRule(BaseSymbolRule):
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
 
+        modules = ModuleResolver(symbol_table)
         for name, loc in symbol_table.module_references:
-            if symbol_table.lookup_module(name) is not None:
-                continue
-            if name in symbol_table.primitives:
+            if modules.is_defined(name):
                 continue
 
             diagnostic = {

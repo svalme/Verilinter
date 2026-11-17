@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..parser.syntax import ROOT_PATH_SEGMENT
+from .module_resolver import ModuleResolver
 from .scope import Scope
 from .scope_kinds import ScopeKind
 from .symbol import Symbol
@@ -38,6 +39,7 @@ class HierarchicalNameResolver:
 
     def __init__(self, symbol_table: SymbolTable) -> None:
         self._table = symbol_table
+        self._modules = ModuleResolver(symbol_table)
 
     def resolve(self, from_scope: Scope, segments: list[str], member: str) -> HierarchicalTarget | None:
         if not segments:
@@ -55,7 +57,7 @@ class HierarchicalNameResolver:
     def _first_scope(self, from_scope: Scope, segments: list[str]) -> Scope | None:
         first = segments[0]
         if first == ROOT_PATH_SEGMENT:
-            return self._table.lookup_module(segments[1]) if len(segments) > 1 else None
+            return self._modules.scope(segments[1]) if len(segments) > 1 else None
         symbol = from_scope.lookup_hierarchical(first)
         if symbol is not None:
             return self._instance_scope(symbol)
@@ -67,7 +69,7 @@ class HierarchicalNameResolver:
             if found is not None:
                 return found
             scope = scope.parent
-        return self._table.lookup_module(first)
+        return self._modules.scope(first)
 
     def _enter(self, scope: Scope, segment: str) -> Scope | None:
         found = self._named_child(scope, segment)
@@ -78,7 +80,7 @@ class HierarchicalNameResolver:
 
     def _instance_scope(self, symbol: Symbol) -> Scope | None:
         type_name = symbol.interface_type_name
-        return None if type_name is None else self._table.lookup_module(type_name)
+        return self._modules.scope(type_name)
 
     def _named_child(self, scope: Scope, name: str, depth: int = 0) -> Scope | None:
         """A generate or procedural block labelled `name` directly in `scope`, looking through the

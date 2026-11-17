@@ -10,14 +10,12 @@ from ..parser.syntax import (
 )
 from ..semantic.models import InstanceRecord, ParameterOverride, PortConnection
 from ..semantic.instance_ports import (
-    module_scope_for,
     named_parameter_overrides,
     ordered_parameter_overrides,
 )
+from ..semantic.module_resolver import ModuleResolver
 from ..semantic.connection_records import connection_records_of
 from ..semantic.expr_type import WidthDetermination
-from ..semantic.symbol import Symbol
-from ..semantic.symbol_kind import SymbolKind
 from ..semantic.symbol_table import SymbolTable
 
 
@@ -96,23 +94,6 @@ def extra_ordered_connections(
     ]
 
 
-def module_parameters_for(symbol_table: SymbolTable, module_name: str | None) -> list[Symbol]:
-    if not module_name:
-        return []
-    scope = symbol_table.lookup_module(module_name)
-    if scope is None:
-        return []
-    return [symbol for symbol in scope.symbols.values() if symbol.kind is SymbolKind.PARAMETER]
-
-
-def module_type_parameters_for(symbol_table: SymbolTable, module_name: str | None) -> list[Symbol]:
-    """The `parameter type t` names of a module; they are overridable like value parameters."""
-    scope = symbol_table.lookup_module(module_name) if module_name else None
-    if scope is None:
-        return []
-    return [symbol for symbol in scope.symbols.values() if symbol.is_type_parameter]
-
-
 def has_ordered_parameter_overrides(instantiation: InstanceRecord | dict[str, object]) -> bool:
     return any(
         isinstance(override, (ParameterOverride, Mapping, dict)) and override.get("kind") == "ordered"
@@ -137,11 +118,12 @@ def unknown_named_parameter_override_names(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
 ) -> list[str]:
-    if module_scope_for(symbol_table, instantiation.get("child_module")) is None:
-        return []
+    modules = ModuleResolver(symbol_table)
     child_module = instantiation.get("child_module")
-    valid = {param.name for param in module_parameters_for(symbol_table, child_module)}
-    valid |= {param.name for param in module_type_parameters_for(symbol_table, child_module)}
+    if modules.scope(child_module) is None:
+        return []
+    # A `parameter type t` name is overridable like a value parameter.
+    valid = {param.name for param in modules.parameters(child_module, include_types=True)}
     unknown: list[str] = []
     for override in named_parameter_overrides(instantiation):
         name = override.get("param_name")
@@ -253,7 +235,7 @@ def unread_instance_output_details(
     instantiation: dict[str, object],
 ) -> list[tuple[str, str]]:
     details: list[tuple[str, str]] = []
-    parent_scope = module_scope_for(symbol_table, instantiation.get("parent_module"))
+    parent_scope = ModuleResolver(symbol_table).scope(instantiation.get("parent_module"))
     if parent_scope is None:
         return details
 
