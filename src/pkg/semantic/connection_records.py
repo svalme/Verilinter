@@ -6,8 +6,9 @@ expanded here."""
 from __future__ import annotations
 
 from .expr_type import ExprType
-from .instance_ports import instance_parameter_scope, module_scope_for, specialized_port_symbol
+from .instance_ports import instance_parameter_scope, specialized_port_symbol
 from .models import ConnectionRecord, InstanceRecord, PortConnection
+from .module_resolver import ModuleResolver
 from .symbol import Symbol
 from .symbol_table import SymbolTable
 
@@ -15,10 +16,9 @@ from .symbol_table import SymbolTable
 def _child_ports(symbol_table: SymbolTable, instance: InstanceRecord) -> list[Symbol] | None:
     """The child's port symbols in declaration order, specialised by the instance's parameter overrides, or
     None when the child module is declared in no input file."""
-    scope = module_scope_for(symbol_table, instance.child_module)
-    if scope is None:
+    ports = ModuleResolver(symbol_table).port_symbols(instance.child_module)
+    if ports is None:
         return None
-    ports = [symbol for symbol in scope.symbols.values() if symbol.is_port]
     parameters = instance_parameter_scope(symbol_table, instance)  # type: ignore[arg-type]
     return [specialized_port_symbol(port, parameters) for port in ports] if (parameters or parameters.unknown) else ports
 
@@ -60,7 +60,7 @@ def _record(
 
 def build_connection_records(symbol_table: SymbolTable, instance: InstanceRecord) -> list[ConnectionRecord]:
     ports = _child_ports(symbol_table, instance)
-    parent_scope = module_scope_for(symbol_table, instance.parent_module)
+    parent_scope = ModuleResolver(symbol_table).scope(instance.parent_module)
     records: list[ConnectionRecord] = []
 
     named = [conn for conn in instance.connections if conn.get("kind") == "named"]

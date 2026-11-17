@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from .models import InstanceRecord, PortConnection
+from .module_resolver import ModuleResolver, PortList
 from .scope import Scope
 from .symbol import Symbol
 from .symbol_table import SymbolTable
@@ -19,8 +20,6 @@ from .write_region import WriteRegion
 _DRIVING = ("output", "inout")
 
 INSTANCE_DRIVER_PREFIX = "instance:"
-
-PortList = list[tuple[str, str | None]]
 
 
 def instance_driver_id(instance: InstanceRecord, port_name: str) -> str:
@@ -40,19 +39,6 @@ def instance_driver_parts(driver_id: str) -> tuple[str, str]:
     """`(instance name, port name)` of an instance driver id."""
     parts = driver_id.rsplit(":", 2)
     return (parts[-2], parts[-1]) if len(parts) == 3 else ("", "")
-
-
-def _child_ports(symbol_table: SymbolTable, child_module: str | None) -> PortList | None:
-    """`(name, direction)` of each port of the child module in declaration order, or None when it is unknown."""
-    if not child_module:
-        return None
-    scope = symbol_table.lookup_module(child_module)
-    if scope is not None:
-        return [(symbol.name, symbol.port_direction) for symbol in scope.symbols.values() if symbol.is_port]
-    entries = symbol_table.module_ports.get(child_module)
-    if entries:
-        return [(port["name"], port.get("direction")) for port in entries[0]["ports"]]
-    return None
 
 
 class _Connected(NamedTuple):
@@ -127,13 +113,14 @@ def apply_instance_port_effects(symbol_table: SymbolTable) -> None:
     """Give each signal connected to an output or inout port a write event owned by the instance, and clear
     the open-driver mark on a signal whose every port connection has a known direction."""
     classified: dict[tuple[object, ...], tuple[Symbol, int]] = {}
+    modules = ModuleResolver(symbol_table)
     for instance in symbol_table.instantiations:
         if instance.in_inactive_generate_branch:
             continue
-        ports = _child_ports(symbol_table, instance.child_module)
+        ports = modules.ports(instance.child_module)
         scope = instance.scope
-        if scope is None and instance.parent_module:
-            scope = symbol_table.lookup_module(instance.parent_module)
+        if scope is None:
+            scope = modules.scope(instance.parent_module)
         if ports is None or scope is None:
             continue
         for connected in _connected_signals(instance, ports, scope):
