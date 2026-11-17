@@ -5,14 +5,17 @@ from __future__ import annotations
 
 import pytest
 
-from tests.support.lint_harness import run_inline_lint_case
+from src.pkg.parser.parse import text_uses_default_nettype_none
+from tests.support.lint_harness import LintCaseFile, run_inline_lint_case_spec
 from tests.support.breadth_catalog import all_breadth_cases, parse_breadth_cases, KINDS
 
 BREADTH_CASES = all_breadth_cases()
 
 
 def _count(breadth) -> int:
-    result = run_inline_lint_case({"top.sv": breadth.source})
+    # The command line decides `default_nettype none` per file from its text; do the same here.
+    case_file = LintCaseFile(breadth.source, default_nettype_none=text_uses_default_nettype_none(breadth.source))
+    result = run_inline_lint_case_spec({"top.sv": case_file})
     return sum(1 for d in result.diagnostics if d["code"] == breadth.rule)
 
 
