@@ -6,6 +6,7 @@ A signal is read but never written is reported as a whole. A vector some of whos
 given with certainty, so a caller reports nothing rather than guessing."""
 from __future__ import annotations
 
+from .driver_resolver import write_events
 from .symbol import Symbol
 from .write_region import INDEX, NEVER, RANGE, SPAN
 
@@ -28,9 +29,7 @@ def _written_intervals(symbol: Symbol) -> list[Interval] | None:
     """The bit intervals the write events of `symbol` cover, or None when any write has an unknown reach or
     the whole vector is written (which leaves no bit uncovered, so the caller has nothing to report)."""
     intervals: list[Interval] = []
-    for event in symbol.use_events:
-        if not event.get("write"):
-            continue
+    for event in write_events(symbol):
         region = event.get("write_region") or ()
         if not region:
             return None

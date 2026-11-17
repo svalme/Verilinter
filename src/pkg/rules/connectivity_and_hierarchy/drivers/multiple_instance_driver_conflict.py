@@ -1,7 +1,8 @@
 from typing import Any
 
 from ....parser.syntax import is_mutually_exclusive_branch_pair
-from ....semantic.instance_effects import instance_driver_parts, is_instance_driver_id
+from ....semantic.driver_resolver import DriverResolver
+from ....semantic.instance_effects import instance_driver_parts
 from ....semantic.scope import enclosing_module_scope
 from ....semantic.symbol import UseEvent
 from ....semantic.symbol_kind import SymbolKind
@@ -30,15 +31,14 @@ class MultipleInstanceDriverConflictRule(BaseSymbolRule):
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
+        resolver = DriverResolver(symbol_table)
         for scope in symbol_table.scopes:
             for sym in scope.symbols.values():
                 if not sym.is_explicit_kind(SymbolKind.VARIABLE):
                     continue
-                drivers: dict[str, UseEvent] = {}
-                for event in sym.use_events:
-                    driver_id = event.get("driver_id")
-                    if event["write"] and is_instance_driver_id(driver_id):
-                        drivers.setdefault(str(driver_id), event)
+                drivers: dict[str, UseEvent] = {
+                    driver.id: driver.events[0] for driver in resolver.drivers(sym, instance=True)
+                }
                 if len(drivers) < 2:
                     continue
                 module = enclosing_module_scope(sym.scope)

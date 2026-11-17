@@ -1,5 +1,6 @@
 from typing import Any
 
+from ....semantic.driver_resolver import write_events
 from ....semantic.symbol_table import SymbolTable
 from ....semantic.symbol_kind import SymbolKind
 from ...base_symbol_rule import BaseSymbolRule
@@ -27,9 +28,7 @@ class NoInputPortWriteRule(BaseSymbolRule):
                 if sym.port_direction != "input":
                     continue
 
-                for event in sym.use_events:
-                    if not event["write"]:
-                        continue
+                for event in write_events(sym):
                     loc = event.get("location") or {}
                     diagnostic: dict[str, Any] = {
                         "code": self.code,

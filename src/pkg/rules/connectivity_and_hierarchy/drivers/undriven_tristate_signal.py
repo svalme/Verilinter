@@ -2,6 +2,7 @@ from typing import Any
 
 from ...base_symbol_rule import BaseSymbolRule
 from ...connection_analysis import signal_names_connected_to_instances
+from ....semantic.driver_resolver import DriverResolver
 from ....semantic.symbol_table import SymbolTable
 from ....semantic.symbol_kind import SymbolKind
 from ...symbol_rule_runner import symbol_rule_runner
@@ -16,6 +17,7 @@ class UndrivenTristateSignalRule(BaseSymbolRule):
 
     def run(self, symbol_table: SymbolTable) -> list[dict[str, Any]]:
         diagnostics: list[dict[str, Any]] = []
+        resolver = DriverResolver(symbol_table)
 
         for scope in symbol_table.scopes:
             if scope.kind != ScopeKind.MODULE or not scope.name:
@@ -28,20 +30,14 @@ class UndrivenTristateSignalRule(BaseSymbolRule):
                 if sym.name in connected_names:
                     continue
 
-                driver_ids = {
-                    event["driver_id"] for event in sym.use_events if event["write"] and "driver_id" in event
-                }
-                if len(driver_ids) != 1:
+                found = resolver.drivers(sym)
+                if len(found) != 1:
                     continue
-                (driver_id,) = driver_ids
-                if driver_id not in symbol_table.tristate_driver_ids:
+                (driver,) = found
+                if driver.id not in symbol_table.tristate_driver_ids or driver.location is None:
                     continue
 
-                loc = next(
-                    event["driver_location"]
-                    for event in sym.use_events
-                    if event["write"] and event.get("driver_id") == driver_id and "driver_location" in event
-                )
+                loc = driver.location
                 diagnostic = {
                     "code": self.code,
                     "line": loc["line"],
