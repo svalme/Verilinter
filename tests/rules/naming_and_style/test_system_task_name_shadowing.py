@@ -65,3 +65,70 @@ class TestSystemTaskNameShadowingRule:
         )
 
         assert diagnostics == []
+
+    def test_flags_a_function_named_like_a_system_task(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              function void display();
+              endfunction
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_flags_a_task_named_like_a_system_task(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              task finish;
+              endtask
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 1
+
+    def test_does_not_flag_a_function_or_task_with_a_different_name(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              function void display_state();
+              endfunction
+              task finish_now;
+              endtask
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_does_not_flag_a_call_of_the_system_task_itself(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              initial begin
+                $display("x");
+                $finish;
+              end
+            endmodule
+            """
+        )
+
+        assert diagnostics == []
+
+    def test_flags_each_declaration_that_matches(self) -> None:
+        diagnostics = _diagnostics(
+            """
+            module top;
+              wire display;
+              function void finish();
+              endfunction
+              task random;
+              endtask
+            endmodule
+            """
+        )
+
+        assert len(diagnostics) == 3
