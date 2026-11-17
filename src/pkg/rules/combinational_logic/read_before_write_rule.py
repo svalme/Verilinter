@@ -1,6 +1,7 @@
 from typing import Any
 
 from ..base_symbol_rule import BaseSymbolRule
+from ...semantic.driver_evidence import DriverEvidence
 from ...semantic.scope_kinds import SUBROUTINE_SCOPE_KINDS
 from ...semantic.symbol import Symbol, UseEvent
 from ...semantic.symbol_table import SymbolTable
@@ -33,7 +34,7 @@ class ReadBeforeWriteRule(BaseSymbolRule):
                 # A signal an instance drives, or one that something this file cannot see may
                 # drive, is driven outside any locally visible assignment, so a read of it is
                 # not a read before write.
-                if sym.may_have_unseen_driver or sym.is_driven_by_instance:
+                if sym.driver_evidence in (DriverEvidence.UNSEEN, DriverEvidence.INSTANCE):
                     continue
                 if sym.is_event:
                     continue

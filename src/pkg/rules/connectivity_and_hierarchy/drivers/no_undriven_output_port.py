@@ -1,5 +1,6 @@
 from typing import Any
 
+from ....semantic.driver_evidence import DriverEvidence
 from ...base_symbol_rule import BaseSymbolRule
 from ....semantic.symbol_table import SymbolTable
 from ....semantic.symbol_kind import SymbolKind
@@ -22,10 +23,10 @@ class NoUndrivenOutputPortRule(BaseSymbolRule):
                     continue
                 if sym.port_direction != "output":
                     continue
-                if not sym.is_read or sym.is_written or sym.is_driven_by_instance:
+                if not sym.is_read:
                     continue
                 # A port that something outside this file may drive is left alone.
-                if sym.may_have_unseen_driver:
+                if sym.driver_evidence is not DriverEvidence.NONE:
                     continue
 
                 loc = sym.declarations[0]

@@ -1,5 +1,6 @@
 from typing import Any
 
+from ....semantic.driver_evidence import DriverEvidence
 from ....semantic.partial_drive import format_bit_runs, undriven_bits
 from ...base_symbol_rule import BaseSymbolRule
 from ....semantic.symbol_table import SymbolTable
@@ -26,10 +27,11 @@ class NoUndrivenSignalRule(BaseSymbolRule):
                 # module is declared in no input file, or the signal is declared in a nested
                 # scope), or a member of an interface with no visible user, may be driven by
                 # something this file cannot see, so it is left alone.
-                if sym.may_have_unseen_driver:
+                evidence = sym.driver_evidence
+                if evidence is DriverEvidence.UNSEEN:
                     continue
                 message = None
-                if sym.is_written or sym.is_driven_by_instance:
+                if evidence.is_driver_established:
                     runs = undriven_bits(sym)
                     if runs:
                         message = f"Signal '{sym.name}' is driven only in part: bits {format_bit_runs(runs)} are never driven"

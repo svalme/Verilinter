@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from ..vnodes.base_vnode import Location
+from .driver_evidence import DriverEvidence
 from .symbol_kind import SymbolKind
 from .write_region import WriteRegion
 
@@ -136,6 +137,18 @@ class Symbol:
         direction is not known, or is a member of an interface whose users are not visible. A rule that
         needs a driver to report a missing one leaves such a symbol alone."""
         return self.in_unclassified_port_connection or self.is_unobserved_interface_member
+
+    @property
+    def driver_evidence(self) -> DriverEvidence:
+        """The one answer to "who drives this symbol", for a rule to test instead of combining
+        `is_written`, `is_driven_by_instance` and `may_have_unseen_driver` itself."""
+        if self.may_have_unseen_driver:
+            return DriverEvidence.UNSEEN
+        if self.is_driven_by_instance:
+            return DriverEvidence.INSTANCE
+        if self.is_written:
+            return DriverEvidence.WRITTEN
+        return DriverEvidence.NONE
 
     @property
     def is_unobserved_interface_member(self) -> bool:
