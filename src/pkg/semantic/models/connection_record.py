@@ -20,7 +20,9 @@ class ConnectionRecord:
     connection names a port the child does not have. `connection` is None for a port the instance leaves
     off its list. `signal` is the parent-module symbol a simple identifier connection names, found through
     the shared name lookup. `implicit` is True when the connection comes from `.*`. `child_known` is False when
-    the child module is declared in no input file."""
+    the child module is declared in no input file. `elaborated_variants` holds one record per distinct elaborated
+    width pair when slang elaborated the instance's parent module more than once and the pairs differ; it is empty
+    otherwise, and `width_views` then gives the record itself."""
 
     instance: InstanceRecord
     port_name: str | None
@@ -33,6 +35,12 @@ class ConnectionRecord:
     expr_type: ExprType
     implicit: bool = False
     child_known: bool = True
+    elaborated_variants: tuple[ConnectionRecord, ...] = ()
+
+    @property
+    def width_views(self) -> tuple[ConnectionRecord, ...]:
+        """The records whose widths a width rule judges: one per elaborated instance pair, or this record."""
+        return self.elaborated_variants or (self,)
 
     @property
     def expr_width(self) -> int | None:

@@ -64,27 +64,41 @@ def _record(
     )
 
 
+def _on_pair(record: ConnectionRecord, pair: tuple[int, int | None]) -> ConnectionRecord:
+    """The record with the port and expression widths of one elaborated width pair."""
+    port_width, expr_width = pair
+    expr_type = record.expr_type
+    # Slang sizes an expression that takes its width from the target (a literal with no width of its own, a
+    # product, a shift) at the port's width, which names no mismatch; only a self-determined expression keeps
+    # the width it has of its own.
+    self_determined = expr_type.determination is WidthDetermination.SELF
+    if expr_width is not None and self_determined and (record.connection is not None or record.implicit):
+        expr_type = replace(expr_type, width=expr_width)
+    return replace(record, port_width=port_width, expr_type=expr_type)
+
+
+def _pair_order(pair: tuple[int, int | None]) -> tuple[int, int]:
+    return (pair[0], -1 if pair[1] is None else pair[1])
+
+
 def _with_elaborated_widths(
     records: list[ConnectionRecord], instance: InstanceRecord, widths: ElaboratedWidths
 ) -> list[ConnectionRecord]:
-    """Replace the estimated port and expression widths with the ones slang computed for the instance, when
-    every elaborated instance of that name gave the same pair. A connection whose instances differ, or that
-    slang did not elaborate, keeps the estimated widths."""
+    """Replace the estimated port and expression widths with the ones slang computed for the instance. When
+    every elaborated instance of that name gave the same pair, the record takes it. When the parent module was
+    elaborated more than once and the pairs differ, the record keeps the estimated widths for the other rules and
+    carries one variant per pair, so a width rule judges each instantiation on its own widths. A connection that
+    slang did not elaborate keeps the estimated widths."""
     updated: list[ConnectionRecord] = []
     for record in records:
         pairs = widths.connection_widths(instance.parent_module, instance.instance_name, record.port_name)
-        if len(pairs) != 1 or record.port is None:
+        if not pairs or record.port is None:
             updated.append(record)
-            continue
-        port_width, expr_width = next(iter(pairs))
-        expr_type = record.expr_type
-        # Slang sizes an expression that takes its width from the target (a literal with no width of its own, a
-        # product, a shift) at the port's width, which names no mismatch; only a self-determined expression keeps
-        # the width it has of its own.
-        self_determined = expr_type.determination is WidthDetermination.SELF
-        if expr_width is not None and self_determined and (record.connection is not None or record.implicit):
-            expr_type = replace(expr_type, width=expr_width)
-        updated.append(replace(record, port_width=port_width, expr_type=expr_type))
+        elif len(pairs) == 1:
+            updated.append(_on_pair(record, next(iter(pairs))))
+        else:
+            variants = tuple(_on_pair(record, pair) for pair in sorted(pairs, key=_pair_order))
+            updated.append(replace(record, elaborated_variants=variants))
     return updated
 
 

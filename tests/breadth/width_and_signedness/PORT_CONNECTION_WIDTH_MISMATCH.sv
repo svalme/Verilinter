@@ -104,3 +104,55 @@ endmodule
 module top;
   child u1(.a(missing_name));
 endmodule
+
+// breadth: reports | The holding module is instantiated twice and the connection is the wrong width in only one instantiation; that instantiation is reported.
+// pair: parent-instantiated-twice
+module child(input [7:0] a);
+endmodule
+module mid #(parameter int N = 8) (input [7:0] x);
+  logic [N-1:0] v;
+  child u1(.a(v));
+endmodule
+module top(input [7:0] x);
+  mid #(.N(8)) m_ok(.x(x));
+  mid #(.N(4)) m_bad(.x(x));
+endmodule
+
+// breadth: reports | The same holding module instantiated twice with the connection wrong in both instantiations is reported once for each width.
+// pair: parent-wrong-in-both
+// expect: 2
+module child(input [7:0] a);
+endmodule
+module mid #(parameter int N = 8) (input [7:0] x);
+  logic [N-1:0] v;
+  child u1(.a(v));
+endmodule
+module top(input [7:0] x);
+  mid #(.N(4)) m_a(.x(x));
+  mid #(.N(6)) m_b(.x(x));
+endmodule
+
+// breadth: clean | The same holding module instantiated once with the connection the right width reports nothing.
+// pair: parent-wrong-in-both
+module child(input [7:0] a);
+endmodule
+module mid #(parameter int N = 8) (input [7:0] x);
+  logic [N-1:0] v;
+  child u1(.a(v));
+endmodule
+module top(input [7:0] x);
+  mid #(.N(8)) m_a(.x(x));
+endmodule
+
+// breadth: clean | The same holding module instantiated twice with the connection the right width in both instantiations reports nothing.
+// pair: parent-instantiated-twice
+module child(input [7:0] a);
+endmodule
+module mid #(parameter int N = 8) (input [7:0] x);
+  logic [N-1:0] v;
+  child u1(.a(v));
+endmodule
+module top(input [7:0] x);
+  mid #(.N(8)) m_a(.x(x));
+  mid #(.N(8)) m_b(.x(x));
+endmodule

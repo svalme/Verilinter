@@ -9,7 +9,7 @@ from ..parser.syntax import (
     is_mutually_exclusive_branch_pair,
 )
 from .name_lookup import named_symbol
-from ..semantic.models import InstanceRecord, ParameterOverride, PortConnection
+from ..semantic.models import ConnectionRecord, InstanceRecord, ParameterOverride, PortConnection
 from ..semantic.instance_ports import (
     named_parameter_overrides,
     ordered_parameter_overrides,
@@ -160,14 +160,20 @@ def unconnected_port_names(
     return names
 
 
+def _width_views(symbol_table: SymbolTable, instantiation: dict[str, object]) -> list[ConnectionRecord]:
+    return [view for record in connection_records_of(symbol_table, instantiation) for view in record.width_views]
+
+
 def width_mismatch_details(
     symbol_table: SymbolTable,
     instantiation: dict[str, object],
 ) -> list[tuple[str, int, str, int]]:
     """`(port, port width, expression text, expression width)` for each connection whose two widths are
-    known and differ. A `.*` connection compares the port with the signal of the same name."""
+    known and differ. A `.*` connection compares the port with the signal of the same name. A connection that
+    slang elaborated with different width pairs is judged on each pair, so a wrong instantiation is reported
+    whatever the other instantiations do."""
     mismatches: list[tuple[str, int, str, int]] = []
-    for record in connection_records_of(symbol_table, instantiation):
+    for record in _width_views(symbol_table, instantiation):
         if record.port is None:
             continue
         if record.connection is not None:
@@ -179,7 +185,9 @@ def width_mismatch_details(
         if not isinstance(record.expr_width, int) or not isinstance(record.port_width, int):
             continue
         if record.expr_type.differs_from(record.port_width):
-            mismatches.append((record.port.name, record.port_width, str(expr_text), record.expr_width))
+            mismatch = (record.port.name, record.port_width, str(expr_text), record.expr_width)
+            if mismatch not in mismatches:
+                mismatches.append(mismatch)
     return mismatches
 
 
@@ -200,7 +208,7 @@ def width_unknown_details(
     instantiation: dict[str, object],
 ) -> list[tuple[str, int | None, str, int | None]]:
     unknowns: list[tuple[str, int | None, str, int | None]] = []
-    for record in connection_records_of(symbol_table, instantiation):
+    for record in _width_views(symbol_table, instantiation):
         conn = record.connection
         if record.port is None or conn is None or _is_left_open(conn):
             continue
@@ -210,7 +218,9 @@ def width_unknown_details(
             continue
         if record.port_width is None and _typed_by_type_parameter(record.port):
             continue
-        unknowns.append((record.port.name, record.port_width, str(conn.get("expr_text") or "<open>"), record.expr_width))
+        unknown = (record.port.name, record.port_width, str(conn.get("expr_text") or "<open>"), record.expr_width)
+        if unknown not in unknowns:
+            unknowns.append(unknown)
     return unknowns
 
 

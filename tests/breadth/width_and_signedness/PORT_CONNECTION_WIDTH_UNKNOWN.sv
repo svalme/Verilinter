@@ -23,8 +23,7 @@ module top;
   child #(.data_t(logic [3:0])) u1(.d(x));
 endmodule
 
-// breadth: reports | A port whose width comes from a package function has several widths when the module that holds the connection is instantiated with different parameters.
-// pair: parent-instantiated-twice
+// breadth: clean | A port whose width comes from a package function has a different width in each instantiation of the holding module, and each instantiation is known and matches.
 package p_pkg;
   function automatic int f(int w);
     return w;
@@ -43,7 +42,6 @@ module top;
 endmodule
 
 // breadth: clean | The same connection with the holding module instantiated once has one elaborated width.
-// pair: parent-instantiated-twice
 package p_pkg;
   function automatic int f(int w);
     return w;
