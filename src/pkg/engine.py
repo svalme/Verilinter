@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Sequence
 from .analysis_store import AnalysisStore, file_sha256
 from .diagnostics import enrich_diagnostics, filter_by_baseline, sort_diagnostics
+from .parser.elaborated_widths import ElaboratedWidths
 from .parser.parse import extract_parse_diagnostics
 from .rules.register_rules import *
 from .rules.register_rules import module_rule_runner, rule_runner, symbol_rule_runner
@@ -81,7 +82,7 @@ def _build_rule_selection(
     return RuleSelection(enabled_profiles=frozenset({rule_profile}))
 
 
-def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
+def _build_cross_file_symbol_table(results: list[WorkerResult], widths: ElaboratedWidths | None = None) -> SymbolTable:
     symbol_table = SymbolTable()
 
     for result in results:
@@ -101,7 +102,7 @@ def _build_cross_file_symbol_table(results: list[WorkerResult]) -> SymbolTable:
         symbol_table.instantiation_edges.extend(result.instantiation_edges)
         symbol_table.instantiations.extend(result.instantiations)
 
-    resolve_connections(symbol_table)
+    resolve_connections(symbol_table, widths)
     return symbol_table
 
 
@@ -256,6 +257,7 @@ class LintPipeline:
         report_kind: str | None = None,
         include_dirs: list[str] | None = None,
         defines: Sequence[str] | None = None,
+        elaborated_widths: bool = False,
     ) -> AnalysisResult:
         if jobs < 1:
             raise ValueError(f"jobs must be >= 1, got {jobs}")
@@ -362,7 +364,8 @@ class LintPipeline:
             diagnostics.extend(result.diagnostics)
             truncations.extend(result.truncations)
 
-        cross_file_symbol_table = _build_cross_file_symbol_table(results)
+        widths = ElaboratedWidths.build(paths, include_dirs, normalized_defines) if elaborated_widths else None
+        cross_file_symbol_table = _build_cross_file_symbol_table(results, widths)
         _mod_runner = self._module_rule_runner or get_override("module_rule_runner", module_rule_runner)
         diagnostics.extend(_mod_runner.run(cross_file_symbol_table, resolved_selection))
         diagnostics = enrich_diagnostics(diagnostics, severity_overrides)
@@ -410,6 +413,7 @@ def analyze(
     report_kind: str | None = None,
     include_dirs: list[str] | None = None,
     defines: Sequence[str] | None = None,
+    elaborated_widths: bool = False,
 ) -> AnalysisResult:
     return LintPipeline().analyze_paths(
         paths=paths,
@@ -424,4 +428,5 @@ def analyze(
         report_kind=report_kind,
         include_dirs=include_dirs,
         defines=defines,
+        elaborated_widths=elaborated_widths,
     )

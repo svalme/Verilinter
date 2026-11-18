@@ -5,12 +5,18 @@ instead of matching names and positions itself. Named, positional, `.name` and `
 expanded here."""
 from __future__ import annotations
 
-from .expr_type import ExprType
+from dataclasses import replace
+from typing import TYPE_CHECKING
+
+from .expr_type import ExprType, WidthDetermination
 from .instance_ports import instance_parameter_scope, specialized_port_symbol
 from .models import ConnectionRecord, InstanceRecord, PortConnection
 from .module_resolver import ModuleResolver
 from .symbol import Symbol
 from .symbol_table import SymbolTable
+
+if TYPE_CHECKING:
+    from ..parser.elaborated_widths import ElaboratedWidths
 
 
 def _child_ports(symbol_table: SymbolTable, instance: InstanceRecord) -> list[Symbol] | None:
@@ -58,7 +64,36 @@ def _record(
     )
 
 
-def build_connection_records(symbol_table: SymbolTable, instance: InstanceRecord) -> list[ConnectionRecord]:
+def _with_elaborated_widths(
+    records: list[ConnectionRecord], instance: InstanceRecord, widths: ElaboratedWidths
+) -> list[ConnectionRecord]:
+    """Replace the estimated port and expression widths with the ones slang computed for the instance, when
+    every elaborated instance of that name gave the same pair. A connection whose instances differ, or that
+    slang did not elaborate, keeps the estimated widths."""
+    updated: list[ConnectionRecord] = []
+    for record in records:
+        pairs = widths.connection_widths(instance.parent_module, instance.instance_name, record.port_name)
+        if len(pairs) != 1 or record.port is None:
+            updated.append(record)
+            continue
+        port_width, expr_width = next(iter(pairs))
+        expr_type = record.expr_type
+        # A literal with no width of its own (`0`, `'0`) fills the port, so the 32 bits slang gives it name no mismatch.
+        adapts = expr_type.determination is WidthDetermination.ADAPTS
+        if expr_width is not None and not adapts and (record.connection is not None or record.implicit):
+            expr_type = replace(expr_type, width=expr_width)
+        updated.append(replace(record, port_width=port_width, expr_type=expr_type))
+    return updated
+
+
+def build_connection_records(
+    symbol_table: SymbolTable, instance: InstanceRecord, widths: ElaboratedWidths | None = None
+) -> list[ConnectionRecord]:
+    records = _estimated_connection_records(symbol_table, instance)
+    return _with_elaborated_widths(records, instance, widths) if widths is not None else records
+
+
+def _estimated_connection_records(symbol_table: SymbolTable, instance: InstanceRecord) -> list[ConnectionRecord]:
     ports = _child_ports(symbol_table, instance)
     parent_scope = ModuleResolver(symbol_table).scope(instance.parent_module)
     records: list[ConnectionRecord] = []
@@ -95,10 +130,11 @@ def build_connection_records(symbol_table: SymbolTable, instance: InstanceRecord
     return records
 
 
-def resolve_connections(symbol_table: SymbolTable) -> None:
-    """Build the connection records of every instance in the table and keep them on the instance."""
+def resolve_connections(symbol_table: SymbolTable, widths: ElaboratedWidths | None = None) -> None:
+    """Build the connection records of every instance in the table and keep them on the instance. With an
+    elaborated width record, each connection's widths come from it where slang gave one answer."""
     for instance in symbol_table.instantiations:
-        instance.connection_records = build_connection_records(symbol_table, instance)
+        instance.connection_records = build_connection_records(symbol_table, instance, widths)
 
 
 def connection_records_of(symbol_table: SymbolTable, instance: InstanceRecord | dict) -> list[ConnectionRecord]:

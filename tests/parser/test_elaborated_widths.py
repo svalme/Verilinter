@@ -123,3 +123,88 @@ def test_expression_from_a_macro_is_not_recorded(tmp_path: Path) -> None:
     )
 
     assert _width_of(record, path, text, "`SEL;") is None
+
+
+CONNECTIONS = """
+module child #(parameter int W = 4) (input logic [W-1:0] a, output logic [1:0] z);
+endmodule
+module top;
+  logic [7:0] q; logic [3:0] p; logic [1:0] r;
+  child #(.W(8)) u_wide(.a(q), .z(r));
+  child u_default(.a(p), .z());
+  for (genvar i = 0; i < 2; i++) begin : g
+    child u_arr[1:0](.a(p), .z());
+  end
+  if (0) begin : g_off
+    child u_off(.a(p), .z());
+  end
+endmodule
+"""
+
+
+def test_connection_widths_use_the_overrides_of_the_instance(tmp_path: Path) -> None:
+    record, _path, _text = _build(tmp_path, CONNECTIONS)
+
+    assert record.connection_widths("top", "u_wide", "a") == frozenset({(8, 8)})
+    assert record.connection_widths("top", "u_default", "a") == frozenset({(4, 4)})
+
+
+def test_open_port_has_no_expression_width(tmp_path: Path) -> None:
+    record, _path, _text = _build(tmp_path, CONNECTIONS)
+
+    assert record.connection_widths("top", "u_default", "z") == frozenset({(2, None)})
+
+
+def test_instance_array_in_a_generate_loop_is_found_by_the_array_name(tmp_path: Path) -> None:
+    record, _path, _text = _build(tmp_path, CONNECTIONS)
+
+    assert record.connection_widths("top", "u_arr", "a") == frozenset({(4, 4)})
+
+
+def test_two_instantiations_of_one_parent_with_different_overrides_keep_both_pairs(tmp_path: Path) -> None:
+    record, _path, _text = _build(
+        tmp_path,
+        """
+        module child #(parameter int W = 4) (input logic [W-1:0] a);
+        endmodule
+        module mid #(parameter int N = 4) (input logic [N-1:0] x);
+          child #(.W(N)) u_c(.a(x));
+        endmodule
+        module top(input logic [3:0] p, input logic [7:0] q);
+          mid #(.N(4)) u_m4(.x(p));
+          mid #(.N(8)) u_m8(.x(q));
+        endmodule
+        """,
+    )
+
+    assert record.connection_widths("mid", "u_c", "a") == frozenset({(4, 4), (8, 8)})
+
+
+def test_instance_in_a_switched_off_branch_has_no_connection_widths(tmp_path: Path) -> None:
+    record, _path, _text = _build(tmp_path, CONNECTIONS)
+
+    assert record.connection_widths("top", "u_off", "a") == frozenset()
+
+
+def test_unknown_names_give_no_connection_widths(tmp_path: Path) -> None:
+    record, _path, _text = _build(tmp_path, CONNECTIONS)
+
+    assert record.connection_widths("top", "u_none", "a") == frozenset()
+    assert record.connection_widths(None, "u_wide", "a") == frozenset()
+
+
+def test_connection_expression_width_is_the_written_expression_not_the_port_type(tmp_path: Path) -> None:
+    record, _path, _text = _build(
+        tmp_path,
+        """
+        module child(input logic [7:0] a, output logic [7:0] o);
+        endmodule
+        module top(input logic [3:0] x, output logic [3:0] y);
+          child u_c(.a(x), .o(y));
+        endmodule
+        """,
+    )
+
+    assert record.connection_widths("top", "u_c", "a") == frozenset({(8, 4)})
+    assert record.connection_widths("top", "u_c", "o") == frozenset({(8, 4)})
+

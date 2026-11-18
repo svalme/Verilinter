@@ -16,6 +16,22 @@ import pyslang as sl
 SpanKey = tuple[str, int, int]
 
 _EXPLICIT_CONVERSION = sl.ConversionKind.Explicit
+_MAX_SCOPES_PER_TOP = 1_000_000  # bound on the instance and generate scopes walked under one top-level instance
+
+
+def _connected_width(expression: object) -> int | None:
+    """The width of the expression a port connection names. Slang wraps an input's expression in an implicit
+    conversion to the port type and an output's in an assignment; the width wanted is the written expression's."""
+    node = expression
+    if node is not None and node.kind == sl.ExpressionKind.Assignment:
+        node = node.left
+    steps = 0
+    while node is not None and node.kind == sl.ExpressionKind.Conversion and node.conversionKind != _EXPLICIT_CONVERSION and steps < 64:
+        node = node.operand
+        steps += 1
+    if node is None or not node.type.isIntegral:
+        return None
+    return node.type.bitWidth
 
 
 def _normal_path(path: str | Path) -> str:
@@ -43,6 +59,8 @@ class ElaboratedWidths:
     def __init__(self) -> None:
         self._widths: dict[tuple[SpanKey, bool], set[int]] = {}
         self._signed: dict[tuple[SpanKey, bool], set[bool]] = {}
+        # (parent module, instance name, port name) -> (port width, connected expression width) of each elaborated instance
+        self._connections: dict[tuple[str, str, str], set[tuple[int, int | None]]] = {}
         self.file_count = 0
         self.error_count = 0
 
@@ -70,7 +88,38 @@ class ElaboratedWidths:
         record.error_count = sum(1 for d in compilation.getAllDiagnostics() if d.isError())
         manager = compilation.sourceManager
         compilation.getRoot().visit(lambda node: record._add(node, manager))
+        for top in compilation.getRoot().topInstances:
+            record._add_connections(top)
         return record
+
+    def _add_connections(self, top: object) -> None:
+        """Record every port connection of the instances under `top`, keyed by the module that instantiates
+        them, so a connection is found without a source position."""
+        pending = [(top.body, top.definition.name)]
+        scopes_visited = 0
+        while pending and scopes_visited < _MAX_SCOPES_PER_TOP:
+            scopes_visited += 1
+            scope, parent_module = pending.pop()
+            for member in scope:
+                kind = member.kind
+                if kind == sl.SymbolKind.Instance:
+                    self._add_instance(member, parent_module, member.name)
+                    pending.append((member.body, member.definition.name))
+                elif kind == sl.SymbolKind.InstanceArray:
+                    for element in member:
+                        self._add_instance(element, parent_module, member.name)
+                        pending.append((element.body, element.definition.name))
+                elif kind in (sl.SymbolKind.GenerateBlock, sl.SymbolKind.GenerateBlockArray):
+                    pending.append((member, parent_module))
+
+    def _add_instance(self, instance: object, parent_module: str, name: str) -> None:
+        for connection in instance.portConnections:
+            port_type = connection.port.type
+            if not port_type.isIntegral:
+                continue
+            expression_width = _connected_width(connection.expression)
+            key = (parent_module, name, connection.port.name)
+            self._connections.setdefault(key, set()).add((port_type.bitWidth, expression_width))
 
     def _add(self, node: object, manager: sl.SourceManager) -> None:
         if not isinstance(node, sl.Expression):
@@ -98,6 +147,13 @@ class ElaboratedWidths:
         if widths is None:
             return None
         return ElaboratedWidth(frozenset(widths), frozenset(self._signed[key]))
+
+    def connection_widths(self, parent_module: str | None, instance: str | None, port: str | None) -> frozenset[tuple[int, int | None]]:
+        """`(port width, connected expression width)` of the connection in each elaborated instance, or an
+        empty set when slang elaborated no instance of that name in that module."""
+        if not (parent_module and instance and port):
+            return frozenset()
+        return frozenset(self._connections.get((parent_module, instance, port), ()))
 
     def widths_for(self, node: object, tree: object) -> ElaboratedWidth | None:
         """The widths of a syntax node of `tree`, read from the span of the node, or None when slang has no entry."""
