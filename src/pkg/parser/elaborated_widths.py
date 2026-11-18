@@ -17,6 +17,7 @@ SpanKey = tuple[str, int, int]
 
 _EXPLICIT_CONVERSION = sl.ConversionKind.Explicit
 _MAX_SCOPES_PER_TOP = 1_000_000  # bound on the instance and generate scopes walked under one top-level instance
+_PAYLOAD_LAYOUT = 1  # the shape `to_payload` writes; `from_payload` refuses another
 
 
 def _connected_width(expression: object) -> int | None:
@@ -32,6 +33,10 @@ def _connected_width(expression: object) -> int | None:
     if node is None or not node.type.isIntegral:
         return None
     return node.type.bitWidth
+
+
+def _pair_order(pair: list[int | None]) -> tuple[int, int]:
+    return (pair[0] or 0, -1 if pair[1] is None else pair[1])
 
 
 def _normal_path(path: str | Path) -> str:
@@ -173,3 +178,47 @@ class ElaboratedWidths:
 
     def __len__(self) -> int:
         return len({span for span, _is_name in self._widths})
+
+    def to_payload(self) -> dict:
+        """The record as plain data, for the elaboration cache. Paths are listed once and spans refer to them."""
+        files: dict[str, int] = {}
+        spans = []
+        for (span, is_name), widths in self._widths.items():
+            path, start, end = span
+            index = files.setdefault(path, len(files))
+            signed = sorted(int(flag) for flag in self._signed[(span, is_name)])
+            spans.append([index, start, end, int(is_name), sorted(widths), signed])
+        connections = [
+            [parent, instance, port, sorted(([port_width, expr_width] for port_width, expr_width in pairs), key=_pair_order)]
+            for (parent, instance, port), pairs in self._connections.items()
+        ]
+        return {
+            "layout": _PAYLOAD_LAYOUT,
+            "files": list(files),
+            "spans": spans,
+            "port_width_pairs": connections,
+            "file_count": self.file_count,
+            "error_count": self.error_count,
+        }
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "ElaboratedWidths":
+        """Rebuild a record from `to_payload` data. Raises ValueError for data of another layout or shape."""
+        if payload.get("layout") != _PAYLOAD_LAYOUT:
+            raise ValueError("elaboration cache payload has another layout")
+        record = cls()
+        try:
+            files = [str(path) for path in payload["files"]]
+            for index, start, end, is_name, widths, signed in payload["spans"]:
+                key = ((files[index], int(start), int(end)), bool(is_name))
+                record._widths[key] = {int(width) for width in widths}
+                record._signed[key] = {bool(flag) for flag in signed}
+            for parent, instance, port, pairs in payload["port_width_pairs"]:
+                record._connections[(str(parent), str(instance), str(port))] = {
+                    (int(port_width), None if expr_width is None else int(expr_width)) for port_width, expr_width in pairs
+                }
+            record.file_count = int(payload["file_count"])
+            record.error_count = int(payload["error_count"])
+        except (KeyError, IndexError, TypeError, ValueError) as error:
+            raise ValueError(f"elaboration cache payload is malformed: {error}") from error
+        return record

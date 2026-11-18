@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Sequence
 from .analysis_store import AnalysisStore, file_sha256
+from .store.keys import elaboration_keys
 from .diagnostics import enrich_diagnostics, filter_by_baseline, sort_diagnostics
 from .parser.elaborated_widths import ElaboratedWidths
 from .parser.parse import extract_parse_diagnostics
@@ -126,6 +127,39 @@ def run(
         include_dirs=include_dirs,
         defines=defines,
     ).diagnostics
+
+
+def _elaborated_widths(
+    store: AnalysisStore | None,
+    paths: list[Path],
+    file_records: list[dict[str, Any]],
+    results: list[WorkerResult],
+    include_dirs: list[str] | None,
+    defines: list[str] | None,
+    use_cache: bool,
+) -> ElaboratedWidths:
+    """The elaborated widths of the file set: the stored record when no input changed, else built now and stored."""
+    if store is None or len(file_records) != len(paths):
+        return ElaboratedWidths.build(paths, include_dirs, defines)
+    set_id, input_key = elaboration_keys(
+        {record["file_path"]: record["file_hash"] for record in file_records},
+        [dependency for result in results for dependency in result.header_dependencies],
+        include_dirs,
+        defines,
+    )
+    widths: ElaboratedWidths | None = None
+    try:
+        payload = store.load_cached_elaboration(set_id=set_id, input_key=input_key) if use_cache else None
+        if payload is not None:
+            try:
+                return ElaboratedWidths.from_payload(payload)
+            except ValueError:
+                pass
+        widths = ElaboratedWidths.build(paths, include_dirs, defines)
+        store.store_cached_elaboration(set_id=set_id, input_key=input_key, payload=widths.to_payload())
+    except sqlite3.Error as exc:
+        warn_store_unavailable(store.path, exc)
+    return widths if widths is not None else ElaboratedWidths.build(paths, include_dirs, defines)
 
 
 class LintPipeline:
@@ -364,7 +398,11 @@ class LintPipeline:
             diagnostics.extend(result.diagnostics)
             truncations.extend(result.truncations)
 
-        widths = ElaboratedWidths.build(paths, include_dirs, normalized_defines) if elaborated_widths else None
+        widths = (
+            _elaborated_widths(store, paths, file_records, results, include_dirs, normalized_defines, use_cache)
+            if elaborated_widths
+            else None
+        )
         cross_file_symbol_table = _build_cross_file_symbol_table(results, widths)
         _mod_runner = self._module_rule_runner or get_override("module_rule_runner", module_rule_runner)
         diagnostics.extend(_mod_runner.run(cross_file_symbol_table, resolved_selection))

@@ -1,7 +1,7 @@
 """The local analysis store, composed from its parts.
 
 `AnalysisStore` is the one object the pipeline and the CLI hold. The work is in `store/`: `connection`
-(opening the file), `schema` (tables and migrations), `cache` (reusable per-file results) and `history`
+(opening the file), `schema` (tables and migrations), `cache` (reusable per-file results), `elaboration` (the whole-set width record) and `history`
 (recorded runs). Each part has its own version token: `ANALYZER_CACHE_VERSION` for the cache and
 `SCHEMA_VERSION` for the table layout.
 """
@@ -14,6 +14,7 @@ from .rules.rule_selection import RuleSelection
 from .semantic.symbol_table import SymbolTable
 from .store.cache import FileAnalysisCache
 from .store.connection import BUSY_TIMEOUT_SECONDS, StoreConnection
+from .store.elaboration import ElaborationCache
 from .store.history import RunHistory
 from .store.keys import ANALYZER_CACHE_VERSION, file_sha256, selection_key
 from .store.schema import SCHEMA_VERSION, ensure_schema
@@ -36,6 +37,7 @@ class AnalysisStore:
         self.connection = StoreConnection(path)
         ensure_schema(self.connection)
         self.cache = FileAnalysisCache(self.connection)
+        self.elaboration = ElaborationCache(self.connection)
         self.history = RunHistory(self.connection)
 
     def load_cached_worker_result(
@@ -105,7 +107,14 @@ class AnalysisStore:
             symbol_table=symbol_table,
         )
 
+    def load_cached_elaboration(self, *, set_id: str, input_key: str) -> dict[str, Any] | None:
+        return self.elaboration.load(set_id=set_id, input_key=input_key)
+
+    def store_cached_elaboration(self, *, set_id: str, input_key: str, payload: dict[str, Any]) -> None:
+        self.elaboration.store(set_id=set_id, input_key=input_key, payload=payload)
+
     def prune_cache(self, *, older_than_days: int) -> int:
+        self.elaboration.prune(older_than_days=older_than_days)
         return self.cache.prune(older_than_days=older_than_days)
 
     def prune_runs(self, *, keep_last: int) -> int:

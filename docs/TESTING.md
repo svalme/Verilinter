@@ -45,6 +45,7 @@ Organized by subsystem domain, with nested `unit/`, `integration/`, and `regress
 - `test_analysis_store.py`: SQLite cache persistence, hash keys, warm/cold cache reads.
 - `test_store_structure.py`: the cache, the run history and the connection stay separate modules, and each works without the other.
 - `test_scope_execution_modes.py`: transitive header invalidation, include directory shadowing.
+- `test_elaboration_cache.py`: the stored elaborated width record is reused while no file, header, include directory, define or version changed, rebuilt after any of them changes (each key part has a test), kept as one row per file set, rebuilt when unreadable or of another layout, pruned by age; the payload round trip; the version 3 to 4 migration.
 
 **Meta & fixture-integrity tests** (`tests/meta/`):
 - `test_fixture_validity.py`: every file in `tests/data/` must parse with pyslang without error-level diagnostics. A fixture that intentionally exercises parser recovery belongs in that file's `INTENTIONAL_PARSE_ERROR_FIXTURES` allowlist with an explanatory comment.

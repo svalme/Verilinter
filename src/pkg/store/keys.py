@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from functools import lru_cache
 from importlib import metadata
 from pathlib import Path
@@ -77,3 +78,38 @@ def selection_key(
         "defines": sorted(defines) if defines else None,
     }
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def elaboration_keys(
+    file_hashes: dict[str, str],
+    header_dependencies: list[dict[str, str]],
+    include_dirs: list[str] | None,
+    defines: list[str] | None,
+) -> tuple[str, str]:
+    """The two tokens of an elaboration cache row, as (set id, input key).
+
+    The set id names the file set: the paths, the ordered include directories and the defines. The input key is
+    everything the record was built from: each file's content hash, the hash of every included header, and the
+    analyzer and pyslang versions (a different slang or a changed Verilinter can change the widths). A change to
+    any of them gives a different input key, so the stored record is not reused."""
+
+    def normal(path: str) -> str:
+        return os.path.normcase(os.path.abspath(path))
+
+    set_payload = {
+        "paths": sorted(normal(path) for path in file_hashes),
+        "include_dirs": include_dirs or None,
+        "defines": sorted(defines) if defines else None,
+    }
+    input_payload = {
+        "analyzer_cache_version": ANALYZER_CACHE_VERSION,
+        "analyzer_code": analyzer_code_fingerprint(),
+        "pyslang": pyslang_version(),
+        "files": sorted((normal(path), digest) for path, digest in file_hashes.items()),
+        "headers": sorted({(normal(dep["path"]), dep["hash"]) for dep in header_dependencies}),
+    }
+
+    def digest(payload: dict) -> str:
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    return digest(set_payload), digest(input_payload)

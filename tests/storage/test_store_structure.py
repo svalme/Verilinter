@@ -30,6 +30,10 @@ def test_the_history_does_not_import_the_cache() -> None:
     assert "cache" not in _imported_store_modules("history.py")
 
 
+def test_the_elaboration_cache_knows_neither_the_file_cache_nor_the_history() -> None:
+    assert {"cache", "history"}.isdisjoint(_imported_store_modules("elaboration.py"))
+
+
 def test_the_connection_knows_no_tables() -> None:
     assert _imported_store_modules("connection.py") == set()
 

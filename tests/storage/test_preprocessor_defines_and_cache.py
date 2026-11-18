@@ -238,15 +238,14 @@ def test_schema_migration_v2_to_v3(tmp_path: Path) -> None:
     finally:
         conn.close()
 
-    # Open store with AnalysisStore -> triggers migration to 3
+    # Open store with AnalysisStore -> migrates through 3 to the current version
     store = AnalysisStore(store_path)
-    assert SCHEMA_VERSION == "3"
 
     conn = sqlite3.connect(store_path)
     try:
-        # Check version is 3
+        # The migration chain ends at the current version
         version_row = conn.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()
-        assert version_row[0] == "3"
+        assert version_row[0] == SCHEMA_VERSION
 
         # Check column exists
         columns = [row[1] for row in conn.execute("PRAGMA table_info(cached_file_analysis)").fetchall()]

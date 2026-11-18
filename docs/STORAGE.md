@@ -44,6 +44,12 @@ That means a cached entry is reused only when:
 
 Each file also has a small cache row of its own (same table, keyed by the file's path, hash, `-I` and `-D` settings, and the header dependencies it was read with) holding the ports of the modules it declares and the names of the modules it instantiates. These are read from the syntax alone before any file is linted, so an unchanged file is not parsed again, and the ports of a module declared in another file are known when a file is walked. `store status` and `prune` count analysis results only.
 
+### Elaborated width record
+
+When an analysis asks slang to elaborate the whole file set (to read the widths of parameterized ports and expressions), the result is kept in `cached_elaboration`, one row per file set. The set is identified by its file paths, include directories (in order) and defines. The row is reused while all of these are unchanged: the content hash of every file in the set, the hash of every directly or transitively included header, Verilinter's source fingerprint, the analyzer cache version and the pyslang version. Any change replaces the row, so a project edited repeatedly keeps one record. An unreadable row, or one written in another layout, is rebuilt. `--no-cache` rebuilds the record and stores it again.
+
+The record is rebuilt in full when any file of the set changes; it is not updated per file. `store status` and `prune` count per-file analysis results only; `--prune-cache-days` also removes old elaboration rows.
+
 The source fingerprint means any edit to Verilinter's code, and any pyslang upgrade, refreshes cached rows on the next run without a manual step. The analyzer cache version is a small internal compatibility token that remains for changes the source hash cannot see, such as a deliberate change to what a row means.
 When parser behavior, symbol-building behavior, cached payload shape, or rule logic changes in a way that
 could make old worker results unsafe to reuse, this token should be bumped so cached per-file rows refresh
@@ -53,7 +59,7 @@ Severity overrides are applied after cached worker results are loaded, so they d
 
 ## Schema
 
-The current schema version is `3`.
+The current schema version is `4`.
 
 Verilinter treats schema compatibility separately from cache compatibility:
 - `ANALYZER_CACHE_VERSION` controls whether cached per-file analysis blobs are still safe to reuse (currently `2026-11-12-instance-driver-events`)
@@ -91,6 +97,7 @@ Current supported schema migrations:
 - `0 -> 1`: Initial store layout migration
 - `1 -> 2`: Cascade deletion (`ON DELETE CASCADE`) across run child tables
 - `2 -> 3`: Transitive header dependency tracking (`header_dependencies_json`)
+- `3 -> 4`: The elaboration cache table (`cached_elaboration`)
 
 Rebuild guidance:
 - use `--no-cache` when you want a fresh analysis pass without deleting the store
@@ -154,16 +161,17 @@ large store, so it is most useful after pruning rather than on every lint run.
 
 ## Code Layout
 
-`AnalysisStore` (`src/pkg/analysis_store.py`) is the object the pipeline and the CLI hold. It composes four parts in `src/pkg/store/`, each with one job:
+`AnalysisStore` (`src/pkg/analysis_store.py`) is the object the pipeline and the CLI hold. It composes five parts in `src/pkg/store/`, each with one job:
 
 | Module | Job |
 |---|---|
 | `connection.py` | opens the store file: connections, transactions, the write-ahead-log switch and the busy timeout. It knows no tables. |
 | `schema.py` | creates the tables and migrates an older layout (`SCHEMA_VERSION`). |
 | `cache.py` | the per-file analysis cache (`cached_file_analysis`): load, store, prune by age. |
+| `elaboration.py` | the elaborated width record cache (`cached_elaboration`): load, store, prune by age. |
 | `history.py` | run history (`analysis_runs` and its child tables): record a run, prune by count. |
 
-`keys.py` holds `ANALYZER_CACHE_VERSION`, `selection_key` and `file_sha256`. The cache and the history do not import each other, and a test checks it.
+`keys.py` holds `ANALYZER_CACHE_VERSION`, `selection_key`, `elaboration_keys` and `file_sha256`. The cache and the history do not import each other, and a test checks it.
 
 ## Single Store Design
 
@@ -205,6 +213,19 @@ Purpose:
 - cache single-file symbol diagnostics
 - cache module summaries
 - cache instantiation and connection summaries needed for later cross-file passes
+
+### `cached_elaboration`
+
+Stores the elaborated width record of one file set.
+
+Columns:
+- `set_id TEXT PRIMARY KEY` (hash of the file paths, include directories and defines)
+- `input_key TEXT NOT NULL` (hash of the file and header content hashes and the analyzer and pyslang versions)
+- `cached_at TEXT NOT NULL`
+- `record_json TEXT NOT NULL`
+
+Purpose:
+- reuse the whole-set elaboration while no input of the set changed
 
 ### `analysis_runs`
 

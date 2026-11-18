@@ -5,9 +5,10 @@ import sqlite3
 
 from .cache import CACHE_DDL
 from .connection import StoreConnection
+from .elaboration import ELABORATION_DDL
 from .history import HISTORY_DDL
 
-SCHEMA_VERSION = "3"
+SCHEMA_VERSION = "4"
 
 _META_DDL = """
     CREATE TABLE IF NOT EXISTS schema_meta (
@@ -25,7 +26,7 @@ def ensure_schema(connection: StoreConnection) -> None:
 
 def apply_schema(conn: sqlite3.Connection) -> None:
     # The statements contain no embedded semicolons, so splitting is safe.
-    for script in (_META_DDL, CACHE_DDL, HISTORY_DDL):
+    for script in (_META_DDL, CACHE_DDL, ELABORATION_DDL, HISTORY_DDL):
         for statement in script.split(";"):
             if statement.strip():
                 conn.execute(statement)
@@ -64,6 +65,7 @@ def migrate_schema(conn: sqlite3.Connection, existing_version: str) -> None:
         "0": migrate_0_to_1,
         "1": migrate_1_to_2,
         "2": migrate_2_to_3,
+        "3": migrate_3_to_4,
     }
 
     version = existing_version
@@ -206,3 +208,15 @@ def migrate_2_to_3(conn: sqlite3.Connection) -> str:
         """
     )
     return "3"
+
+
+def migrate_3_to_4(conn: sqlite3.Connection) -> str:
+    """The elaboration cache table (`cached_elaboration`) is created with the other tables; only the version moves."""
+    conn.execute(
+        """
+        UPDATE schema_meta
+        SET value = '4'
+        WHERE key = 'schema_version'
+        """
+    )
+    return "4"
