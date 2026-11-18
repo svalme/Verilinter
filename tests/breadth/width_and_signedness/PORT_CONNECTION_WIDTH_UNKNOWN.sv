@@ -1,16 +1,62 @@
-// breadth: reports | A connected name that is not declared has no width, so the analysis cannot compare it with the port.
+// breadth: reports | With implicit nets turned off, a connected name that is not declared has no width to compare with the port.
+// pair: undeclared-name
+`default_nettype none
 module child(input [7:0] a);
 endmodule
 module top;
   child u1(.a(missing_name));
 endmodule
 
-// breadth: reports | A port typed by a type parameter has a width that depends on the instantiating module.
+// breadth: clean | With implicit nets on, a connected name that is not declared is a one-bit net, so its width is known (the mismatch rule reports it).
+// pair: undeclared-name
+module child(input [7:0] a);
+endmodule
+module top;
+  child u1(.a(missing_name));
+endmodule
+
+// breadth: clean | A port typed by a type parameter has the width of the type its instance passes.
 module child #(parameter type data_t = logic) (input data_t [3:0] d);
 endmodule
 module top;
   logic [15:0] x;
   child #(.data_t(logic [3:0])) u1(.d(x));
+endmodule
+
+// breadth: reports | A port whose width comes from a package function has several widths when the module that holds the connection is instantiated with different parameters.
+// pair: parent-instantiated-twice
+package p_pkg;
+  function automatic int f(int w);
+    return w;
+  endfunction
+endpackage
+module child #(parameter int W = 4) (input [p_pkg::f(W)-1:0] d);
+endmodule
+module mid #(parameter int W = 4) (input [W-1:0] x);
+  child #(.W(W)) u1(.d(x));
+endmodule
+module top;
+  logic [3:0] a;
+  logic [7:0] b;
+  mid #(.W(4)) m0(.x(a));
+  mid #(.W(8)) m1(.x(b));
+endmodule
+
+// breadth: clean | The same connection with the holding module instantiated once has one elaborated width.
+// pair: parent-instantiated-twice
+package p_pkg;
+  function automatic int f(int w);
+    return w;
+  endfunction
+endpackage
+module child #(parameter int W = 4) (input [p_pkg::f(W)-1:0] d);
+endmodule
+module mid #(parameter int W = 4) (input [W-1:0] x);
+  child #(.W(W)) u1(.d(x));
+endmodule
+module top;
+  logic [7:0] b;
+  mid #(.W(8)) m1(.x(b));
 endmodule
 
 // breadth: reports | A port sized by a parameter with no default and no override has no knowable width.

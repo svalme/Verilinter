@@ -59,3 +59,48 @@ module top;
   logic [33:0] q [2];
   child u1 (.d(d), .q);
 endmodule
+
+// breadth: reports | A port sized by a package function is compared with the connected signal at the width slang computes.
+// pair: package-function-width
+package p_pkg;
+  function automatic int wide();
+    return 8;
+  endfunction
+endpackage
+module child(input logic [p_pkg::wide()-1:0] a);
+endmodule
+module top;
+  logic [3:0] x;
+  child u1(.a(x));
+endmodule
+
+// breadth: clean | The same port with a connected signal of the computed width.
+// pair: package-function-width
+package p_pkg;
+  function automatic int wide();
+    return 8;
+  endfunction
+endpackage
+module child(input logic [p_pkg::wide()-1:0] a);
+endmodule
+module top;
+  logic [7:0] x;
+  child u1(.a(x));
+endmodule
+
+// breadth: reports | A name that is not declared is a one-bit implicit net, narrower than the port.
+// pair: undeclared-name
+module child(input [7:0] a);
+endmodule
+module top;
+  child u1(.a(missing_name));
+endmodule
+
+// breadth: clean | With implicit nets turned off the name has no width, which the unknown-width rule reports.
+// pair: undeclared-name
+`default_nettype none
+module child(input [7:0] a);
+endmodule
+module top;
+  child u1(.a(missing_name));
+endmodule

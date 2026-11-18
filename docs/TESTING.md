@@ -286,8 +286,8 @@ Rules with a breadth file (generated; regenerate with `UPDATE_EXPECTED=1 pytest 
 | `LITERAL_WIDTH_OVERFLOW` | `width_and_signedness` | 10 | 7 | 1 | 4 |
 | `NO_UNSIZED_LITERAL` | `width_and_signedness` | 4 | 9 | 3 | 4 |
 | `PORT_CONNECTION_SIGNEDNESS_MISMATCH` | `width_and_signedness` | 9 | 5 | 2 | 3 |
-| `PORT_CONNECTION_WIDTH_MISMATCH` | `width_and_signedness` | 3 | 4 | 0 | 1 |
-| `PORT_CONNECTION_WIDTH_UNKNOWN` | `width_and_signedness` | 3 | 7 | 0 | 1 |
+| `PORT_CONNECTION_WIDTH_MISMATCH` | `width_and_signedness` | 5 | 6 | 0 | 3 |
+| `PORT_CONNECTION_WIDTH_UNKNOWN` | `width_and_signedness` | 3 | 10 | 0 | 3 |
 | `SHIFT_AMOUNT_OUT_OF_RANGE` | `width_and_signedness` | 19 | 14 | 5 | 11 |
 
 <!-- END BREADTH COVERAGE -->

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -381,9 +380,6 @@ def main(argv: list[str] | None = None) -> int:
             run_kwargs["include_dirs"] = args.include_dir
         if config.defines:
             run_kwargs["defines"] = config.defines
-        # Temporary switch for measuring elaborated widths (Docs/ELABORATED_WIDTHS_DESIGN.md); not a documented option.
-        if os.environ.get("VERILINTER_ELABORATED_WIDTHS") == "1":
-            run_kwargs["elaborated_widths"] = True
 
         analysis = analyze(
             paths,

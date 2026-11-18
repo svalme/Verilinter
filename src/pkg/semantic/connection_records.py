@@ -78,9 +78,11 @@ def _with_elaborated_widths(
             continue
         port_width, expr_width = next(iter(pairs))
         expr_type = record.expr_type
-        # A literal with no width of its own (`0`, `'0`) fills the port, so the 32 bits slang gives it name no mismatch.
-        adapts = expr_type.determination is WidthDetermination.ADAPTS
-        if expr_width is not None and not adapts and (record.connection is not None or record.implicit):
+        # Slang sizes an expression that takes its width from the target (a literal with no width of its own, a
+        # product, a shift) at the port's width, which names no mismatch; only a self-determined expression keeps
+        # the width it has of its own.
+        self_determined = expr_type.determination is WidthDetermination.SELF
+        if expr_width is not None and self_determined and (record.connection is not None or record.implicit):
             expr_type = replace(expr_type, width=expr_width)
         updated.append(replace(record, port_width=port_width, expr_type=expr_type))
     return updated

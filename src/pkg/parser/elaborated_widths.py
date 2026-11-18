@@ -16,13 +16,17 @@ import pyslang as sl
 SpanKey = tuple[str, int, int]
 
 _EXPLICIT_CONVERSION = sl.ConversionKind.Explicit
+# Slang sizes an operator expression at the width its context wants, so its type says nothing of the width the
+# expression has of its own (`p | q` of two 4-bit operands connected to a 5-bit port is typed 5 bits).
+_CONTEXT_SIZED_KINDS = frozenset({sl.ExpressionKind.BinaryOp, sl.ExpressionKind.UnaryOp, sl.ExpressionKind.ConditionalOp})
 _MAX_SCOPES_PER_TOP = 1_000_000  # bound on the instance and generate scopes walked under one top-level instance
 _PAYLOAD_LAYOUT = 1  # the shape `to_payload` writes; `from_payload` refuses another
 
 
 def _connected_width(expression: object) -> int | None:
-    """The width of the expression a port connection names. Slang wraps an input's expression in an implicit
-    conversion to the port type and an output's in an assignment; the width wanted is the written expression's."""
+    """The width of the expression a port connection names, or None when slang gives it none of its own. Slang wraps
+    an input's expression in an implicit conversion to the port type and an output's in an assignment; the width
+    wanted is the written expression's."""
     node = expression
     if node is not None and node.kind == sl.ExpressionKind.Assignment:
         node = node.left
@@ -30,7 +34,7 @@ def _connected_width(expression: object) -> int | None:
     while node is not None and node.kind == sl.ExpressionKind.Conversion and node.conversionKind != _EXPLICIT_CONVERSION and steps < 64:
         node = node.operand
         steps += 1
-    if node is None or not node.type.isIntegral:
+    if node is None or not node.type.isIntegral or node.kind in _CONTEXT_SIZED_KINDS:
         return None
     return node.type.bitWidth
 
@@ -80,7 +84,8 @@ class ElaboratedWidths:
         record = cls()
         source_manager = sl.SourceManager()
         for directory in include_dirs or []:
-            source_manager.addUserDirectories(directory)
+            if Path(directory).is_dir():
+                source_manager.addUserDirectories(directory)
         bag = sl.Bag()
         if defines:
             preprocessor = sl.PreprocessorOptions()

@@ -208,3 +208,21 @@ def test_connection_expression_width_is_the_written_expression_not_the_port_type
     assert record.connection_widths("top", "u_c", "a") == frozenset({(8, 4)})
     assert record.connection_widths("top", "u_c", "o") == frozenset({(8, 4)})
 
+
+
+def test_operator_expression_has_no_width_of_its_own_in_the_connection_pair(tmp_path: Path) -> None:
+    """Slang types `p | q` and `s ? p : q` at the port's 5 bits, which says nothing of their own 4 bits."""
+    record, _path, _text = _build(
+        tmp_path,
+        """
+        module child(input logic [4:0] a, input logic [4:0] b, input logic [4:0] c);
+        endmodule
+        module top(input logic [3:0] p, input logic [3:0] q, input logic s);
+          child u_c(.a(s ? p : q), .b(p | q), .c(p));
+        endmodule
+        """,
+    )
+
+    assert record.connection_widths("top", "u_c", "a") == frozenset({(5, None)})
+    assert record.connection_widths("top", "u_c", "b") == frozenset({(5, None)})
+    assert record.connection_widths("top", "u_c", "c") == frozenset({(5, 4)})

@@ -291,7 +291,7 @@ class LintPipeline:
         report_kind: str | None = None,
         include_dirs: list[str] | None = None,
         defines: Sequence[str] | None = None,
-        elaborated_widths: bool = False,
+        elaborated_widths: bool = True,
     ) -> AnalysisResult:
         if jobs < 1:
             raise ValueError(f"jobs must be >= 1, got {jobs}")
@@ -451,7 +451,7 @@ def analyze(
     report_kind: str | None = None,
     include_dirs: list[str] | None = None,
     defines: Sequence[str] | None = None,
-    elaborated_widths: bool = False,
+    elaborated_widths: bool = True,
 ) -> AnalysisResult:
     return LintPipeline().analyze_paths(
         paths=paths,

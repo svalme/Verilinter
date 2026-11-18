@@ -89,3 +89,30 @@ def _write(tmp_path: Path, name: str, text: str) -> Path:
     path.write_bytes(text.encode("utf-8"))
     return path
 
+
+
+OPERATORS = """
+module child(input logic [4:0] a, input logic [4:0] b);
+endmodule
+module top;
+  logic [3:0] p, q;
+  logic s;
+  child u_c(.a(s ? p : q), .b(p | q));
+endmodule
+"""
+
+
+def test_operator_expression_narrower_than_the_port_is_still_a_mismatch(tmp_path: Path) -> None:
+    result = analyze([_write(tmp_path, "top.sv", OPERATORS)], rule_profile="rtl_strict")
+
+    assert sum(1 for d in result.diagnostics if d["code"] == "PORT_CONNECTION_WIDTH_MISMATCH") == 2
+
+
+def test_elaborated_widths_are_used_when_the_caller_does_not_choose(tmp_path: Path) -> None:
+    paths = []
+    for name, text in (("pkg.sv", PACKAGE), ("child.sv", CHILD), ("top.sv", MATCHING)):
+        paths.append(_write(tmp_path, name, text))
+
+    result = analyze(paths, rule_profile="rtl_strict")
+
+    assert [d["code"] for d in result.diagnostics if d["code"].startswith("PORT_CONNECTION_WIDTH")] == []
